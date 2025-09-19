@@ -1,0 +1,137 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        name: black
+        entry: black
+        language: python
+        language_version: python3.11
+        types: [python]
+        exclude: '/(\.git|migrations|venv|\.venv|__pycache__|node_modules)/'
+        require_serial: true
+        args: [--line-length=88, --target-version=py311]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.2
+    hooks:
+      - id: ruff
+        name: ruff
+        entry: ruff check --fix --show-fixes
+        language: python
+        language_version: python3.11
+        types: [python]
+        exclude: '/(\.git|migrations|venv|\.venv|__pycache__|node_modules)/'
+        args: [--fix, --show-fixes, --target-version=py311]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.2
+    hooks:
+      - id: ruff-format
+        name: ruff-format
+        entry: ruff format
+        language: python
+        language_version: python3.11
+        types: [python]
+        exclude: '/(\.git|migrations|venv|\.venv|__pycache__|node_modules)/'
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: python
+        language_version: python3.11
+        types: [python]
+        exclude: '/(\.git|migrations|venv|\.venv|__pycache__|node_modules|tests)/'
+        additional_dependencies: [
+            'types-requests',
+            'types-python-dateutil',
+            'types-pyyaml',
+            'sqlalchemy2-stubs',
+            'pydantic>=2.0.0',
+            'pydantic-settings>=2.0.0'
+        ]
+        args: [--strict, --ignore-missing-imports, --disallow-untyped-defs]
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.7
+    hooks:
+      - id: bandit
+        name: bandit
+        entry: bandit -lll -r app/ --configfile .bandit
+        language: python
+        language_version: python3.11
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        additional_dependencies: ["bandit[toml]"]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-byte-order-marker
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-python-dateutil
+          - types-pyyaml
+          - sqlalchemy2-stubs
+          - types-pytz
+          - types-redis
+        language: python
+        language_version: python3.13
+        args: [--strict, --ignore-missing-imports, --disallow-untyped-defs]
+        exclude: '/(\.git|migrations|venv|\.venv|__pycache__)/'
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-ast
+      - id: check-byte-order-marker
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: debug-statements
+      # Disabled as it's not relevant to our current task
+      # - id: detect-aws-credentials
+      - id: detect-private-key
+        exclude: |
+          (?x)^(
+            tests/.*|
+            jwt-keys/.*|
+            certs/.*
+          )$
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: trailing-whitespace
+
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.12.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+        additional_dependencies: ["commitizen[commitizen-github]"]

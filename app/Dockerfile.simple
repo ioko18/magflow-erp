@@ -1,0 +1,61 @@
+# ============================================
+# Development stage
+# ============================================
+FROM python:3.11-slim-bookworm as development
+
+# Install runtime and development dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 libssl3 curl tzdata ca-certificates \
+    postgresql-client vim-tiny git iputils-ping net-tools procps \
+    && update-ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user and directories
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && mkdir -p /app/logs /app/static /app/media /tmp/prometheus \
+    && chown -R appuser:appuser /app /tmp/prometheus \
+    && chmod -R 755 /app /tmp/prometheus \
+    && chmod g+rwx /tmp/prometheus
+
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONPATH=/app \
+    PATH="/home/appuser/.local/bin:${PATH}" \
+    # Development settings
+    DEBUG=1 \
+    # Uvicorn with auto-reload
+    WEB_RELOAD=True \
+    # Prometheus
+    PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus
+
+# Copy requirements first to leverage Docker cache
+COPY requirements*.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+
+# Copy application code
+COPY . .
+
+# Make healthcheck script executable
+RUN chmod +x /app/scripts/healthcheck.sh
+
+# Switch to non-root user
+USER appuser
+
+# Expose the port the app runs on
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s \
+    --timeout=10s \
+    --start-period=30s \
+    --retries=3 \
+    CMD ["/bin/sh", "-c", "healthcheck.sh"]
+
+# Default command with auto-reload for development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--proxy-headers", "--forwarded-allow-ips", "*"]
