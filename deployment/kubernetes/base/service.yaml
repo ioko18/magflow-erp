@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: magflow
+  labels:
+    app: magflow
+    app.kubernetes.io/name: magflow
+    app.kubernetes.io/instance: magflow
+spec:
+  selector:
+    app: magflow
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+    name: http
+  type: ClusterIP

@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: magflow-dev
+
+# Reference the base configuration
+resources:
+  - ../../base
+
+# Set the image to use for development
+images:
+  - name: magflow
+    newName: magflow
+    newTag: latest
+
+# Development-specific configurations
+configMapGenerator:
+  - name: magflow-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=development
+      - DEBUG=1
+      - LOG_LEVEL=DEBUG
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/magflow
+      - REDIS_URL=redis://redis:6379/0
+      - CACHE_ENABLED=true
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_DEFAULT=1000
+      - RATE_LIMIT_DEFAULT_PERIOD=60
+
+# Development resource limits
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: magflow
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 1000m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 2Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 512Mi
+
+# Development replicas
+replicas:
+  - name: magflow
+    count: 1
+
+# Development labels
+commonLabels:
+  environment: development
+  tier: backend
+
+# Development annotations
+commonAnnotations:
+  app.kubernetes.io/environment: development
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"

@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emag-config
+  namespace: magflow-dev
+data:
+  # Environment
+  EMAG_ENV: "sandbox"
+  
+  # Base configuration
+  EMAG_API_BASE_URL: "https://marketplace-api.emag.ro/api-3"
+  EMAG_RATE_LIMIT_ORDERS: "12"
+  EMAG_RATE_LIMIT_OTHER: "3"
+  EMAG_REQUEST_TIMEOUT: "30"
+  EMAG_CONNECT_TIMEOUT: "10"
+  EMAG_MAX_RETRIES: "3"
+  EMAG_RETRY_DELAY: "1.0"
+  EMAG_CIRCUIT_BREAKER_FAILURES: "5"
+  EMAG_CIRCUIT_BREAKER_TIMEOUT: "60"
+  EMAG_LOG_LEVEL: "INFO"
+  EMAG_LOG_FORMAT: "json"
+  EMAG_METRICS_ENABLED: "true"
+  EMAG_TRACING_ENABLED: "true"
+  
+  # Main account configuration
+  EMAG_MAIN_USERNAME: "your_main_username"
+  EMAG_MAIN_WAREHOUSE_ID: "1"
+  EMAG_MAIN_IP_WHITELIST_NAME: "your_whitelist_name"
+  EMAG_MAIN_CALLBACK_BASE: "https://your-callback-url.com/emag/main"
+  
+  # FBE account configuration
+  EMAG_FBE_USERNAME: "your_fbe_username"
+  EMAG_FBE_WAREHOUSE_ID: "2"
+  EMAG_FBE_IP_WHITELIST_NAME: "your_fbe_whitelist_name"
+  EMAG_FBE_CALLBACK_BASE: "https://your-callback-url.com/emag/fbe"
+  
+  # Nested configuration for EmagAccountConfig
+  EMAG_MAIN_EMAGACCOUNTCONFIG_USERNAME: "your_main_username"
+  EMAG_MAIN_EMAGACCOUNTCONFIG_WAREHOUSE_ID: "1"
+  EMAG_MAIN_EMAGACCOUNTCONFIG_IP_WHITELIST_NAME: "your_whitelist_name"
+  EMAG_MAIN_EMAGACCOUNTCONFIG_CALLBACK_BASE: "https://your-callback-url.com/emag/main"
+  
+  EMAG_FBE_EMAGACCOUNTCONFIG_USERNAME: "your_fbe_username"
+  EMAG_FBE_EMAGACCOUNTCONFIG_WAREHOUSE_ID: "2"
+  EMAG_FBE_EMAGACCOUNTCONFIG_IP_WHITELIST_NAME: "your_fbe_whitelist_name"
+  EMAG_FBE_EMAGACCOUNTCONFIG_CALLBACK_BASE: "https://your-callback-url.com/emag/fbe"

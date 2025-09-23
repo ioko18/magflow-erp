@@ -1,4 +1,5 @@
 """SQLAlchemy model mixins for common fields and functionality."""
+
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, func
@@ -6,12 +7,19 @@ from sqlalchemy import Column, DateTime, func
 
 class TimestampMixin:
     """Mixin that adds timestamp fields to models."""
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=func.now(),
+        nullable=False,
+    )
 
 
 class SoftDeleteMixin:
     """Mixin that adds soft delete functionality to models."""
+
     deleted_at = Column(DateTime, nullable=True)
 
     @property

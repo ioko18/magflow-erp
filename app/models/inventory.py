@@ -1,0 +1,208 @@
+"""Inventory Management models."""
+
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
+
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.product import Product
+
+from app.db.base_class import Base
+from app.models.mixins import TimestampMixin
+
+
+class Warehouse(Base, TimestampMixin):
+    """Warehouse model for inventory management."""
+
+    __tablename__ = "warehouses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
+    address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    city: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    country: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean(), default=True)
+
+    # Relationships
+    inventory_items: Mapped[List["InventoryItem"]] = relationship(
+        "InventoryItem",
+        back_populates="warehouse",
+    )
+    stock_movements: Mapped[List["StockMovement"]] = relationship(
+        "StockMovement",
+        back_populates="warehouse",
+    )
+
+    def __repr__(self) -> str:
+        return f"<Warehouse {self.name} ({self.code})>"
+
+
+class InventoryItem(Base, TimestampMixin):
+    """Inventory item model for tracking stock levels."""
+
+    __tablename__ = "inventory_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    product_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    warehouse_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False,
+    )
+    quantity: Mapped[int] = mapped_column(Integer, default=0)
+    reserved_quantity: Mapped[int] = mapped_column(Integer, default=0)
+    available_quantity: Mapped[int] = mapped_column(Integer, default=0)
+    minimum_stock: Mapped[int] = mapped_column(Integer, default=0)
+    maximum_stock: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    reorder_point: Mapped[int] = mapped_column(Integer, default=0)
+    unit_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    location: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    batch_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean(), default=True)
+
+    # Relationships
+    product: Mapped["Product"] = relationship(
+        "Product",
+        back_populates="inventory_items",
+    )
+
+    def __repr__(self) -> str:
+        return f"<InventoryItem product:{self.product_id} warehouse:{self.warehouse_id} qty:{self.quantity}>"
+
+
+class StockMovement(Base, TimestampMixin):
+    """Stock movement model for tracking inventory changes."""
+
+    __tablename__ = "stock_movements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    inventory_item_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("inventory_items.id"),
+        nullable=False,
+    )
+    warehouse_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False,
+    )
+    movement_type: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+    )  # in, out, transfer, adjustment
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    new_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    reference_type: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+    )  # order, purchase, adjustment
+    reference_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    performed_by: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True,
+    )  # user_id
+    unit_cost: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    total_value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
+    # Relationships
+    inventory_item: Mapped["InventoryItem"] = relationship(
+        "InventoryItem",
+        back_populates="stock_movements",
+    )
+    warehouse: Mapped["Warehouse"] = relationship(
+        "Warehouse",
+        back_populates="stock_movements",
+    )
+
+    def __repr__(self) -> str:
+        return f"<StockMovement {self.movement_type} qty:{self.quantity}>"
+
+
+class StockReservation(Base, TimestampMixin):
+    """Stock reservation model for order fulfillment."""
+
+    __tablename__ = "stock_reservations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    inventory_item_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("inventory_items.id"),
+        nullable=False,
+    )
+    order_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+    )  # sales order ID
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    reserved_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean(), default=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    inventory_item: Mapped["InventoryItem"] = relationship("InventoryItem")
+
+    def __repr__(self) -> str:
+        return f"<StockReservation order:{self.order_id} qty:{self.quantity}>"
+
+
+class StockTransfer(Base, TimestampMixin):
+    """Stock transfer model for moving inventory between warehouses."""
+
+    __tablename__ = "stock_transfers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    transfer_number: Mapped[str] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=False,
+    )
+    from_warehouse_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False,
+    )
+    to_warehouse_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False,
+    )
+    inventory_item_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("inventory_items.id"),
+        nullable=False,
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    transfer_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expected_arrival_date: Mapped[Optional[datetime]] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
+    )  # pending, in_transit, completed, cancelled
+    tracking_number: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    approved_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    # Relationships
+    from_warehouse: Mapped["Warehouse"] = relationship(
+        "Warehouse",
+        foreign_keys=[from_warehouse_id],
+    )
+    to_warehouse: Mapped["Warehouse"] = relationship(
+        "Warehouse",
+        foreign_keys=[to_warehouse_id],
+    )
+    inventory_item: Mapped["InventoryItem"] = relationship("InventoryItem")
+
+    def __repr__(self) -> str:
+        return f"<StockTransfer {self.transfer_number} {self.from_warehouse_id}->{self.to_warehouse_id}>"

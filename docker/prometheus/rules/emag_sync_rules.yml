@@ -1,0 +1,20 @@
+groups:
+  - name: emag_sync_alerts
+    rules:
+      - alert: EmagSyncHighErrorRate
+        expr: sum(rate(emag_sync_request_errors_total[5m])) by (account_type) / clamp_min(sum(rate(emag_sync_requests_total[5m])) by (account_type), 1) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'High eMAG sync error rate (> {{ $value | printf "%.2f" }})'
+          description: 'More than 10% of eMAG sync requests are failing over the last 10 minutes for account_type={{ $labels.account_type }}.'
+
+      - alert: EmagSyncRunFailed
+        expr: emag_sync_run_status == 3
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "eMAG sync run failed"
+          description: "The sync run status is failed (3) for account_type={{ $labels.account_type }}. Investigate logs and metrics."

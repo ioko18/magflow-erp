@@ -1,0 +1,10 @@
+# Minimal Alertmanager configuration
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ["alertname"]
+  receiver: "null"
+
+receivers:
+- name: "null"

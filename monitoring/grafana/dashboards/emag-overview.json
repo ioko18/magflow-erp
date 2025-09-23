@@ -1,0 +1,205 @@
+{
+  "dashboard": {
+    "title": "eMAG Integration Overview",
+    "description": "Comprehensive overview of eMAG integration metrics and performance",
+    "tags": ["emag", "integration", "monitoring"],
+    "timezone": "UTC",
+    "panels": [
+      {
+        "title": "Integration Health Status",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"magflow-erp\"}",
+            "legendFormat": "Health Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "color": "red",
+                    "index": 0,
+                    "text": "DOWN"
+                  },
+                  "1": {
+                    "color": "green",
+                    "index": 1,
+                    "text": "UP"
+                  }
+                },
+                "type": "value"
+              }
+            ],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "green",
+                  "value": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "eMAG API Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(magflow_emag_requests_total[5m])",
+            "legendFormat": "{{endpoint}} - {{method}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "label": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "title": "eMAG API Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(magflow_emag_request_duration_seconds_sum[5m]) / rate(magflow_emag_request_duration_seconds_count[5m])",
+            "legendFormat": "{{endpoint}} - {{method}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Response Time (seconds)"
+          }
+        ]
+      },
+      {
+        "title": "eMAG Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(magflow_emag_errors_total[5m])",
+            "legendFormat": "{{endpoint}} - {{error_type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "label": "Errors/sec"
+          }
+        ]
+      },
+      {
+        "title": "Pending RMAs",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "magflow_pending_rmas",
+            "legendFormat": "Pending RMAs"
+          }
+        ]
+      },
+      {
+        "title": "Pending Cancellations",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "magflow_pending_cancellations",
+            "legendFormat": "Pending Cancellations"
+          }
+        ]
+      },
+      {
+        "title": "Pending Invoices",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "magflow_pending_invoices",
+            "legendFormat": "Pending Invoices"
+          }
+        ]
+      },
+      {
+        "title": "Sync Job Success Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(magflow_sync_job_runs_total{sync_type=\"full\",status=\"success\"}[1h])",
+            "legendFormat": "Successful Syncs"
+          },
+          {
+            "expr": "rate(magflow_sync_job_runs_total{sync_type=\"full\",status=\"failed\"}[1h])",
+            "legendFormat": "Failed Syncs"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "label": "Sync Jobs/hour"
+          }
+        ]
+      },
+      {
+        "title": "Rate Limit Usage",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "rate(magflow_emag_rate_limit_hits_total[5m])",
+            "legendFormat": "{{endpoint}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 10
+                },
+                {
+                  "color": "red",
+                  "value": 50
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "30s",
+    "schemaVersion": 36,
+    "version": 1,
+    "links": [
+      {
+        "title": "API Documentation",
+        "url": "http://localhost:8010/docs",
+        "targetBlank": true
+      },
+      {
+        "title": "Health Check",
+        "url": "http://localhost:8010/health",
+        "targetBlank": true
+      }
+    ]
+  }
+}

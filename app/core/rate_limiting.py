@@ -15,6 +15,7 @@ The middleware installed by init_rate_limiter applies per-process counters
 stored in app.state._rate_limit_counters, sufficient for tests driven
 by FastAPI TestClient.
 """
+
 from __future__ import annotations
 
 import time
@@ -35,8 +36,8 @@ EXCLUDED_PATHS = [
 # Named rate limits: name -> (limit, window_seconds)
 RATE_LIMITS: Dict[str, Tuple[int, int]] = {
     "default": (10, 60),  # 10 requests / 60 seconds
-    "auth": (5, 60),      # 5 requests / 60 seconds
-    "read": (20, 60),     # 20 requests / 60 seconds
+    "auth": (5, 60),  # 5 requests / 60 seconds
+    "read": (20, 60),  # 20 requests / 60 seconds
 }
 
 # Path prefix mapping to a named rate limit
@@ -86,13 +87,15 @@ def init_rate_limiter(app: FastAPI) -> None:
         if not should_rate_limit(request):
             response: Response = await call_next(request)
             # Explicitly ensure no rate limit headers for excluded paths
-            response.headers.pop("X-RateLimit-Limit", None)
-            response.headers.pop("X-RateLimit-Remaining", None)
+            if "X-RateLimit-Limit" in response.headers:
+                del response.headers["X-RateLimit-Limit"]
+            if "X-RateLimit-Remaining" in response.headers:
+                del response.headers["X-RateLimit-Remaining"]
             return response
 
         # Determine limit/window for the path
         key_name = get_rate_limit_key_for_path(request.url.path)
-        limit, window_seconds = RATE_LIMITS.get(key_name, RATE_LIMITS["default"]) 
+        limit, window_seconds = RATE_LIMITS.get(key_name, RATE_LIMITS["default"])
         counter_key = _get_counter_key(request.url.path, window_seconds)
 
         # Get current count
@@ -124,8 +127,6 @@ def init_rate_limiter(app: FastAPI) -> None:
         response.headers["X-RateLimit-Remaining"] = str(remaining)
         return response
 
-    return None
-
 
 # Minimal async rate limiter used by services during tests
 class RateLimiter:
@@ -134,7 +135,11 @@ class RateLimiter:
     Provides an `acquire()` coroutine compatible with production interfaces.
     """
 
-    def __init__(self, limit: int | None = None, window_seconds: int | None = None) -> None:
+    def __init__(
+        self,
+        limit: int | None = None,
+        window_seconds: int | None = None,
+    ) -> None:
         self.limit = limit or RATE_LIMITS["default"][0]
         self.window_seconds = window_seconds or RATE_LIMITS["default"][1]
 

@@ -1,0 +1,71 @@
+services:
+  db:
+    image: postgres:16.4-alpine
+    environment:
+      - POSTGRES_DB=${CI_DB_NAME:-magflow_ci}
+      - POSTGRES_USER=${CI_DB_USER:-magflow_user}
+      - POSTGRES_PASSWORD=${CI_DB_PASS:-magflow_password_change_me}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CI_DB_USER:-magflow_user} -d ${CI_DB_NAME:-magflow_ci}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgbouncer:
+    image: brainsam/pgbouncer:1.23.1
+    environment:
+      - DB_HOST=${CI_DB_HOST:-db}
+      - DB_PORT=${CI_DB_PORT:-5432}
+      - DB_USER=${CI_DB_USER:-magflow_user}
+      - DB_PASSWORD=${CI_DB_PASS:-magflow_password_change_me}
+      - DB_NAME=${CI_DB_NAME:-magflow_ci}
+      - PGBOUNCER_POOL_MODE=transaction
+      - PGBOUNCER_DEFAULT_POOL_SIZE=10
+      - PGBOUNCER_MIN_POOL_SIZE=2
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U ${CI_DB_USER:-magflow_user} -d ${CI_DB_NAME:-magflow_ci}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6432:6432"
+
+  redis:
+    image: redis:7.2.5-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${CI_REDIS_PASSWORD:-redis_password_change_me}"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${CI_REDIS_PASSWORD:-redis_password_change_me}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6379:6379"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - ENVIRONMENT=ci
+      - DEBUG=false
+      - SECRET_KEY=${CI_SECRET_KEY:-ci_change_me}
+      - DATABASE_URL=postgresql://${CI_DB_USER:-magflow_user}:${CI_DB_PASS:-magflow_password_change_me}@pgbouncer:6432/${CI_DB_NAME:-magflow_ci}
+      - REDIS_URL=redis://:${CI_REDIS_PASSWORD:-redis_password_change_me}@redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/full"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    ports:
+      - "8000:8000"

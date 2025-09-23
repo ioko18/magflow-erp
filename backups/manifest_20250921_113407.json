@@ -1,0 +1,24 @@
+{
+    "backup_name": "magflow_backup_20250921_113407",
+    "timestamp": "20250921_113407",
+    "created_at": "2025-09-21T11:34:11+03:00",
+    "version": "1.0.0",
+    "services": {
+        "postgresql": {
+            "image": "postgres:16.4-alpine",
+            "file": "postgresql_20250921_113407.sql.gz",
+            "size": "1413"
+        },
+        "redis": {
+            "image": "redis:7.2.5-alpine",
+            "file": "redis_20250921_113407.rdb.gz",
+            "size": "132"
+        },
+        "volumes": {
+            "file": "volumes_20250921_113407.tar.gz",
+            "size": "7027740"
+        }
+    },
+    "backup_script": "backup.sh",
+    "notes": "Automated backup of MagFlow ERP data"
+}

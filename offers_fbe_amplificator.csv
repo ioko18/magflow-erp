@@ -1,0 +1,229 @@
+emag_offer_id,emag_product_id,product_name,currency,sale_price,stock,is_available,account_type,updated_at
+1208,1208,"Amplificator audio stereo 2x40W, XY-P40W, DC 5-24V",RON,39.0,0,True,fbe,2025-09-22 17:53:16.429635
+1209,1209,"Amplificator audio stereo 2x30W, DY-AP3015, DC 8-24V",RON,32.0,5,True,fbe,2025-09-22 17:53:16.429635
+1277,1277,Amplificator audio stereo 5W+5W cu Bluetooth 4.2 si incarcare baterie litiu 3.7V,RON,30.0,0,True,fbe,2025-09-22 17:53:16.429635
+1221,1221,"Amplificator audio stereo 2x100W, TDA7293, AC 12-32V",RON,148.0,5,True,fbe,2025-09-22 17:53:16.429635
+1222,1222,"Amplificator audio stereo 2x15W cu filtru si circuit de rectificare, TDA1521",RON,32.0,0,True,fbe,2025-09-22 17:53:16.429635
+1242,1242,"Modul stereo preamplificator pentru microfon, AD828, DC 5-15V",RON,24.0,0,True,fbe,2025-09-22 17:53:16.429635
+1236,1236,"Amplificator audio stereo 2x50W cu Bluetooth, TPA3116D2, XH-M422",RON,59.0,0,True,fbe,2025-09-22 17:53:16.429635
+1205,1205,"Amplificator audio stereo 2x220W sau mono 350W cu TPA3251D2, DC 36V, XY-AP2202",RON,149.0,0,True,fbe,2025-09-22 17:53:16.429635
+1260,1260,"Amplificator audio stereo 2x39W cu TDA7379 si preamplificator NE5532, DC 9–17.5V",RON,34.0,0,True,fbe,2025-09-22 17:53:16.429635
+1206,1206,"Amplificator audio mono 35W, TDA8932, DC 24V, 10-30V",RON,31.0,0,True,fbe,2025-09-22 17:53:16.429635
+1207,1207,"Amplificator audio mono 60W, TPA3118, SOP-28, XH-M313",RON,30.0,0,True,fbe,2025-09-22 17:53:16.429635
+1114,1114,"Preamplificator corector de ton 2.1 canale cu control volum, inalte si subwoofer, NE5532",RON,47.0,5,True,fbe,2025-09-22 17:53:11.478797
+1202,1202,"Amplificator audio stereo 2x3W, PAM8403 cu Bluetooth 5.0 si USB-C",RON,33.0,0,True,fbe,2025-09-22 17:53:11.478797
+1199,1199,"Decodor MP3 cu amplificator audio mono 2W, card microSD, GPD2846A, DC 3.7-5V",RON,30.0,4,True,fbe,2025-09-22 17:53:11.478797
+1203,1203,"Amplificator microfon digital cu TDA1308, preamplificator 40dB, DC 3–6V",RON,30.0,0,True,fbe,2025-09-22 17:53:11.478797
+1200,1200,"Amplificator audio stereo 2x3W cu Bluetooth si microUSB, SW-HF43",RON,30.0,0,True,fbe,2025-09-22 17:53:11.478797
+1102,1102,"Amplificator audio MAX98357, I2S mono compatibil cu Arduino, ESP32 si Raspberry Pi",RON,30.0,5,True,fbe,2025-09-22 17:53:11.478797
+1105,1105,"Filtru de alimentare EMI EMC pentru amplificator audio, 20A, AC 220V",RON,79.0,1,True,fbe,2025-09-22 17:53:11.478797
+1106,1106,"Filtru de alimentare EMI EMC pentru amplificator audio, 10A, AC 220V",RON,69.0,0,True,fbe,2025-09-22 17:53:11.478797
+1107,1107,"Filtru de alimentare EMI EMC pentru amplificator audio, 4A, AC 220V",RON,59.0,0,True,fbe,2025-09-22 17:53:11.478797
+1109,1109,"Amplificator audio mono 150W cu TPA3116D2, subwoofer sau full-range, XH-M571",RON,78.0,0,True,fbe,2025-09-22 17:53:11.478797
+1110,1110,"Amplificator audio stereo 2x150W cu TPA3116D2, XH-M641",RON,109.0,1,True,fbe,2025-09-22 17:53:11.478797
+1111,1111,"Amplificator audio stereo 2x50W cu TPA3116D2, XH-M643",RON,79.0,0,True,fbe,2025-09-22 17:53:11.478797
+1063,1063,"Preamplificator audio XH-A902 cu NE5532, 2 canale, DC 12-30V",RON,30.0,5,True,fbe,2025-09-22 17:53:05.796573
+1072,1072,"Amplificator audio mono 600W cu TPA3255, DC 32-46V cu comutare subwoofer sau full-range",RON,229.0,1,True,fbe,2025-09-22 17:53:05.796573
+1094,1094,"Preamplificator corector de ton audio stereo realizat cu NE5532 si LM1036, DC 12-24V sau AC 9-16V",RON,87.0,1,True,fbe,2025-09-22 17:53:05.796573
+1038,1038,"Decodor MP3 cu amplificator 2x3W, radio FM, Bluetooth 5.0 si card microSD, DC 4.2-12V",RON,37.0,0,True,fbe,2025-09-22 17:53:05.796573
+1055,1055,"Amplificator audio stereo 2x100W cu 2 integrate TDA7293, AC 20-26V",RON,19.76,0,True,fbe,2025-09-22 17:53:05.796573
+1056,1056,"Amplificator audio stereo 2x100W cu TDA7498, carcasa din aluminiu",RON,18.31,0,True,fbe,2025-09-22 17:53:05.796573
+1058,1058,"Amplificator audio mono 420W cu TDA8954TH, XH-M253",RON,33.89,0,True,fbe,2025-09-22 17:53:05.796573
+1059,1059,"Amplificator audio stereo 2x80W cu TPA3116D2, XH-M577",RON,8.42,0,True,fbe,2025-09-22 17:53:05.796573
+1061,1061,"Amplificator audio mono 150W cu TPA3116D2, XH-M544",RON,5.92,0,True,fbe,2025-09-22 17:53:05.796573
+998,998,"Decodor MP3 Bluetooth cu amplificator audio 2x3W, radio FM, USB si card microSD, DC 5-32V",RON,44.0,0,True,fbe,2025-09-22 17:52:59.357433
+918,918,"Amplificator audio stereo 2x3W cu PAM8403, XH-A154",RON,30.0,0,True,fbe,2025-09-22 17:52:59.357433
+927,927,"Amplificator audio stereo 2x600W cu TPA3255, DC 19-50V",RON,335.0,1,True,fbe,2025-09-22 17:52:59.357433
+939,939,"Amplificator audio stereo 2x40W cu TDA7377 si preamplificator AD828, DC 12-15V",RON,75.0,0,True,fbe,2025-09-22 17:52:59.357433
+985,985,"Preamplificator audio dual NE5532, filtru 4700 µF, AC 5-16V / DC 6-24V",RON,36.0,0,True,fbe,2025-09-22 17:52:59.357433
+815,815,"Amplificator audio mono 600W pentru subwoofer cu TPA3255 si OPA1632DR, DC 48V",RON,469.0,0,True,fbe,2025-09-22 17:52:53.440361
+818,818,"Amplificator audio mono 5W cu LTK5128, clasa AB",RON,30.0,8,True,fbe,2025-09-22 17:52:53.440361
+829,829,"Modul decodor MP3/WAV cu card TF, AUX si USB pentru preamplificator, DC 3.4-24V",RON,38.0,0,True,fbe,2025-09-22 17:52:53.440361
+830,830,"Placa preamplificator subwoofer cu filtru bass low-pass DC 12-24V, NE5532",RON,30.0,4,True,fbe,2025-09-22 17:52:53.440361
+837,837,"Amplificator de semnal AD620 Microvolt, gama 1.5-1000X, DC 3-12V",RON,30.0,19,True,fbe,2025-09-22 17:52:53.440361
+838,838,"Amplificator audio stereo 2x15W cu TPA3110D2, DC 8-26V",RON,24.0,11,True,fbe,2025-09-22 17:52:53.440361
+844,844,"Amplificator audio stereo 2.1 cu TAS5630, 2x150W + 300W, DC 48V",RON,289.0,1,True,fbe,2025-09-22 17:52:53.440361
+847,847,"Amplificator audio stereo 2x210W cu TDA8954TH, XH-M251",RON,275.0,1,True,fbe,2025-09-22 17:52:53.440361
+846,846,"Amplificator audio stereo 2x420W cu TDA8954TH, XH-M258",RON,439.0,4,True,fbe,2025-09-22 17:52:53.440361
+848,848,"Filtru de alimentare de interferente electromagnetice EMI pentru amplificator audio, 20A, AC 220V",RON,99.0,0,True,fbe,2025-09-22 17:52:53.440361
+870,870,"Amplificator audio stereo 2x15W cu potentiometru, PAM8610",RON,30.0,6,True,fbe,2025-09-22 17:52:53.440361
+805,805,"Amplificator audio mono 30W cu LM1875, DC 12-32V",RON,30.0,17,True,fbe,2025-09-22 17:52:53.440361
+814,814,"Amplificator audio stereo 2x15W, Bluetooth 4.2 cu TPA3110, DC 10-25V",RON,39.0,3,True,fbe,2025-09-22 17:52:53.440361
+758,758,Amplificator audio stereo 2x38W cu CD7379,RON,30.0,12,True,fbe,2025-09-22 17:52:47.566600
+769,769,"Amplificator audio stereo 2x160W, Bluetooth 5.0 cu TDA7498, XY-C160H",RON,164.0,1,True,fbe,2025-09-22 17:52:47.566600
+766,766,"Amplificator audio stereo 2x420W cu TDA8954TH, AC 24V",RON,429.0,0,True,fbe,2025-09-22 17:52:47.566600
+770,770,"Circuit integrat amplificator audio stereo 2x30W, TDA7377, ZIP-15",RON,33.0,0,True,fbe,2025-09-22 17:52:47.566600
+773,773,"Amplificator microfon electret MAX4466, DC 2.4-5.5V",RON,22.0,10,True,fbe,2025-09-22 17:52:47.566600
+777,777,"Decodor MP3 cu amplificator audio stereo 2x5W si Bluetooth, PAM8403, XH-A251",RON,42.0,0,True,fbe,2025-09-22 17:52:47.566600
+778,778,"Amplificator audio stereo 2.1 cu subwoofer 2x18W + 30W, TDA2030A",RON,68.0,0,True,fbe,2025-09-22 17:52:47.566600
+712,712,"Amplificator mono 2.5W cu PAM8302A, CJMCU-832",RON,23.0,6,True,fbe,2025-09-22 17:52:47.566600
+788,788,"Preamplificator audio corector de ton Hi-Fi NE5532 cu reglaj de ton, inalte, medii si joase",RON,63.0,15,True,fbe,2025-09-22 17:52:47.566600
+790,790,"Modul de protectie dual-channel pentru amplificator stereo 2.0 cu delay la pornire si protectie impotriva socurilor, releu 15A",RON,35.0,5,True,fbe,2025-09-22 17:52:47.566600
+792,792,"Preamplificator audio cu egalizator Hi-Fi NE5532, cu reglaj de ton, inalte, medii, bas si volum",RON,79.0,0,True,fbe,2025-09-22 17:52:47.566600
+706,706,"Modul amplificator de semnal AD620 Microvolt/MV, DC 3-12V",RON,39.0,8,True,fbe,2025-09-22 17:52:47.566600
+702,702,Amplificator audio stereo casti cu Bluetooth 5.0 pentru transmisie/receptie,RON,31.0,0,True,fbe,2025-09-22 17:52:47.566600
+701,701,"Amplificator stereo de inalta calitate 2x12W cu YDA138, XH-145",RON,46.0,5,True,fbe,2025-09-22 17:52:47.566600
+729,729,"Decodor MP3 cu amplificator stereo 2x3W, card microSD, AUX si Bluetooth",RON,41.0,10,True,fbe,2025-09-22 17:52:47.566600
+721,721,"Amplificator audio stereo 2.1 cu subwoofer 2x100W + 200W, TDA7498E",RON,289.0,1,True,fbe,2025-09-22 17:52:47.566600
+716,716,"Decodor MP3 cu amplificator stereo 2x3W, card SD si Bluetooth, DC 5V",RON,55.0,0,True,fbe,2025-09-22 17:52:47.566600
+730,730,"Decodor MP3 cu amplificator audio 2x50W, Bluetooth, radio, microSD si microfon",RON,74.0,0,True,fbe,2025-09-22 17:52:47.566600
+740,740,"Set 2 bucati, Circuit integrat amplificator audio mono 1x35W, TDA2050, TO-220",RON,20.0,0,True,fbe,2025-09-22 17:52:47.566600
+756,756,Amplificator audio stereo 2x35W cu TDA7379,RON,49.0,13,True,fbe,2025-09-22 17:52:47.566600
+660,660,"Amplificator audio 2.1 canale 2x50W + 100W Bluetooth 5.1 cu TPA3116D2, XY-E100H",RON,118.0,0,True,fbe,2025-09-22 17:52:41.627394
+607,607,Amplificator audio stereo 2.1 de inalta calitate 2x15W + 30W cu YDA138,RON,79.0,2,True,fbe,2025-09-22 17:52:41.627394
+608,608,"Mini amplificator audio mono 30W, DY-AP3001",RON,30.0,2,True,fbe,2025-09-22 17:52:41.627394
+610,610,"Amplificator audio stereo 2x30W cu TPA3110, XH-A232",RON,24.0,0,True,fbe,2025-09-22 17:52:41.627394
+612,612,"Modul audio Bluetooth cu amplificator, CA-6928",RON,22.0,7,True,fbe,2025-09-22 17:52:41.627394
+615,615,"Amplificator audio stereo 2x80W cu TPA3116D2, XH-M567, DC 12-24V",RON,39.0,7,True,fbe,2025-09-22 17:52:41.627394
+620,620,"Amplificator audio stereo 2x160W sau mono BTL 220W cu TDA7498E, ZK-1602",RON,168.0,5,True,fbe,2025-09-22 17:52:41.627394
+621,621,"Preamplificator corector de ton cu efect surround BBE, XR1075",RON,74.0,0,True,fbe,2025-09-22 17:52:41.627394
+622,622,Amplificator stereo de inalta calitate 2x15W Bluetooth 5.0 cu YDA138-E,RON,59.0,7,True,fbe,2025-09-22 17:52:41.627394
+643,643,Amplificator audio stereo 2x10W cu TPA3110D2,RON,39.0,1,True,fbe,2025-09-22 17:52:41.627394
+645,645,"Amplificator audio stereo 2x315W cu TPA3255, DC 19-35V",RON,168.0,0,True,fbe,2025-09-22 17:52:41.627394
+646,646,"Amplificator audio mono 100W cu TDA7294, AC 12-36V",RON,49.0,0,True,fbe,2025-09-22 17:52:41.627394
+649,649,"Amplificator audio stereo 4x50W, TDA7388",RON,88.0,0,True,fbe,2025-09-22 17:52:41.627394
+659,659,"Decodor MP3 cu amplificator audio 2x15W, Bluetooth 5.0, radio FM si card microSD",RON,84.0,0,True,fbe,2025-09-22 17:52:41.627394
+606,606,"Amplificator audio stereo 2x10W cu PAM8610, DC 8-12V",RON,30.0,2,True,fbe,2025-09-22 17:52:41.627394
+661,661,"Amplificator audio stereo 2x30W, Bluetooth 5.1 cu TPA3118, XY-Y30H",RON,87.0,0,True,fbe,2025-09-22 17:52:41.627394
+662,662,Amplificator audio stereo 2.1 cu subwoofer 2x10W + 30W cu TDA7377,RON,64.0,0,True,fbe,2025-09-22 17:52:41.627394
+663,663,"Amplificator audio stereo 2x20W, HY-2001",RON,89.0,1,True,fbe,2025-09-22 17:52:41.627394
+670,670,Amplificator audio mono 18W cu TDA2030A,RON,23.0,8,True,fbe,2025-09-22 17:52:41.627394
+690,690,"Amplificator audio stereo 2x120W cu TPA3116D2, XH-M543",RON,46.0,4,True,fbe,2025-09-22 17:52:41.627394
+695,695,"Decodor MP3 cu amplificator audio 2x60W, Bluetooth 5.0, radio, microSD si microfon",RON,77.0,0,True,fbe,2025-09-22 17:52:41.627394
+534,534,"Amplificator audio stereo 2x15W cu PAM8610, negru",RON,22.0,6,True,fbe,2025-09-22 17:52:35.988498
+503,503,Amplificator audio stereo sau mono in punte 2x50W/1x100W cu TDA7492,RON,56.0,4,True,fbe,2025-09-22 17:52:35.988498
+501,501,"Amplificator audio mono 100W pentru subwoofer cu TPA3116D2, DC 12-24V",RON,69.0,0,True,fbe,2025-09-22 17:52:35.988498
+599,599,Placa preamplificator cu AD828 si potentiometru de volum,RON,36.0,0,True,fbe,2025-09-22 17:52:35.988498
+598,598,Amplificator audio stereo 2x50W Bluetooth 5.0 si radio FM cu TDA7492P,RON,81.0,0,True,fbe,2025-09-22 17:52:35.988498
+590,590,"Amplificator audio stereo 2x30W cu TDA7377, DC 9-18V",RON,76.0,1,True,fbe,2025-09-22 17:52:35.988498
+584,584,"Mini amplificator audio mono 100W cu Bluetooth, TPA3116, DC 5-24V",RON,56.0,13,True,fbe,2025-09-22 17:52:35.988498
+583,583,"Amplificator audio stereo 2x15W cu TDA7297, DC 3-18V",RON,31.0,9,True,fbe,2025-09-22 17:52:35.988498
+577,577,"Amplificator audio stereo 2x50W cu TPA3118D2, XH-A414",RON,37.0,4,True,fbe,2025-09-22 17:52:35.988498
+576,576,"Modul preamplificator audio cu doua NE5532, DC 6-24V",RON,35.0,0,True,fbe,2025-09-22 17:52:35.988498
+586,586,"Amplificator audio stereo 2x50W cu TPA3116D2, XY-502",RON,49.0,4,True,fbe,2025-09-22 17:52:35.988498
+564,564,"Amplificator audio 2.1 canale cu subwoofer 2x50W + 100W cu TPA3116D2, XH-A312",RON,119.0,0,True,fbe,2025-09-22 17:52:35.988498
+562,562,"Mini amplificator audio mono 5W cu XPT8871, XH-M125",RON,21.0,21,True,fbe,2025-09-22 17:52:35.988498
+561,561,"Amplificator audio stereo 2x30W, XH-A234",RON,34.0,3,True,fbe,2025-09-22 17:52:35.988498
+560,560,"Amplificator audio stereo 2x3W cu PAM8403, XH-A157",RON,27.0,13,True,fbe,2025-09-22 17:52:35.988498
+558,558,"Amplificator audio stereo 2x80W cu TPA3116D2, XH-M567, Verde",RON,38.0,0,True,fbe,2025-09-22 17:52:35.988498
+553,553,Amplificator audio stereo 2x15W cu TDA2030A,RON,54.0,1,True,fbe,2025-09-22 17:52:35.988498
+547,547,"Amplificator audio stereo 2x420W cu TDA8954TH, XH-A601",RON,439.0,4,True,fbe,2025-09-22 17:52:35.988498
+538,538,"Amplificator audio stereo 2x3W cu PAM8403, verde",RON,20.0,22,True,fbe,2025-09-22 17:52:35.988498
+537,537,"Amplificator audio stereo 2x3W cu potentiometru de volum, PAM8403",RON,22.0,18,True,fbe,2025-09-22 17:52:35.988498
+536,536,Amplificator audio stereo 2x7W cu TDA7266,RON,31.0,16,True,fbe,2025-09-22 17:52:35.988498
+524,524,"Amplificator audio stereo 2x100W Bluetooth 5.0 cu TPA3116, ZK-1002L",RON,77.0,5,True,fbe,2025-09-22 17:52:35.988498
+517,517,"Amplificator digital microfon cu reverb pentru karaoke si canto, PT2399",RON,48.0,9,True,fbe,2025-09-22 17:52:35.988498
+514,514,"Decodor MP3 cu amplificator audio 2x25W, Bluetooth, radio, microSD si microfon",RON,52.0,0,True,fbe,2025-09-22 17:52:35.988498
+510,510,"Placa preamplificator si de reverberatie pentru microfon cu PT2399, DC 6-15V",RON,31.0,6,True,fbe,2025-09-22 17:52:35.988498
+507,507,"Corector de ton Hi-Fi 5.1 si preamplificator audio reglare tonuri, YJ0017-NE5532",RON,149.0,11,True,fbe,2025-09-22 17:52:35.988498
+498,498,"Amplificator audio stereo 2x50W, Bluetooth 5.0, TPA3116",RON,53.0,1,True,fbe,2025-09-22 17:52:30.264242
+470,470,"Amplificator audio mono 420W cu TDA8954TH, XH-M257",RON,259.0,0,True,fbe,2025-09-22 17:52:30.264242
+442,442,"Decodor MP3 cu amplificator stereo 2x40W, Bluetooth 5.0 si card microSD, 12V",RON,56.0,0,True,fbe,2025-09-22 17:52:30.264242
+444,444,"Decodor MP3 cu amplificator stereo 2x3W cu Bluetooth, USB-C si microfon, DC 5V",RON,42.0,0,True,fbe,2025-09-22 17:52:30.264242
+450,450,"Decodor MP3 cu amplificator 2x3W cu micro USB si card microSD, 5V",RON,32.0,9,True,fbe,2025-09-22 17:52:30.264242
+452,452,Preamplificator corector de ton audio stereo realizat cu XR1075 si LM1036,RON,125.0,1,True,fbe,2025-09-22 17:52:30.264242
+453,453,"Amplificator audio stereo 2x100W Bluetooth 5.0 cu TPA3116D2, DC 12-24V",RON,89.0,2,True,fbe,2025-09-22 17:52:30.264242
+454,454,"Amplificator audio stereo 2x100W cu TDA7498, DC 12-36V",RON,89.0,6,True,fbe,2025-09-22 17:52:30.264242
+455,455,Amplificator audio 2.1 canale 2x50W + 100W Bluetooth cu TPA3116D2,RON,162.0,3,True,fbe,2025-09-22 17:52:30.264242
+458,458,"Preamplificator corector de ton pentru bass profund cu BBE2150, XH-A904",RON,46.0,0,True,fbe,2025-09-22 17:52:30.264242
+461,461,"Modul preamplificator cu BBE digital pentru control volum inalte si joase, XR1075",RON,59.0,9,True,fbe,2025-09-22 17:52:30.264242
+465,465,Preamplificator corector de ton BBE XR1075 cu control pentru inalte si joase,RON,81.0,3,True,fbe,2025-09-22 17:52:30.264242
+466,466,"Preamplificator digital microfon dinamic cu reverberatie pentru karaoke, PT2399",RON,72.0,0,True,fbe,2025-09-22 17:52:30.264242
+467,467,Corector de ton si amplificator microfon dinamic si electret cu CD2399 si NE5532,RON,69.0,4,True,fbe,2025-09-22 17:52:30.264242
+468,468,Amplificator audio mono 1000W cu integrat IRS2092S,RON,258.0,0,True,fbe,2025-09-22 17:52:30.264242
+471,471,Amplificator audio stereo 2x300W Bluetooth 5.0 cu TPA3255,RON,239.0,0,True,fbe,2025-09-22 17:52:30.264242
+472,472,"Preamplificator corector de ton BBE, AD828 cu control volum, inalte, medii si bas",RON,72.0,6,True,fbe,2025-09-22 17:52:30.264242
+473,473,"Preamplificator corector de ton OPA2604 cu control volum, inalte, medii si bas",RON,97.0,0,True,fbe,2025-09-22 17:52:30.264242
+476,476,Amplificator audio 2.1 canale cu subwoofer 2x50W + 100W cu TPA3116D2,RON,151.0,2,True,fbe,2025-09-22 17:52:30.264242
+478,478,"Amplificator audio stereo 2x50W cu Bluetooth 5.0, ZK-502L",RON,49.0,4,True,fbe,2025-09-22 17:52:30.264242
+479,479,"Amplificator audio stereo 2x50W Bluetooth 4.0 cu microfon, TPA3116",RON,99.0,0,True,fbe,2025-09-22 17:52:30.264242
+493,493,Amplificator audio mono 30W cu TPA3110D2,RON,30.0,10,True,fbe,2025-09-22 17:52:30.264242
+495,495,Amplificator audio mono 60W Bluetooth cu TPA3118,RON,44.0,2,True,fbe,2025-09-22 17:52:30.264242
+496,496,"Amplificator audio stereo 2x315W cu TPA3255, DC 19-50V",RON,176.0,1,True,fbe,2025-09-22 17:52:30.264242
+497,497,"Amplificator audio stereo 2x100W cu TPA3116D2, XH-M190",RON,56.0,10,True,fbe,2025-09-22 17:52:30.264242
+499,499,Amplificator audio stereo 2x50W cu TDA7492,RON,49.0,7,True,fbe,2025-09-22 17:52:30.264242
+303,303,"Amplificator audio stereo 2x50W Bluetooth cu decodor MP3 si microfon, TPA3116",RON,78.0,1,True,fbe,2025-09-22 17:52:24.834131
+304,304,"Amplificator audio stereo 2x120W cu TPA3116D2, XH-M572",RON,52.0,9,True,fbe,2025-09-22 17:52:24.834131
+325,325,Amplificator audio stereo 2x30W Bluetooth 4.2 cu TPA3110,RON,45.0,17,True,fbe,2025-09-22 17:52:24.834131
+336,336,"Preamplificator corector de ton cu control pentru volum, inalte si bas, XH-M802",RON,30.0,30,True,fbe,2025-09-22 17:52:24.834131
+372,372,"Amplificator audio stereo 2x50W cu TPA3116D2, XH-M564",RON,30.0,8,True,fbe,2025-09-22 17:52:24.834131
+386,386,Amplificator audio stereo 2x39W cu TDA7379 si preamplificator AD828,RON,37.0,3,True,fbe,2025-09-22 17:52:24.834131
+393,393,"Amplificator audio mono 60W cu TPA3118, XH-M311",RON,31.0,10,True,fbe,2025-09-22 17:52:24.834131
+398,398,"Amplificator audio stereo pentru casti cu TDA1308, DC 3-6V",RON,23.0,17,True,fbe,2025-09-22 17:52:24.834131
+301,301,Modul amplificator audio stereo 2x3W cu PAM8403,RON,22.0,9,True,fbe,2025-09-22 17:52:24.834131
+265,265,"Preamplificator corector de ton pentru reglaj volum inalte, medii si bas, OPA2604",RON,96.0,1,True,fbe,2025-09-22 17:52:19.080083
+266,266,"Amplificator audio stereo 2.1 cu subwoofer 2x80W + 120W, TDA7850",RON,139.0,2,True,fbe,2025-09-22 17:52:19.080083
+267,267,"Preamplificator corector de ton pentru reglaj volum inalte, medii si bas, AD828",RON,58.0,2,True,fbe,2025-09-22 17:52:19.080083
+268,268,"Amplificator audio stereo 2x50W Bluetooth 5.0 cu carcasa, TPA3116D2",RON,82.0,1,True,fbe,2025-09-22 17:52:19.080083
+273,273,Amplificator audio stereo 2x160W Bluetooth 5.0 cu TDA7498E,RON,162.0,5,True,fbe,2025-09-22 17:52:19.080083
+274,274,"Amplificator audio stereo 2.1 cu subwoofer 2x80W + 120W si carcasa, TDA7850",RON,166.0,1,True,fbe,2025-09-22 17:52:19.080083
+275,275,"Amplificator audio stereo 2.1 cu subwoofer 2x160W + 220W Bluetooth 5.0, TDA7498E",RON,254.0,0,True,fbe,2025-09-22 17:52:19.080083
+276,276,"Amplificator audio stereo 2.1 si subwoofer 2x80W + 100W cu TPA3116, XH-M573",RON,89.0,3,True,fbe,2025-09-22 17:52:19.080083
+278,278,"Amplificator audio stereo 2x150W cu TPA3116D2, XH-M569",RON,78.0,15,True,fbe,2025-09-22 17:52:19.080083
+280,280,Amplificator audio stereo 2x40W cu TDA7377 si preamplificator AD828,RON,75.0,8,True,fbe,2025-09-22 17:52:19.080083
+297,297,Amplificator audio stereo 2x100W cu TPA3116D2,RON,49.0,4,True,fbe,2025-09-22 17:52:19.080083
+298,298,Modul amplificator stereo 2x15W Bluetooth 4.2 cu TPA3110,RON,41.0,9,True,fbe,2025-09-22 17:52:19.080083
+299,299,Amplificator audio stereo 2x35W cu TDA7377,RON,39.0,0,True,fbe,2025-09-22 17:52:19.080083
+300,300,"Preamplificator corector de ton cu control inalte, medii si bas, NE5532, XH-A901",RON,44.0,22,True,fbe,2025-09-22 17:52:19.080083
+252,252,Amplificator audio stereo 2x50W Bluetooth 5.0 cu TPA3116D2,RON,69.0,4,True,fbe,2025-09-22 17:52:19.080083
+254,254,"Corector de ton audio, preamplificator microfon karaoke, canto si ecou, PT2399",RON,63.0,13,True,fbe,2025-09-22 17:52:19.080083
+256,256,"Amplificator audio stereo 2x315W cu TPA3255, DC 19-50V",RON,174.0,0,False,fbe,2025-09-22 17:52:19.080083
+257,257,"Amplificator audio 2.1 canale cu subwoofer 2x80W + 100W Bluetooth 5.0, TPA3116D2",RON,98.0,4,True,fbe,2025-09-22 17:52:19.080083
+258,258,"Amplificator audio stereo 2x20W cu Bluetooth 5.0, USB-C, XY-AP15H",RON,58.0,6,True,fbe,2025-09-22 17:52:19.080083
+249,249,"Amplificator audio stereo 2x50W cu Bluetooth 5.0, XY-C50L",RON,57.0,5,True,fbe,2025-09-22 17:52:19.080083
+248,248,Amplificator audio stereo 2x100W cu TDA7293,RON,149.0,13,True,fbe,2025-09-22 17:52:19.080083
+247,247,"Amplificator audio 2.1 canale cu subwoofer 2x50W + 100W, TPA3116D2, XH-M566",RON,156.0,1,True,fbe,2025-09-22 17:52:19.080083
+245,245,"Amplificator audio 2.1 canale 2x50W + 100W Bluetooth 5.0 cu TPA3116D2, ZK-TB21",RON,249.0,4,True,fbe,2025-09-22 17:52:19.080083
+227,227,Amplificator audio mono 100W pentru subwoofer cu TPA3116D2,RON,51.0,0,True,fbe,2025-09-22 17:52:19.080083
+241,241,"Amplificator audio stereo 2x30W cu TPA3118, XH-M314",RON,39.0,10,True,fbe,2025-09-22 17:52:19.080083
+225,225,"Amplificator audio mono 100W cu TPA3116D2, XH-M542",RON,37.0,8,True,fbe,2025-09-22 17:52:19.080083
+219,219,Amplificator audio stereo 2x80W cu TPA3116D2,RON,49.0,0,True,fbe,2025-09-22 17:52:19.080083
+250,250,"Amplificator audio stereo 2x100W Bluetooth 5.0 cu TPA3116D2, XH-A314",RON,84.0,9,True,fbe,2025-09-22 17:52:19.080083
+296,296,"Modul preamplificator pentru reglaj volum inalte, medii si bas, 5532DD",RON,155.0,9,True,fbe,2025-09-22 17:52:19.080083
+259,259,"Amplificator audio stereo 2x100W Bluetooth 5.0 cu radio, TPA3116D2",RON,104.0,3,True,fbe,2025-09-22 17:52:19.080083
+261,261,Amplificator audio stereo 2x100W Bluetooth 5.0 cu TPA3116D2,RON,86.0,9,True,fbe,2025-09-22 17:52:19.080083
+262,262,"Amplificator audio stereo 2x100W Bluetooth 5.0 cu TDA7498, XH-A105",RON,83.0,1,True,fbe,2025-09-22 17:52:19.080083
+264,264,"Preamplificator XR1075 cu procesor audio digital BBE, control volum inalte joase",RON,63.0,8,True,fbe,2025-09-22 17:52:19.080083
+196,196,"Amplificator audio stereo 2x15W, TDA7297",RON,37.0,9,True,fbe,2025-09-22 17:52:12.952395
+124,124,Amplificator audio mono 500W cu IRS2092S,RON,89.0,4,True,fbe,2025-09-22 17:52:12.952395
+123,123,Amplificator audio stereo 2x210W cu TDATDA8954TH,RON,299.0,1,True,fbe,2025-09-22 17:52:12.952395
+115,115,"Amplificator audio stereo 2x150W cu TPA3116D2, XH-M549",RON,109.0,1,True,fbe,2025-09-22 17:52:12.952395
+109,109,"Amplificator audio stereo 2x15W cu TPA3110D2, XH-M228",RON,24.0,6,True,fbe,2025-09-22 17:52:12.952395
+102,102,"Amplificator stereo 2x3W cu Bluetooth 5.0 si baterie Li-ion cu PAM8403, XH-A153",RON,35.0,6,True,fbe,2025-09-22 17:52:12.952395
+135,135,Amplificator audio stereo 2x10W cu PAM8610,RON,32.0,0,True,fbe,2025-09-22 17:52:12.952395
+132,132,"Amplificator audio stereo 2x150W cu TPA3116D2, XH-M546",RON,106.0,8,True,fbe,2025-09-22 17:52:12.952395
+138,138,"Amplificator audio stereo 2x30W, clasa AB, TDA7377",RON,74.0,3,True,fbe,2025-09-22 17:52:12.952395
+141,141,"Preamplificator cu corector de ton audio stereo XH-M164, realizat cu NE5532",RON,55.0,6,True,fbe,2025-09-22 17:52:12.952395
+142,142,"Preamplificator corector de ton 2.1 canale cu control bas si subwoofer, NE5532",RON,46.0,5,True,fbe,2025-09-22 17:52:12.952395
+160,160,"Amplificator audio stereo 2x100W cu TPA3116D2, HX-M590",RON,112.0,5,True,fbe,2025-09-22 17:52:12.952395
+165,165,Kit amplificator audio mono 20W cu LM1875T,RON,31.0,5,True,fbe,2025-09-22 17:52:12.952395
+173,173,Amplificator audio mono 100W cu TDA7293,RON,72.0,0,True,fbe,2025-09-22 17:52:12.952395
+176,176,Amplificator audio stereo 4x50W cu TDA7850 si BA3121,RON,79.0,5,True,fbe,2025-09-22 17:52:12.952395
+177,177,Amplificator audio stereo 2x50W cu TPA3116D2,RON,59.0,5,True,fbe,2025-09-22 17:52:12.952395
+180,180,Modul amplificator pentru casti cu MAX4410,RON,32.0,13,True,fbe,2025-09-22 17:52:12.952395
+185,185,Amplificator audio MAX98357 I2S compatibil cu ESP32 si Raspberry Pi,RON,30.0,6,True,fbe,2025-09-22 17:52:12.952395
+188,188,Amplificator audio stereo 2x50W sau mono 1x100W in punte cu TDA7492,RON,54.0,3,True,fbe,2025-09-22 17:52:12.952395
+192,192,"Amplificator audio 2.1 cu corector de ton 2x50W + 100W cu TPA3116D2, XH-M139",RON,79.0,2,True,fbe,2025-09-22 17:52:12.952395
+194,194,"Preamplificator microfon stereo dinamic, AD828",RON,21.0,8,True,fbe,2025-09-22 17:52:12.952395
+195,195,Amplificator mono 100W cu TPA3116D2,RON,42.0,1,True,fbe,2025-09-22 17:52:12.952395
+197,197,"Preamplificator corector de ton si ecou pentru karaoke si canto, XH-M273",RON,54.0,3,True,fbe,2025-09-22 17:52:12.952395
+198,198,"Amplificator audio stereo 2x100W cu TDA7498, XH-M510",RON,89.0,4,True,fbe,2025-09-22 17:52:12.952395
+137,137,"Amplificator audio stereo 2x15W cu Bluetooth, TDA7297",RON,62.0,2,True,fbe,2025-09-22 17:52:12.952395
+82,82,"Amplificator audio stereo 2x300W cu TPA3255, ZK-3002T",RON,299.0,13,True,fbe,2025-09-22 17:52:07.600175
+76,76,"Amplificator audio stereo 2x160W, TDA7498E",RON,116.0,9,True,fbe,2025-09-22 17:52:07.600175
+75,75,"Preamplificator audio corector de ton audio microfon karaoke si canto, CD2399",RON,77.0,5,True,fbe,2025-09-22 17:52:07.600175
+61,61,Amplificator audio stereo 2x15W cu TDA7297,RON,37.0,8,True,fbe,2025-09-22 17:52:07.600175
+49,49,"Mini amplificator audio stereo 2x5W Bluetooth 5.0 cu PAM8403, XH-A158",RON,32.0,5,True,fbe,2025-09-22 17:52:07.600175
+39,39,Amplificator audio stereo 2x45W cu TPA3118D2,RON,39.0,5,True,fbe,2025-09-22 17:52:07.600175
+35,35,"Amplificator mono HiFi 100W cu TDA7293, alimentare dubla AC 12V-32V",RON,59.0,4,True,fbe,2025-09-22 17:52:07.600175
+83,83,"Amplificator audio stereo 2x100W, clasa D, TDA7498",RON,99.0,5,True,fbe,2025-09-22 17:52:07.600175
+98,98,"Preamplificator corector de ton, XH-M173 si amplificator microfon pentru karaoke",RON,43.0,4,True,fbe,2025-09-22 17:52:07.600175
+86,86,"Amplificator audio stereo 2x420W cu TDA8954TH, HX-M252",RON,294.0,2,True,fbe,2025-09-22 17:52:07.600175
+100,100,Modul amplificator audio stereo 2x15W cu TA2024,RON,49.0,1,True,fbe,2025-09-22 17:52:07.600175
+90,90,Amplificator audio stereo 2x30W cu TDA7377,RON,64.0,3,True,fbe,2025-09-22 17:52:07.600175
+92,92,"Preamplificator corector de ton audio stereo realizat cu NE5532, XH-M164",RON,51.0,10,True,fbe,2025-09-22 17:52:07.600175
+93,93,"Preamplificator corector de ton cu control pentru inalte, medii si bas, NE5532",RON,64.0,14,True,fbe,2025-09-22 17:52:07.600175
+94,94,"Preamplificator corector de ton cu reglaj volum, inalte, medii si bas, NE5532",RON,58.0,14,True,fbe,2025-09-22 17:52:07.600175
+95,95,"Preamplificator corector de ton, optiune de schimbare OP-AMP, NE5532",RON,33.0,0,True,fbe,2025-09-22 17:52:07.600175
+97,97,"Amplificator audio stereo 4x50W cu TDA7850, XH-M180",RON,161.0,8,True,fbe,2025-09-22 17:52:07.600175
+88,88,Amplificator audio stereo 2x160W cu TDA7498E,RON,129.0,1,True,fbe,2025-09-22 17:52:07.600175

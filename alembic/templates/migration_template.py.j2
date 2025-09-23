@@ -1,0 +1,298 @@
+"""${message}
+
+Revision ID: ${up_revision}
+Revises: ${down_revision}
+Create Date: ${create_date}
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy import text
+from app.core.config import settings
+${imports if imports else ""}
+
+# revision identifiers, used by Alembic.
+revision = ${repr(up_revision)}
+down_revision = ${repr(down_revision)}
+branch_labels = ${repr(branch_labels)}
+depends_on = ${repr(depends_on)}
+
+
+def upgrade():
+    """Upgrade database schema."""
+
+    # Pre-upgrade validation
+    validate_pre_upgrade()
+
+    # Set search path to ensure we're working in the correct schema
+    op.execute(f'SET search_path TO {settings.DB_SCHEMA}, public')
+
+    try:
+        # Create schema if it doesn't exist
+        op.execute(f'CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}')
+
+        ${upgrades if upgrades else "pass"}
+
+        # Post-upgrade validation
+        validate_post_upgrade()
+
+    except Exception as e:
+        # Log error and re-raise
+        op.execute(text(f"""
+            INSERT INTO migration_errors (migration_id, error_message, created_at)
+            VALUES (:migration_id, :error_message, NOW())
+        """), {
+            'migration_id': revision,
+            'error_message': str(e)
+        })
+        raise
+
+
+def downgrade():
+    """Downgrade database schema."""
+
+    # Set search path to ensure we're working in the correct schema
+    op.execute(f'SET search_path TO {settings.DB_SCHEMA}, public')
+
+    try:
+        ${downgrades if downgrades else "pass"}
+
+    except Exception as e:
+        # Log error and re-raise
+        op.execute(text(f"""
+            INSERT INTO migration_errors (migration_id, error_message, created_at)
+            VALUES (:migration_id, :error_message, NOW())
+        """), {
+            'migration_id': revision,
+            'error_message': str(e)
+        })
+        raise
+
+
+def validate_pre_upgrade():
+    """Validate database state before upgrade."""
+    connection = op.get_bind()
+
+    # Check if we can connect
+    result = connection.execute(text("SELECT 1"))
+    assert result.fetchone()[0] == 1
+
+    # Check if required tables exist
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = :schema
+    """), {'schema': settings.DB_SCHEMA})
+
+    table_count = result.scalar()
+
+    # Log pre-upgrade state
+    connection.execute(text("""
+        INSERT INTO migration_log (migration_id, action, details, created_at)
+        VALUES (:migration_id, :action, :details, NOW())
+    """), {
+        'migration_id': revision,
+        'action': 'PRE_UPGRADE_VALIDATION',
+        'details': f'Found {table_count} tables in schema {settings.DB_SCHEMA}'
+    })
+
+
+def validate_post_upgrade():
+    """Validate database state after upgrade."""
+    connection = op.get_bind()
+
+    # Check if migration was successful
+    result = connection.execute(text("SELECT 1"))
+    assert result.fetchone()[0] == 1
+
+    # Log post-upgrade state
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = :schema
+    """), {'schema': settings.DB_SCHEMA})
+
+    table_count = result.scalar()
+
+    connection.execute(text("""
+        INSERT INTO migration_log (migration_id, action, details, created_at)
+        VALUES (:migration_id, :action, :details, NOW())
+    """), {
+        'migration_id': revision,
+        'action': 'POST_UPGRADE_VALIDATION',
+        'details': f'Migration completed successfully. Found {table_count} tables.'
+    })
+
+
+# Migration safety helpers
+def create_migration_log_table():
+    """Create migration log table if it doesn't exist."""
+    op.execute(text(f'CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}'))
+
+    op.execute(text(f"""
+        CREATE TABLE IF NOT EXISTS {settings.DB_SCHEMA}.migration_log (
+            id SERIAL PRIMARY KEY,
+            migration_id VARCHAR(50) NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            details TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """))
+
+
+def create_migration_errors_table():
+    """Create migration errors table if it doesn't exist."""
+    op.execute(text(f'CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}'))
+
+    op.execute(text(f"""
+        CREATE TABLE IF NOT EXISTS {settings.DB_SCHEMA}.migration_errors (
+            id SERIAL PRIMARY KEY,
+            migration_id VARCHAR(50) NOT NULL,
+            error_message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """))
+
+
+def log_migration_event(action: str, details: str = ""):
+    """Log migration events."""
+    connection = op.get_bind()
+
+    connection.execute(text(f"""
+        INSERT INTO {settings.DB_SCHEMA}.migration_log (migration_id, action, details, created_at)
+        VALUES (:migration_id, :action, :details, NOW())
+    """), {
+        'migration_id': revision,
+        'action': action,
+        'details': details
+    })
+
+
+def safe_add_column(table_name: str, column: sa.Column, default_value=None):
+    """Safely add a column with optional default value."""
+    connection = op.get_bind()
+
+    # Check if column already exists
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = :schema
+        AND table_name = :table_name
+        AND column_name = :column_name
+    """), {
+        'schema': settings.DB_SCHEMA,
+        'table_name': table_name,
+        'column_name': column.name
+    })
+
+    if result.scalar() == 0:
+        # Column doesn't exist, add it
+        if default_value is not None:
+            op.add_column(table_name, column)
+            op.execute(text(f"""
+                UPDATE {settings.DB_SCHEMA}.{table_name}
+                SET {column.name} = :default_value
+            """), {'default_value': default_value})
+        else:
+            op.add_column(table_name, column)
+
+        log_migration_event('ADD_COLUMN', f'Added column {column.name} to {table_name}')
+    else:
+        log_migration_event('SKIP_COLUMN', f'Column {column.name} already exists in {table_name}')
+
+
+def safe_drop_column(table_name: str, column_name: str):
+    """Safely drop a column if it exists."""
+    connection = op.get_bind()
+
+    # Check if column exists
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.columns
+        WHERE table_schema = :schema
+        AND table_name = :table_name
+        AND column_name = :column_name
+    """), {
+        'schema': settings.DB_SCHEMA,
+        'table_name': table_name,
+        'column_name': column_name
+    })
+
+    if result.scalar() > 0:
+        # Column exists, drop it
+        op.drop_column(table_name, column_name)
+        log_migration_event('DROP_COLUMN', f'Dropped column {column_name} from {table_name}')
+    else:
+        log_migration_event('SKIP_DROP_COLUMN', f'Column {column_name} does not exist in {table_name}')
+
+
+def safe_create_index(table_name: str, index_name: str, columns: list, unique: bool = False):
+    """Safely create an index if it doesn't exist."""
+    connection = op.get_bind()
+
+    # Check if index already exists
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM pg_indexes
+        WHERE schemaname = :schema
+        AND tablename = :table_name
+        AND indexname = :index_name
+    """), {
+        'schema': settings.DB_SCHEMA,
+        'table_name': table_name,
+        'index_name': index_name
+    })
+
+    if result.scalar() == 0:
+        # Index doesn't exist, create it
+        if unique:
+            op.create_unique_constraint(index_name, table_name, columns)
+        else:
+            op.create_index(index_name, table_name, columns)
+
+        log_migration_event('CREATE_INDEX', f'Created index {index_name} on {table_name}')
+    else:
+        log_migration_event('SKIP_INDEX', f'Index {index_name} already exists on {table_name}')
+
+
+def safe_drop_index(index_name: str):
+    """Safely drop an index if it exists."""
+    connection = op.get_bind()
+
+    # Check if index exists
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM pg_indexes
+        WHERE indexname = :index_name
+    """), {'index_name': index_name})
+
+    if result.scalar() > 0:
+        # Index exists, drop it
+        op.drop_index(index_name)
+        log_migration_event('DROP_INDEX', f'Dropped index {index_name}')
+    else:
+        log_migration_event('SKIP_DROP_INDEX', f'Index {index_name} does not exist')
+
+
+def validate_data_integrity():
+    """Validate data integrity after migration."""
+    connection = op.get_bind()
+
+    # Check for orphaned records, constraint violations, etc.
+    # This is a basic validation - more comprehensive checks would be needed
+
+    result = connection.execute(text("""
+        SELECT COUNT(*)
+        FROM information_schema.table_constraints
+        WHERE constraint_schema = :schema
+        AND constraint_type = 'FOREIGN KEY'
+    """), {'schema': settings.DB_SCHEMA})
+
+    fk_count = result.scalar()
+
+    log_migration_event('VALIDATE_INTEGRITY', f'Found {fk_count} foreign key constraints')
+
+    # Additional validation logic would go here
+    # - Check for null constraint violations
+    # - Check for orphaned records
+    # - Validate data consistency

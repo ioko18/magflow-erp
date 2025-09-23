@@ -1,0 +1,140 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: magflow-prod
+
+# Reference the base configuration
+resources:
+  - ../../base
+
+# Apply production-specific patches
+patchesStrategicMerge:
+  - ../../patches/prod-patch.yaml
+
+# Set the image to use for production
+images:
+  - name: magflow-app
+    newName: your-registry/magflow
+    newTag: latest  # In production, you should use versioned tags
+
+# Production-specific configurations
+configMapGenerator:
+  - name: magflow-config
+    behavior: merge
+    literals:
+      - ENVIRONMENT=production
+      - DEBUG=0
+      - LOG_LEVEL=INFO
+      - CACHE_ENABLED=true
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_DEFAULT=100
+      - RATE_LIMIT_DEFAULT_PERIOD=60
+
+# Production resource limits
+patchesJson6902:
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: magflow-app
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 4000m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 8Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 1000m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 2Gi
+      - op: add
+        path: /spec/template/spec/containers/0/livenessProbe/initialDelaySeconds
+        value: 30
+      - op: add
+        path: /spec/template/spec/containers/0/readinessProbe/initialDelaySeconds
+        value: 10
+      - op: add
+        path: /spec/template/spec/containers/0/startupProbe/initialDelaySeconds
+        value: 10
+
+# Production replicas
+replicas:
+  - name: magflow-app
+    count: 3
+
+# Production labels
+commonLabels:
+  environment: production
+  tier: backend
+  app.kubernetes.io/part-of: magflow
+  app.kubernetes.io/managed-by: kustomize
+
+# Production annotations
+commonAnnotations:
+  app.kubernetes.io/environment: production
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8010"
+  prometheus.io/path: "/metrics"
+  prometheus.io/scheme: "http"
+
+# Production HPA configuration
+hpa:
+  - name: magflow-hpa
+    minReplicas: 3
+    maxReplicas: 10
+    metrics:
+      - type: Resource
+        resource:
+          name: cpu
+          target:
+            type: Utilization
+            averageUtilization: 70
+      - type: Resource
+        resource:
+          name: memory
+          target:
+            type: Utilization
+            averageUtilization: 80
+      - type: External
+        external:
+          metric:
+            name: requests_per_second
+            selector:
+              matchLabels:
+                app: magflow
+          target:
+            type: AverageValue
+            averageValue: 1000
+
+# Production network policies
+patches:
+  - target:
+      kind: NetworkPolicy
+      name: allow-http
+    patch: |-
+      - op: add
+        path: /spec/ingress/0/from/0/ipBlock
+        value:
+          cidr: 0.0.0.0/0
+          except:
+            - 10.0.0.0/8
+      - op: add
+        path: /spec/ingress/0/ports/0
+        value:
+          protocol: TCP
+          port: 80
+
+# Production pod disruption budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: magflow-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: magflow
+      tier: backend

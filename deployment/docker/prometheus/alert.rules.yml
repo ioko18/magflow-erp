@@ -1,0 +1,62 @@
+groups:
+- name: http
+  rules:
+    # Alert for high latency (p95 > 300ms)
+    - alert: HighRequestLatency
+      expr: histogram_quantile(0.95, sum(rate(http_server_duration_milliseconds_bucket[5m])) by (le, http_route, http_method, http_status_code)) > 300
+      for: 5m
+      labels:
+        severity: warning
+        service: magflow-api
+      annotations:
+        summary: High request latency detected (p95 > 300ms)
+        description: "{{ $labels.http_method }} {{ $labels.http_route }} has p95 latency of {{ $value | humanize }} (threshold: 300ms)"
+
+    # Alert for high error rate (>1%)
+    - alert: HighErrorRate
+      expr: >
+        (
+          sum(rate(http_server_requests_total{http_status_code=~"5.."}[5m])) by (http_route, http_method)
+          /
+          sum(rate(http_server_requests_total[5m])) by (http_route, http_method)
+        ) > 0.01
+      for: 5m
+      labels:
+        severity: critical
+        service: magflow-api
+      annotations:
+        summary: High error rate detected (>1%)
+        description: "{{ $labels.http_method }} {{ $labels.http_route }} has error rate of {{ $value | humanize }}"
+
+    # Alert for degraded health status
+    - alert: ServiceDegraded
+      expr: health_status < 1
+      for: 5m
+      labels:
+        severity: warning
+        service: magflow-api
+      annotations:
+        summary: Service is degraded
+        description: "The service health status is degraded (current value: {{ $value }}). Check the health endpoints for details."
+
+    # Alert for unhealthy service
+    - alert: ServiceUnhealthy
+      expr: health_status == 0
+      for: 2m
+      labels:
+        severity: critical
+        service: magflow-api
+      annotations:
+        summary: Service is unhealthy
+        description: "The service health status is unhealthy (current value: {{ $value }}). Immediate attention required."
+
+    # Alert for high database query latency
+    - alert: HighDBQueryLatency
+      expr: histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (le, operation, table)) > 1
+      for: 5m
+      labels:
+        severity: warning
+        service: magflow-api
+      annotations:
+        summary: High database query latency detected (p95 > 1s)
+        description: "Database operation {{ $labels.operation }} on table {{ $labels.table }} has p95 latency of {{ $value | humanize }} (threshold: 1s)"

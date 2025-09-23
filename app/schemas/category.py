@@ -1,6 +1,8 @@
 from __future__ import annotations
+
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
-from typing import Optional, List
 
 
 class CategoryBase(BaseModel):
@@ -13,7 +15,10 @@ class CategoryCreate(CategoryBase):
 
 class CategoryUpdate(BaseModel):
     name: Optional[str] = Field(
-        None, min_length=1, max_length=255, description="Category name"
+        None,
+        min_length=1,
+        max_length=255,
+        description="Category name",
     )
 
 

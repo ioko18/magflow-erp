@@ -1,0 +1,47 @@
+apiVersion: 1
+
+providers:
+  - name: 'MagFlow eMAG Integration'
+    orgId: 1
+    folder: 'eMAG Integration'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+
+dashboards:
+  - name: 'eMAG Integration Overview'
+    orgId: 1
+    folder: 'eMAG Integration'
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/emag-overview.json
+
+  - name: 'RMA Management Dashboard'
+    orgId: 1
+    folder: 'eMAG Integration'
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/emag-rma.json
+
+  - name: 'Cancellation Management Dashboard'
+    orgId: 1
+    folder: 'eMAG Integration'
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/emag-cancellations.json
+
+  - name: 'Invoice Management Dashboard'
+    orgId: 1
+    folder: 'eMAG Integration'
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/emag-invoices.json
+
+  - name: 'Integration Performance Dashboard'
+    orgId: 1
+    folder: 'eMAG Integration'
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards/emag-performance.json

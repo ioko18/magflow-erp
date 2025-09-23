@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: magflow-config
+  labels:
+    app: magflow
+    tier: backend
+data:
+  # Application settings
+  ENVIRONMENT: "production"
+  DEBUG: "0"
+  LOG_LEVEL: "INFO"
+  JSON_LOGS: "true"
+  
+  # API settings
+  API_V1_STR: "/api/v1"
+  PROJECT_NAME: "MagFlow"
+  
+  # CORS settings
+  BACKEND_CORS_ORIGINS: '["*"]'
+  
+  # Security settings
+  SECURITY_BCRYPT_ROUNDS: "12"
+  
+  # JWT settings
+  JWT_ALGORITHM: "RS256"
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "15"
+  JWT_REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  JWT_PUBLIC_KEY: "/app/jwt-keys/public.pem"
+  JWT_PRIVATE_KEY: "/app/jwt-keys/private.pem"
+  
+  # Database settings
+  DB_SSLMODE: "require"
+  DB_POOL_MIN: "2"
+  DB_POOL_MAX: "20"
+  
+  # Redis settings
+  REDIS_URL: "redis://magflow-redis:6379/0"
+  
+  # OpenTelemetry settings
+  OTEL_SERVICE_NAME: "magflow-api"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
+  OTEL_PYTHON_LOG_CORRELATION: "true"
+  OTEL_METRICS_EXPORTER: "otlp"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_LOGS_EXPORTER: "otlp"
+  
+  # Rate limiting
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_DEFAULT: "100"
+  RATE_LIMIT_DEFAULT_PERIOD: "60"
+  
+  # Cache settings
+  CACHE_ENABLED: "true"
+  CACHE_DEFAULT_TTL: "300"
+  
+  # Performance
+  WORKERS_PER_CORE: "1"
+  MAX_WORKERS: "8"
+  WEB_CONCURRENCY: "4"
+  
+  # Email settings (defaults, should be overridden in production)
+  SMTP_TLS: "true"
+  SMTP_PORT: "587"
+  SMTP_HOST: "smtp.example.com"
+  SMTP_USER: ""
+  SMTP_PASSWORD: ""
+  EMAILS_FROM_EMAIL: "noreply@example.com"
+  EMAILS_FROM_NAME: "MagFlow"

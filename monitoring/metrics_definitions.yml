@@ -1,0 +1,67 @@
+# eMAG Integration Metrics Dashboard Configuration
+
+# Prometheus Metrics Collection
+metrics:
+  # Application Metrics
+  magflow_emag_requests_total:
+    description: "Total number of eMAG API requests"
+    labels: ["endpoint", "method", "status_code", "account_type"]
+
+  magflow_emag_request_duration_seconds:
+    description: "Duration of eMAG API requests in seconds"
+    labels: ["endpoint", "method", "account_type"]
+
+  magflow_emag_errors_total:
+    description: "Total number of eMAG API errors"
+    labels: ["endpoint", "error_type", "account_type"]
+
+  magflow_emag_rate_limit_hits_total:
+    description: "Total number of eMAG rate limit hits"
+    labels: ["endpoint", "account_type"]
+
+  # Business Flow Metrics
+  magflow_rma_created_total:
+    description: "Total RMA requests created"
+    labels: ["status", "account_type"]
+
+  magflow_rma_synced_total:
+    description: "Total RMA requests synced with eMAG"
+    labels: ["sync_status", "account_type"]
+
+  magflow_cancellations_created_total:
+    description: "Total cancellation requests created"
+    labels: ["status", "account_type"]
+
+  magflow_cancellations_synced_total:
+    description: "Total cancellation requests synced with eMAG"
+    labels: ["sync_status", "account_type"]
+
+  magflow_invoices_created_total:
+    description: "Total invoices created"
+    labels: ["status", "account_type"]
+
+  magflow_invoices_synced_total:
+    description: "Total invoices synced with eMAG"
+    labels: ["sync_status", "account_type"]
+
+  # Sync Job Metrics
+  magflow_sync_job_runs_total:
+    description: "Total sync job runs"
+    labels: ["sync_type", "status"]
+
+  magflow_sync_job_duration_seconds:
+    description: "Sync job duration in seconds"
+    labels: ["sync_type"]
+
+  # Database Metrics
+  magflow_pending_rmas:
+    description: "Number of pending RMA requests"
+    labels: ["account_type"]
+
+  magflow_pending_cancellations:
+    description: "Number of pending cancellation requests"
+    labels: ["account_type"]
+
+  magflow_pending_invoices:
+    description: "Number of pending invoices"
+    labels: ["account_type"]

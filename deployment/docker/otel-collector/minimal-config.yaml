@@ -1,0 +1,93 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+        # Increase max receive message size to handle large payloads
+        max_recv_msg_size_mib: 4
+        # Enable keepalive
+        keepalive:
+          server_parameters:
+            max_connection_age: 30s
+            max_connection_age_grace: 5s
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "*"
+
+processors:
+  # Add memory limiter to prevent OOMs
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 2000
+    spike_limit_mib: 500
+  
+  # Batch configuration with retry
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 1024
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 5m
+  
+  # Add resource attributes
+  resource:
+    attributes:
+      - key: service.name
+        value: magflow-api
+        action: upsert
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+extensions:
+  health_check: {}
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+exporters:
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+  
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: magflow
+    const_labels:
+      service: magflow-api
+      environment: development
+    send_timestamps: true
+    metric_expiration: 15m
+    enable_openmetrics: true
+
+service:
+  extensions: [health_check, pprof, zpages]
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888
+  
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, prometheus]
+    
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]

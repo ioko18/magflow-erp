@@ -1,0 +1,209 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly security scans
+
+env:
+  PYTHON_VERSION: '3.11'
+  POSTGRES_DB: test_magflow
+  POSTGRES_USER: test_user
+  POSTGRES_PASSWORD: test_password
+  REDIS_URL: redis://localhost:6379/1
+  SECURITY_CRITICAL: 'high,critical'  # Fail on high/critical vulnerabilities
+
+jobs:
+  test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov
+
+    - name: Run tests
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: ${{ env.POSTGRES_DB }}
+        DB_USER: ${{ env.POSTGRES_USER }}
+        DB_PASS: ${{ env.POSTGRES_PASSWORD }}
+        REDIS_URL: ${{ env.REDIS_URL }}
+        ENVIRONMENT: test
+        OTEL_SERVICE_NAME: magflow-test
+        TEST_DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5432/${{ env.POSTGRES_DB }}
+      run: |
+        # Run unit and integration tests
+        pytest --cov=app --cov-report=xml --cov-report=term -k "not explain"
+
+        # Run explain plan tests with detailed output
+        echo "Running explain plan tests..."
+        pytest tests/explain -v --tb=short
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  deps-audit:
+    name: Dependencies Audit
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run pip-audit
+      uses: pypa/gh-action-pip-audit@v1
+      with:
+        requirements: requirements.txt
+        format: json
+        output: pip-audit-report.json
+        fail-on: ${{ env.SECURITY_CRITICAL }}
+
+    - name: Upload scan results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: pip-audit-report.json
+        category: dependency-scan
+
+  codeql-analyze:
+    name: CodeQL Analysis
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python
+        queries: security-extended,security-and-quality
+        config-file: ./.github/codeql/codeql-config.yml
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:python"
+
+  bandit-scan:
+    name: Bandit SAST
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install Bandit
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit
+
+    - name: Run Bandit
+      run: |
+        bandit -r app -q -ll -f json -o bandit-report.json || \
+        (cat bandit-report.json && exit 1)
+      continue-on-error: false
+
+    - name: Upload Bandit results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: bandit-report.json
+        category: bandit-scan
+
+  docker-smoke:
+    name: Docker Smoke Test
+    needs: [test, security]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Start services
+      run: |
+        cp .env.example .env
+        # Update .env for test environment
+        echo "DB_HOST=db" >> .env
+        echo "DB_PORT=5432" >> .env
+        echo "DB_NAME=${{ env.POSTGRES_DB }}" >> .env
+        echo "DB_USER=${{ env.POSTGRES_USER }}" >> .env
+        echo "DB_PASS=${{ env.POSTGRES_PASSWORD }}" >> .env
+        echo "REDIS_URL=redis://redis:6379/0" >> .env
+        echo "ENVIRONMENT=test" >> .env
+
+        # Start services
+        docker compose up -d db redis pgbouncer app
+
+        # Wait for services to be ready
+        timeout 60s bash -c 'until docker compose exec -T db pg_isready -U ${{ env.POSTGRES_USER }}; do sleep 2; done'
+        timeout 60s bash -c 'until docker compose exec -T redis redis-cli ping; do sleep 2; done'
+        timeout 60s bash -c 'until curl -s http://localhost:8010/health >/dev/null; do sleep 2; done'
+
+    - name: Verify PgBouncer stats
+      run: |
+        # Check PgBouncer stats
+        PGPASSWORD=${{ env.POSTGRES_PASSWORD }} psql -h localhost -p 6432 -U ${{ env.POSTGRES_USER }} -d pgbouncer -c "SHOW STATS;" | head -n 10
+
+        # Verify health endpoint
+        curl -f http://localhost:8010/health
+
+    - name: View logs on failure
+      if: failure()
+      run: |
+        docker compose logs --tail=100

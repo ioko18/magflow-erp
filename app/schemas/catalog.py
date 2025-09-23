@@ -1,10 +1,11 @@
 """Data transfer objects for the Catalog service."""
+
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class SortDirection(str, Enum):
@@ -21,18 +22,18 @@ class SortField(str, Enum):
 
 class Cursor(BaseModel):
     """Cursor for keyset pagination."""
+
     value: str
     has_more: bool = Field(..., alias="hasMore")
 
     class Config:
         populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
 
 
 class PaginationMeta(BaseModel):
     """Pagination metadata for list responses."""
+
     total_items: int = Field(..., alias="totalItems", ge=0)
     total_pages: int = Field(..., alias="totalPages", ge=0)
     page: int = Field(..., ge=1)
@@ -55,6 +56,7 @@ class ProductStatus(str, Enum):
 
 class ProductImage(BaseModel):
     """Product image DTO."""
+
     url: HttpUrl
     is_main: bool = Field(default=False, alias="isMain")
     position: int = 0
@@ -66,6 +68,7 @@ class ProductImage(BaseModel):
 
 class ProductCharacteristicValue(BaseModel):
     """Product characteristic value DTO."""
+
     id: int
     name: str
     value: Union[str, int, float, bool]
@@ -74,6 +77,7 @@ class ProductCharacteristicValue(BaseModel):
 
 class ProductBase(BaseModel):
     """Base product DTO."""
+
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     sku: str = Field(..., min_length=1, max_length=100)
@@ -100,11 +104,11 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     """DTO for creating a new product."""
-    pass
 
 
 class ProductUpdate(BaseModel):
     """DTO for updating an existing product."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
     sku: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -131,6 +135,7 @@ class ProductUpdate(BaseModel):
 
 class Product(ProductBase):
     """Product DTO with read-only fields."""
+
     id: UUID
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
@@ -144,12 +149,14 @@ class Product(ProductBase):
 
 class ProductListResponse(BaseModel):
     """Response model for product listing with pagination."""
+
     data: List[Product]
     meta: PaginationMeta
 
 
 class BrandBase(BaseModel):
     """Base brand DTO."""
+
     name: str = Field(..., min_length=1, max_length=100)
     slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
     description: Optional[str] = None
@@ -163,13 +170,18 @@ class BrandBase(BaseModel):
 
 class BrandCreate(BrandBase):
     """DTO for creating a new brand."""
-    pass
 
 
 class BrandUpdate(BaseModel):
     """DTO for updating an existing brand."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    slug: Optional[str] = Field(None, min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
+    slug: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        pattern=r"^[a-z0-9-]+$",
+    )
     description: Optional[str] = None
     website: Optional[HttpUrl] = None
     logo_url: Optional[HttpUrl] = Field(None, alias="logoUrl")
@@ -181,6 +193,7 @@ class BrandUpdate(BaseModel):
 
 class Brand(BrandBase):
     """Brand DTO with read-only fields."""
+
     id: int
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
@@ -193,12 +206,14 @@ class Brand(BrandBase):
 
 class BrandListResponse(BaseModel):
     """Response model for brand listing with pagination."""
+
     data: List[Brand]
     meta: PaginationMeta
 
 
 class CharacteristicType(str, Enum):
     """Types of product characteristics."""
+
     TEXT = "text"
     NUMBER = "number"
     BOOLEAN = "boolean"
@@ -208,6 +223,7 @@ class CharacteristicType(str, Enum):
 
 class CharacteristicValue(BaseModel):
     """Characteristic value DTO."""
+
     id: int
     value: str
     is_default: bool = Field(False, alias="isDefault")
@@ -219,6 +235,7 @@ class CharacteristicValue(BaseModel):
 
 class CharacteristicBase(BaseModel):
     """Base characteristic DTO."""
+
     name: str = Field(..., min_length=1, max_length=100)
     code: str = Field(..., min_length=1, max_length=50, pattern=r"^[a-z0-9_]+$")
     type: CharacteristicType
@@ -234,13 +251,18 @@ class CharacteristicBase(BaseModel):
 
 class CharacteristicCreate(CharacteristicBase):
     """DTO for creating a new characteristic."""
-    pass
 
 
 class CharacteristicUpdate(BaseModel):
     """DTO for updating an existing characteristic."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    code: Optional[str] = Field(None, min_length=1, max_length=50, pattern=r"^[a-z0-9_]+$")
+    code: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=50,
+        pattern=r"^[a-z0-9_]+$",
+    )
     type: Optional[CharacteristicType] = None
     is_required: Optional[bool] = Field(None, alias="isRequired")
     is_filterable: Optional[bool] = Field(None, alias="isFilterable")
@@ -254,6 +276,7 @@ class CharacteristicUpdate(BaseModel):
 
 class Characteristic(CharacteristicBase):
     """Characteristic DTO with read-only fields."""
+
     id: int
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
@@ -266,12 +289,14 @@ class Characteristic(CharacteristicBase):
 
 class CharacteristicListResponse(BaseModel):
     """Response model for characteristic listing with pagination."""
+
     data: List[Characteristic]
     meta: PaginationMeta
 
 
 class ProductFilter(BaseModel):
     """Filter criteria for product listing."""
+
     q: Optional[str] = None
     category_id: Optional[int] = Field(None, alias="categoryId")
     brand_id: Optional[int] = Field(None, alias="brandId")
@@ -281,7 +306,7 @@ class ProductFilter(BaseModel):
     in_stock: Optional[bool] = Field(None, alias="inStock")
     created_after: Optional[datetime] = Field(None, alias="createdAfter")
     updated_after: Optional[datetime] = Field(None, alias="updatedAfter")
-    
+
     # Cursor-based pagination
     cursor: Optional[str] = None
     limit: int = Field(20, ge=1, le=100)
@@ -290,9 +315,7 @@ class ProductFilter(BaseModel):
 
     class Config:
         populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat() if v else None
-        }
+        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
 
     def to_query_params(self) -> Dict[str, str]:
         """Convert filter to query parameters."""

@@ -1,0 +1,78 @@
+[alembic]
+script_location = alembic
+prepend_sys_path = .
+sqlalchemy.url = driver://user:pass@host/database
+
+# Enhanced configuration for better migration management
+version_table = alembic_version_app
+version_table_schema = app
+
+# Migration settings
+compare_type = true
+compare_server_default = true
+include_schemas = true
+render_as_batch = false
+
+# Transaction settings
+transaction_per_migration = true
+transactional_ddl = true
+
+# Output settings
+output_encoding = utf-8
+
+[post_write_hooks]
+# Format SQL output for better readability
+hooks = black
+black.type = console_scripts
+black.entrypoint = black
+black.options = -l 88
+
+[loggers]
+keys = root,sqlalchemy,alembic,magflow_migrations
+
+[handlers]
+keys = console,file
+
+[formatters]
+keys = generic,timestamp
+
+[logger_root]
+level = WARN
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARN
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers = console,file
+qualname = alembic
+
+[logger_magflow_migrations]
+level = INFO
+handlers = console,file
+qualname = magflow_migrations
+propagate = 0
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[handler_file]
+class = FileHandler
+args = ('logs/migration.log',)
+level = INFO
+formatter = timestamp
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
+
+[formatter_timestamp]
+format = %(asctime)s %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %Y-%m-%d %H:%M:%S

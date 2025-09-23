@@ -8,11 +8,10 @@ from typing import Callable
 
 import structlog
 from fastapi import Request, Response
-from opentelemetry import trace
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
 
-from app.logging_setup import set_request_context, clear_request_context
+from app.logging_setup import clear_request_context, set_request_context
 
 # Context variable for request ID
 request_id_ctx = contextvars.ContextVar("request_id", default="system")
@@ -35,42 +34,24 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
         *,
         logger: logging.Logger = None,
         header_name: str = "X-Request-ID",
+        force_standard_logger: bool = False,
     ) -> None:
         super().__init__(app)
         self.logger = logger or structlog.get_logger(__name__)
         self.header_name = header_name
 
     async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint,
     ) -> Response:
         # Get or generate request ID
         request_id = request.headers.get(self.header_name.lower())
         if not request_id:
             request_id = str(uuid.uuid4())
 
-        # Get trace context if available
-        span = trace.get_current_span()
-        trace_id = (
-            format(span.get_span_context().trace_id, "032x")
-            if span and span.is_recording()
-            else None
-        )
-
         # Set up request context for logging
-        set_request_context(
-            request_id=request_id,
-            method=request.method,
-            path=request.url.path,
-            query_params=dict(request.query_params),
-            client_host=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent"),
-            trace_id=trace_id,
-            span_id=(
-                format(span.get_span_context().span_id, "016x")
-                if span and span.is_recording()
-                else None
-            ),
-        )
+        set_request_context(request_id=request_id)
 
         try:
             # Log request start - handle both structlog and standard logging
@@ -80,7 +61,7 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
                 "query": dict(request.query_params),
             }
 
-            if hasattr(self.logger, "info") and not hasattr(self.logger, "_log"):
+            if isinstance(self.logger, structlog.stdlib.BoundLogger):
                 # structlog logger
                 self.logger.info("request_started", http_request=request_info)
             else:
@@ -107,14 +88,16 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
             }
 
             # Use the appropriate logger method
-            if hasattr(self.logger, "info") and not hasattr(self.logger, "_log"):
+            if isinstance(self.logger, structlog.stdlib.BoundLogger):
                 # structlog logger
                 self.logger.info("request_completed", **log_data)
             else:
                 # Standard Python logger
                 log_msg = f"Request completed - Status: {response.status_code} in {process_time:.2f}ms"
                 self.logger.log(
-                    logging.INFO, log_msg, extra={"response_info": log_data}
+                    logging.INFO,
+                    log_msg,
+                    extra={"response_info": log_data},
                 )
 
             return response
@@ -127,7 +110,7 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
             }
 
             # Log the error using the appropriate method based on logger type
-            if hasattr(self.logger, "error") and not hasattr(self.logger, "_log"):
+            if isinstance(self.logger, structlog.stdlib.BoundLogger):
                 # structlog logger
                 self.logger.error("request_failed", error=error_info, exc_info=True)
             else:
@@ -148,8 +131,7 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
 
 
 class LoggingMiddleware:
-    """
-    Middleware to configure logging for each request.
+    """Middleware to configure logging for each request.
 
     This middleware ensures that all logs include request context and are properly formatted.
     It should be one of the first middlewares in the stack.

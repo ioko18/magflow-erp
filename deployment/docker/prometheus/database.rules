@@ -1,0 +1,46 @@
+groups:
+- name: database.rules
+  rules:
+    # Alert when database is down
+    - alert: DatabaseDown
+      expr: magflow_database_connection_status == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: database
+      annotations:
+        summary: "Database is down"
+        description: "Database connection has been down for more than 1 minute."
+
+    # Alert when database migrations are not up to date
+    - alert: DatabaseMigrationsPending
+      expr: magflow_database_migrations_required > 0
+      for: 5m
+      labels:
+        severity: warning
+        service: database
+      annotations:
+        summary: "Database migrations pending"
+        description: "There are {{ $value }} pending database migrations that need to be applied."
+
+    # Alert when database connection pool is almost full
+    - alert: HighDatabasePoolUsage
+      expr: magflow_database_connections_active / magflow_database_connections_max > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: database
+      annotations:
+        summary: "High database connection pool usage"
+        description: "Database connection pool usage is {{ $value | humanizePercentage }} of maximum."
+
+    # Alert when database query duration is high
+    - alert: HighDatabaseQueryDuration
+      expr: histogram_quantile(0.95, sum(rate(magflow_database_query_duration_seconds_bucket[5m])) by (le)) > 1
+      for: 5m
+      labels:
+        severity: warning
+        service: database
+      annotations:
+        summary: "High database query duration"
+        description: "95th percentile database query duration is {{ $value | humanize }} seconds."

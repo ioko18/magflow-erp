@@ -1,8 +1,9 @@
-from typing import Generic, TypeVar, Optional, List, Any, Dict
-from pydantic import BaseModel, Field, validator
-from pydantic.generics import GenericModel
 import base64
 import json
+from typing import Any, Dict, Generic, List, Optional, TypeVar
+
+from pydantic import BaseModel, Field, validator
+from pydantic.generics import GenericModel
 
 T = TypeVar("T")
 
@@ -31,7 +32,7 @@ class CursorParams(BaseModel):
                 raise ValueError("Invalid cursor format")
             return cursor_data
         except Exception as e:
-            raise ValueError(f"Invalid cursor: {str(e)}")
+            raise ValueError(f"Invalid cursor: {e!s}")
 
 
 class CursorPagination(GenericModel, Generic[T]):
@@ -62,6 +63,7 @@ class CursorPagination(GenericModel, Generic[T]):
 
         Returns:
             CursorPagination instance with next cursor if there are more items
+
         """
         has_more = len(items) > limit
         items = items[:limit]  # Remove the extra item we fetched to check for more
@@ -78,7 +80,7 @@ class CursorPagination(GenericModel, Generic[T]):
                 cursor_id_field: last_item[cursor_id_field],
             }
             next_cursor = base64.b64encode(
-                json.dumps(cursor_data, sort_keys=True).encode()
+                json.dumps(cursor_data, sort_keys=True).encode(),
             ).decode()
 
         return cls(items=items, next_cursor=next_cursor, has_more=has_more)
@@ -92,6 +94,7 @@ def decode_cursor(cursor: Optional[str]) -> Optional[Dict[str, Any]]:
 
     Returns:
         Decoded cursor data as dict, or None if cursor is None
+
     """
     if not cursor:
         return None

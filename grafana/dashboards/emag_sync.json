@@ -1,0 +1,90 @@
+{
+  "id": null,
+  "uid": "emag-sync-overview",
+  "title": "MagFlow - eMAG Sync Overview",
+  "tags": ["magflow", "emag", "sync"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
+  "templating": {
+    "list": [
+      {
+        "name": "account",
+        "label": "Account",
+        "type": "custom",
+        "query": "main,fbe",
+        "current": {"text": "main", "value": "main"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Run Status (main=1 running,2 completed,3 failed)",
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "Prometheus"},
+          "expr": "emag_sync_run_status{account_type=\"$account\"}",
+          "legendFormat": "status"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Requests per second",
+      "gridPos": {"x": 6, "y": 0, "w": 9, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "Prometheus"},
+          "expr": "sum by (endpoint,account_type) (rate(emag_sync_requests_total{account_type=\"$account\"}[5m]))",
+          "legendFormat": "{{endpoint}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Errors per second by reason",
+      "gridPos": {"x": 15, "y": 0, "w": 9, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "Prometheus"},
+          "expr": "sum by (reason) (rate(emag_sync_request_errors_total{account_type=\"$account\"}[5m]))",
+          "legendFormat": "{{reason}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "API Latency p95 (s)",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "Prometheus"},
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(emag_sync_request_latency_seconds_bucket{account_type=\"$account\"}[5m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Offers Processed per minute",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {"type": "prometheus", "uid": "Prometheus"},
+          "expr": "sum(rate(emag_sync_offers_processed_total{account_type=\"$account\"}[5m])) * 60",
+          "legendFormat": "offers/min"
+        }
+      ]
+    }
+  ]
+}

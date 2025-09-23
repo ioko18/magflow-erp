@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: magflow
+  namespace: magflow-dev
+  labels:
+    app: magflow
+    env: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: magflow
+      env: dev
+  template:
+    metadata:
+      labels:
+        app: magflow
+        env: dev
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+      - name: magflow
+        image: magflow:latest
+        imagePullPolicy: IfNotPresent
+        command: ["uvicorn"]
+        args: ["app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: JWT_KEYS_DIR
+          value: "/app/jwt-keys"
+        envFrom:
+        - configMapRef:
+            name: magflow-config
+        - configMapRef:
+            name: emag-config
+        - secretRef:
+            name: magflow-secrets
+        - secretRef:
+            name: emag-secrets
+        volumeMounts:
+        - name: jwt-keys
+          mountPath: /app/jwt-keys
+        securityContext: {}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+          timeoutSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 20
+          periodSeconds: 30
+          failureThreshold: 3
+          successThreshold: 1
+          timeoutSeconds: 5
+      volumes:
+      - name: jwt-keys
+        emptyDir: {}

@@ -26,7 +26,9 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         self.vary_headers = vary_headers
 
     async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint,
     ) -> Response:
         # Process the request
         response = await call_next(request)
@@ -52,16 +54,17 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 
         # Generate ETag if not present
         if "ETag" not in response.headers:
-            etag = self._generate_etag(response.body)
-            response.headers["ETag"] = etag
+            if hasattr(response, "body"):
+                etag = self._generate_etag(response.body)
+                response.headers["ETag"] = etag
 
-            # Handle If-None-Match
-            if_none_match = request.headers.get("If-None-Match")
-            if if_none_match and if_none_match == etag:
-                return Response(
-                    status_code=304,
-                    headers=dict(response.headers),
-                )
+                # Handle If-None-Match
+                if_none_match = request.headers.get("If-None-Match")
+                if if_none_match and if_none_match == etag:
+                    return Response(
+                        status_code=304,
+                        headers=dict(response.headers),
+                    )
 
         return response
 
@@ -92,6 +95,7 @@ def cache_control(
         must_revalidate: Must revalidate with server when stale
         stale_while_revalidate: Allow serving stale content while revalidating (in seconds)
         stale_if_error: Allow serving stale content on error (in seconds)
+
     """
 
     def decorator(func):
@@ -117,7 +121,7 @@ def cache_control(
 
                 if stale_while_revalidate is not None:
                     directives.append(
-                        f"stale-while-revalidate={stale_while_revalidate}"
+                        f"stale-while-revalidate={stale_while_revalidate}",
                     )
 
                 if stale_if_error is not None:

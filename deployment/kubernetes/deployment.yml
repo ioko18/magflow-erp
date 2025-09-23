@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: magflow-api
+  labels:
+    app: magflow
+    tier: api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: magflow
+      tier: api
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: magflow
+        tier: api
+    spec:
+      containers:
+      - name: magflow-api
+        image: magflow-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: APP_ENV
+          value: "production"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: magflow-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: magflow-secrets
+              key: redis-url
+        # Liveness probe - indicates if the container is running
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health/live
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30  # Give the app time to start
+          periodSeconds: 30        # Check every 30 seconds
+          timeoutSeconds: 5        # Timeout after 5 seconds
+          failureThreshold: 3      # Allow 3 failures before restarting
+          successThreshold: 1
+        # Readiness probe - indicates if the container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health/ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 10  # Shorter delay for readiness
+          periodSeconds: 10        # Check more frequently
+          timeoutSeconds: 3        # Shorter timeout
+          failureThreshold: 3
+          successThreshold: 1
+        # Startup probe - indicates if the container has finished initializing
+        startupProbe:
+          httpGet:
+            path: /api/v1/health/startup
+            port: 8000
+            scheme: HTTP
+          failureThreshold: 30     # Allow 30 attempts
+          periodSeconds: 10        # Every 10 seconds
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 3000
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+        volumeMounts:
+        - name: certs
+          mountPath: /app/certs
+          readOnly: true
+      volumes:
+      - name: certs
+        secret:
+          secretName: magflow-certs
+      securityContext:
+        fsGroup: 2000
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: magflow-api
+  labels:
+    app: magflow
+    tier: api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    name: http
+  selector:
+    app: magflow
+    tier: api

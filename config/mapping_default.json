@@ -1,0 +1,97 @@
+{
+  "product_field_mapping": {
+    "name_mapping": {
+      "internal_field": "name",
+      "emag_field": "product_name",
+      "transform_function": null,
+      "default_value": null,
+      "required": true,
+      "validation_rules": {}
+    },
+    "description_mapping": {
+      "internal_field": "description",
+      "emag_field": "description",
+      "transform_function": "strip_whitespace",
+      "default_value": null,
+      "required": false,
+      "validation_rules": {}
+    },
+    "price_mapping": {
+      "internal_field": "price",
+      "emag_field": "price",
+      "transform_function": "to_float",
+      "default_value": null,
+      "required": true,
+      "validation_rules": {}
+    },
+    "stock_mapping": {
+      "internal_field": "stock_quantity",
+      "emag_field": "stock",
+      "transform_function": "to_int",
+      "default_value": null,
+      "required": true,
+      "validation_rules": {}
+    },
+    "category_mapping": {
+      "internal_field": "category_id",
+      "emag_field": "category_id",
+      "transform_function": null,
+      "default_value": null,
+      "required": true,
+      "validation_rules": {}
+    },
+    "brand_mapping": {
+      "internal_field": "brand_id",
+      "emag_field": "brand_id",
+      "transform_function": null,
+      "default_value": null,
+      "required": true,
+      "validation_rules": {}
+    },
+    "images_mapping": {
+      "internal_field": "images",
+      "emag_field": "images",
+      "transform_function": null,
+      "default_value": null,
+      "required": false,
+      "validation_rules": {}
+    },
+    "characteristics_mapping": {
+      "internal_field": "specifications",
+      "emag_field": "characteristics",
+      "transform_function": null,
+      "default_value": null,
+      "required": false,
+      "validation_rules": {}
+    },
+    "part_number_mapping": {
+      "internal_field": "sku",
+      "emag_field": "part_number",
+      "transform_function": null,
+      "default_value": null,
+      "required": false,
+      "validation_rules": {}
+    },
+    "warranty_mapping": {
+      "internal_field": "warranty_months",
+      "emag_field": "warranty",
+      "transform_function": "to_int",
+      "default_value": null,
+      "required": false,
+      "validation_rules": {}
+    },
+    "handling_time_mapping": {
+      "internal_field": "handling_days",
+      "emag_field": "handling_time",
+      "transform_function": "to_int",
+      "default_value": null,
+      "required": false,
+      "validation_rules": {}
+    }
+  },
+  "auto_create_mappings": true,
+  "update_existing_mappings": true,
+  "case_sensitive_matching": false,
+  "fuzzy_matching_threshold": 0.8,
+  "max_sync_batch_size": 50
+}

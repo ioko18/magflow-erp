@@ -1,0 +1,116 @@
+groups:
+- name: magflow_slo
+  rules:
+    # ===== LATENCY SLO =====
+    # SLO: 99.9% of requests under 300ms (p95 < 300ms)
+    # Error budget: 0.1% (43m50s per month)
+    
+    # Short-term burn rate (5m window, 14.4x burn rate)
+    - alert: HighLatencyFastBurn
+      expr: |
+        (
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket{job="magflow"}[5m])) 
+            by (le, route, method)
+          ) > 0.3
+        )
+        * on(route, method) group_left()
+        (sum(rate(http_request_duration_seconds_count{job="magflow"}[5m])) by (route, method) > 0)
+      for: 2m  # Alert if condition is true for 2 out of 5 minutes
+      labels:
+        severity: warning
+        slo: latency
+        burn_rate: fast
+        runbook_url: "https://github.com/your-org/magflow/runbooks/high-latency.md"
+      annotations:
+        summary: "High latency detected (fast burn)"
+        description: |
+          Route {{ $labels.route }} ({{ $labels.method }}) has p95 latency of {{ $value | humanizeDuration }}s
+          which is above the 300ms SLO target.
+        impact: "Users may experience degraded performance"
+        dashboard: "d/magflow/latency-slo"
+
+    # Long-term burn rate (1h window, 3.6x burn rate)
+    - alert: HighLatencySlowBurn
+      expr: |
+        (
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket{job="magflow"}[1h])) 
+            by (le, route, method)
+          ) > 0.3
+        )
+        * on(route, method) group_left()
+        (sum(rate(http_request_duration_seconds_count{job="magflow"}[1h])) by (route, method) > 0)
+      for: 15m  # Alert if condition is true for 15 out of 60 minutes
+      labels:
+        severity: warning
+        slo: latency
+        burn_rate: slow
+        runbook_url: "https://github.com/your-org/magflow/runbooks/high-latency.md"
+      annotations:
+        summary: "High latency detected (slow burn)"
+        description: |
+          Route {{ $labels.route }} ({{ $labels.method }}) has p95 latency of {{ $value | humanizeDuration }}s
+          which is above the 300ms SLO target for an extended period.
+        impact: "Sustained latency may impact user experience"
+        dashboard: "d/magflow/latency-slo"
+
+    # ===== ERROR RATE SLO =====
+    # SLO: 99.9% availability (0.1% error rate)
+    # Error budget: 0.1% (43m50s per month)
+    
+    # Short-term burn rate (5m window, 14.4x burn rate)
+    - alert: HighErrorRateFastBurn
+      expr: |
+        (
+          sum(rate(http_request_duration_seconds_count{job="magflow", status_code=~"5.."}[5m]))
+          / 
+          sum(rate(http_request_duration_seconds_count{job="magflow"}[5m]))
+        ) > (0.1 * 14.4 / 100)  # 1.44% error rate threshold for fast burn
+      for: 2m  # Alert if condition is true for 2 out of 5 minutes
+      labels:
+        severity: warning
+        slo: availability
+        burn_rate: fast
+        runbook_url: "https://github.com/your-org/magflow/runbooks/high-error-rate.md"
+      annotations:
+        summary: "High error rate detected (fast burn)"
+        description: |
+          Error rate is {{ $value | humanizePercentage }} which is above the fast burn threshold.
+          This is consuming the error budget at 14.4x the normal rate.
+        impact: "Users may experience errors or degraded functionality"
+        dashboard: "d/magflow/error-slo"
+
+    # Long-term burn rate (1h window, 3.6x burn rate)
+    - alert: HighErrorRateSlowBurn
+      expr: |
+        (
+          sum(rate(http_request_duration_seconds_count{job="magflow", status_code=~"5.."}[1h]))
+          / 
+          sum(rate(http_request_duration_seconds_count{job="magflow"}[1h]))
+        ) > (0.1 * 3.6 / 100)  # 0.36% error rate threshold for slow burn
+      for: 15m  # Alert if condition is true for 15 out of 60 minutes
+      labels:
+        severity: warning
+        slo: availability
+        burn_rate: slow
+        runbook_url: "https://github.com/your-org/magflow/runbooks/high-error-rate.md"
+      annotations:
+        summary: "High error rate detected (slow burn)"
+        description: |
+          Error rate is {{ $value | humanizePercentage }} which is above the slow burn threshold.
+          This is consuming the error budget at 3.6x the normal rate.
+        impact: "Sustained errors may impact user experience"
+        dashboard: "d/magflow/error-slo"
+
+    # ===== SERVICE HEALTH =====
+    - alert: ServiceDegraded
+      expr: up{job="magflow"} == 0
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Service is down"
+        description: "The MagFlow service is not responding to health checks"
+        impact: "Service is completely unavailable"
+        runbook_url: "https://github.com/your-org/magflow/runbooks/service-down.md"

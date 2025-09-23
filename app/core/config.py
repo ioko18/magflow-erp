@@ -1,15 +1,20 @@
-"""
-Application configuration settings.
+"""Application configuration settings.
 
 This module contains all configuration settings for the application,
 loaded from environment variables with sensible defaults.
 """
 
+import logging
+import os
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Set
-from pydantic import computed_field
 
+from pydantic import computed_field
 from pydantic_settings import BaseSettings
+
+from ..core.exceptions import ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -17,8 +22,12 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     ENVIRONMENT: str = "development"  # Alias for APP_ENV for compatibility
     APP_NAME: str = "MagFlow ERP"
-    SERVICE_NAME: str = "magflow-service"  # Used for logging, metrics, and service identification
-    PROJECT_NAME: str = "MagFlow ERP"  # Used for OpenAPI documentation and other places where the project name is needed
+    SERVICE_NAME: str = (
+        "magflow-service"  # Used for logging, metrics, and service identification
+    )
+    PROJECT_NAME: str = (
+        "MagFlow ERP"  # Used for OpenAPI documentation and other places where the project name is needed
+    )
     APP_PORT: int = 8000
     APP_DEBUG: bool = True
     DEBUG: bool = True  # Alias for APP_DEBUG for compatibility
@@ -27,24 +36,48 @@ class Settings(BaseSettings):
     DOCS_ENABLED: bool = True  # Control FastAPI documentation visibility
     APP_SECRET: str = "change-this-in-production"
     APP_VERSION: str = "1.0.0"
-    
+
     # Database settings
-    DB_USER: str = "postgres"
-    DB_PASS: str = "postgres"
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
+    DB_USER: str = "postgres"
+    DB_PASS: str = "password"
     DB_NAME: str = "magflow"
-    DB_SCHEMA: str = "public"
-    
+    DB_SCHEMA: str = "app"
+
     # Connection pool settings
-    DB_POOL_SIZE: int = 20  # Default pool size
-    DB_MAX_OVERFLOW: int = 10  # Default max overflow
-    DB_POOL_TIMEOUT: int = 30  # seconds
-    DB_POOL_RECYCLE: int = 3600  # 1 hour
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 30
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 3600
     DB_POOL_PRE_PING: bool = True
-    DB_POOL_USE_LIFO: bool = True
-    DB_COMMAND_TIMEOUT: int = 30  # seconds
-    
+    DB_ECHO: bool = False
+    DB_AUTOCOMMIT: bool = False
+    DB_AUTOFLUSH: bool = False
+    DB_COMMAND_TIMEOUT: int = 30
+
+    @computed_field
+    @property
+    def DB_URI(self) -> str:
+        database_url = os.getenv("DATABASE_URL")
+        if database_url:
+            return database_url
+        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+    @computed_field
+    @property
+    def SQLALCHEMY_DATABASE_URI(self) -> str:
+        return self.DB_URI
+
+    @computed_field
+    @property
+    def alembic_url(self) -> str:
+        return self.DB_URI.replace("asyncpg", "psycopg2")
+
+    @property
+    def search_path(self) -> str:
+        return self.DB_SCHEMA
+
     # Redis settings
     REDIS_ENABLED: bool = True
     REDIS_HOST: str = "localhost"
@@ -59,36 +92,32 @@ class Settings(BaseSettings):
     REDIS_POOL_SIZE: int = 20
     REDIS_POOL_TIMEOUT: int = 10  # seconds
     REDIS_MAX_CONNECTIONS: int = 100
-    
+
     # Redis URL for connection
     @property
     def REDIS_URL(self) -> str:
-        """Construct Redis URL from individual components."""
+        """Construct Redis URL from individual components or use REDIS_URL if set."""
+        redis_url = os.getenv("REDIS_URL")
+        if redis_url:
+            return redis_url
+        # Fallback to individual components
         auth_part = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
         scheme = "rediss" if self.REDIS_SSL else "redis"
-        return f"{scheme}://{auth_part}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
-    
-    # Database URI
-    @computed_field
-    @property
-    def DB_URI(self) -> str:
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-    
-    # Alembic URL
-    @computed_field
-    @property
-    def alembic_url(self) -> str:
-        return self.DB_URI.replace("asyncpg", "psycopg2")
-    
+        return (
+            f"{scheme}://{auth_part}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        )
+
     # Cache settings
     CACHE_ENABLED: bool = True
     CACHE_DEFAULT_TTL: int = 3600  # 1 hour in seconds
-    
+
     # Rate limiting settings
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_DEFAULT: str = "100/minute"  # Default rate limit (requests per minute)
-    RATE_LIMIT_STORAGE_URI: str = "redis://localhost:6379/0"  # Redis URL for rate limiting storage
-    
+    RATE_LIMIT_STORAGE_URI: str = (
+        "redis://localhost:6379/0"  # Redis URL for rate limiting storage
+    )
+
     # eMAG API settings
     EMAG_API_BASE_URL: str = "https://marketplace.emag.ro/api"
     EMAG_API_USER: str = ""  # Should be set via environment variables
@@ -98,10 +127,14 @@ class Settings(BaseSettings):
     EMAG_RETRY_DELAY: int = 1  # second
     EMAG_RATE_LIMIT: int = 10  # requests per second
     EMAG_CACHE_TTL: int = 86400  # 24 hours in seconds
-    
+    emag_main_username: str = ""
+    emag_main_password: str = ""
+    emag_fbe_username: str = ""
+    emag_fbe_password: str = ""
+
     # Feature flags
     EMAG_INTEGRATION_ENABLED: bool = False
-    
+
     # Vault settings
     VAULT_ENABLED: bool = False
     VAULT_ADDR: str = "http://vault.vault.svc:8200"
@@ -122,16 +155,20 @@ class Settings(BaseSettings):
     @property
     def VERSION(self) -> str:
         return self.APP_VERSION
-    
-    # CORS Configuration
-    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
-    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # OAuth2 settings
+    OAUTH2_ENABLED: bool = False
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    FRONTEND_URL: str = "http://localhost:3000"  # For OAuth2 redirects
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_MAX_AGE: int = 600  # 10 minutes
     CORS_ALLOW_METHODS: list[str] = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
     CORS_ALLOW_HEADERS: list[str] = ["*"]
     CORS_EXPOSE_HEADERS: list[str] = ["Content-Length", "Content-Type", "X-Request-ID"]
-    
+
     # Logging settings
     LOG_LEVEL: str = "INFO"
     LOG_TO_FILE: bool = True
@@ -141,36 +178,36 @@ class Settings(BaseSettings):
     LOGS_DIR: str = "logs"
     LOG_ROTATION: str = "1 day"
     LOG_RETENTION: str = "30 days"
-    LOG_COMPRESSION: str = "zip"
-    LOG_JSON_INDENT: Optional[int] = None
-    
+    # Additional logging settings
+    LOG_MAX_SIZE: int = 10485760  # 10MB
+    LOG_BACKUP_COUNT: int = 5
+
     # Error handling settings
     ERROR_INCLUDE_TRACEBACK: bool = False
     ERROR_SHOW_DETAILS: bool = True
     ERROR_RESPONSE_FORMAT: str = "json"  # or 'text'
-    
+
     # OpenTelemetry settings
     OTLP_ENABLED: bool = False
     OTLP_ENDPOINT: str = "otel-collector:4317"  # Default to local collector
     OTLP_INSECURE: bool = True  # Set to False in production with proper TLS
-    
+
+    # CORS origins setting for compatibility
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+
     # Environment-based CORS settings
     CORS_CONFIG: Dict[str, Dict[str, Any]] = {
         "development": {
             "allow_origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
             "allow_credentials": True,
-            "max_age": 600  # 10 minutes
+            "max_age": 600,  # 10 minutes
         },
         "production": {
             "allow_origins": ["https://your-production-domain.com"],
             "allow_credentials": True,
-            "max_age": 86400  # 24 hours
+            "max_age": 86400,  # 24 hours
         },
-        "testing": {
-            "allow_origins": ["*"],
-            "allow_credentials": False,
-            "max_age": 0
-        }
+        "testing": {"allow_origins": ["*"], "allow_credentials": False, "max_age": 0},
     }
 
     # Security headers
@@ -180,85 +217,202 @@ class Settings(BaseSettings):
         "X-XSS-Protection": "1; mode=block",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-        "Content-Security-Policy": "default-src 'self'"
+        "Content-Security-Policy": "default-src 'self'",
     }
+
+    # Server settings
+    SERVER_NAME: str = "magflow-service"
+    SERVER_HOST: str = "http://localhost:8000"
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # OpenAPI and documentation settings
+    DOCS_ENABLED: bool = True
+    OPENAPI_URL: str = "/openapi.json"
+    DOCS_URL: str = "/docs"
+
+    # Additional eMAG settings
+    EMAG_CLIENT_ID: str = ""
+    EMAG_USERNAME: str = ""
+    EMAG_PASSWORD: str = ""
+    EMAG_BASE_URL: str = "https://marketplace-api.emag.ro/api-3"
+    EMAG_ACCOUNT_TYPE: str = "main"
+    EMAG_ENVIRONMENT: str = "development"
+
+    # eMAG Rate Limiting
+    EMAG_RATE_LIMIT_ORDERS: int = 12
+    EMAG_RATE_LIMIT_OFFERS: int = 3
+    EMAG_RATE_LIMIT_RMA: int = 5
+    EMAG_RATE_LIMIT_INVOICES: int = 3
+    EMAG_RATE_LIMIT_OTHER: int = 3
+
+    # eMAG API Timeouts
+    EMAG_REQUEST_TIMEOUT: int = 30
+    EMAG_CONNECT_TIMEOUT: int = 10
+    EMAG_READ_TIMEOUT: int = 30
+
+    # Metrics and monitoring settings
+    METRICS_PATH: str = "/metrics"
+    METRICS_PORT: int = 8001
+    PROMETHEUS_MULTIPROC_DIR: str = "/tmp/prometheus"
+
+    # Health check settings
+    HEALTH_CHECK_PATHS: str = "/health,/health/,/api/v1/health"
 
     # Rate limiting settings
     RATE_LIMIT_PER_WINDOW: int = 100  # Number of requests allowed per window
     RATE_LIMIT_WINDOW: int = 60  # Window size in seconds (1 minute)
-    
-    # Security settings
-    SECRET_KEY: str = "your-secret-key-here"
-    REFRESH_SECRET_KEY: str = "your-secret-key-here"  # Defaults to same as SECRET_KEY for tests
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Access tokens default 15 minutes
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh tokens default 7 days
-    
-    # Allowed hosts for security middleware
-    ALLOWED_HOSTS: List[str] = ["*"]  # Allow all hosts in development
 
-    # Request ID settings
+    # Security settings
+    SECRET_KEY: str = "change_me_secure"
+    REFRESH_SECRET_KEY: str = "your-secret-key-here"
+    ALGORITHM: str = "RS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 7  # Access tokens default 15 minutes
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh tokens default 7 days
+    JWT_KEY_EXPIRE_DAYS: int = 30  # JWT keys expire after 30 days
+
+    # Additional settings for tests
+    ALLOWED_HOSTS: List[str] = ["*"]
     REQUEST_ID_HEADER: str = "X-Request-ID"
     GENERATE_REQUEST_ID_IF_NOT_IN_HEADER: bool = True
 
-    # JWT Authentication (UPPERCASE canonical fields)
-    JWT_ALGORITHM: str = "RS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    JWT_SECRET_KEY: str = "change-this-to-a-secure-secret"
-    JWT_ISSUER: str = "magflow-service"
-    JWT_AUDIENCE: str = "magflow-api"
-    JWT_LEEWAY: int = 60
-    JWT_KEY_EXPIRE_DAYS: int = 30
-    JWT_ROTATE_DAYS: int = 7
-    JWT_MAX_ACTIVE_KEYS: int = 2
-    JWKS_CACHE_MAX_AGE: int = 3600
-    JWT_KEYSET_DIR: str = "jwt-keys"  # Directory to store JWT key pairs
-
     # JWT Authentication (lowercase aliases expected by tests)
-    # Note: These are convenience mirrors to support tests mutating attributes.
-    # The application code should continue to rely on the UPPERCASE fields.
-    jwt_algorithm: str = "RS256"
+    jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
-    secret_key: str = "change-this-to-a-secure-secret"
+    secret_key: str = "your-super-secure-secret-key-change-this-in-production-2025"
     jwt_issuer: str = "magflow-service"
     jwt_audience: str = "magflow-api"
     jwt_supported_algorithms: List[str] = ["HS256", "RS256"]
     jwt_keyset_dir: str = "jwt-keys"
 
-    # Compatibility flags
-    ENABLE_OTEL: bool = False  # Back-compat flag used in some modules
+    # JWT Authentication settings (uppercase for compatibility)
+    JWT_ALGORITHM: str = "RS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_SECRET_KEY: str = "your-super-secure-secret-key-change-this-in-production-2025"
+    JWT_ISSUER: str = "magflow-service"
+    JWT_AUDIENCE: str = "magflow-api"
+    JWT_LEEWAY: int = 60
+    JWT_MAX_ACTIVE_KEYS: int = 2
+    JWKS_CACHE_MAX_AGE: int = 3600
+    JWT_SUPPORTED_ALGORITHMS: List[str] = ["HS256", "RS256"]
+    JWT_KEYSET_DIR: str = "jwt-keys"
+    AUDIT_LOG_FILE: str = "logs/audit.log"
+    AUDIT_LOG_LEVEL: str = "INFO"
+
+    # JWKS / OIDC settings (safe defaults to avoid AttributeError in health checks)
+    JWKS_URL: str = "http://localhost/.well-known/jwks.json"
+    JWKS_TIMEOUT: float = 2.0
+    JWKS_MIN_KEYS: int = 1
+
+    def validate_configuration(self) -> None:
+        """Validate configuration settings at startup."""
+        errors = []
+
+        # Validate required settings
+        required_settings = {
+            "SECRET_KEY": self.SECRET_KEY,
+            "DB_HOST": self.DB_HOST,
+            "DB_NAME": self.DB_NAME,
+            "DB_USER": self.DB_USER,
+        }
+
+        for setting_name, setting_value in required_settings.items():
+            if not setting_value or setting_value in [
+                "change-this-in-production",
+                "change_me_secure",
+            ]:
+                errors.append(
+                    f"Required setting {setting_name} is not properly configured",
+                )
+
+        # Validate database connection settings
+        if self.APP_ENV == "production":
+            if self.DB_HOST in ["localhost", "127.0.0.1"]:
+                errors.append(
+                    "Production environment should not use localhost for database",
+                )
+
+            if not self.DB_PASS or len(self.DB_PASS) < 8:
+                errors.append(
+                    "Production database password should be at least 8 characters",
+                )
+
+        # Validate JWT settings
+        if self.SECRET_KEY == "change_me_secure":
+            errors.append("JWT secret key must be changed from default value")
+
+        # Validate CORS settings
+        if self.APP_ENV == "production" and "*" in self.CORS_ORIGINS:
+            errors.append("Production environment should not allow all CORS origins")
+
+        # Validate Redis settings
+        if self.REDIS_ENABLED and not self.REDIS_HOST:
+            errors.append("Redis is enabled but no Redis host configured")
+
+        if errors:
+            error_message = f"Configuration validation failed: {'; '.join(errors)}"
+            logger.error(error_message)
+            raise ConfigurationError(
+                error_message,
+                details={"validation_errors": errors},
+            )
+
+        logger.info("Configuration validation passed successfully")
 
     class Config:
         env_file = ".env"
-    
+        extra = "allow"  # Allow extra fields in environment
+
     @property
     def db_pool_size(self) -> int:
         return self.DB_POOL_SIZE
-        
+
     @property
     def db_max_overflow(self) -> int:
         return self.DB_MAX_OVERFLOW
-        
+
+    @property
+    def db_pool_timeout(self) -> int:
+        return self.DB_POOL_TIMEOUT
+
+    @property
+    def db_pool_recycle(self) -> int:
+        return self.DB_POOL_RECYCLE
+
+    @property
+    def db_pool_pre_ping(self) -> bool:
+        return self.DB_POOL_PRE_PING
+
+    @property
+    def db_command_timeout(self) -> int:
+        return self.DB_COMMAND_TIMEOUT
+
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS_ORIGINS string into a list of origins."""
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        return [
+            origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()
+        ]
 
     @property
     def backend_cors_origins_list(self) -> List[str]:
         """Parse BACKEND_CORS_ORIGINS string into a list of origins."""
-        return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
-        
+        return [
+            origin.strip()
+            for origin in self.BACKEND_CORS_ORIGINS.split(",")
+            if origin.strip()
+        ]
+
     def get_cors_config(self, env: Optional[str] = None) -> Dict[str, Any]:
         """Get CORS configuration for the specified environment.
-        
+
         Args:
             env: Environment name (defaults to current APP_ENV)
-            
+
         Returns:
             Dict containing CORS configuration
+
         """
         env = env or self.APP_ENV.lower()
         return self.CORS_CONFIG.get(env, self.CORS_CONFIG["development"])
@@ -271,22 +425,34 @@ class Settings(BaseSettings):
     @property
     def skip_paths(self) -> Set[str]:
         """Get paths that should be excluded from request logging."""
+        # Parse health check paths directly to avoid circular dependency
+        health_paths = {path.strip() for path in self.HEALTH_CHECK_PATHS.split(",")}
         return {
             self.METRICS_PATH,
             "/favicon.ico",
-            *self.health_check_paths,
+            *health_paths,
         }
 
+    @property
+    def rate_limit_per_window(self) -> int:
+        return self.RATE_LIMIT_PER_WINDOW
 
-@lru_cache()
+    @property
+    def rate_limit_window(self) -> int:
+        return self.RATE_LIMIT_WINDOW
+
+
+@lru_cache
 def get_settings() -> Settings:
-    """
-    Get application settings, cached for performance.
+    """Get application settings, cached for performance.
 
     Returns:
         Settings: The application settings
+
     """
-    return Settings()
+    settings = Settings()
+    settings.validate_configuration()
+    return settings
 
 
 # Create settings instance

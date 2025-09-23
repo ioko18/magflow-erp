@@ -3,12 +3,13 @@
 Provides a simple CircuitBreaker, error types, a retry decorator,
 and global registry helpers as referenced by the test suite.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
-import logging
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Callable, Dict, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -64,13 +65,19 @@ class CircuitBreaker:
 
     def _set_half_open(self) -> None:
         self._state = "half-open"
-        logging.getLogger(__name__).info("Circuit breaker '%s' is now HALF-OPEN", self.name)
+        logging.getLogger(__name__).info(
+            "Circuit breaker '%s' is now HALF-OPEN",
+            self.name,
+        )
 
     def _close(self) -> None:
         self._state = "closed"
         self._failure_count = 0
         self._opened_at = None
-        logging.getLogger(__name__).info("Circuit breaker '%s' is now CLOSED", self.name)
+        logging.getLogger(__name__).info(
+            "Circuit breaker '%s' is now CLOSED",
+            self.name,
+        )
 
     def record_success(self) -> None:
         if self.state in ("half-open", "open"):
@@ -111,6 +118,7 @@ class CircuitBreaker:
                 self.record_failure()
                 # Wrap as service unavailable in half-open/closed
                 raise ServiceUnavailableError(str(e))
+
         return wrapper
 
 
@@ -118,7 +126,11 @@ _registry: Dict[str, CircuitBreaker] = {}
 
 
 # Global, test-visible breaker for database
-DATABASE_CIRCUIT_BREAKER = CircuitBreaker(name="database", failure_threshold=5, recovery_timeout=30)
+DATABASE_CIRCUIT_BREAKER = CircuitBreaker(
+    name="database",
+    failure_threshold=5,
+    recovery_timeout=30,
+)
 _registry[DATABASE_CIRCUIT_BREAKER.name] = DATABASE_CIRCUIT_BREAKER
 
 
@@ -149,5 +161,7 @@ def retry_with_circuit_breaker(
                         raise
                     time.sleep(delay)
                     delay = min(max_delay, delay * 2)
+
         return wrapper
+
     return decorator

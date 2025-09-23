@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: 'MagFlow eMAG Dashboards'
+    orgId: 1
+    folder: 'MagFlow'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

@@ -1,0 +1,96 @@
+groups:
+- name: magflow-http-alerts
+  rules:
+  - alert: HighErrorRate
+    expr: sum(rate(http_requests_total{http_status_class=~"5.."}[5m])) by (http_route) / sum(rate(http_requests_total[5m])) by (http_route) * 100 > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High error rate on {{ $labels.http_route }}"
+      description: "Error rate is {{ $value | humanizePercentage }}% for endpoint {{ $labels.http_route }}"
+
+  - alert: HighLatency
+    expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, http_route)) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High latency on {{ $labels.http_route }}"
+      description: "95th percentile latency is {{ $value | humanizeDuration }} for endpoint {{ $labels.http_route }}"
+
+  - alert: HighRequestRate
+    expr: sum(rate(http_requests_total[5m])) by (http_route) > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High request rate on {{ $labels.http_route }}"
+      description: "Request rate is {{ $value | humanizeNumber }} req/s for endpoint {{ $labels.http_route }}"
+
+- name: magflow-database-alerts
+  rules:
+  - alert: DatabaseConnectionFailed
+    expr: magflow_database_connection_status == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Database connection failed"
+      description: "Unable to establish database connection for 1 minute"
+
+  - alert: HighDatabaseLatency
+    expr: rate(magflow_database_query_duration_seconds_sum[5m]) / rate(magflow_database_query_duration_seconds_count[5m]) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High database query latency"
+      description: "Average database query latency is {{ $value | humanizeDuration }}"
+
+  - alert: HighConnectionPoolUsage
+    expr: (sum(magflow_database_connections_active) by (service) / sum(magflow_database_connections_max) by (service)) * 100 > 80
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High database connection pool usage"
+      description: "Database connection pool usage is {{ $value | humanizePercentage }}%"
+
+  - alert: DatabaseMigrationRequired
+    expr: magflow_database_migration_required == 1
+    for: 0m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Database migration required"
+      description: "The database schema version does not match the application's expected version"
+
+- name: magflow-health-alerts
+  rules:
+  - alert: ServiceUnhealthy
+    expr: magflow_health_status == 0
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Service health check failed"
+      description: "Service health check has been failing for 2 minutes"
+
+  - alert: ServiceDegraded
+    expr: magflow_health_status == 0.5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Service degraded"
+      description: "Service is running in a degraded state"
+
+  - alert: HealthCheckLatency
+    expr: magflow_health_check_duration_seconds > 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Health check latency high"
+      description: "Health check is taking {{ $value | humanizeDuration }} to complete"

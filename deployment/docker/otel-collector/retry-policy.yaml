@@ -1,0 +1,72 @@
+# OpenTelemetry Retry Policy Configuration
+# This configuration defines the retry behavior for the OpenTelemetry Collector
+# when exporting telemetry data to various backends.
+
+# Global retry configuration (applies to all pipelines unless overridden)
+retry:
+  # Enable/disable retries globally
+  enabled: true
+  
+  # Initial interval between retries
+  initial_interval: 1s
+  
+  # Maximum interval between retries (exponential backoff)
+  max_interval: 10s
+  
+  # Maximum time to keep retrying before giving up
+  max_elapsed_time: 5m
+  
+  # Multiplier for the backoff interval (exponential backoff)
+  multiplier: 1.5
+  
+  # Maximum number of retry attempts (0 for unlimited)
+  max_retries: 10
+  
+  # Jitter for randomizing the retry interval (0.0 to 1.0)
+  randomization_factor: 0.5
+
+# Per-pipeline retry configurations (override global settings)
+pipelines:
+  metrics:
+    retry:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 15s
+      max_elapsed_time: 10m
+      max_retries: 15
+  
+  traces:
+    retry:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 5s
+      max_elapsed_time: 5m
+      max_retries: 20
+  
+  logs:
+    retry:
+      enabled: true
+      initial_interval: 500ms
+      max_interval: 5s
+      max_elapsed_time: 2m
+      max_retries: 5
+
+# Per-exporter retry configurations (highest precedence)
+exporters:
+  otlp:
+    retry:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 5m
+      
+  debug:
+    retry:
+      enabled: false  # No need to retry for debug exporter
+      
+  prometheus:
+    retry:
+      enabled: true
+      initial_interval: 2s
+      max_interval: 15s
+      max_elapsed_time: 10m

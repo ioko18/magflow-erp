@@ -1,0 +1,9 @@
+emag_offer_id,emag_product_id,product_name,currency,sale_price,stock,is_available,account_type,updated_at
+1279,1279,"Tester servomotor cu indicator LED, 3 canale cu control ESC, brushed/brushless",RON,24.0,0,True,main,2025-09-22 17:34:41.306624
+1254,1254,"Coborator si ridicator tensiune step-up/step-down stabilizat de la 24V AC la 0-30V, 2mA-3A cu limitare de curent",RON,41.0,0,True,main,2025-09-22 17:34:41.306624
+1275,1275,"Modul navigare cu joystick, 5 directii, compatibil Arduino UNO R3",RON,22.0,0,True,main,2025-09-22 17:34:41.306624
+1278,1278,"Convertor ridicator de tensiune step-up DC-DC de la 10V-60V la 12V-90V, 30A, 1500W",RON,148.0,0,True,main,2025-09-22 17:34:41.306624
+1250,1250,"Controler regulator de viteza motor, PWM, DC 12-40V, 3A, 120W cu comutator inainte/inapoi",RON,39.0,0,True,main,2025-09-22 17:34:41.306624
+1117,1117,"Set 3 bucati, Placa test prototip PCB 10x15cm universala, pas de 2.54mm Arduino DIY",RON,49.0,0,True,main,2025-09-22 17:34:36.139174
+1194,1194,"Modul automat de comutare incarcare sau alimentare baterie litiu YX850, DC 5-48V, 10A",RON,30.0,0,True,main,2025-09-22 17:34:36.139174
+1062,1062,"Amplificator audio stereo 2x100W, clasa AB cu TDA7293, AC 12-32V",RON,149.0,0,True,main,2025-09-22 17:34:30.062519

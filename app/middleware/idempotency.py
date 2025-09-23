@@ -2,21 +2,21 @@ import hashlib
 import json
 import logging
 import os
-import asyncpg
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Dict, Optional, Tuple
 
+import asyncpg
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 class IdempotencyMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware to handle idempotency keys for API requests.
+    """Middleware to handle idempotency keys for API requests.
 
     Supports the Idempotency-Key header to prevent duplicate requests.
     Returns 409 Conflict if the same key is used with different request payload.
@@ -54,6 +54,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         Returns:
             Tuple of (is_valid, error_message)
+
         """
         if not key:
             return False, "Idempotency key cannot be empty"
@@ -78,7 +79,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         # Only process if Idempotency-Key header is present
         return "idempotency-key" in request.headers
 
-    async def _get_existing_record(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
+    async def _get_existing_record(
+        self,
+        idempotency_key: str,
+    ) -> Optional[Dict[str, Any]]:
         """Check if idempotency key exists in database."""
         # In testing environment, check memory store first
         if settings.TESTING and idempotency_key in self._memory_store:
@@ -118,16 +122,19 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         """Store or update idempotency record in database."""
         # In testing environment, write to memory store and return
         if settings.TESTING:
-            record = self._memory_store.get(idempotency_key, {
-                "key": idempotency_key,
-                "method": method,
-                "path": path,
-                "req_hash": req_hash,
-                "created_at": datetime.utcnow(),
-                "ttl_at": datetime.utcnow() + timedelta(hours=self.ttl_hours),
-                "status_code": None,
-                "response_body": None,
-            })
+            record = self._memory_store.get(
+                idempotency_key,
+                {
+                    "key": idempotency_key,
+                    "method": method,
+                    "path": path,
+                    "req_hash": req_hash,
+                    "created_at": datetime.utcnow(),
+                    "ttl_at": datetime.utcnow() + timedelta(hours=self.ttl_hours),
+                    "status_code": None,
+                    "response_body": None,
+                },
+            )
             # Update with response data if provided
             if status_code is not None:
                 record["status_code"] = status_code
@@ -145,7 +152,11 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     VALUES ($1, $2, $3, $4, $5)
                     ON CONFLICT (key) DO NOTHING
                     """,
-                    idempotency_key, method, path, req_hash, datetime.utcnow() + timedelta(hours=self.ttl_hours),
+                    idempotency_key,
+                    method,
+                    path,
+                    req_hash,
+                    datetime.utcnow() + timedelta(hours=self.ttl_hours),
                 )
             else:
                 # Update with response data
@@ -155,7 +166,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     SET status_code = $1, response_body = $2
                     WHERE key = $3
                     """,
-                    status_code, response_body, idempotency_key,
+                    status_code,
+                    response_body,
+                    idempotency_key,
                 )
             return True
         except Exception as e:
@@ -183,7 +196,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         # Read request body
         body = await request.body()
         req_hash = self._compute_request_hash(
-            request.method, str(request.url.path), body
+            request.method,
+            str(request.url.path),
+            body,
         )
 
         # Create new receive method with cached body
@@ -199,7 +214,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             if "relation " in str(e) and " does not exist" in str(e):
                 logger.warning(
-                    "Idempotency keys table does not exist. Continuing without idempotency check."
+                    "Idempotency keys table does not exist. Continuing without idempotency check.",
                 )
                 return await call_next(request)
             raise
@@ -219,7 +234,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             # If we have a completed response, return it
             if existing["status_code"] is not None:
                 logger.info(
-                    f"Returning cached response for idempotency key: {idempotency_key}"
+                    f"Returning cached response for idempotency key: {idempotency_key}",
                 )
                 try:
                     response_data = (
@@ -228,7 +243,8 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                         else {}
                     )
                     return JSONResponse(
-                        status_code=existing["status_code"], content=response_data
+                        status_code=existing["status_code"],
+                        content=response_data,
                     )
                 except json.JSONDecodeError:
                     # If response body is not JSON, return as text
@@ -241,12 +257,15 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         # Store initial record (without response data)
         try:
             await self._store_idempotency_record(
-                idempotency_key, request.method, str(request.url.path), req_hash
+                idempotency_key,
+                request.method,
+                str(request.url.path),
+                req_hash,
             )
         except Exception as e:
             if "relation " in str(e) and " does not exist" in str(e):
                 logger.warning(
-                    "Idempotency keys table does not exist. Continuing without idempotency tracking."
+                    "Idempotency keys table does not exist. Continuing without idempotency tracking.",
                 )
                 return await call_next(request)
             raise

@@ -1,0 +1,57 @@
+apiVersion: 1
+
+groups:
+  - name: system-alerts
+    folder: MagFlow Alerts
+    interval: 1m
+    rules:
+      # CPU Usage
+      - alert: HighCPUUsage
+        uid: high-cpu-usage
+        title: High CPU Usage
+        condition: "A"
+        data:
+          - refId: A
+            expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[1m]))) * 100 > 80
+            queryType: prometheus
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}%"
+
+      # Memory Usage
+      - alert: HighMemoryUsage
+        uid: high-memory-usage
+        title: High Memory Usage
+        condition: "A"
+        data:
+          - refId: A
+            expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 80
+            queryType: prometheus
+        for: 5m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}%"
+
+      # Disk Space
+      - alert: LowDiskSpace
+        uid: low-disk-space
+        title: Low Disk Space
+        condition: "A"
+        data:
+          - refId: A
+            expr: (node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"} < 20
+            queryType: prometheus
+        for: 10m
+        labels:
+          severity: warning
+          team: devops
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Only {{ $value }}% available on {{ $labels.mountpoint }}"

@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: magflow-app
+  labels:
+    app: magflow
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: magflow
+      tier: backend
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: magflow
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8010"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: app
+        image: magflow:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8000
+        - name: metrics
+          containerPort: 8010
+        env:
+        - name: ENV
+          value: production
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: magflow-secrets
+              key: database-url
+        - name: REDIS_URL
+          value: redis://magflow-redis:6379/0
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: magflow-secrets
+              key: secret-key
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        # Liveness probe - indicates if the container is running
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health/live
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 30  # Give app time to start
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        # Readiness probe - indicates if the container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /api/v1/health/ready
+            port: 8000
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        # Startup probe - indicates if the container has finished its startup
+        startupProbe:
+          httpGet:
+            path: /api/v1/health/startup
+            port: 8000
+            scheme: HTTP
+          failureThreshold: 30  # Allow up to 5 minutes for startup (30 * 10s)
+          periodSeconds: 10
+        # Security context for the container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        # Volume mounts
+        volumeMounts:
+        - name: jwt-keys
+          mountPath: /app/jwt-keys
+          readOnly: true
+      # Volumes
+      volumes:
+      - name: jwt-keys
+        secret:
+          secretName: jwt-keys
+          optional: false

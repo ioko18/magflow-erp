@@ -3,6 +3,7 @@
 Provides `register_exception_handlers(app)` referenced by `app.main`.
 For tests, we attach a few generic handlers mapping exceptions to JSON responses.
 """
+
 from __future__ import annotations
 
 from fastapi import FastAPI, Request
@@ -19,5 +20,3 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "detail": str(exc) or "Internal Server Error",
             },
         )
-
-    return None

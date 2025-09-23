@@ -2,6 +2,7 @@
 
 Provides product, brand, and characteristic endpoints used by integration tests.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -10,13 +11,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.schemas.catalog import (
-    ProductListResponse,
-    ProductCreate,
-    ProductUpdate,
-    Product,
-    BrandListResponse,
     Brand,
+    BrandListResponse,
     CharacteristicListResponse,
+    Product,
+    ProductCreate,
+    ProductListResponse,
+    ProductUpdate,
 )
 from app.services.catalog_service import CatalogService
 
@@ -73,7 +74,10 @@ async def list_products(
 
 
 @router.get("/products/{product_id}", response_model=Product)
-async def get_product(product_id: UUID, service: CatalogService = Depends(get_service)) -> Product:
+async def get_product(
+    product_id: UUID,
+    service: CatalogService = Depends(get_service),
+) -> Product:
     try:
         return await service.get_product_by_id(product_id)
     except HTTPException:
@@ -82,7 +86,10 @@ async def get_product(product_id: UUID, service: CatalogService = Depends(get_se
 
 
 @router.post("/products", response_model=Product, status_code=status.HTTP_201_CREATED)
-async def create_product(payload: ProductCreate, service: CatalogService = Depends(get_service)) -> Product:
+async def create_product(
+    payload: ProductCreate,
+    service: CatalogService = Depends(get_service),
+) -> Product:
     return await service.create_product(payload)
 
 
@@ -96,9 +103,12 @@ async def update_product(
 
 
 @router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_product(product_id: UUID, service: CatalogService = Depends(get_service)) -> None:
+async def delete_product(
+    product_id: UUID,
+    service: CatalogService = Depends(get_service),
+):
     await service.delete_product(product_id)
-    return None
+    # No return statement for 204 status code
 
 
 @router.get("/brands", response_model=BrandListResponse)
@@ -112,7 +122,10 @@ async def list_brands(
 
 
 @router.get("/brands/{brand_id}", response_model=Brand)
-async def get_brand(brand_id: int, service: CatalogService = Depends(get_service)) -> Brand:
+async def get_brand(
+    brand_id: int,
+    service: CatalogService = Depends(get_service),
+) -> Brand:
     return await service.get_brand_by_id(brand_id)
 
 
@@ -123,7 +136,11 @@ async def list_characteristics(
     cursor: Optional[str] = None,
     service: CatalogService = Depends(get_service),
 ) -> CharacteristicListResponse:
-    return await service.list_characteristics(category_id=category_id, limit=limit, cursor=cursor)
+    return await service.list_characteristics(
+        category_id=category_id,
+        limit=limit,
+        cursor=cursor,
+    )
 
 
 @router.get("/characteristics/{characteristic_id}/values")
@@ -132,4 +149,7 @@ async def get_characteristic_values(
     characteristic_id: int,
     service: CatalogService = Depends(get_service),
 ):
-    return await service.get_characteristic_values(category_id=category_id, characteristic_id=characteristic_id)
+    return await service.get_characteristic_values(
+        category_id=category_id,
+        characteristic_id=characteristic_id,
+    )
