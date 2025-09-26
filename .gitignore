@@ -38,6 +38,16 @@ wheels/
 venv/
 env/
 ENV/
+bin/
+include/
+libexec/
+share/
+etc/
+conda-meta/
+Scripts/
+man/
+ssl/
+shims/
 
 # IDE
 .vscode/
