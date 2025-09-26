@@ -24,6 +24,7 @@ Comprehensive monitoring and troubleshooting guide for MagFlow ERP system.
 ### Monitoring Architecture
 
 #### System Components
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Application   │────│   Prometheus    │────│    Grafana      │
@@ -44,6 +45,7 @@ Comprehensive monitoring and troubleshooting guide for MagFlow ERP system.
 ```
 
 #### Monitoring Stack
+
 - **Application Metrics**: Prometheus-compatible endpoints
 - **Database Monitoring**: PostgreSQL exporter and pg_stat_statements
 - **Cache Monitoring**: Redis exporter and info commands
@@ -55,6 +57,7 @@ Comprehensive monitoring and troubleshooting guide for MagFlow ERP system.
 ### Key Metrics
 
 #### Application Metrics
+
 - **Request Rate**: HTTP requests per second
 - **Response Time**: Average response time by endpoint
 - **Error Rate**: 4xx/5xx responses percentage
@@ -64,6 +67,7 @@ Comprehensive monitoring and troubleshooting guide for MagFlow ERP system.
 - **CPU Usage**: CPU utilization percentage
 
 #### Business Metrics
+
 - **Sales Volume**: Daily/monthly sales totals
 - **Inventory Turnover**: Stock movement velocity
 - **Customer Activity**: Active customers count
@@ -75,11 +79,13 @@ Comprehensive monitoring and troubleshooting guide for MagFlow ERP system.
 ### Health Check Endpoints
 
 #### Basic Health Check
+
 ```bash
 curl http://localhost:8000/health
 ```
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -89,11 +95,13 @@ curl http://localhost:8000/health
 ```
 
 #### Detailed Health Check
+
 ```bash
 curl http://localhost:8000/health/detailed
 ```
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -128,11 +136,13 @@ curl http://localhost:8000/health/detailed
 ```
 
 #### Database Health Check
+
 ```bash
 curl http://localhost:8000/health/database
 ```
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -154,11 +164,13 @@ curl http://localhost:8000/health/database
 ```
 
 #### External Services Health
+
 ```bash
 curl http://localhost:8000/health/external
 ```
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -176,6 +188,7 @@ curl http://localhost:8000/health/external
 ### Kubernetes Health Checks
 
 #### Liveness Probe
+
 ```yaml
 # deployment/kubernetes/health-liveness.yml
 apiVersion: v1
@@ -189,6 +202,7 @@ data:
 ```
 
 #### Readiness Probe
+
 ```yaml
 # deployment/kubernetes/health-readiness.yml
 apiVersion: v1
@@ -202,6 +216,7 @@ data:
 ```
 
 #### Startup Probe
+
 ```yaml
 # deployment/kubernetes/health-startup.yml
 apiVersion: v1
@@ -226,11 +241,13 @@ data:
 ### Prometheus Metrics
 
 #### Application Metrics Endpoint
+
 ```bash
 curl http://localhost:8000/metrics
 ```
 
 **Sample Output:**
+
 ```
 # HELP http_requests_total Total number of HTTP requests
 # TYPE http_requests_total counter
@@ -254,6 +271,7 @@ redis_connections 3
 ```
 
 #### Prometheus Configuration
+
 ```yaml
 # monitoring/prometheus/prometheus.yml
 global:
@@ -289,6 +307,7 @@ scrape_configs:
 ### Grafana Dashboards
 
 #### Main Dashboard
+
 - **Request Rate**: HTTP requests per second
 - **Response Times**: Average response time by endpoint
 - **Error Rates**: 4xx/5xx error percentages
@@ -297,6 +316,7 @@ scrape_configs:
 - **Active Users**: Concurrent user sessions
 
 #### Database Dashboard
+
 - **Connection Pool**: Active vs idle connections
 - **Query Performance**: Slow queries and execution times
 - **Table Sizes**: Row counts and disk usage
@@ -304,6 +324,7 @@ scrape_configs:
 - **Lock Monitoring**: Database locks and wait times
 
 #### Business Metrics Dashboard
+
 - **Sales Volume**: Daily/monthly sales totals
 - **Inventory Levels**: Stock levels and turnover rates
 - **Customer Activity**: Active customers and order frequency
@@ -314,6 +335,7 @@ scrape_configs:
 ### Structured Logging
 
 #### Log Format
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:00.000Z",
@@ -335,6 +357,7 @@ scrape_configs:
 ```
 
 #### Log Levels
+
 - **DEBUG**: Detailed debugging information
 - **INFO**: General information about application flow
 - **WARNING**: Potentially harmful situations
@@ -344,6 +367,7 @@ scrape_configs:
 ### Log Configuration
 
 #### Application Logging
+
 ```python
 # app/core/logging.py
 import logging
@@ -378,6 +402,7 @@ def log_with_context(
 ```
 
 #### Docker Logging
+
 ```yaml
 # docker-compose.yml
 services:
@@ -395,6 +420,7 @@ services:
 ### Log Analysis
 
 #### Query Logs
+
 ```bash
 # View recent errors
 tail -f logs/app.log | jq '.level == "ERROR"'
@@ -410,6 +436,7 @@ cat logs/app.log | jq '[.response_time] | sort | reverse | .[0:10]'
 ```
 
 #### ELK Stack Integration
+
 ```yaml
 # deployment/logging/elasticsearch.yml
 apiVersion: apps/v1
@@ -467,6 +494,7 @@ data:
 ### Alert Rules
 
 #### Application Alerts
+
 ```yaml
 # monitoring/alerts/application-alerts.yml
 groups:
@@ -504,6 +532,7 @@ groups:
 ```
 
 #### Database Alerts
+
 ```yaml
 # monitoring/alerts/database-alerts.yml
 groups:
@@ -541,6 +570,7 @@ groups:
 ```
 
 #### Business Alerts
+
 ```yaml
 # monitoring/alerts/business-alerts.yml
 groups:
@@ -580,6 +610,7 @@ groups:
 ### Notification Channels
 
 #### Email Notifications
+
 ```yaml
 # alertmanager/config.yml
 route:
@@ -601,6 +632,7 @@ receivers:
 ```
 
 #### Slack Notifications
+
 ```yaml
 # alertmanager/config.yml
 receivers:
@@ -617,6 +649,7 @@ receivers:
 ```
 
 #### PagerDuty Integration
+
 ```yaml
 # alertmanager/config.yml
 receivers:
@@ -635,6 +668,7 @@ receivers:
 ### Application Performance
 
 #### Memory Usage Monitoring
+
 ```python
 # app/services/performance_monitor.py
 import psutil
@@ -665,6 +699,7 @@ async def get_cpu_usage() -> Dict[str, Any]:
 ```
 
 #### Database Performance
+
 ```python
 # app/services/database_monitor.py
 from sqlalchemy import text
@@ -726,6 +761,7 @@ async def get_database_metrics() -> Dict[str, Any]:
 ### System Monitoring
 
 #### Docker Monitoring
+
 ```bash
 # Monitor container resource usage
 docker stats
@@ -741,6 +777,7 @@ docker inspect magflow-erp_app | jq '.[0].State.Health'
 ```
 
 #### Kubernetes Monitoring
+
 ```bash
 # Check pod status
 kubectl get pods -o wide
@@ -765,6 +802,7 @@ kubectl describe hpa magflow-erp-hpa
 ### Common Issues
 
 #### 1. Database Connection Issues
+
 ```bash
 # Check database connectivity
 python -c "from app.db.base import engine; print('Database connected')"
@@ -783,12 +821,14 @@ psql -h localhost -U magflow -d magflow
 ```
 
 **Solutions:**
+
 - Verify database credentials in `.env`
 - Check if PostgreSQL service is running
 - Ensure database server is accessible
 - Check firewall settings
 
 #### 2. Redis Connection Issues
+
 ```bash
 # Test Redis connection
 redis-cli ping
@@ -802,12 +842,14 @@ tail -f /var/log/redis/redis-server.log
 ```
 
 **Solutions:**
+
 - Verify Redis URL in `.env`
 - Check Redis service status
 - Ensure Redis is running on correct port
 - Check memory limits and eviction policy
 
 #### 3. Application Startup Issues
+
 ```bash
 # Check Python syntax
 python -m py_compile app/main.py
@@ -823,12 +865,14 @@ python -c "from app.db.base import get_db; print('Database ready')"
 ```
 
 **Solutions:**
+
 - Fix syntax errors in Python files
 - Install missing dependencies
 - Verify environment configuration
 - Check database connectivity
 
 #### 4. Performance Issues
+
 ```bash
 # Monitor memory usage
 python -c "
@@ -847,12 +891,14 @@ tail -f logs/app.log | grep "response_time"
 ```
 
 **Solutions:**
+
 - Optimize database queries
 - Add proper indexing
 - Implement caching
 - Scale horizontally
 
 #### 5. Authentication Issues
+
 ```bash
 # Test login endpoint
 curl -X POST "http://localhost:8000/api/v1/auth/access-token" \
@@ -870,6 +916,7 @@ print(decoded)
 ```
 
 **Solutions:**
+
 - Verify user credentials
 - Check JWT secret key
 - Validate token expiration
@@ -878,6 +925,7 @@ print(decoded)
 ### Debug Mode
 
 #### Enable Debug Logging
+
 ```bash
 # Set environment variables
 export LOG_LEVEL=DEBUG
@@ -888,6 +936,7 @@ uvicorn app.main:app --reload --log-level debug
 ```
 
 #### Debug Database Queries
+
 ```python
 # Enable SQL query logging
 import logging
@@ -906,6 +955,7 @@ async def debug_queries():
 ```
 
 #### Debug API Endpoints
+
 ```bash
 # Use verbose curl
 curl -v -X GET "http://localhost:8000/api/v1/inventory/" \
@@ -921,6 +971,7 @@ http GET localhost:8000/api/v1/inventory/ Authorization:"Bearer YOUR_TOKEN"
 ### Development Tools
 
 #### Profiling Tools
+
 ```python
 # app/debug/profiler.py
 import cProfile
@@ -949,6 +1000,7 @@ async def slow_function():
 ```
 
 #### Memory Profiling
+
 ```python
 # app/debug/memory_profiler.py
 import tracemalloc
@@ -971,6 +1023,7 @@ async def profile_memory(func):
 ```
 
 #### Query Analysis
+
 ```python
 # app/debug/query_analyzer.py
 from sqlalchemy import event
@@ -993,6 +1046,7 @@ def log_queries():
 ### Database Backup
 
 #### Automated Backup Script
+
 ```bash
 #!/bin/bash
 # scripts/backup-database.sh
@@ -1017,6 +1071,7 @@ echo "Backup completed: $FILENAME"
 ```
 
 #### Kubernetes Backup
+
 ```yaml
 # deployment/backup/postgres-backup.yml
 apiVersion: batch/v1
@@ -1052,6 +1107,7 @@ spec:
 ### Configuration Backup
 
 #### Backup Configuration Files
+
 ```bash
 # scripts/backup-config.sh
 BACKUP_DIR="/var/backups/magflow/config"
@@ -1070,6 +1126,7 @@ echo "Configuration backup completed"
 ```
 
 #### Kubernetes Config Backup
+
 ```yaml
 # deployment/backup/config-backup.yml
 apiVersion: batch/v1
@@ -1101,6 +1158,7 @@ spec:
 ### Recovery Procedures
 
 #### Database Recovery
+
 ```bash
 # 1. Stop application
 docker-compose down
@@ -1117,6 +1175,7 @@ docker-compose up -d
 ```
 
 #### Kubernetes Recovery
+
 ```bash
 # 1. Scale down application
 kubectl scale deployment magflow-erp --replicas=0
@@ -1135,6 +1194,7 @@ kubectl logs -f deployment/magflow-erp
 ## 🔍 Monitoring Tools
 
 ### Health Check Dashboard
+
 ```bash
 # Create simple health check dashboard
 while true; do
@@ -1155,6 +1215,7 @@ done
 ```
 
 ### Log Analysis Tools
+
 ```bash
 # Real-time error monitoring
 tail -f logs/app.log | grep -E "(ERROR|CRITICAL)" | jq '.'
@@ -1167,6 +1228,7 @@ tail -f logs/app.log | jq '.response_time' | awk '{sum+=$1; count++} END {print 
 ```
 
 ### Database Performance Analysis
+
 ```bash
 # Analyze slow queries
 psql magflow -c "SELECT query, calls, total_time, mean_time FROM pg_stat_statements WHERE mean_time > 100 ORDER BY mean_time DESC LIMIT 10;"
@@ -1178,6 +1240,6 @@ psql magflow -c "SELECT indexname, idx_scan, idx_tup_read, idx_tup_fetch FROM pg
 psql magflow -c "SELECT pid, state, query FROM pg_stat_activity WHERE state != 'idle' ORDER BY query_start;"
 ```
 
----
+______________________________________________________________________
 
 **MagFlow ERP Monitoring & Troubleshooting Guide** - Complete Monitoring and Debugging Documentation 📊

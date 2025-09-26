@@ -5,7 +5,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
 
 
 class SortDirection(str, Enum):
@@ -20,15 +20,44 @@ class SortField(str, Enum):
     PRICE = "price"
 
 
+class CategoryBase(BaseModel):
+    """Base category DTO."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+    slug: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=150,
+        pattern=r"^[a-z0-9-]+$",
+    )
+    parent_id: Optional[int] = Field(None, alias="parentId")
+    is_active: bool = Field(default=True, alias="isActive")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CategoryCreate(CategoryBase):
+    """DTO for creating a category."""
+
+
+class Category(CategoryBase):
+    """Category DTO with identifiers."""
+
+    id: int
+    created_at: datetime = Field(..., alias="createdAt")
+    updated_at: datetime = Field(..., alias="updatedAt")
+
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
+
 class Cursor(BaseModel):
     """Cursor for keyset pagination."""
 
     value: str
     has_more: bool = Field(..., alias="hasMore")
 
-    class Config:
-        populate_by_name = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class PaginationMeta(BaseModel):
@@ -43,8 +72,7 @@ class PaginationMeta(BaseModel):
     next_cursor: Optional[str] = Field(None, alias="nextCursor")
     prev_cursor: Optional[str] = Field(None, alias="prevCursor")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ProductStatus(str, Enum):
@@ -62,8 +90,7 @@ class ProductImage(BaseModel):
     position: int = 0
     alt: Optional[str] = None
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ProductCharacteristicValue(BaseModel):
@@ -98,8 +125,7 @@ class ProductBase(BaseModel):
     characteristics: List[ProductCharacteristicValue] = []
     metadata: Dict[str, Any] = {}
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ProductCreate(ProductBase):
@@ -128,9 +154,7 @@ class ProductUpdate(BaseModel):
     images: Optional[List[ProductImage]] = None
     characteristics: Optional[List[ProductCharacteristicValue]] = None
     metadata: Optional[Dict[str, Any]] = None
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Product(ProductBase):
@@ -142,9 +166,7 @@ class Product(ProductBase):
     emag_id: Optional[int] = Field(None, alias="emagId")
     url: Optional[HttpUrl] = None
 
-    class Config:
-        populate_by_name = True
-        from_attributes = True
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
 class ProductListResponse(BaseModel):
@@ -163,9 +185,7 @@ class BrandBase(BaseModel):
     website: Optional[HttpUrl] = None
     logo_url: Optional[HttpUrl] = Field(None, alias="logoUrl")
     is_active: bool = Field(default=True, alias="isActive")
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class BrandCreate(BrandBase):
@@ -186,9 +206,7 @@ class BrandUpdate(BaseModel):
     website: Optional[HttpUrl] = None
     logo_url: Optional[HttpUrl] = Field(None, alias="logoUrl")
     is_active: Optional[bool] = Field(None, alias="isActive")
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Brand(BrandBase):
@@ -199,9 +217,7 @@ class Brand(BrandBase):
     updated_at: datetime = Field(..., alias="updatedAt")
     emag_id: Optional[int] = Field(None, alias="emagId")
 
-    class Config:
-        populate_by_name = True
-        from_attributes = True
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
 class BrandListResponse(BaseModel):
@@ -228,9 +244,7 @@ class CharacteristicValue(BaseModel):
     value: str
     is_default: bool = Field(False, alias="isDefault")
     position: int = 0
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CharacteristicBase(BaseModel):
@@ -244,9 +258,7 @@ class CharacteristicBase(BaseModel):
     is_variant: bool = Field(False, alias="isVariant")
     values: List[CharacteristicValue] = []
     category_id: int = Field(..., alias="categoryId")
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CharacteristicCreate(CharacteristicBase):
@@ -269,9 +281,7 @@ class CharacteristicUpdate(BaseModel):
     is_variant: Optional[bool] = Field(None, alias="isVariant")
     values: Optional[List[CharacteristicValue]] = None
     category_id: Optional[int] = Field(None, alias="categoryId")
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Characteristic(CharacteristicBase):
@@ -282,9 +292,7 @@ class Characteristic(CharacteristicBase):
     updated_at: datetime = Field(..., alias="updatedAt")
     emag_id: Optional[int] = Field(None, alias="emagId")
 
-    class Config:
-        populate_by_name = True
-        from_attributes = True
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
 
 class CharacteristicListResponse(BaseModel):
@@ -313,9 +321,13 @@ class ProductFilter(BaseModel):
     sort_by: SortField = Field(SortField.CREATED_AT, alias="sortBy")
     sort_direction: SortDirection = Field(SortDirection.DESC, alias="sortDirection")
 
-    class Config:
-        populate_by_name = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_serializer("created_after", "updated_after", when_used="json")
+    def serialize_optional_datetime(
+        self, value: Optional[datetime], _info
+    ) -> Optional[str]:
+        return value.isoformat() if value else None
 
     def to_query_params(self) -> Dict[str, str]:
         """Convert filter to query parameters."""

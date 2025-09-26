@@ -14,6 +14,7 @@ class Supplier(Base, TimestampMixin):
     """Supplier model for purchase management."""
 
     __tablename__ = "suppliers"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
@@ -51,11 +52,12 @@ class SupplierProduct(Base, TimestampMixin):
     """Supplier product model for tracking supplier-specific products."""
 
     __tablename__ = "supplier_products"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     supplier_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("suppliers.id"),
+        ForeignKey("app.suppliers.id"),
         nullable=False,
     )
     product_id: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -89,12 +91,13 @@ class PurchaseOrder(Base, TimestampMixin):
     """Purchase order model."""
 
     __tablename__ = "purchase_orders"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     order_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     supplier_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("suppliers.id"),
+        ForeignKey("app.suppliers.id"),
         nullable=False,
     )
     order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -138,17 +141,18 @@ class PurchaseOrderLine(Base, TimestampMixin):
     """Purchase order line model."""
 
     __tablename__ = "purchase_order_lines"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     purchase_order_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("purchase_orders.id"),
+        ForeignKey("app.purchase_orders.id"),
         nullable=False,
     )
     product_id: Mapped[int] = mapped_column(Integer, nullable=False)
     supplier_product_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey("supplier_products.id"),
+        ForeignKey("app.supplier_products.id"),
         nullable=True,
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -176,12 +180,13 @@ class PurchaseReceipt(Base, TimestampMixin):
     """Purchase receipt model."""
 
     __tablename__ = "purchase_receipts"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     receipt_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     purchase_order_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("purchase_orders.id"),
+        ForeignKey("app.purchase_orders.id"),
         nullable=False,
     )
     receipt_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -222,16 +227,17 @@ class PurchaseReceiptLine(Base, TimestampMixin):
     """Purchase receipt line model."""
 
     __tablename__ = "purchase_receipt_lines"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     purchase_receipt_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("purchase_receipts.id"),
+        ForeignKey("app.purchase_receipts.id"),
         nullable=False,
     )
     purchase_order_line_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("purchase_order_lines.id"),
+        ForeignKey("app.purchase_order_lines.id"),
         nullable=False,
     )
     received_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -261,17 +267,18 @@ class SupplierPayment(Base, TimestampMixin):
     """Supplier payment model."""
 
     __tablename__ = "supplier_payments"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     payment_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     supplier_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("suppliers.id"),
+        ForeignKey("app.suppliers.id"),
         nullable=False,
     )
     purchase_receipt_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey("purchase_receipts.id"),
+        ForeignKey("app.purchase_receipts.id"),
         nullable=True,
     )
     payment_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -305,6 +312,7 @@ class PurchaseRequisition(Base, TimestampMixin):
     """Purchase requisition model for internal requests."""
 
     __tablename__ = "purchase_requisitions"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     requisition_number: Mapped[str] = mapped_column(
@@ -344,11 +352,12 @@ class PurchaseRequisitionLine(Base, TimestampMixin):
     """Purchase requisition line model."""
 
     __tablename__ = "purchase_requisition_lines"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     purchase_requisition_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("purchase_requisitions.id"),
+        ForeignKey("app.purchase_requisitions.id"),
         nullable=False,
     )
     product_id: Mapped[int] = mapped_column(Integer, nullable=False)

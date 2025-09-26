@@ -103,6 +103,7 @@ kubectl scale deployment magflow-app --replicas=5 -n magflow-prod
 ### Auto-scaling
 
 Auto-scaling is configured in `hpa.yaml` with the following defaults:
+
 - Minimum replicas: 2
 - Maximum replicas: 10
 - Target CPU utilization: 70%
@@ -125,8 +126,8 @@ kubectl port-forward svc/magflow-service 8010:8010 -n magflow-prod
 ## Upgrading
 
 1. Build and push a new Docker image with an updated tag
-2. Update the image tag in `kustomization.yaml` or via a kustomize patch
-3. Apply the changes:
+1. Update the image tag in `kustomization.yaml` or via a kustomize patch
+1. Apply the changes:
 
 ```bash
 kubectl apply -k k8s/overlays/production
@@ -186,4 +187,4 @@ kubectl delete namespace magflow-prod
 
 ## License
 
-[Your License Here]
+\[Your License Here\]

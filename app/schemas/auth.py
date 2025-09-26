@@ -116,8 +116,16 @@ class UserInDB(UserInDBBase):
 class LoginRequest(BaseModel):
     """Login request model."""
 
-    username: str = Field(..., description="Username or email")
-    password: str = Field(..., description="Password")
+    username: str = Field(
+        ...,
+        min_length=1,
+        description="Username or email",
+    )
+    password: str = Field(
+        ...,
+        min_length=1,
+        description="Password",
+    )
     remember_me: bool = Field(
         False,
         description="Whether to create a long-lived session",

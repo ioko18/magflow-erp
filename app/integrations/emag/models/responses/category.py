@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CategoryCharacteristicValue(BaseModel):
@@ -65,10 +65,7 @@ class Category(BaseModel):
         description="Category characteristics",
     )
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CategoryListResponse(BaseModel):
@@ -88,10 +85,7 @@ class CategoryListResponse(BaseModel):
         description="List of categories",
     )
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CategoryCharacteristicsResponse(BaseModel):
@@ -111,7 +105,4 @@ class CategoryCharacteristicsResponse(BaseModel):
         description="List of category characteristics",
     )
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

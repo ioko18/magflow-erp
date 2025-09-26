@@ -3,24 +3,28 @@
 ## TLS Configuration
 
 ### Certificate Setup
+
 1. Generate certificates using the provided script:
    ```bash
    ./scripts/generate_certs.sh
    ```
-2. Certificates will be created in `./certs/` directory
-3. Required files:
+1. Certificates will be created in `./certs/` directory
+1. Required files:
    - `ca/ca.crt`: CA certificate
    - `postgresql.crt` and `private/postgresql.key`: PostgreSQL server certificate
    - `pgbouncer.crt` and `private/pgbouncer.key`: PgBouncer server certificate
    - `pgbouncer-combined.pem`: Combined certificate and key for PgBouncer
 
 ### TLS Settings
+
 - **Client to PgBouncer**:
+
   - `client_tls_sslmode = require`
   - Validates client certificates against CA
   - Strong ciphers only (AES256-GCM, etc.)
 
 - **PgBouncer to PostgreSQL**:
+
   - `server_tls_sslmode = verify-full`
   - Validates server certificate against CA
   - Enforces hostname verification
@@ -28,6 +32,7 @@
 ## Prepared Statements Support
 
 ### Configuration
+
 - **max_prepared_statements**: 200 (adjust based on application needs)
 - **server_reset_query**: `DISCARD ALL` (clean up prepared statements between transactions)
 - **server_reset_query_always**: 1 (always run reset query)
@@ -36,7 +41,9 @@
 - **server_idle_timeout**: 600s (10 minutes, close idle connections)
 
 ### Performance Tuning
+
 - **Connection Pooling**:
+
   - `max_client_conn = 500`
   - `default_pool_size = 50`
   - `min_pool_size = 10`
@@ -44,11 +51,13 @@
   - `max_db_connections = 100`
 
 - **Timeouts**:
+
   - `query_wait_timeout = 120s`
   - `idle_transaction_timeout = 0` (disabled)
   - `query_timeout = 0` (disabled)
 
 ### Monitoring
+
 - **Stats Users**: `stats_users = stats_user`
 - **Admin Users**: `admin_users = admin_user`
 - **Logging**:
@@ -59,12 +68,14 @@
   - `stats_period = 60`
 
 ### Important Notes
+
 1. **Memory Usage**: Each prepared statement consumes ~10KB of memory in PgBouncer
-2. **DDL Changes**: After schema changes (ALTER TABLE, etc.), clients should reconnect
-3. **Monitoring**: Track `SHOW STATS` for prepared statement usage and evictions
-4. **Pool Sizing**: Ensure `max_client_conn` is appropriately sized for your workload
+1. **DDL Changes**: After schema changes (ALTER TABLE, etc.), clients should reconnect
+1. **Monitoring**: Track `SHOW STATS` for prepared statement usage and evictions
+1. **Pool Sizing**: Ensure `max_client_conn` is appropriately sized for your workload
 
 ### Best Practices
+
 - Use parameterized queries in your application
 - Set appropriate statement timeouts
 - Monitor `pgbouncer.prepared_statements` for usage patterns
@@ -75,6 +86,7 @@
 ## Security
 
 ## Current Setup
+
 - **Version**: pgbouncer/pgbouncer:1.24.1 (official image)
 - **Port**: 6432 (pgbouncer service)
 - **Pool Modes**:
@@ -84,6 +96,7 @@
 - **Healthcheck**: `psql -U pgbouncer -h 127.0.0.1 -p 6432 -d pgbouncer -c "SHOW STATS;"`
 
 ## Connection Details
+
 - **Application DSN**: `postgresql+psycopg://user:pass@pgbouncer:6432/magflow_tx`
 - **Alembic DSN**: `postgresql+psycopg://user:pass@pgbouncer:6432/magflow_session`
 
@@ -100,6 +113,7 @@ password_encryption = 'scram-sha-256'
 ### 2. Set Up PgBouncer
 
 1. **Using auth_query (Recommended for Production)**
+
    - PgBouncer will query PostgreSQL for user credentials
    - Update `pgbouncer.ini`:
      ```ini
@@ -107,7 +121,8 @@ password_encryption = 'scram-sha-256'
      auth_query = SELECT usename, passwd FROM pg_shadow WHERE usename = $1
      ```
 
-2. **Using userlist.txt (Alternative)**
+1. **Using userlist.txt (Alternative)**
+
    - Generate SCRAM verifiers using the provided script:
      ```bash
      ./scripts/generate_scram_verifiers.py app your_secure_password > docker/pgbouncer/userlist.txt
@@ -141,6 +156,7 @@ PGPASSWORD=your_password psql -h localhost -p 6432 -U app -d magflow -c "SELECT 
 ## Key Configuration
 
 ## SQLAlchemy Configuration
+
 - **Pool Class**: NullPool (delegates to PgBouncer)
 - **Pre-ping**: Enabled for connection validation
 - **Application Name**: magflow-app (for monitoring)
@@ -148,6 +164,7 @@ PGPASSWORD=your_password psql -h localhost -p 6432 -U app -d magflow -c "SELECT 
 ## SCRAM-SHA-256 Migration Checklist
 
 ### Prerequisites
+
 - PostgreSQL 10+ with SCRAM support
 - PgBouncer 1.21+ with SCRAM support
 - Updated client libraries
@@ -155,6 +172,7 @@ PGPASSWORD=your_password psql -h localhost -p 6432 -U app -d magflow -c "SELECT 
 ### Migration Steps
 
 1. **Generate SCRAM hashes** (do NOT commit to repo):
+
    ```bash
    # Generate SCRAM hash for user
    python3 -c "
@@ -165,7 +183,8 @@ PGPASSWORD=your_password psql -h localhost -p 6432 -U app -d magflow -c "SELECT 
    "
    ```
 
-2. **Update userlist.txt format**:
+1. **Update userlist.txt format**:
+
    ```
    # From MD5 format:
    "username" "md5hash"
@@ -174,49 +193,57 @@ PGPASSWORD=your_password psql -h localhost -p 6432 -U app -d magflow -c "SELECT 
    "username" "SCRAM-SHA-256$4096:salt$storedkey:serverkey"
    ```
 
-3. **Update pgbouncer.ini**:
+1. **Update pgbouncer.ini**:
+
    ```ini
    auth_type = scram-sha-256
    auth_file = /etc/pgbouncer/userlist.txt
    ```
 
-4. **Environment variables**:
+1. **Environment variables**:
+
    ```bash
    # Add to .env (not committed)
    PGBOUNCER_AUTH_TYPE=scram-sha-256
    ```
 
-5. **Test connection**:
+1. **Test connection**:
+
    ```bash
    psql -h localhost -p 6432 -U app -d magflow
    ```
 
 ### Security Benefits
+
 - Stronger password hashing (SHA-256 vs MD5)
 - Salt-based protection against rainbow tables
 - Challenge-response authentication
 - Forward secrecy
 
 ### Rollback Plan
+
 1. Revert `auth_type = md5` in pgbouncer.ini
-2. Restore MD5 userlist.txt format
-3. Restart PgBouncer service
+1. Restore MD5 userlist.txt format
+1. Restart PgBouncer service
 
 ## Version Pinning & Healthcheck Strategy
 
 ### Why We Pin Versions (Avoid :latest)
+
 - **Stability**: Prevents unexpected breaking changes from automatic updates
 - **Security**: Using latest available stable version (1.12.0)
 - **Reproducibility**: Ensures consistent behavior across environments
 - **Controlled Updates**: Allows testing before upgrading to newer versions
 
 ### Why We Use `SHOW STATS` for Healthcheck
+
 - **Functional Verification**: Tests actual PgBouncer functionality, not just port availability
 - **Admin Interface**: Verifies the admin interface is responsive
 - **Connection Pool Status**: Ensures the connection pooling mechanism is working
 - **Better Than `nc -z`**: Port checks can pass even when the service is degraded
 
 ## Monitoring
+
 - Health endpoint: `/observability/pool`
 - Admin commands: `SHOW STATS`, `SHOW POOLS`, `SHOW CONFIG`
 - Application name visible in `pg_stat_activity`

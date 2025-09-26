@@ -22,6 +22,7 @@ class Product(Base, TimestampMixin):
     """
 
     __tablename__ = "products"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
@@ -97,7 +98,7 @@ class Product(Base, TimestampMixin):
     # Relationships
     categories: Mapped[List["Category"]] = relationship(
         "Category",
-        secondary="product_categories",
+        secondary="app.product_categories",
         back_populates="products",
         lazy="selectin",
     )
@@ -133,6 +134,8 @@ class Product(Base, TimestampMixin):
 product_categories = Table(
     "product_categories",
     Base.metadata,
-    Column("product_id", ForeignKey("products.id"), primary_key=True),
-    Column("category_id", ForeignKey("categories.id"), primary_key=True),
+    Column("product_id", ForeignKey("app.products.id"), primary_key=True),
+    Column("category_id", ForeignKey("app.categories.id"), primary_key=True),
+    schema="app",
+    extend_existing=True,
 )

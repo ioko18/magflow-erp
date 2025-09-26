@@ -1,0 +1,39 @@
+[run]
+source = app
+omit =
+    */tests/*
+    */migrations/*
+    */__init__.py
+    */admin.py
+    */apps.py
+    */management/commands/*
+    */tests.py
+    */test_*.py
+
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+
+    # Don't complain about missing debug-only code:
+    def __repr__
+    if self\.logger\.debug
+    if self\.debug
+    if settings\.DEBUG
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run:
+    if 0:
+    if __name__ == .__main__.:
+
+ignore_errors = True
+
+[html]
+directory = htmlcov
+
+[report:coverage-xml]
+output = coverage.xml

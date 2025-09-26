@@ -28,6 +28,7 @@ Congratulations on joining the MagFlow ERP development team! This guide will hel
 ### What You'll Learn
 
 By the end of this onboarding guide, you'll be able to:
+
 - ✅ Set up your development environment
 - ✅ Understand the project architecture
 - ✅ Follow our development workflow
@@ -38,18 +39,21 @@ By the end of this onboarding guide, you'll be able to:
 ### Timeline
 
 **Week 1: Environment & Basics**
+
 - Set up development environment
 - Understand project structure
 - Run existing tests
 - Make your first simple contribution
 
 **Week 2: Core Features**
+
 - Understand main modules (inventory, sales, purchasing)
 - Learn API patterns
 - Implement a small feature
 - Write comprehensive tests
 
 **Week 3: Advanced Features**
+
 - Database migrations
 - External integrations
 - Performance optimization
@@ -71,6 +75,7 @@ By the end of this onboarding guide, you'll be able to:
 ### Key Features
 
 #### Core Modules
+
 - **📦 Inventory Management**: Products, warehouses, stock tracking
 - **💰 Sales Management**: Orders, invoices, customers, payments
 - **🛒 Purchase Management**: Orders, suppliers, receipts
@@ -79,6 +84,7 @@ By the end of this onboarding guide, you'll be able to:
 - **🔗 External Integrations**: eMAG marketplace integration
 
 #### Technical Features
+
 - **⚡ Async/Await**: Full async support for high performance
 - **🐳 Containerized**: Docker and Kubernetes ready
 - **📊 Monitoring**: Complete observability stack
@@ -87,6 +93,7 @@ By the end of this onboarding guide, you'll be able to:
 - **📝 Documentation**: Complete API and developer docs
 
 ### Project Structure
+
 ```
 magflow-erp/
 ├── app/                    # Main application
@@ -110,6 +117,7 @@ magflow-erp/
 ### Prerequisites
 
 #### System Requirements
+
 - **Operating System**: Linux, macOS, or Windows (WSL recommended)
 - **Python**: 3.11 or higher
 - **PostgreSQL**: 15 or higher
@@ -118,6 +126,7 @@ magflow-erp/
 - **Docker**: Latest version
 
 #### Hardware Requirements
+
 - **RAM**: Minimum 4GB, recommended 8GB
 - **Storage**: Minimum 10GB free space
 - **Internet**: Required for package installation
@@ -125,12 +134,14 @@ magflow-erp/
 ### Quick Setup (5 minutes)
 
 #### 1. Clone Repository
+
 ```bash
 git clone https://github.com/your-org/magflow-erp.git
 cd magflow-erp
 ```
 
 #### 2. Setup Environment
+
 ```bash
 # Create virtual environment
 python -m venv venv
@@ -142,6 +153,7 @@ pip install -r requirements-dev.txt
 ```
 
 #### 3. Configure Environment
+
 ```bash
 # Copy environment template
 cp .env.example .env
@@ -151,6 +163,7 @@ vim .env
 ```
 
 #### 4. Start Development Environment
+
 ```bash
 # Start all services with Docker
 docker-compose up -d
@@ -160,6 +173,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 #### 5. Verify Setup
+
 ```bash
 # Check health
 curl http://localhost:8000/health
@@ -174,6 +188,7 @@ pytest tests/
 ### Detailed Setup
 
 #### Option 1: Local Development
+
 ```bash
 # 1. Install Python 3.11
 # Ubuntu/Debian:
@@ -213,6 +228,7 @@ uvicorn app.main:app --reload
 ```
 
 #### Option 2: Docker Development
+
 ```bash
 # 1. Install Docker
 # Follow Docker installation guide for your OS
@@ -234,6 +250,7 @@ docker-compose exec app python -c "from app.db.base import engine; print('Databa
 ```
 
 #### Option 3: Production Setup
+
 ```bash
 # 1. Setup production environment
 cp .env.example .env.production
@@ -254,6 +271,7 @@ docker-compose -f docker-compose.prod.yml exec app alembic upgrade head
 ### Application Architecture
 
 #### Layered Architecture
+
 ```
 ┌─────────────────┐
 │   API Layer     │  ← FastAPI routes and endpoints
@@ -271,24 +289,28 @@ docker-compose -f docker-compose.prod.yml exec app alembic upgrade head
 #### Key Components
 
 **API Layer (`app/api/`)**
+
 - FastAPI route definitions
 - Request/response handling
 - Authentication and authorization
 - Input validation and serialization
 
 **Service Layer (`app/services/`)**
+
 - Business logic implementation
 - Orchestration of operations
 - External API integrations
 - Complex calculations
 
 **CRUD Layer (`app/crud/`)**
+
 - Database operations (Create, Read, Update, Delete)
 - Query optimization
 - Data validation
 - Error handling
 
 **Model Layer (`app/models/`)**
+
 - SQLAlchemy model definitions
 - Database relationships
 - Constraints and indexes
@@ -297,6 +319,7 @@ docker-compose -f docker-compose.prod.yml exec app alembic upgrade head
 ### Code Organization
 
 #### API Structure
+
 ```python
 # app/api/v1/endpoints/users.py
 from fastapi import APIRouter, Depends, HTTPException
@@ -335,6 +358,7 @@ async def create_user(
 ```
 
 #### Service Layer
+
 ```python
 # app/services/user_service.py
 from typing import List, Optional
@@ -374,6 +398,7 @@ class UserService:
 ```
 
 #### CRUD Layer
+
 ```python
 # app/crud/base.py
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
@@ -443,6 +468,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 ### Database Models
 
 #### User Model
+
 ```python
 # app/models/user.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
@@ -472,6 +498,7 @@ class User(Base):
 ```
 
 #### Inventory Model
+
 ```python
 # app/models/inventory.py
 from sqlalchemy import Column, Integer, String, Text, DECIMAL, Boolean, DateTime, ForeignKey
@@ -505,6 +532,7 @@ class InventoryItem(Base):
 ### API Patterns
 
 #### Standard CRUD Operations
+
 ```python
 # Standard pattern for all entities
 @router.get("/{id}", response_model=Schema)
@@ -542,6 +570,7 @@ async def delete_item(id: int, db: AsyncSession = Depends(deps.get_db)):
 ```
 
 #### Error Handling
+
 ```python
 # Consistent error handling
 from fastapi import HTTPException
@@ -567,6 +596,7 @@ async def create_item(item: CreateSchema):
 ### 1. Feature Development Process
 
 #### Create Feature Branch
+
 ```bash
 # Create and checkout new branch
 git checkout -b feature/new-feature-name
@@ -579,6 +609,7 @@ git checkout -b hotfix/critical-issue
 ```
 
 #### Implement Feature
+
 ```bash
 # 1. Create models if needed
 touch app/models/new_model.py
@@ -600,6 +631,7 @@ vim app/api/v1/api.py
 ```
 
 #### Test Implementation
+
 ```bash
 # Run specific tests
 pytest tests/ -k "new_feature"
@@ -612,6 +644,7 @@ pytest tests/integration/ -v
 ```
 
 #### Code Quality
+
 ```bash
 # Format code
 black app/
@@ -627,6 +660,7 @@ black . && ruff check . --fix
 ```
 
 #### Commit Changes
+
 ```bash
 # Stage changes
 git add .
@@ -648,6 +682,7 @@ git push origin feature/new-feature-name
 ### 2. Code Review Process
 
 #### Before Submitting PR
+
 - [ ] All tests pass
 - [ ] Code formatted with black
 - [ ] Type checking passes with mypy
@@ -657,6 +692,7 @@ git push origin feature/new-feature-name
 - [ ] Commit messages follow conventional commits
 
 #### PR Template
+
 ```markdown
 ## Description
 Brief description of changes
@@ -688,6 +724,7 @@ Brief description of changes
 ### 3. Database Development
 
 #### Creating Migrations
+
 ```bash
 # Create new migration
 alembic revision --autogenerate -m "add_user_preferences"
@@ -700,6 +737,7 @@ vim alembic/versions/xxxx_add_user_preferences.py
 ```
 
 #### Running Migrations
+
 ```bash
 # Upgrade to latest
 alembic upgrade head
@@ -714,6 +752,7 @@ alembic history
 ## 🧪 Testing Strategy
 
 ### Test Organization
+
 ```
 tests/
 ├── conftest.py              # Global fixtures and configuration
@@ -731,6 +770,7 @@ tests/
 ### Writing Tests
 
 #### Unit Test Example
+
 ```python
 # tests/unit/test_user_service.py
 import pytest
@@ -755,6 +795,7 @@ class TestUserService:
 ```
 
 #### Integration Test Example
+
 ```python
 # tests/integration/test_api_auth.py
 import pytest
@@ -782,6 +823,7 @@ class TestAuthAPI:
 ### Python Standards
 
 #### PEP 8 Compliance
+
 ```python
 # Good
 def calculate_total_price(quantity: int, unit_price: float) -> float:
@@ -794,6 +836,7 @@ def calc_tot_price(qty, price):
 ```
 
 #### Type Hints
+
 ```python
 # Always use type hints
 from typing import List, Optional, Dict, Any
@@ -817,6 +860,7 @@ def process_order(
 ### FastAPI Standards
 
 #### Route Organization
+
 ```python
 # Group related routes
 @router.get("/users/", response_model=List[User])
@@ -833,6 +877,7 @@ async def create_user(user: UserCreate):
 ```
 
 #### Error Handling
+
 ```python
 # Consistent error responses
 @router.post("/users/")
@@ -852,6 +897,7 @@ async def create_user(user: UserCreate):
 ### Development Workflow
 
 #### 1. Fork and Clone
+
 ```bash
 git clone https://github.com/your-username/magflow-erp.git
 cd magflow-erp
@@ -859,6 +905,7 @@ git checkout -b feature/your-feature-name
 ```
 
 #### 2. Make Changes
+
 ```bash
 # Follow the patterns established in the codebase
 # Add tests for new functionality
@@ -867,6 +914,7 @@ git checkout -b feature/your-feature-name
 ```
 
 #### 3. Test Thoroughly
+
 ```bash
 # Run full test suite
 pytest tests/
@@ -879,6 +927,7 @@ pytest tests/ -k "your_feature" -v
 ```
 
 #### 4. Submit Pull Request
+
 ```bash
 # Commit changes
 git add .
@@ -899,6 +948,7 @@ git push origin feature/your-feature-name
 ### Code Review Checklist
 
 #### Before Submitting
+
 - [ ] Code follows PEP 8 and project style
 - [ ] Type hints are used appropriately
 - [ ] Tests are included and passing
@@ -907,6 +957,7 @@ git push origin feature/your-feature-name
 - [ ] Minimum 80% test coverage
 
 #### During Code Review
+
 - [ ] Functionality works as expected
 - [ ] Code is readable and maintainable
 - [ ] Tests are comprehensive
@@ -918,6 +969,7 @@ git push origin feature/your-feature-name
 ### Documentation Links
 
 #### Project Documentation
+
 - **README.md**: Project overview and setup
 - **API.md**: Comprehensive API documentation
 - **DATABASE.md**: Database schema and design
@@ -926,6 +978,7 @@ git push origin feature/your-feature-name
 - **TRAINING.md**: User training materials
 
 #### External Resources
+
 - **FastAPI Docs**: https://fastapi.tiangolo.com/
 - **SQLAlchemy Docs**: https://docs.sqlalchemy.org/
 - **PostgreSQL Docs**: https://www.postgresql.org/docs/
@@ -934,11 +987,13 @@ git push origin feature/your-feature-name
 ### Development Tools
 
 #### IDE Setup
+
 - **VSCode**: Python extension, Pylint, Black formatter
 - **PyCharm**: Professional Python IDE
 - **Vim**: Python syntax highlighting, ALE linter
 
 #### Development Servers
+
 ```bash
 # Development server
 uvicorn app.main:app --reload
@@ -953,15 +1008,17 @@ uvicorn app.main:app --reload --log-level debug
 ### Support Channels
 
 #### Team Communication
+
 - **Slack**: #magflow-dev channel
 - **Email**: dev-team@magflow-erp.com
 - **GitHub Issues**: For bug reports and features
 
 #### Code Review
+
 - **GitHub PRs**: All code changes require review
 - **Code Owners**: Senior developers for final approval
 - **CI/CD**: Automated testing on all PRs
 
----
+______________________________________________________________________
 
 **MagFlow ERP Developer Onboarding Guide** - Welcome to the Team! 🚀

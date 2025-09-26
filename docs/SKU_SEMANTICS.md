@@ -7,6 +7,7 @@ SKU semantics in MagFlow ERP are clearly defined to prevent confusion between di
 ## SKU Field Definitions
 
 ### 1. Seller SKU (`sku`)
+
 - **Definition**: Internal product identifier used by the seller/merchant
 - **Field name in code**: `sku`
 - **Database column**: `sku` (VARCHAR(100), UNIQUE, NOT NULL)
@@ -15,6 +16,7 @@ SKU semantics in MagFlow ERP are clearly defined to prevent confusion between di
 - **Constraints**: Must be unique across all products, seller-defined format
 
 ### 2. eMAG Product Key (`emag_part_number_key`)
+
 - **Definition**: eMAG's unique product identifier (part_number_key)
 - **Field name in code**: `emag_part_number_key`
 - **Database column**: `emag_part_number_key` (VARCHAR(50), UNIQUE, NULLABLE)
@@ -23,6 +25,7 @@ SKU semantics in MagFlow ERP are clearly defined to prevent confusion between di
 - **Constraints**: Unique within eMAG, assigned by eMAG system
 
 ### 3. EAN (`ean`)
+
 - **Definition**: European Article Number (EAN/UPC barcode)
 - **Field name in code**: `ean`
 - **Database column**: `ean` (VARCHAR(18), INDEXED, NULLABLE)
@@ -33,6 +36,7 @@ SKU semantics in MagFlow ERP are clearly defined to prevent confusion between di
 ## Database Schema
 
 ### products table
+
 ```sql
 CREATE TABLE products (
     id SERIAL PRIMARY KEY,
@@ -44,6 +48,7 @@ CREATE TABLE products (
 ```
 
 ### Key Constraints
+
 - `sku`: UNIQUE, NOT NULL - Required for all products
 - `emag_part_number_key`: UNIQUE, NULLABLE - Only for eMAG-integrated products
 - `ean`: INDEXED, NULLABLE - Optional barcode identifier
@@ -51,6 +56,7 @@ CREATE TABLE products (
 ## Code Usage Patterns
 
 ### 1. Product Creation
+
 ```python
 # Creating a new product with seller SKU
 product = Product(
@@ -65,6 +71,7 @@ product.ean = "1234567890123"  # Barcode
 ```
 
 ### 2. SKU Retrieval Methods
+
 ```python
 # Get seller SKU (always available)
 seller_sku = product.get_seller_sku()  # Returns product.sku
@@ -80,6 +87,7 @@ display_sku = product.get_display_sku()  # For UI display
 ```
 
 ### 3. eMAG Integration
+
 ```python
 # Mapping between internal and eMAG fields
 mapping_config = MappingConfiguration(
@@ -97,6 +105,7 @@ mapping_config = MappingConfiguration(
 ## API Integration Semantics
 
 ### Sending Data to eMAG
+
 ```python
 # When creating/updating offers in eMAG
 emag_data = {
@@ -107,6 +116,7 @@ emag_data = {
 ```
 
 ### Receiving Data from eMAG
+
 ```python
 # When reading offers from eMAG API
 emag_response = {
@@ -123,12 +133,14 @@ product.emag_part_number_key = emag_response["part_number_key"]
 ## Validation Rules
 
 ### 1. Product Creation
+
 - `sku` must be unique and not empty
 - `sku` can contain letters, numbers, hyphens, underscores
 - `emag_part_number_key` must be unique if provided
 - `ean` must be valid EAN format if provided
 
 ### 2. eMAG Integration
+
 - Products can exist without eMAG mapping (internal only)
 - Once mapped to eMAG, `emag_part_number_key` should not change
 - `part_number_key` and `ean` are mutually exclusive in eMAG API
@@ -137,6 +149,7 @@ product.emag_part_number_key = emag_response["part_number_key"]
 ## Best Practices
 
 ### 1. Always Use Semantic Methods
+
 ```python
 # ✅ Good - Use semantic methods
 seller_sku = product.get_seller_sku()
@@ -147,6 +160,7 @@ seller_sku = product.sku  # Less clear intent
 ```
 
 ### 2. Validate Before eMAG Operations
+
 ```python
 # Check if product can be sent to eMAG
 if not product.is_mapped_to_emag():
@@ -155,6 +169,7 @@ if not product.is_mapped_to_emag():
 ```
 
 ### 3. Handle Missing Identifiers Gracefully
+
 ```python
 # Provide fallback when eMAG key is missing
 display_identifier = product.get_emag_identifier() or product.get_seller_sku()
@@ -163,6 +178,7 @@ display_identifier = product.get_emag_identifier() or product.get_seller_sku()
 ## Migration from Legacy Systems
 
 ### 1. Data Migration Script
+
 ```python
 # When migrating from systems without clear SKU semantics
 def migrate_product_skus():
@@ -180,6 +196,7 @@ def migrate_product_skus():
 ```
 
 ### 2. Validation During Migration
+
 ```python
 # Ensure no duplicate SKUs after migration
 existing_skus = {p.sku for p in Product.query.all()}
@@ -192,6 +209,7 @@ for legacy_product in legacy_products:
 ## Testing
 
 ### 1. Unit Tests
+
 ```python
 def test_sku_semantics():
     """Test that SKU semantics are properly implemented."""
@@ -210,6 +228,7 @@ def test_sku_semantics():
 ```
 
 ### 2. Integration Tests
+
 ```python
 def test_emag_integration():
     """Test eMAG integration with proper SKU mapping."""
@@ -229,6 +248,7 @@ def test_emag_integration():
 ### Common Issues
 
 #### 1. "Product not found in eMAG"
+
 ```python
 # Check if product has eMAG identifier
 if not product.emag_part_number_key and not product.ean:
@@ -236,6 +256,7 @@ if not product.emag_part_number_key and not product.ean:
 ```
 
 #### 2. "Duplicate SKU error"
+
 ```python
 # Check for conflicting identifiers
 if product.emag_part_number_key and product.ean:
@@ -243,6 +264,7 @@ if product.emag_part_number_key and product.ean:
 ```
 
 #### 3. "Invalid part_number format"
+
 ```python
 # Validate seller SKU format
 if ',' in product.sku or ' ' in product.sku:
@@ -254,10 +276,11 @@ if ',' in product.sku or ' ' in product.sku:
 The SKU semantics in MagFlow ERP are clearly defined as follows:
 
 1. **Seller SKU** (`sku`): Internal identifier, always required, unique
-2. **eMAG Key** (`emag_part_number_key`): eMAG's identifier, optional, unique
-3. **EAN** (`ean`): Barcode identifier, optional, indexed
+1. **eMAG Key** (`emag_part_number_key`): eMAG's identifier, optional, unique
+1. **EAN** (`ean`): Barcode identifier, optional, indexed
 
 This clear separation ensures:
+
 - ✅ No confusion between different identifier types
 - ✅ Proper mapping to eMAG API fields
 - ✅ Flexible product management (internal vs marketplace)

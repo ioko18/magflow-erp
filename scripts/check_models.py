@@ -1,6 +1,6 @@
 """Script to check if models are properly imported and accessible."""
 
-from app.models.base import Base
+from app.db.base_class import Base
 from app.db.models import User, RefreshToken
 from app.models.role import Role, Permission
 from app.models.mapping import (

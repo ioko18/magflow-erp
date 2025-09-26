@@ -68,6 +68,7 @@ class Invoice(Base, TimestampMixin):
     """Invoice model for managing customer invoices."""
 
     __tablename__ = "invoices"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     invoice_number: Mapped[str] = mapped_column(
@@ -168,11 +169,12 @@ class InvoiceItem(Base, TimestampMixin):
     """Individual items within an invoice."""
 
     __tablename__ = "invoice_items"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     invoice_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("invoices.id"),
+        ForeignKey("app.invoices.id"),
         nullable=False,
     )
 
@@ -210,6 +212,7 @@ class InvoicePayment(Base, TimestampMixin):
     """Payment records for invoices."""
 
     __tablename__ = "invoice_payments"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     payment_id: Mapped[str] = mapped_column(
@@ -222,7 +225,7 @@ class InvoicePayment(Base, TimestampMixin):
     # Related entities
     invoice_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("invoices.id"),
+        ForeignKey("app.invoices.id"),
         nullable=False,
     )
     order_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -264,11 +267,12 @@ class EmagInvoiceIntegration(Base, TimestampMixin):
     """Tracks integration with eMAG invoice system."""
 
     __tablename__ = "emag_invoice_integrations"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     invoice_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("invoices.id"),
+        ForeignKey("app.invoices.id"),
         nullable=False,
     )
 
@@ -308,11 +312,12 @@ class TaxCalculation(Base, TimestampMixin):
     """Tracks tax calculations for invoices."""
 
     __tablename__ = "tax_calculations"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     invoice_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("invoices.id"),
+        ForeignKey("app.invoices.id"),
         nullable=False,
     )
 

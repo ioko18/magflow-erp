@@ -7,10 +7,10 @@ This document outlines the JWT authentication implementation with support for mu
 The JWT authentication system supports multiple signing algorithms and provides robust key management:
 
 1. **Multiple Algorithms**: Support for both RS256 (RSA with SHA-256) and EdDSA (Ed25519) signing algorithms
-2. **Key Management**: Secure key storage and automatic key rotation
-3. **N-1 Key Rotation**: Maintains previous key during rotation to prevent token invalidation
-4. **JWKS Endpoint**: Public key discovery endpoint for token verification
-5. **Refresh Tokens**: Long-lived refresh tokens for better security
+1. **Key Management**: Secure key storage and automatic key rotation
+1. **N-1 Key Rotation**: Maintains previous key during rotation to prevent token invalidation
+1. **JWKS Endpoint**: Public key discovery endpoint for token verification
+1. **Refresh Tokens**: Long-lived refresh tokens for better security
 
 ## Key Components
 
@@ -50,35 +50,38 @@ The JWT authentication system supports multiple signing algorithms and provides 
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `JWT_ALGORITHM` | Default algorithm for new tokens | `RS256` |
-| `JWT_ISSUER` | Token issuer | `magflow` |
-| `JWT_AUDIENCE` | Token audience | `magflow-api` |
-| `JWT_LEEWAY` | Clock skew leeway (seconds) | `60` |
-| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime | `15` |
-| `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token lifetime | `7` |
-| `JWT_KEY_EXPIRE_DAYS` | Key expiration period | `30` |
-| `JWT_ROTATE_DAYS` | Rotate keys when this many days left | `5` |
-| `JWT_MAX_ACTIVE_KEYS` | Maximum active keys per algorithm | `2` |
-| `JWKS_CACHE_MAX_AGE` | Cache TTL for JWKS endpoint | `3600` |
-| `JWT_KEYSET_DIR` | Directory to store key files | `./jwt-keys` |
+| Variable                          | Description                          | Default       |
+| --------------------------------- | ------------------------------------ | ------------- |
+| `JWT_ALGORITHM`                   | Default algorithm for new tokens     | `RS256`       |
+| `JWT_ISSUER`                      | Token issuer                         | `magflow`     |
+| `JWT_AUDIENCE`                    | Token audience                       | `magflow-api` |
+| `JWT_LEEWAY`                      | Clock skew leeway (seconds)          | `60`          |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access token lifetime                | `15`          |
+| `JWT_REFRESH_TOKEN_EXPIRE_DAYS`   | Refresh token lifetime               | `7`           |
+| `JWT_KEY_EXPIRE_DAYS`             | Key expiration period                | `30`          |
+| `JWT_ROTATE_DAYS`                 | Rotate keys when this many days left | `5`           |
+| `JWT_MAX_ACTIVE_KEYS`             | Maximum active keys per algorithm    | `2`           |
+| `JWKS_CACHE_MAX_AGE`              | Cache TTL for JWKS endpoint          | `3600`        |
+| `JWT_KEYSET_DIR`                  | Directory to store key files         | `./jwt-keys`  |
 
 ## Key Rotation
 
 The system implements an N-1 key rotation strategy:
 
 1. **Key Generation**: New keys are generated when:
+
    - No active keys exist for an algorithm
    - The current key is within `JWT_ROTATE_DAYS` of expiration
 
-2. **Rotation Process**:
+1. **Rotation Process**:
+
    - When a new key is generated, it becomes the active key
    - The previous active key is kept for verification of existing tokens
    - Up to `JWT_MAX_ACTIVE_KEYS` keys per algorithm are maintained
    - Expired keys are automatically cleaned up
 
-3. **Verification**:
+1. **Verification**:
+
    - Tokens are verified using the key ID (`kid`) in the header
    - The system will try all active keys if the specified key is not found
    - Expired keys are never used for verification
@@ -86,16 +89,19 @@ The system implements an N-1 key rotation strategy:
 ## Security Considerations
 
 1. **Algorithm Security**:
+
    - RS256 is widely supported and recommended for compatibility
    - EdDSA (Ed25519) offers better performance and security
    - The system prevents algorithm substitution attacks
 
-2. **Key Security**:
+1. **Key Security**:
+
    - Private keys are stored with restricted file permissions (600)
    - Keys are rotated regularly to limit the impact of key compromise
    - Only public keys are exposed via the JWKS endpoint
 
-3. **Token Security**:
+1. **Token Security**:
+
    - Access tokens are short-lived (15 minutes by default)
    - Refresh tokens can be used to obtain new access tokens
    - Tokens include standard security claims (iss, aud, exp, nbf, iat, jti)
@@ -173,10 +179,10 @@ def verify_token(token: str) -> dict:
 ## Monitoring and Maintenance
 
 1. **Key Rotation**: Monitor key rotation logs to ensure keys are rotated as expected
-2. **Expired Keys**: The system automatically cleans up expired keys
-3. **Performance**: Monitor token verification performance, especially with large numbers of active keys
-4. **Security**: Regularly audit key permissions and access patterns
-3. Create a symlink to the active key
+1. **Expired Keys**: The system automatically cleans up expired keys
+1. **Performance**: Monitor token verification performance, especially with large numbers of active keys
+1. **Security**: Regularly audit key permissions and access patterns
+1. Create a symlink to the active key
 
 ### 2. Environment Variables
 
@@ -227,6 +233,7 @@ username=testuser&password=testpassword
 ```
 
 Response:
+
 ```json
 {
   "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -258,29 +265,29 @@ Content-Type: application/json
 Key rotation is handled automatically based on the configuration:
 
 1. New keys are generated when the current key is about to expire
-2. Old keys are kept for a grace period to allow token verification
-3. The JWKS endpoint always returns the active public keys
+1. Old keys are kept for a grace period to allow token verification
+1. The JWKS endpoint always returns the active public keys
 
 ## Security Considerations
 
 1. **Private Keys**: Keep private keys secure and never commit them to version control
-2. **Key Rotation**: Regularly rotate keys according to your security policy
-3. **Token Expiration**: Keep access token lifetimes short and use refresh tokens for long-lived sessions
-4. **HTTPS**: Always use HTTPS in production to prevent token interception
+1. **Key Rotation**: Regularly rotate keys according to your security policy
+1. **Token Expiration**: Keep access token lifetimes short and use refresh tokens for long-lived sessions
+1. **HTTPS**: Always use HTTPS in production to prevent token interception
 
 ## Troubleshooting
 
 ### Token Validation Fails
 
 1. Verify the token signature using the public key from the JWKS endpoint
-2. Check the token expiration time
-3. Verify the token issuer matches your configuration
+1. Check the token expiration time
+1. Verify the token issuer matches your configuration
 
 ### JWKS Endpoint Not Working
 
 1. Ensure the `JWT_KEYSET_DIR` is correctly configured and readable
-2. Check that the key files have the correct permissions
-3. Verify the service has read access to the key files
+1. Check that the key files have the correct permissions
+1. Verify the service has read access to the key files
 
 ## Testing
 
@@ -302,6 +309,6 @@ Monitor the following metrics:
 ## Future Enhancements
 
 1. Support for multiple key algorithms
-2. Key revocation and key rollover events
-3. More granular token scopes and permissions
-4. Integration with OAuth 2.0 and OpenID Connect
+1. Key revocation and key rollover events
+1. More granular token scopes and permissions
+1. Integration with OAuth 2.0 and OpenID Connect

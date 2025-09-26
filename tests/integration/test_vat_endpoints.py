@@ -158,11 +158,11 @@ async def test_vat_rate_validation(
     """Test VAT rate response validation."""
     # Test with invalid limit (over max)
     response = await client.get("/api/v1/vat?limit=1001", headers=user_token_headers)
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     # Test with invalid limit (under min)
     response = await client.get("/api/v1/vat?limit=0", headers=user_token_headers)
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @pytest.mark.asyncio

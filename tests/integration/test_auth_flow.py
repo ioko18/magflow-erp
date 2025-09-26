@@ -15,14 +15,9 @@ async def test_successful_login(client, create_test_user):
     login_data = {
         "username": test_user["email"],
         "password": test_user["password"],
-        "grant_type": "password",
     }
 
-    response = await client.post(
-        "/api/v1/auth/login",
-        data=login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
+    response = await client.post("/api/v1/auth/login", json=login_data, headers={"Content-Type": "application/json"})
 
     # Assert the response
     assert response.status_code == status.HTTP_200_OK, f"Login failed: {response.text}"
@@ -42,13 +37,12 @@ async def test_invalid_credentials(client, create_test_user):
     login_data = {
         "username": test_user["email"],
         "password": "wrongpassword",
-        "grant_type": "password",
     }
 
     response = await client.post(
         "/api/v1/auth/login",
-        data=login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        json=login_data,
+        headers={"Content-Type": "application/json"},
     )
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -65,25 +59,21 @@ async def test_refresh_token(client, create_test_user):
     login_data = {
         "username": test_user["email"],
         "password": test_user["password"],
-        "grant_type": "password",
     }
 
     login_response = await client.post(
         "/api/v1/auth/login",
-        data=login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        json=login_data,
+        headers={"Content-Type": "application/json"},
     )
 
     assert login_response.status_code == status.HTTP_200_OK
     refresh_token = login_response.json()["refresh_token"]
 
-    # Now try to refresh the token
-    refresh_data = {"refresh_token": refresh_token, "grant_type": "refresh_token"}
-
+    # Now try to refresh the token using the bearer token contract
     response = await client.post(
-        "/api/v1/auth/refresh",
-        data=refresh_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        "/api/v1/auth/refresh-token",
+        headers={"Authorization": f"Bearer {refresh_token}"},
     )
 
     # Assert the response
@@ -98,6 +88,16 @@ async def test_refresh_token(client, create_test_user):
 
 
 @pytest.mark.asyncio
+async def test_refresh_token_rejects_invalid_payload(client, create_test_user):
+    """Refresh endpoint should reject requests without a bearer token."""
+
+    response = await client.post("/api/v1/auth/refresh-token", json={"refresh_token": "bad-token"})
+
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert "Could not validate refresh token" in response.text
+
+
+@pytest.mark.asyncio
 async def test_key_rotation(client, create_test_user, monkeypatch):
     """Test that key rotation works correctly."""
     # Get the test user from the database
@@ -107,7 +107,6 @@ async def test_key_rotation(client, create_test_user, monkeypatch):
     login_data = {
         "username": test_user["email"],
         "password": test_user["password"],
-        "grant_type": "password",
     }
 
     # Get the current keys
@@ -127,8 +126,8 @@ async def test_key_rotation(client, create_test_user, monkeypatch):
     # Make a request to trigger key rotation
     response = await client.post(
         "/api/v1/auth/login",
-        data=login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        json=login_data,
+        headers={"Content-Type": "application/json"},
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -162,11 +161,10 @@ async def test_expired_token(client, create_test_user):
     )
 
     # Try to use the expired token
-    async with client:
-        response = await client.get(
-            "/api/v1/users/me",
-            headers={"Authorization": f"Bearer {expired_token}"},
-        )
+    response = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
 
     # Should return 401 Unauthorized
     assert response.status_code == status.HTTP_401_UNAUTHORIZED

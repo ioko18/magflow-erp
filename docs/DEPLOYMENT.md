@@ -1,3 +1,5 @@
+- **Celery Beat Healthcheck**: The `beat` service healthcheck uses `pgrep` (provided by the `procps` package). If the container reports `pgrep: not found`, rebuild the image after ensuring `procps` is installed (already configured in the project `Dockerfile`).
+
 # MagFlow ERP - Deployment Guide
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
@@ -8,22 +10,16 @@ Comprehensive deployment guide for MagFlow ERP across different environments and
 
 ## 📋 Table of Contents
 
-- [Deployment Overview](#deployment-overview)
 - [Environment Setup](#environment-setup)
 - [Docker Deployment](#docker-deployment)
 - [Kubernetes Deployment](#kubernetes-deployment)
 - [Cloud Platform Deployment](#cloud-platform-deployment)
-- [CI/CD Pipeline](#cicd-pipeline)
 - [Monitoring & Observability](#monitoring--observability)
-- [Backup & Recovery](#backup--recovery)
-- [Security Considerations](#security-considerations)
-- [Performance Optimization](#performance-optimization)
-
-## 🚀 Deployment Overview
 
 ### Deployment Environments
 
 #### Development Environment
+
 - **Purpose**: Local development and testing
 - **URL**: http://localhost:8000
 - **Database**: Local PostgreSQL
@@ -31,6 +27,7 @@ Comprehensive deployment guide for MagFlow ERP across different environments and
 - **Security**: Minimal security (dev only)
 
 #### Staging Environment
+
 - **Purpose**: Pre-production testing
 - **URL**: https://staging.magflow-erp.com
 - **Database**: Separate staging database
@@ -38,6 +35,7 @@ Comprehensive deployment guide for MagFlow ERP across different environments and
 - **Security**: Full security except production keys
 
 #### Production Environment
+
 - **Purpose**: Live production system
 - **URL**: https://magflow-erp.com
 - **Database**: Production PostgreSQL cluster
@@ -47,6 +45,7 @@ Comprehensive deployment guide for MagFlow ERP across different environments and
 ### Deployment Strategies
 
 #### Blue-Green Deployment
+
 ```bash
 # 1. Deploy to blue environment
 kubectl apply -f deployment/kubernetes/blue/
@@ -62,6 +61,7 @@ kubectl delete -f deployment/kubernetes/green/
 ```
 
 #### Rolling Deployment
+
 ```bash
 # Update deployment with rolling update strategy
 kubectl set image deployment/magflow-erp app=magflow-erp:v2.0.0
@@ -74,6 +74,7 @@ kubectl rollout undo deployment/magflow-erp
 ```
 
 #### Canary Deployment
+
 ```bash
 # Deploy canary version
 kubectl apply -f deployment/kubernetes/canary/
@@ -93,6 +94,7 @@ kubectl apply -f deployment/kubernetes/promote-canary/
 ### Configuration Files
 
 #### Environment Variables
+
 ```bash
 # .env.production
 # Database
@@ -129,6 +131,7 @@ LOG_LEVEL=WARNING
 ```
 
 #### Docker Configuration
+
 ```yaml
 # docker-compose.prod.yml
 version: '3.8'
@@ -167,6 +170,7 @@ services:
 ```
 
 #### Kubernetes Configuration
+
 ```yaml
 # deployment/kubernetes/production.yml
 apiVersion: apps/v1
@@ -220,27 +224,43 @@ spec:
 ### Development Docker Setup
 
 #### 1. Build Development Image
-```bash
+
+````bash
 # Build development image
 docker build -t magflow-erp:dev .
 
 # Or build with specific target
 docker build -t magflow-erp:dev --target development .
-```
 
-#### 2. Run Development Environment
+### Docker Compose (Full Stack)
+
+#### 2. Run
+
+- **app**: FastAPI application (ports `8000:8000`)
+- **db**: PostgreSQL 16 with persisted volume
+- **redis**: Redis 7 secured with password
+- **worker**: Celery worker executing asynchronous tasks
+- **beat**: Celery beat scheduler dispatching periodic jobs
+
 ```bash
-# Start all services
-docker-compose up -d
+# Start core services
+docker compose up -d app db redis
 
-# View logs
-docker-compose logs -f app
+# Start background processing (worker + beat)
+docker compose up -d worker beat
+
+# Inspect health status for all services including worker/beat
+docker compose ps
+````
 
 # Access application
+
 curl http://localhost:8000/health
-```
 
 #### 3. Development Workflow with Docker
+
+Make code changes
+
 ```bash
 # Make code changes
 vim app/main.py
@@ -261,6 +281,7 @@ docker-compose exec app pytest tests/
 ### Production Docker Setup
 
 #### 1. Multi-Stage Docker Build
+
 ```dockerfile
 # Dockerfile.production
 FROM python:3.11-slim AS base
@@ -302,6 +323,7 @@ CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "
 ```
 
 #### 2. Production Docker Compose
+
 ```yaml
 # docker-compose.production.yml
 version: '3.8'
@@ -370,6 +392,7 @@ services:
 ```
 
 #### 3. Docker Swarm Deployment
+
 ```bash
 # Initialize Docker Swarm
 docker swarm init
@@ -395,6 +418,7 @@ docker service update --image magflow-erp:production magflow-erp_app
 ### Kubernetes Architecture
 
 #### Namespace Setup
+
 ```bash
 # Create namespace
 kubectl create namespace magflow-erp
@@ -404,6 +428,7 @@ kubectl config set-context --current --namespace=magflow-erp
 ```
 
 #### ConfigMap for Application Configuration
+
 ```yaml
 # deployment/kubernetes/configmap.yml
 apiVersion: v1
@@ -418,6 +443,7 @@ data:
 ```
 
 #### Secrets for Sensitive Data
+
 ```yaml
 # deployment/kubernetes/secrets.yml
 apiVersion: v1
@@ -434,6 +460,7 @@ data:
 ```
 
 #### Deployment with Health Checks
+
 ```yaml
 # deployment/kubernetes/deployment.yml
 apiVersion: apps/v1
@@ -497,6 +524,7 @@ spec:
 ```
 
 #### Service Configuration
+
 ```yaml
 # deployment/kubernetes/service.yml
 apiVersion: v1
@@ -528,6 +556,7 @@ spec:
 ```
 
 #### Ingress Configuration
+
 ```yaml
 # deployment/kubernetes/ingress.yml
 apiVersion: networking.k8s.io/v1
@@ -559,6 +588,7 @@ spec:
 ### Kubernetes Operations
 
 #### Deploy to Kubernetes
+
 ```bash
 # Apply all configurations
 kubectl apply -f deployment/kubernetes/
@@ -579,6 +609,7 @@ kubectl set image deployment/magflow-erp magflow-erp=magflow-erp:production
 ```
 
 #### Monitoring Kubernetes
+
 ```bash
 # Check resource usage
 kubectl top pods
@@ -596,6 +627,7 @@ kubectl logs magflow-erp-xxxxx-yyyyy --previous
 ```
 
 #### Backup and Recovery
+
 ```bash
 # Backup etcd
 kubectl get all -o yaml > cluster-backup.yaml
@@ -612,6 +644,7 @@ kubectl exec postgres-pod -- pg_dumpall -U magflow > db-backup.sql
 ### AWS Deployment
 
 #### 1. RDS PostgreSQL Setup
+
 ```bash
 # Create RDS instance
 aws rds create-db-instance \
@@ -635,6 +668,7 @@ aws elasticache create-cluster \
 ```
 
 #### 2. ECS Fargate Deployment
+
 ```yaml
 # deployment/aws/ecs-task-definition.json
 {
@@ -682,6 +716,7 @@ aws elasticache create-cluster \
 ```
 
 #### 3. Application Load Balancer
+
 ```bash
 # Create target group
 aws elbv2 create-target-group \
@@ -710,6 +745,7 @@ aws elbv2 create-listener \
 ### Azure Deployment
 
 #### 1. Azure Database for PostgreSQL
+
 ```bash
 # Create PostgreSQL server
 az postgres server create \
@@ -728,6 +764,7 @@ az postgres db create \
 ```
 
 #### 2. Azure Container Instances
+
 ```yaml
 # deployment/azure/container-instances.yml
 apiVersion: 2019-12-01
@@ -758,6 +795,7 @@ properties:
 ```
 
 #### 3. Azure Kubernetes Service
+
 ```bash
 # Create AKS cluster
 az aks create \
@@ -775,9 +813,21 @@ az aks get-credentials --resource-group magflow-rg --name magflow-aks
 kubectl apply -f deployment/kubernetes/
 ```
 
+## 📈 Monitoring & Observability
+
+### Celery Beat Healthcheck
+
+- **Requirement**: The `beat` service healthcheck invokes `pgrep` to confirm the scheduler process is running. The binary is provided by the `procps` package.
+- **Symptom**: Healthcheck logs show `/bin/sh: 1: pgrep: not found` and the container remains `unhealthy`.
+- **Resolution**:
+  - Verify the base `Dockerfile` installs `procps` (already configured in this project).
+  - Rebuild the relevant images and recreate the container: `docker compose build app worker beat && docker compose up -d beat --force-recreate`.
+  - Check status with `docker compose ps` to confirm the health check succeeds.
+
 ### Google Cloud Deployment
 
 #### 1. Cloud SQL PostgreSQL
+
 ```bash
 # Create Cloud SQL instance
 gcloud sql instances create magflow-postgres \
@@ -791,6 +841,7 @@ gcloud sql databases create magflow_prod --instance=magflow-postgres
 ```
 
 #### 2. Cloud Run Deployment
+
 ```yaml
 # deployment/gcp/cloud-run.yml
 apiVersion: serving.knative.dev/v1
@@ -813,6 +864,7 @@ spec:
 ```
 
 #### 3. Google Kubernetes Engine
+
 ```bash
 # Create GKE cluster
 gcloud container clusters create magflow-gke \
@@ -832,6 +884,7 @@ kubectl apply -f deployment/kubernetes/
 ### GitHub Actions CI/CD
 
 #### 1. CI Pipeline
+
 ```yaml
 # .github/workflows/ci.yml
 name: CI
@@ -865,6 +918,7 @@ jobs:
 ```
 
 #### 2. CD Pipeline
+
 ```yaml
 # .github/workflows/cd.yml
 name: CD
@@ -899,6 +953,7 @@ jobs:
 ```
 
 #### 3. Security Scanning
+
 ```yaml
 # .github/workflows/security.yml
 name: Security
@@ -930,6 +985,7 @@ jobs:
 ### GitLab CI/CD
 
 #### 1. Complete GitLab Pipeline
+
 ```yaml
 # .gitlab-ci.yml
 stages:
@@ -996,17 +1052,6 @@ deploy-production:
     - kubectl rollout status deployment/magflow-erp
   environment:
     name: production
-  only:
-    - tags
-  when: manual
-```
-
-## 📊 Monitoring & Observability
-
-### Application Monitoring
-
-#### Health Checks
-```yaml
 # deployment/kubernetes/health-checks.yml
 apiVersion: v1
 kind: Service
@@ -1034,6 +1079,7 @@ spec:
 ```
 
 #### Prometheus Configuration
+
 ```yaml
 # monitoring/prometheus/prometheus.yml
 global:
@@ -1055,6 +1101,7 @@ scrape_configs:
 ```
 
 #### Grafana Dashboards
+
 ```yaml
 # monitoring/grafana/dashboards/magflow-overview.json
 {
@@ -1088,6 +1135,7 @@ scrape_configs:
 ### Log Management
 
 #### Fluentd Configuration
+
 ```yaml
 # deployment/logging/fluentd-configmap.yml
 apiVersion: v1
@@ -1119,6 +1167,7 @@ data:
 ```
 
 #### Elasticsearch Setup
+
 ```yaml
 # deployment/logging/elasticsearch.yml
 apiVersion: apps/v1
@@ -1144,6 +1193,7 @@ spec:
 ```
 
 #### Kibana Setup
+
 ```yaml
 # deployment/logging/kibana.yml
 apiVersion: apps/v1
@@ -1169,6 +1219,7 @@ spec:
 ### Database Backup
 
 #### PostgreSQL Backup
+
 ```bash
 # Create database backup
 pg_dump magflow_prod > magflow_prod_$(date +%Y%m%d_%H%M%S).sql
@@ -1190,6 +1241,7 @@ find $BACKUP_DIR -name "*.sql.gz" -mtime +7 -delete
 ```
 
 #### Kubernetes Database Backup
+
 ```yaml
 # deployment/backup/cronjob.yml
 apiVersion: batch/v1
@@ -1223,6 +1275,7 @@ spec:
 ### File System Backup
 
 #### Docker Volumes Backup
+
 ```bash
 # Backup Docker volumes
 docker run --rm -v magflow_postgres_data:/data -v $(pwd):/backup alpine tar czf /backup/postgres_data.tar.gz /data
@@ -1232,6 +1285,7 @@ docker run --rm -v magflow_postgres_data:/data -v $(pwd):/backup alpine sh -c "c
 ```
 
 #### Kubernetes Persistent Volumes Backup
+
 ```yaml
 # deployment/backup/pvc-backup.yml
 apiVersion: v1
@@ -1260,6 +1314,7 @@ spec:
 ### Recovery Procedures
 
 #### Database Recovery
+
 ```bash
 # Drop existing database
 dropdb magflow_prod
@@ -1275,6 +1330,7 @@ psql magflow_prod -c "SELECT COUNT(*) FROM users;"
 ```
 
 #### Kubernetes Recovery
+
 ```bash
 # Scale down application
 kubectl scale deployment magflow-erp --replicas=0
@@ -1295,6 +1351,7 @@ kubectl logs -f deployment/magflow-erp
 ### Production Security Checklist
 
 #### Authentication & Authorization
+
 - [ ] JWT tokens with appropriate expiration
 - [ ] Secure password hashing (bcrypt)
 - [ ] Role-based access control (RBAC)
@@ -1302,6 +1359,7 @@ kubectl logs -f deployment/magflow-erp
 - [ ] Input validation and sanitization
 
 #### Network Security
+
 - [ ] HTTPS only in production
 - [ ] Firewall rules configured
 - [ ] Private subnets for databases
@@ -1309,6 +1367,7 @@ kubectl logs -f deployment/magflow-erp
 - [ ] DDoS protection enabled
 
 #### Data Security
+
 - [ ] Database encryption at rest
 - [ ] SSL/TLS for database connections
 - [ ] Regular security updates
@@ -1316,6 +1375,7 @@ kubectl logs -f deployment/magflow-erp
 - [ ] Secure key management
 
 #### Application Security
+
 - [ ] Dependency vulnerability scanning
 - [ ] Container security scanning
 - [ ] Security headers configured
@@ -1323,6 +1383,7 @@ kubectl logs -f deployment/magflow-erp
 - [ ] SQL injection prevention
 
 ### Security Monitoring
+
 ```yaml
 # monitoring/alerts/security-alerts.yml
 groups:
@@ -1348,6 +1409,7 @@ groups:
 ```
 
 ### Compliance & Audit
+
 ```yaml
 # app/core/audit.py
 import logging
@@ -1398,6 +1460,7 @@ async def admin_create_user(
 ### Database Performance
 
 #### Connection Pooling
+
 ```python
 # app/core/database.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -1421,6 +1484,7 @@ async_session = sessionmaker(
 ```
 
 #### Query Optimization
+
 ```python
 # app/crud/base.py
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1467,6 +1531,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 ### Caching Strategy
 
 #### Redis Cache Implementation
+
 ```python
 # app/services/cache_service.py
 from typing import Optional, Any
@@ -1531,6 +1596,7 @@ async def get_user_with_cache(user_id: int):
 ### Application Performance
 
 #### FastAPI Optimization
+
 ```python
 # app/main.py
 from fastapi import FastAPI
@@ -1581,6 +1647,7 @@ async def detailed_health_check():
 ```
 
 #### Background Tasks
+
 ```python
 # app/services/background_tasks.py
 from fastapi import BackgroundTasks
@@ -1620,6 +1687,7 @@ async def process_order(
 ```
 
 #### Async Optimization
+
 ```python
 # app/services/bulk_operations.py
 from typing import List
@@ -1673,6 +1741,6 @@ async def bulk_update_inventory(
     return total_updated
 ```
 
----
+______________________________________________________________________
 
 **MagFlow ERP Deployment Guide** - Complete Deployment Documentation 🚀

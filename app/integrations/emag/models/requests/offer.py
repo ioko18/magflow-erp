@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class OfferStatus(str, Enum):
@@ -43,11 +43,7 @@ class ProductOfferBase(BaseModel):
     images: List[str] = Field(default_factory=list, description="List of image URLs")
     status: OfferStatus = Field(default=OfferStatus.NEW, description="Offer status")
 
-    class Config:
-        """Pydantic config."""
-
-        use_enum_values = True
-        json_encoders = {OfferStatus: lambda v: v.value}
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class ProductOfferCreate(ProductOfferBase):
@@ -91,10 +87,7 @@ class ProductOfferUpdate(BaseModel):
         description="Updated handling time",
     )
 
-    class Config:
-        """Pydantic config."""
-
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
     @field_validator("sale_price")
     def validate_sale_price(cls, v, values):
@@ -130,8 +123,4 @@ class ProductOfferFilter(BaseModel):
     in_stock: Optional[bool] = None
     min_price: Optional[float] = None
     max_price: Optional[float] = None
-
-    class Config:
-        """Pydantic config."""
-
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)

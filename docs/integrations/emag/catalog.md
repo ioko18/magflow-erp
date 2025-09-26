@@ -55,19 +55,19 @@ GET /catalog/products
 
 **Query Parameters:**
 
-| Parameter       | Type    | Required | Description                                      |
-|-----------------|---------|----------|--------------------------------------------------|
-| `q`             | string  | No       | Search query for product names and descriptions  |
-| `category_id`   | integer | No       | Filter by category ID                            |
-| `brand_id`      | integer | No       | Filter by brand ID                               |
-| `status`        | string  | No       | Filter by status (active, draft, archived)       |
-| `min_price`     | number  | No       | Minimum price filter                             |
-| `max_price`     | number  | No       | Maximum price filter                             |
-| `in_stock`      | boolean | No       | Filter by in-stock status                        |
-| `limit`         | integer | No       | Number of items per page (default: 20, max: 100) |
-| `cursor`        | string  | No       | Cursor for pagination                            |
-| `sort_by`       | string  | No       | Field to sort by (name, price, created_at)       |
-| `sort_direction`| string  | No       | Sort direction (asc, desc)                       |
+| Parameter        | Type    | Required | Description                                      |
+| ---------------- | ------- | -------- | ------------------------------------------------ |
+| `q`              | string  | No       | Search query for product names and descriptions  |
+| `category_id`    | integer | No       | Filter by category ID                            |
+| `brand_id`       | integer | No       | Filter by brand ID                               |
+| `status`         | string  | No       | Filter by status (active, draft, archived)       |
+| `min_price`      | number  | No       | Minimum price filter                             |
+| `max_price`      | number  | No       | Maximum price filter                             |
+| `in_stock`       | boolean | No       | Filter by in-stock status                        |
+| `limit`          | integer | No       | Number of items per page (default: 20, max: 100) |
+| `cursor`         | string  | No       | Cursor for pagination                            |
+| `sort_by`        | string  | No       | Field to sort by (name, price, created_at)       |
+| `sort_direction` | string  | No       | Sort direction (asc, desc)                       |
 
 **Response:**
 
@@ -221,7 +221,7 @@ GET /catalog/brands
 **Query Parameters:**
 
 | Parameter | Type    | Required | Description                                      |
-|-----------|---------|----------|--------------------------------------------------|
+| --------- | ------- | -------- | ------------------------------------------------ |
 | `limit`   | integer | No       | Number of items per page (default: 20, max: 100) |
 | `cursor`  | string  | No       | Cursor for pagination                            |
 
@@ -282,7 +282,7 @@ GET /catalog/characteristics
 **Query Parameters:**
 
 | Parameter     | Type    | Required | Description                                      |
-|---------------|---------|----------|--------------------------------------------------|
+| ------------- | ------- | -------- | ------------------------------------------------ |
 | `category_id` | integer | Yes      | Filter by category ID                            |
 | `limit`       | integer | No       | Number of items per page (default: 20, max: 100) |
 | `cursor`      | string  | No       | Cursor for pagination                            |
@@ -334,9 +334,9 @@ GET /catalog/characteristics/{characteristic_id}/values
 
 **Query Parameters:**
 
-| Parameter     | Type    | Required | Description     |
-|---------------|---------|----------|-----------------|
-| `category_id` | integer | Yes      | Category ID     |
+| Parameter     | Type    | Required | Description |
+| ------------- | ------- | -------- | ----------- |
+| `category_id` | integer | Yes      | Category ID |
 
 **Response:**
 
@@ -379,17 +379,17 @@ Errors follow the [RFC 9457 Problem Details](https://datatracker.ietf.org/doc/ht
 
 ### Common Error Status Codes
 
-| Status Code | Description                           |
-|-------------|---------------------------------------|
-| 400         | Bad Request - Invalid request data    |
-| 401         | Unauthorized - Missing or invalid JWT |
-| 403         | Forbidden - Insufficient permissions  |
-| 404         | Not Found - Resource not found        |
+| Status Code | Description                             |
+| ----------- | --------------------------------------- |
+| 400         | Bad Request - Invalid request data      |
+| 401         | Unauthorized - Missing or invalid JWT   |
+| 403         | Forbidden - Insufficient permissions    |
+| 404         | Not Found - Resource not found          |
 | 422         | Unprocessable Entity - Validation error |
 | 429         | Too Many Requests - Rate limit exceeded |
-| 500         | Internal Server Error                 |
-| 502         | Bad Gateway - Upstream service error  |
-| 503         | Service Unavailable - Try again later |
+| 500         | Internal Server Error                   |
+| 502         | Bad Gateway - Upstream service error    |
+| 503         | Service Unavailable - Try again later   |
 
 ## Pagination
 
@@ -397,22 +397,22 @@ The API uses cursor-based pagination for list endpoints. The response includes a
 
 ### Request Parameters
 
-| Parameter | Type    | Required | Description                                      |
-|-----------|---------|----------|--------------------------------------------------|
-| `limit`   | integer | No       | Number of items per page (default: 20, max: 100) |
+| Parameter | Type    | Required | Description                                                 |
+| --------- | ------- | -------- | ----------------------------------------------------------- |
+| `limit`   | integer | No       | Number of items per page (default: 20, max: 100)            |
 | `cursor`  | string  | No       | Cursor for pagination (from `next_cursor` or `prev_cursor`) |
 
 ### Response Fields
 
-| Field         | Type    | Description                                      |
-|---------------|---------|--------------------------------------------------|
-| `total_items` | integer | Total number of items across all pages           |
-| `total_pages` | integer | Total number of pages                            |
-| `page`        | integer | Current page number                              |
-| `per_page`    | integer | Number of items per page                         |
-| `has_next`    | boolean | Whether there are more items after this page     |
-| `has_prev`    | boolean | Whether there are items before this page         |
-| `next_cursor` | string  | Cursor for the next page (null if no more items) |
+| Field         | Type    | Description                                       |
+| ------------- | ------- | ------------------------------------------------- |
+| `total_items` | integer | Total number of items across all pages            |
+| `total_pages` | integer | Total number of pages                             |
+| `page`        | integer | Current page number                               |
+| `per_page`    | integer | Number of items per page                          |
+| `has_next`    | boolean | Whether there are more items after this page      |
+| `has_prev`    | boolean | Whether there are items before this page          |
+| `next_cursor` | string  | Cursor for the next page (null if no more items)  |
 | `prev_cursor` | string  | Cursor for the previous page (null if first page) |
 
 ## Filtering
@@ -421,23 +421,23 @@ List endpoints support filtering using query parameters. The available filters d
 
 ### Common Filters
 
-| Parameter    | Type    | Description                                      |
-|--------------|---------|--------------------------------------------------|
-| `q`          | string  | Search query (searches in name and description)  |
-| `status`     | string  | Filter by status (active, draft, archived)       |
-| `is_active`  | boolean | Filter by active status                          |
-| `created_at` | string  | Filter by creation date (ISO 8601 format)        |
-| `updated_at` | string  | Filter by last update date (ISO 8601 format)     |
+| Parameter    | Type    | Description                                     |
+| ------------ | ------- | ----------------------------------------------- |
+| `q`          | string  | Search query (searches in name and description) |
+| `status`     | string  | Filter by status (active, draft, archived)      |
+| `is_active`  | boolean | Filter by active status                         |
+| `created_at` | string  | Filter by creation date (ISO 8601 format)       |
+| `updated_at` | string  | Filter by last update date (ISO 8601 format)    |
 
 ### Product-Specific Filters
 
-| Parameter    | Type    | Description                                      |
-|--------------|---------|--------------------------------------------------|
-| `category_id`| integer | Filter by category ID                            |
-| `brand_id`   | integer | Filter by brand ID                               |
-| `min_price`  | number  | Filter by minimum price                          |
-| `max_price`  | number  | Filter by maximum price                          |
-| `in_stock`   | boolean | Filter by in-stock status                        |
+| Parameter     | Type    | Description               |
+| ------------- | ------- | ------------------------- |
+| `category_id` | integer | Filter by category ID     |
+| `brand_id`    | integer | Filter by brand ID        |
+| `min_price`   | number  | Filter by minimum price   |
+| `max_price`   | number  | Filter by maximum price   |
+| `in_stock`    | boolean | Filter by in-stock status |
 
 ## Sorting
 
@@ -445,12 +445,12 @@ List endpoints support sorting using the `sort_by` and `sort_direction` paramete
 
 ### Sortable Fields
 
-| Field       | Description                           |
-|-------------|---------------------------------------|
-| `name`      | Sort by product/brand name            |
-| `price`     | Sort by product price                 |
-| `created_at`| Sort by creation date                 |
-| `updated_at`| Sort by last update date              |
+| Field        | Description                |
+| ------------ | -------------------------- |
+| `name`       | Sort by product/brand name |
+| `price`      | Sort by product price      |
+| `created_at` | Sort by creation date      |
+| `updated_at` | Sort by last update date   |
 
 ### Sort Direction
 
@@ -474,12 +474,15 @@ GET /catalog/products?q=wireless+headphones&in_stock=true&min_price=50&max_price
 ### Paginate Through Results
 
 1. First request:
+
    ```http
    GET /catalog/products?limit=20
    ```
+
    Response includes `next_cursor` for the next page.
 
-2. Next page:
+1. Next page:
+
    ```http
    GET /catalog/products?limit=20&cursor=eyJjcmVhdGVkX2F0IjoiMjAyMy0xMC0xNVQxMjowMDowMFoiLCJpZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMCJ9
    ```
@@ -489,18 +492,22 @@ GET /catalog/products?q=wireless+headphones&in_stock=true&min_price=50&max_price
 ### Common Issues
 
 1. **Authentication Failed**
+
    - Verify the JWT token is valid and not expired
    - Check that the `Authorization` header is correctly formatted
 
-2. **Rate Limit Exceeded**
+1. **Rate Limit Exceeded**
+
    - Check the `X-RateLimit-Remaining` header
    - Implement exponential backoff in your client
 
-3. **Validation Errors**
+1. **Validation Errors**
+
    - Check the error response for details on which fields failed validation
    - Ensure all required fields are provided with the correct data types
 
-4. **Not Found Errors**
+1. **Not Found Errors**
+
    - Verify the resource ID exists
    - Check that you have permission to access the resource
 

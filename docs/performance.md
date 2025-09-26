@@ -5,17 +5,20 @@ This document provides guidance on running and interpreting performance tests fo
 ## Test Scenarios
 
 ### 1. Product Listing
+
 - **Endpoint**: `GET /products`
 - **Parameters**: Search query, pagination cursor
 - **Test Focus**: Read performance, search efficiency
 
 ### 2. Category Pagination
+
 - **Endpoint**: `GET /categories`
 - **Parameters**: Pagination cursor
 - **Test Focus**: Pagination performance
 
 ### 3. Authentication
-- **Endpoints**: 
+
+- **Endpoints**:
   - `POST /auth/login`
   - `POST /auth/refresh`
 - **Test Focus**: Token generation and validation
@@ -23,17 +26,20 @@ This document provides guidance on running and interpreting performance tests fo
 ## Running Tests
 
 ### Prerequisites
+
 - Docker and Docker Compose
 - Locust
 - jq (for result processing)
 
 ### Running All Tests
+
 ```bash
 chmod +x scripts/run_perf_test.sh
 ./scripts/run_perf_test.sh
 ```
 
 ### Running Specific Test
+
 ```bash
 # Example: Run only product listing tests
 ./scripts/run_perf_test.sh products
@@ -42,6 +48,7 @@ chmod +x scripts/run_perf_test.sh
 ## Interpreting Results
 
 ### Key Metrics
+
 - **RPS (Requests Per Second)**: Throughput of the system
 - **Response Times**:
   - p50 (median)
@@ -55,15 +62,16 @@ chmod +x scripts/run_perf_test.sh
 
 ### Performance Thresholds (CI)
 
-| Metric | Warning | Critical |
-|--------|---------|----------|
-| p95 Response Time | > 500ms | > 1000ms |
-| Error Rate | > 1% | > 5% |
-| PgBouncer Wait Time | > 100ms | > 500ms |
+| Metric              | Warning | Critical |
+| ------------------- | ------- | -------- |
+| p95 Response Time   | > 500ms | > 1000ms |
+| Error Rate          | > 1%    | > 5%     |
+| PgBouncer Wait Time | > 100ms | > 500ms  |
 
 ## PgBouncer Configuration
 
 ### Recommended Settings
+
 ```ini
 [pgbouncer]
 pool_mode = transaction
@@ -74,6 +82,7 @@ max_prepared_statements = 100
 ```
 
 ### Monitoring PgBouncer
+
 ```sql
 -- Show pool statistics
 SHOW POOLS;
@@ -88,16 +97,19 @@ SHOW ACTIVE_SOCKETS;
 ## Performance Optimization Tips
 
 1. **Database**
+
    - Ensure proper indexing on filtered/sorted columns
    - Monitor and adjust connection pool sizes
    - Consider read replicas for read-heavy workloads
 
-2. **Application**
+1. **Application**
+
    - Use connection pooling effectively
    - Implement caching for frequently accessed data
    - Optimize database queries
 
-3. **Infrastructure**
+1. **Infrastructure**
+
    - Monitor system resources (CPU, memory, I/O)
    - Consider horizontal scaling for API servers
    - Use a CDN for static assets
@@ -105,6 +117,7 @@ SHOW ACTIVE_SOCKETS;
 ## Analyzing Results
 
 ### Example Output Analysis
+
 ```
 Test: products_prepared_on
 RPS: 245.6
@@ -115,6 +128,7 @@ Error Rate: 0.1%
 ```
 
 ### PgBouncer Metrics to Watch
+
 - `pgbouncer_pool_client_wait_time`
 - `pgbouncer_pool_query_time`
 - `pgbouncer_pool_xact_count`

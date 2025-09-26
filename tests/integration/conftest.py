@@ -1,14 +1,21 @@
 import asyncio
+import json
 import os
 from typing import AsyncGenerator
 
 import pytest
-from fastapi import FastAPI
+import pytest_asyncio
+from fastapi import FastAPI, Header, HTTPException, status
+from httpx import AsyncClient
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.types import TypeDecorator, VARCHAR
 
 from app.core.config import settings
 from app.db.base_class import Base
 from app.main import app as _app
+from app.api import deps
+from app.schemas.auth import UserInDB
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -42,10 +49,58 @@ def event_loop():
     loop.close()
 
 
+class JSONEncodedDict(TypeDecorator):
+    """SQLite-compatible JSON type used to replace PostgreSQL's JSONB."""
+
+    impl = VARCHAR
+
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(self.impl)
+
+    def process_bind_param(self, value, dialect):  # pragma: no cover - passthrough
+        if value is not None and not isinstance(value, str):
+            value = json.dumps(value)
+        return value
+
+    def process_result_value(self, value, dialect):  # pragma: no cover - passthrough
+        if value is not None and isinstance(value, str):
+            value = json.loads(value)
+        return value
+
+
+def _prepare_metadata_for_sqlite() -> None:
+    """Strip PostgreSQL-specific constructs to support SQLite in-memory DB."""
+
+    for table in Base.metadata.tables.values():
+        table.schema = None
+
+        for column in table.columns:
+            if isinstance(column.type, JSONB):
+                column.type = JSONEncodedDict()
+
+            for fk in list(column.foreign_keys):
+                colspec = fk._get_colspec()
+                if colspec and "." in colspec:
+                    fk._colspec = colspec.split(".", 1)[1]
+
+        for fk_constraint in list(table.foreign_key_constraints):
+            for element in fk_constraint.elements:
+                target = element.target_fullname
+                if target and "." in target:
+                    element._colspec = target.split(".", 1)[1]
+                    element._resolved_target = None
+
+
 @pytest.fixture(scope="session")
 async def engine() -> AsyncEngine:
     """Create a test database engine."""
     # Create engine with SQLite in-memory database
+    _prepare_metadata_for_sqlite()
+
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=True,
@@ -144,7 +199,7 @@ def test_user():
 async def create_test_user(db_session):
     """Create a test user in the database and return the user data with ID."""
     from app.core.security import get_password_hash
-    from app.db.models import User
+    from app.models.user import User
 
     # Create a new user
     user_data = {
@@ -177,13 +232,56 @@ async def create_test_user(db_session):
 
 
 @pytest.fixture
+def user_token_headers() -> dict[str, str]:
+    """Provide placeholder authorization headers for tests."""
+
+    return {"Authorization": "Bearer test-token"}
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def override_current_user():
+    """Override authentication dependency to bypass full auth flow in tests."""
+
+    from datetime import datetime
+
+    now = datetime.utcnow()
+
+    test_user = UserInDB(
+        id=1,
+        email="test@example.com",
+        full_name="Integration Test User",
+        is_active=True,
+        is_superuser=False,
+        hashed_password="",
+        created_at=now,
+        updated_at=now,
+        last_login=now,
+        failed_login_attempts=0,
+        avatar_url=None,
+    )
+
+    async def _get_current_user_override(authorization: str | None = Header(default=None)):
+        if not authorization:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+            )
+
+        return test_user
+
+    _app.dependency_overrides[deps.get_current_user] = _get_current_user_override
+    try:
+        yield
+    finally:
+        _app.dependency_overrides.pop(deps.get_current_user, None)
+
+
+@pytest.fixture
 async def client(app: FastAPI) -> AsyncGenerator:
     """Create a test client for the FastAPI app.
 
     This fixture creates an async HTTP client that can be used to make requests
     to the test application. It automatically handles async context management.
     """
-    from httpx import AsyncClient
-
     async with AsyncClient(app=app, base_url="http://testserver") as test_client:
         yield test_client

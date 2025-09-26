@@ -16,7 +16,9 @@ from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
 
 from app.core.config import settings
-from app.db.models import User, Role, Permission
+from app.models.user import User
+from app.models.role import Role
+from app.models.permission import Permission
 from app.services.rbac_service import AuditService
 
 

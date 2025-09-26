@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
 
 
 class ProductOfferStatus(str, Enum):
@@ -26,11 +26,11 @@ class ProductOfferPrice(BaseModel):
     currency: str = Field(default="RON", description="Currency code (e.g., RON, EUR)")
     vat_rate: float = Field(..., description="VAT rate as a percentage (e.g., 19.0)")
     vat_amount: float = Field(..., description="VAT amount")
+    model_config = ConfigDict()
 
-    class Config:
-        """Pydantic config."""
-
-        json_encoders = {float: lambda v: round(v, 2)}
+    @field_serializer("current", "initial", "vat_rate", "vat_amount", when_used="json")
+    def serialize_money(self, value: float, _info) -> float:
+        return round(value, 2)
 
 
 class ProductOfferStock(BaseModel):
@@ -89,13 +89,11 @@ class ProductOfferResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(use_enum_values=True)
 
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            ProductOfferStatus: lambda v: v.value,
-        }
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
 
 
 class ProductOfferListResponse(BaseModel):
@@ -123,10 +121,7 @@ class ProductOfferListResponse(BaseModel):
     total_items: int = Field(0, alias="totalItems", description="Total number of items")
     total_pages: int = Field(1, alias="totalPages", description="Total number of pages")
 
-    class Config:
-        """Pydantic config."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(allow_population_by_field_name=True)
 
 
 class ProductOfferBulkResponseItem(BaseModel):
@@ -159,10 +154,7 @@ class ProductOfferBulkResponse(BaseModel):
         description="Results of bulk operation",
     )
 
-    class Config:
-        """Pydantic config."""
-
-        allow_population_by_field_name = True
+    model_config = ConfigDict(allow_population_by_field_name=True)
 
 
 class ProductOfferSyncStatus(str, Enum):
@@ -191,10 +183,10 @@ class ProductOfferSyncResponse(BaseModel):
         description="List of errors if any",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(use_enum_values=True)
 
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            ProductOfferSyncStatus: lambda v: v.value,
-        }
+    @field_serializer("started_at", "completed_at", when_used="json")
+    def serialize_optional_datetime(
+        self, value: Optional[datetime], _info
+    ) -> Optional[str]:
+        return value.isoformat() if value else None

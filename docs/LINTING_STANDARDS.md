@@ -7,13 +7,15 @@ This document establishes the linting standards, code quality guidelines, and au
 ## 🎯 **Code Quality Metrics**
 
 ### **Current Status**
+
 - **Linting Errors**: 74 → 2 (97.3% reduction achieved)
 - **Critical Issues**: 0 remaining
 - **Code Formatting**: 100% Black compliant
 - **Import Organization**: 100% explicit imports
 
 ### **Quality Targets**
-- **Linting Errors**: < 5 total errors
+
+- **Linting Errors**: \< 5 total errors
 - **Test Coverage**: > 85%
 - **Type Hint Coverage**: > 90%
 - **Documentation Coverage**: > 80%
@@ -23,6 +25,7 @@ This document establishes the linting standards, code quality guidelines, and au
 ### **1. Ruff - Primary Linter**
 
 #### **Configuration (pyproject.toml)**
+
 ```toml
 [tool.ruff]
 # Enable comprehensive rule set
@@ -113,6 +116,7 @@ known-first-party = ["app", "tests"]
 ```
 
 #### **Usage Commands**
+
 ```bash
 # Check all files
 ruff check app/ tests/
@@ -130,6 +134,7 @@ ruff check app/ tests/ --select F,E,W
 ### **2. Black - Code Formatter**
 
 #### **Configuration (pyproject.toml)**
+
 ```toml
 [tool.black]
 line-length = 88
@@ -149,6 +154,7 @@ exclude = '''
 ```
 
 #### **Usage Commands**
+
 ```bash
 # Format all files
 black app/ tests/
@@ -163,6 +169,7 @@ black app/ tests/ --diff
 ### **3. MyPy - Type Checking**
 
 #### **Configuration (pyproject.toml)**
+
 ```toml
 [tool.mypy]
 python_version = "3.11"
@@ -199,6 +206,7 @@ ignore_missing_imports = true
 ```
 
 #### **Usage Commands**
+
 ```bash
 # Type check all files
 mypy app/ --explicit-package-bases
@@ -215,6 +223,7 @@ mypy app/ --html-report mypy-report/
 ### **1. Import Organization**
 
 #### **✅ Good Examples**
+
 ```python
 # Standard library imports
 import asyncio
@@ -235,6 +244,7 @@ from app.services.purchase_service import PurchaseService
 ```
 
 #### **❌ Bad Examples**
+
 ```python
 # Mixed import styles
 from app.schemas import *  # Star imports
@@ -246,6 +256,7 @@ import asyncio  # Standard library after third-party
 ### **2. Function Definitions**
 
 #### **✅ Good Examples**
+
 ```python
 async def create_supplier(
     supplier_data: SupplierCreate,
@@ -272,6 +283,7 @@ async def create_supplier(
 ```
 
 #### **❌ Bad Examples**
+
 ```python
 # Missing type hints and docstring
 async def create_supplier(supplier_data, db, current_user):
@@ -286,6 +298,7 @@ async def create_supplier(supplier_data: SupplierCreate) -> Supplier:
 ### **3. Class Definitions**
 
 #### **✅ Good Examples**
+
 ```python
 class SupplierService:
     """Service for managing supplier operations.
@@ -312,6 +325,7 @@ class SupplierService:
 ```
 
 #### **❌ Bad Examples**
+
 ```python
 # Missing docstring and type hints
 class SupplierService:
@@ -325,6 +339,7 @@ class SupplierService:
 ### **4. Error Handling**
 
 #### **✅ Good Examples**
+
 ```python
 async def get_supplier(supplier_id: int, db: AsyncSession) -> Supplier:
     """Get supplier by ID with proper error handling."""
@@ -345,6 +360,7 @@ async def get_supplier(supplier_id: int, db: AsyncSession) -> Supplier:
 ```
 
 #### **❌ Bad Examples**
+
 ```python
 # Poor error handling
 async def get_supplier(supplier_id: int, db: AsyncSession) -> Supplier:
@@ -357,6 +373,7 @@ async def get_supplier(supplier_id: int, db: AsyncSession) -> Supplier:
 ### **Pre-commit Hooks**
 
 #### **Configuration (.pre-commit-config.yaml)**
+
 ```yaml
 repos:
   - repo: https://github.com/psf/black
@@ -389,6 +406,7 @@ repos:
 ```
 
 #### **Installation & Usage**
+
 ```bash
 # Install pre-commit
 pip install pre-commit
@@ -403,6 +421,7 @@ pre-commit run --all-files
 ### **GitHub Actions Workflow**
 
 #### **Configuration (.github/workflows/code-quality.yml)**
+
 ```yaml
 name: Code Quality
 
@@ -454,6 +473,7 @@ jobs:
 ## 📊 **Quality Metrics Dashboard**
 
 ### **Daily Quality Report Script**
+
 ```python
 #!/usr/bin/env python3
 """Generate daily code quality report."""
@@ -507,6 +527,7 @@ if __name__ == "__main__":
 ```
 
 ### **Usage Commands**
+
 ```bash
 # Generate daily report
 python scripts/quality_report.py
@@ -521,6 +542,7 @@ make quality-fix
 ## 🎯 **Best Practices Checklist**
 
 ### **Before Committing Code**
+
 - [ ] Run `ruff check app/ tests/ --fix`
 - [ ] Run `black app/ tests/`
 - [ ] Run `mypy app/ --explicit-package-bases`
@@ -529,6 +551,7 @@ make quality-fix
 - [ ] Verify no new linting errors introduced
 
 ### **Code Review Checklist**
+
 - [ ] All functions have type hints
 - [ ] All public functions have docstrings
 - [ ] Error handling is comprehensive
@@ -538,6 +561,7 @@ make quality-fix
 - [ ] No security vulnerabilities introduced
 
 ### **Release Checklist**
+
 - [ ] All quality checks pass
 - [ ] Test coverage > 85%
 - [ ] No critical linting errors
@@ -548,12 +572,14 @@ make quality-fix
 ## 🚀 **Continuous Improvement**
 
 ### **Monthly Quality Reviews**
+
 1. **Analyze Quality Trends**: Track linting errors, test coverage, and type hint coverage
-2. **Update Standards**: Review and update linting rules based on team feedback
-3. **Tool Updates**: Keep linting tools and configurations up to date
-4. **Team Training**: Share best practices and new quality standards
+1. **Update Standards**: Review and update linting rules based on team feedback
+1. **Tool Updates**: Keep linting tools and configurations up to date
+1. **Team Training**: Share best practices and new quality standards
 
 ### **Quality Metrics Tracking**
+
 ```python
 # Track quality metrics over time
 quality_metrics = {
@@ -563,7 +589,7 @@ quality_metrics = {
 }
 ```
 
----
+______________________________________________________________________
 
 **Status**: ✅ **ACTIVE** - Comprehensive linting standards established and enforced across MagFlow ERP project.
 

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class HandlingTimeResponse(BaseModel):
@@ -33,7 +33,4 @@ class HandlingTimeResponse(BaseModel):
         description="Minimum handling time in days",
     )
 
-    class Config:
-        """Pydantic config."""
-
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)

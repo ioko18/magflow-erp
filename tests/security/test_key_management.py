@@ -108,6 +108,9 @@ def test_jwks_public_keys():
         assert "dp" not in key
         assert "dq" not in key
         assert "qi" not in key
+        assert key.get("kty") == "RSA"
+        assert "n" in key and key["n"]
+        assert "e" in key and key["e"]
 
     # Clean up
     for key_file in Path(TEST_KEYS_DIR).glob("*.json"):

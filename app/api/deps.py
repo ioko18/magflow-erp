@@ -45,7 +45,7 @@ except Exception:  # pragma: no cover
             catalog_service = None
 
     ApplicationContainer = _StubContainer  # type: ignore
-from app.core.database import get_async_session as get_db
+from app.db import get_db
 from app.security.jwt import (
     get_current_active_superuser,
     get_current_active_user,

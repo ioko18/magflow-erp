@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 # Type variable for generic problem type (removed due to redefinition)
 # ProblemType = TypeVar("ProblemType", bound="Problem")
@@ -40,8 +40,8 @@ class Problem(BaseModel):
         description="Additional error details for validation errors",
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "https://example.com/probs/validation-error",
                 "title": "Validation Error",
@@ -50,7 +50,8 @@ class Problem(BaseModel):
                 "instance": "/api/v1/resource/123",
                 "errors": [{"field": "email", "message": "Invalid email format"}],
             },
-        }
+        },
+    )
 
 
 # Common problem types as per RFC 9457
@@ -73,8 +74,8 @@ class ValidationProblem(Problem):
     title: str = "Validation Error"
     errors: List[Dict[str, Any]]
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.VALIDATION_ERROR,
                 "title": "Validation Error",
@@ -85,7 +86,8 @@ class ValidationProblem(Problem):
                     {"field": "password", "message": "Password too short"},
                 ],
             },
-        }
+        },
+    )
 
 
 class UnauthorizedProblem(Problem):
@@ -93,8 +95,8 @@ class UnauthorizedProblem(Problem):
     status: int = 401
     title: str = "Unauthorized"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.UNAUTHORIZED,
                 "title": "Unauthorized",
@@ -102,7 +104,8 @@ class UnauthorizedProblem(Problem):
                 "detail": "Authentication required",
                 "instance": "/api/v1/secure-resource",
             },
-        }
+        },
+    )
 
 
 class ForbiddenProblem(Problem):
@@ -110,8 +113,8 @@ class ForbiddenProblem(Problem):
     status: int = 403
     title: str = "Forbidden"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.FORBIDDEN,
                 "title": "Forbidden",
@@ -119,7 +122,8 @@ class ForbiddenProblem(Problem):
                 "detail": "You don't have permission to access this resource",
                 "instance": "/api/v1/admin",
             },
-        }
+        },
+    )
 
 
 class NotFoundProblem(Problem):
@@ -127,8 +131,8 @@ class NotFoundProblem(Problem):
     status: int = 404
     title: str = "Not Found"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.NOT_FOUND,
                 "title": "Not Found",
@@ -136,7 +140,8 @@ class NotFoundProblem(Problem):
                 "detail": "The requested resource was not found",
                 "instance": "/api/v1/resource/999",
             },
-        }
+        },
+    )
 
 
 class ConflictProblem(Problem):
@@ -144,8 +149,8 @@ class ConflictProblem(Problem):
     status: int = 409
     title: str = "Conflict"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.CONFLICT,
                 "title": "Conflict",
@@ -153,7 +158,8 @@ class ConflictProblem(Problem):
                 "detail": "Resource already exists",
                 "instance": "/api/v1/resource/123",
             },
-        }
+        },
+    )
 
 
 class TooManyRequestsProblem(Problem):
@@ -161,8 +167,8 @@ class TooManyRequestsProblem(Problem):
     status: int = 429
     title: str = "Too Many Requests"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.TOO_MANY_REQUESTS,
                 "title": "Too Many Requests",
@@ -170,7 +176,8 @@ class TooManyRequestsProblem(Problem):
                 "detail": "Rate limit exceeded. Try again in 60 seconds.",
                 "instance": "/api/v1/endpoint",
             },
-        }
+        },
+    )
 
 
 class InternalServerErrorProblem(Problem):
@@ -178,8 +185,8 @@ class InternalServerErrorProblem(Problem):
     status: int = 500
     title: str = "Internal Server Error"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.INTERNAL_ERROR,
                 "title": "Internal Server Error",
@@ -187,7 +194,8 @@ class InternalServerErrorProblem(Problem):
                 "detail": "An unexpected error occurred",
                 "instance": "/api/v1/endpoint",
             },
-        }
+        },
+    )
 
 
 class ServiceUnavailableProblem(Problem):
@@ -195,8 +203,8 @@ class ServiceUnavailableProblem(Problem):
     status: int = 503
     title: str = "Service Unavailable"
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": ProblemType.SERVICE_UNAVAILABLE,
                 "title": "Service Unavailable",
@@ -204,7 +212,8 @@ class ServiceUnavailableProblem(Problem):
                 "detail": "Service is temporarily unavailable. Please try again later.",
                 "instance": "/api/v1/endpoint",
             },
-        }
+        },
+    )
 
 
 # Backward compatibility with existing code

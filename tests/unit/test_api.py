@@ -1,205 +1,212 @@
-#!/usr/bin/env python3
-"""Test script for MagFlow API CRUD operations and search functionality"""
+"""
+Test cases for MagFlow API endpoints.
+This module contains test cases for the main API endpoints of the MagFlow ERP system.
+It tests CRUD operations for products and categories, as well as search functionality.
+"""
+import pytest
+import pytest_asyncio
+from httpx import AsyncClient
 
-import time
-from typing import Dict
+pytestmark = pytest.mark.asyncio
 
-import httpx
+def get_test_product():
+    """Return a test product dictionary."""
+    return {
+        "name": "Test Product",
+        "sku": "TEST-PROD-001",
+        "price": 99.99,
+        "currency": "RON",
+        "description": "A test product",
+        "stock_quantity": 10,
+        "status": "active",
+        "is_active": True,
+        "category_id": 1,
+        "images": [
+            {
+                "url": "https://example.com/test.jpg",
+                "is_main": True,
+                "position": 0,
+                "alt": "Test Product"
+            }
+        ],
+        "characteristics": [
+            {
+                "id": 1,
+                "name": "color",
+                "value": "red",
+                "unit": None
+            },
+            {
+                "id": 2,
+                "name": "size",
+                "value": "M",
+                "unit": None
+            }
+        ]
+    }
 
-BASE_URL = "http://localhost:8010"
+def get_test_category():
+    return {
+        "name": "Test Category",
+        "description": "A test category",
+        "slug": "test-category",
+        "is_active": True
+    }
 
+# Import fixtures from our test client module
+pytest_plugins = ["tests.conftest"]
 
-def measure_time(func):
-    """Decorator to measure execution time"""
+@pytest_asyncio.fixture
+async def test_product(client: AsyncClient) -> dict:
+    """Create a test product and return its data."""
+    response = await client.post("/api/v1/catalog/products", json=get_test_product())
+    assert response.status_code == 201
+    product_data = response.json()
+    yield product_data
+    # Cleanup
+    await client.delete(f"/api/v1/catalog/products/{product_data['id']}")
 
-    def wrapper(*args, **kwargs):
-        start_time = time.time()
-        result = func(*args, **kwargs)
-        end_time = time.time()
-        execution_time = (end_time - start_time) * 1000  # Convert to milliseconds
-        print(f"⏱️  {func.__name__} took {execution_time:.2f}ms")
-        return result, execution_time
+@pytest.fixture
+def test_product_id(test_product: dict) -> str:
+    """Return the ID of the test product."""
+    return str(test_product["id"])
 
-    return wrapper
+class TestProductEndpoints:
+    """Tests for product endpoints."""
+    
+    async def test_create_product(self, client: AsyncClient):
+        """Test creating a new product."""
+        response = await client.post(
+            "/api/v1/catalog/products", 
+            json=get_test_product()
+        )
+        assert response.status_code == 201
+        data = response.json()
+        test_product = get_test_product()
+        assert data["name"] == test_product["name"]
+        assert data["price"] == test_product["price"]
+        assert "id" in data
 
+        product_id = data["id"]
 
-@measure_time
-def test_create_category(client: httpx.Client, name: str) -> Dict:
-    """Test category creation"""
-    response = client.post("/categories/", json={"name": name})
-    print(f"✅ Created category: {response.status_code} - {response.json()}")
-    return response.json()
+        # Ensure the created product is removed to keep tests isolated
+        cleanup_response = await client.delete(f"/api/v1/catalog/products/{product_id}")
+        assert cleanup_response.status_code in (200, 204)
 
+    async def test_get_product(self, client: AsyncClient, test_product: dict):
+        """Test retrieving a product by ID."""
+        product_id = test_product["id"]
+        response = await client.get(f"/api/v1/catalog/products/{product_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert str(data["id"]) == str(product_id)
+        assert data["name"] == test_product["name"]
 
-@measure_time
-def test_create_product(client: httpx.Client, name: str, price: float) -> Dict:
-    """Test product creation"""
-    response = client.post("/products/", json={"name": name, "price": price})
-    print(f"✅ Created product: {response.status_code} - {response.json()}")
-    return response.json()
+    async def test_list_products(self, client: AsyncClient, test_product: dict):
+        """Test listing products with pagination."""
+        # Debug: Print the test product ID for reference
+        print(f"Test product ID: {test_product['id']}")
+        
+        # Make the request
+        url = "/api/v1/catalog/products"
+        params = {
+            "sort_by": "created_at",
+            "sort_direction": "desc",
+            "limit": 20,
+            "include_inactive": True
+        }
+        print(f"Making request to: {url} with params: {params}")
+        
+        response = await client.get(url, params=params)
+        
+        # Debug: Print the response status and content
+        print(f"Response status: {response.status_code}")
+        print(f"Response content: {response.text}")
+        
+        # If the response is JSON, print it in a more readable format
+        if 'application/json' in response.headers.get('content-type', ''):
+            try:
+                print("Response JSON:", response.json())
+            except ValueError:
+                print("Could not parse response as JSON")
+        assert response.status_code == 200
+        payload = response.json()
+        assert "data" in payload
+        items = payload["data"] if isinstance(payload["data"], list) else payload.get("data", {}).get("items", [])
+        assert any(str(p["id"]) == str(test_product["id"]) for p in items)
 
+    async def test_update_product(self, client: AsyncClient, test_product: dict):
+        """Test updating a product."""
+        product_id = test_product["id"]
+        update_data = {
+            "name": "Updated Product", 
+            "sku": "UPDATED-SKU-001",
+            "price": 199.99,
+            "description": "Updated description",
+            "stock_quantity": 5,
+            "status": "active",
+            "category_id": 1  # Required field
+        }
+        response = await client.put(
+            f"/api/v1/catalog/products/{product_id}",
+            json=update_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == update_data["name"]
+        assert data["price"] == update_data["price"]
+        assert data["description"] == update_data["description"]
 
-@measure_time
-def test_list_products(client: httpx.Client, limit: int = 10, offset: int = 0) -> Dict:
-    """Test product listing"""
-    response = client.get(f"/products/?limit={limit}&offset={offset}")
-    result = response.json()
-    print(
-        f"📋 Listed products: {response.status_code} - Found {result['total']} products",
-    )
-    return result
+    async def test_search_products(self, client: AsyncClient, test_product: dict):
+        """Test searching for products."""
+        # Search by name
+        response = await client.get(
+            "/api/v1/catalog/products",
+            params={
+                "q": test_product['name'],
+                "sort_by": "created_at",
+                "sort_direction": "desc",
+                "limit": 20,
+                "include_inactive": True
+            },
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        items = payload.get("data", [])
+        assert isinstance(items, list)
+        assert any(str(p["id"]) == str(test_product["id"]) for p in items)
 
+    async def test_delete_product(self, client: AsyncClient, test_product: dict):
+        """Test deleting a product."""
+        product_id = test_product["id"]
 
-@measure_time
-def test_list_categories(
-    client: httpx.Client,
-    limit: int = 10,
-    offset: int = 0,
-) -> Dict:
-    """Test category listing"""
-    response = client.get(f"/categories/?limit={limit}&offset={offset}")
-    result = response.json()
-    print(
-        f"📋 Listed categories: {response.status_code} - Found {result['total']} categories",
-    )
-    return result
+        # First, verify the product exists and is active
+        response = await client.get(f"/api/v1/catalog/products/{product_id}")
+        assert response.status_code == 200
 
+        # Check if is_active is either None or True (some APIs might not set it on creation)
+        product_data = response.json()
+        if product_data.get("is_active") is not None:
+            assert product_data["is_active"] is True
 
-@measure_time
-def test_search_products(client: httpx.Client, query: str) -> Dict:
-    """Test product search"""
-    response = client.get(f"/products/?q={query}")
-    result = response.json()
-    print(
-        f"🔍 Search '{query}': {response.status_code} - Found {result['total']} products",
-    )
-    for product in result["products"]:
-        print(f"   - {product['name']} (${product['price']})")
-    return result
+        # Delete the product
+        response = await client.delete(f"/api/v1/catalog/products/{product_id}")
 
+        # Some APIs return 200 with the updated resource, others return 204 No Content
+        if response.status_code == 200:
+            # If the API returns the updated product, check is_active is False
+            data = response.json()
+            assert data.get("is_active") is False
+        else:
+            # If the API returns 204, verify the product is marked as inactive
+            assert response.status_code == 204
 
-@measure_time
-def test_get_product(client: httpx.Client, product_id: int) -> Dict:
-    """Test getting specific product"""
-    response = client.get(f"/products/{product_id}")
-    result = response.json()
-    print(f"🔍 Get product {product_id}: {response.status_code} - {result['name']}")
-    return result
-
-
-@measure_time
-def test_update_product(
-    client: httpx.Client,
-    product_id: int,
-    name: str = None,
-    price: float = None,
-) -> Dict:
-    """Test product update"""
-    update_data = {}
-    if name:
-        update_data["name"] = name
-    if price is not None:
-        update_data["price"] = price
-
-    response = client.put(f"/products/{product_id}", json=update_data)
-    result = response.json()
-    print(f"✏️  Updated product {product_id}: {response.status_code} - {result['name']}")
-    return result
-
-
-def main():
-    """Main test function"""
-    print("🚀 Starting MagFlow API Tests")
-    print("=" * 50)
-
-    times = []
-
-    with httpx.Client(base_url=BASE_URL) as client:
-        try:
-            # Test health endpoint first
-            health_response = client.get("/health")
-            print(f"🏥 Health check: {health_response.status_code}")
-
-            # Test Categories CRUD
-            print("\n📁 Testing Categories CRUD:")
-            category1, time1 = test_create_category(client, "Electronics")
-            category2, time2 = test_create_category(client, "Books")
-            category3, time3 = test_create_category(client, "Clothing")
-            times.extend([time1, time2, time3])
-
-            categories_list, time4 = test_list_categories(client)
-            times.append(time4)
-
-            # Test Products CRUD
-            print("\n📦 Testing Products CRUD:")
-            product1, time5 = test_create_product(client, "iPhone 15", 999.99)
-            product2, time6 = test_create_product(client, "Samsung Galaxy", 899.99)
-            product3, time7 = test_create_product(client, "iPad Pro", 1299.99)
-            product4, time8 = test_create_product(client, "MacBook Air", 1199.99)
-            product5, time9 = test_create_product(client, "iPhone 14", 799.99)
-            times.extend([time5, time6, time7, time8, time9])
-
-            products_list, time10 = test_list_products(client)
-            times.append(time10)
-
-            # Test individual product retrieval
-            print("\n🔍 Testing Individual Product Retrieval:")
-            product_detail, time11 = test_get_product(client, product1["id"])
-            times.append(time11)
-
-            # Test product updates
-            print("\n✏️  Testing Product Updates:")
-            updated_product, time12 = test_update_product(
-                client,
-                product1["id"],
-                price=949.99,
+            # Verify the product is marked as inactive
+            response = await client.get(
+                f"/api/v1/catalog/products/{product_id}",
+                params={"include_inactive": "true"},
             )
-            times.append(time12)
-
-            # Test Search Functionality
-            print("\n🔍 Testing Search Functionality:")
-            search1, time13 = test_search_products(client, "iphone")
-            search2, time14 = test_search_products(client, "samsung")
-            search3, time15 = test_search_products(client, "macbook")
-            search4, time16 = test_search_products(client, "ipad")
-            times.extend([time13, time14, time15, time16])
-
-            # Test fuzzy search
-            print("\n🔍 Testing Fuzzy Search:")
-            fuzzy1, time17 = test_search_products(client, "iphon")  # Missing 'e'
-            fuzzy2, time18 = test_search_products(client, "galxy")  # Missing 'a'
-            times.extend([time17, time18])
-
-            # Performance Report
-            print("\n" + "=" * 50)
-            print("📊 PERFORMANCE REPORT")
-            print("=" * 50)
-            print(f"Average response time: {sum(times) / len(times):.2f}ms")
-            print(f"Fastest response: {min(times):.2f}ms")
-            print(f"Slowest response: {max(times):.2f}ms")
-            print(f"Total operations: {len(times)}")
-
-            # Categorize times
-            create_times = times[0:8]  # Category and product creation
-            list_times = [times[3], times[9]]  # List operations
-            search_times = times[12:18]  # Search operations
-
-            print("\nOperation breakdown:")
-            print(
-                f"  Create operations avg: {sum(create_times) / len(create_times):.2f}ms",
-            )
-            print(f"  List operations avg: {sum(list_times) / len(list_times):.2f}ms")
-            print(
-                f"  Search operations avg: {sum(search_times) / len(search_times):.2f}ms",
-            )
-
-        except Exception as e:
-            print(f"❌ Error during testing: {e}")
-            return False
-
-    print("\n✅ All tests completed successfully!")
-    return True
-
-
-if __name__ == "__main__":
-    main()
+            assert response.status_code == 200
+            data = response.json()
+            # Check if is_active is explicitly set to False or None (some APIs might use None for soft delete)
+            assert data.get("is_active") is not True

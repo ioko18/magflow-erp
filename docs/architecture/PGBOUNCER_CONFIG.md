@@ -1,9 +1,11 @@
 # PgBouncer Configuration Guide
 
 ## Overview
+
 PgBouncer is a lightweight connection pooler for PostgreSQL, used to manage and optimize database connections in the MagFlow application.
 
 ## Key Features
+
 - Connection pooling for better resource utilization
 - TLS/SSL encryption for secure connections
 - Support for prepared statements
@@ -13,6 +15,7 @@ PgBouncer is a lightweight connection pooler for PostgreSQL, used to manage and 
 ## Configuration
 
 ### Core Settings
+
 ```ini
 [pgbouncer]
 # Network
@@ -48,16 +51,20 @@ server_tls_sslmode = verify-full
 ## Security
 
 ### Authentication
+
 1. **User Authentication**
+
    - Configured via `auth_file` with MD5 hashed passwords
    - Example user entry: `"app" "md53175bce1d3201d16594cebf9d7eb3f9d"`
 
-2. **TLS/SSL**
+1. **TLS/SSL**
+
    - Client connections: TLS 1.2+ with strong ciphers
    - Backend connections: Full TLS verification
    - Certificate-based authentication
 
 ### Network Security
+
 - Firewall rules to restrict access
 - Running as non-root user
 - Minimal required privileges
@@ -65,12 +72,14 @@ server_tls_sslmode = verify-full
 ## Performance Tuning
 
 ### Connection Pooling
+
 - **Pool Modes**
   - `session`: One server per client connection
   - `transaction`: Server assigned per transaction (default)
   - `statement`: Server assigned per statement (not recommended)
 
 ### Monitoring
+
 - Built-in stats via `SHOW STATS`
 - Logging of connections/disconnections
 - Query timing metrics
@@ -78,21 +87,25 @@ server_tls_sslmode = verify-full
 ## High Availability
 
 ### Load Balancing
+
 - `server_round_robin = 1` for even distribution
 - Multiple PgBouncer instances behind a load balancer
 
 ### Failover
+
 - Automatic reconnection to standby servers
 - Health checks with `server_check_delay`
 
 ## Common Issues
 
 ### Connection Issues
+
 - **Too many connections**
   - Increase `max_client_conn` or optimize connection usage
   - Check for connection leaks in application code
 
 ### Performance Problems
+
 - **High latency**
   - Adjust pool sizes
   - Check `query_wait_timeout`
@@ -101,6 +114,7 @@ server_tls_sslmode = verify-full
 ## Maintenance
 
 ### Commands
+
 ```sql
 -- Show connections
 SHOW CLIENTS;
@@ -115,6 +129,7 @@ SHOW STATS_TOTALS;
 ```
 
 ### Logging
+
 - Connection attempts
 - Query errors
 - Pool statistics
@@ -122,16 +137,19 @@ SHOW STATS_TOTALS;
 ## Best Practices
 
 1. **Connection Management**
+
    - Use connection pooling in your application
    - Set appropriate timeouts
    - Implement retry logic for transient failures
 
-2. **Security**
+1. **Security**
+
    - Always use TLS for production
    - Regularly rotate credentials
    - Monitor for suspicious activity
 
-3. **Performance**
+1. **Performance**
+
    - Monitor connection pool metrics
    - Adjust pool sizes based on workload
    - Use prepared statements for repeated queries
@@ -139,20 +157,25 @@ SHOW STATS_TOTALS;
 ## Troubleshooting
 
 ### Common Errors
+
 - **"sorry, too many clients already"**
+
   - Check `max_client_conn` and `max_db_connections`
   - Look for connection leaks
 
 - **TLS handshake failures**
+
   - Verify certificate permissions
   - Check cipher suite compatibility
 
 ### Log Analysis
+
 - Check PgBouncer logs for errors
 - Monitor system resource usage
 - Review query performance
 
 ## References
+
 - [PgBouncer Documentation](https://www.pgbouncer.org/)
 - [PostgreSQL Connection Pooling](https://www.postgresql.org/docs/current/pgbouncer.html)
 - [TLS Configuration Guide](https://www.postgresql.org/docs/current/libpq-ssl.html)

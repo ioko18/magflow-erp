@@ -85,7 +85,7 @@ async def test_create_and_validate_token():
         mock_key_manager.get_key.return_value = mock_key
         mock_key_manager.get_public_key.return_value = "test_public_key"
         mock_encode.return_value = "test_token"
-        mock_get_header.return_value = {"kid": "test_key_id"}
+        mock_get_header.return_value = {"kid": "test_key_id", "alg": "HS256"}
         mock_decode.return_value = {
             "sub": "test@example.com",
             "exp": (datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp(),
@@ -187,18 +187,23 @@ async def test_algorithm_mismatch():
     token = create_access_token(subject=TEST_USER.email, algorithm="RS256")
 
     # Try to validate with EdDSA (should fail)
-    with pytest.raises(jose_jwt.JWTError):
+    with pytest.raises(JWTError):
         await decode_token(token, algorithms=["EdDSA"])
 
 
 def test_missing_kid():
     """Test that a token without a kid raises an exception."""
-    # Create a token without a kid header
+    from app.security import jwt as security_jwt
+
+    # Ensure we have an RS256 key available and craft a token missing the kid header
+    security_jwt.key_manager.ensure_active_key("RS256")
+    keypair = security_jwt.key_manager.get_active_key("RS256")
+
     token = jose_jwt.encode(
         {"sub": "test@example.com"},
-        "secret",
-        algorithm="HS256",
-        headers={"alg": "HS256"},  # No kid
+        keypair.private_key,
+        algorithm="RS256",
+        headers={"alg": "RS256"},  # No kid claim on purpose
     )
 
     # The test should raise JWTError when no kid is present in the token header
@@ -353,8 +358,8 @@ async def test_get_current_active_user_inactive():
         is_active=False,
         is_superuser=False,
         is_verified=True,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
         full_name="Inactive User",
     )
 

@@ -2,7 +2,7 @@
 
 import base64
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional, TypeVar
 from uuid import UUID
 
@@ -346,8 +346,8 @@ class CatalogService:
                 is_active=True,
                 stock_quantity=10,
                 category_id=1,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             ),
         ]
 
@@ -406,8 +406,8 @@ class CatalogService:
             is_active=True,
             stock_quantity=10,
             category_id=1,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
     async def create_product(self, product_data: ProductCreate) -> Product:
@@ -436,9 +436,9 @@ class CatalogService:
         # Mock response for now
         return Product(
             id=UUID("123e4567-e89b-12d3-a456-426614174000"),
-            **product_data.dict(),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            **product_data.model_dump(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
     async def update_product(
@@ -488,9 +488,9 @@ class CatalogService:
 
         return Product(
             id=product_id,
-            **product_data.dict(exclude_unset=True),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            **product_data.model_dump(exclude_unset=True),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
     async def delete_product(self, product_id: UUID) -> None:
@@ -549,8 +549,8 @@ class CatalogService:
                 name="Test Brand",
                 slug="test-brand",
                 is_active=True,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             ),
         ]
 
@@ -592,8 +592,8 @@ class CatalogService:
             name="Test Brand",
             slug="test-brand",
             is_active=True,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
     # Characteristic methods (similar structure as product methods)
@@ -633,8 +633,8 @@ class CatalogService:
                         position=0,
                     ),
                 ],
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             ),
         ]
 

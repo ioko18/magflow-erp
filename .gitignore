@@ -139,3 +139,6 @@ pytest.xml
 
 # Docker bind mount data directories
 data/
+
+# Frontend dependencies
+admin-frontend/node_modules/

@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MappingStatus(str, Enum):
@@ -62,8 +62,7 @@ class ProductMappingResponse(ProductMappingBase):
     updated_at: datetime
     last_synced_at: Optional[datetime] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MappingResult(BaseModel):
@@ -126,8 +125,7 @@ class SyncHistoryResponse(SyncHistoryBase):
     product_mapping_id: Optional[int]
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FieldMappingRule(BaseModel):
@@ -228,5 +226,4 @@ class MappingConfigurationResponse(MappingConfigurationBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

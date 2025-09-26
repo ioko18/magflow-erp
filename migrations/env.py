@@ -16,7 +16,7 @@ sys.path.insert(0, app_dir)
 from app.core.config import settings
 
 # Import the Base class to get the metadata
-from app.models.base import Base  # noqa: E402
+from app.db.base_class import Base  # noqa: E402
 
 # Import all models to ensure they are registered with SQLAlchemy's metadata
 # This is necessary for Alembic to detect all models

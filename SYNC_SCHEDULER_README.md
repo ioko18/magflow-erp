@@ -177,6 +177,7 @@ sudo systemctl status emag-sync-scheduler
 ### Dashboard Web
 
 Dashboard-ul oferă:
+
 - **Status real-time** pentru toate conturile
 - **Metrics**: Sync-uri reușite/eșuate, timp de răspuns
 - **Alarme**: Detectare automată probleme
@@ -224,6 +225,7 @@ Dashboard-ul oferă:
 ### Probleme Comune
 
 **1. Scheduler nu pornește**
+
 ```bash
 # Verificare log-uri
 tail -f logs/emag_sync_scheduler.log
@@ -233,6 +235,7 @@ python3 sync_scheduler.py test
 ```
 
 **2. Sync eșuează pentru un cont**
+
 ```bash
 # Testare API
 python3 -c "import os; os.environ['EMAG_ACCOUNT_TYPE']='main'; exec(open('sync_emag_sync.py').read())"
@@ -242,6 +245,7 @@ python3 sync_monitor.py report
 ```
 
 **3. Dashboard nu se încarcă**
+
 ```bash
 # Verificare port
 netstat -tlnp | grep 8001
@@ -290,8 +294,8 @@ EMAG_NEW_API_PASSWORD=...
 ### KPI-uri Monitorizate
 
 - **Sync Success Rate**: >98% pentru ambele conturi
-- **Data Freshness**: <30 minute lag între eMAG și sistem intern
-- **Error Recovery**: <5 minute pentru rezolvarea automată
+- **Data Freshness**: \<30 minute lag între eMAG și sistem intern
+- **Error Recovery**: \<5 minute pentru rezolvarea automată
 - **Account Uptime**: 99.9% availability pentru fiecare cont
 
 ### Beneficii Operaționale
@@ -304,11 +308,11 @@ EMAG_NEW_API_PASSWORD=...
 ## 🎯 Next Steps pentru Faza 2
 
 1. **📊 Analytics Dashboard** - Rapoarte avansate și insights
-2. **🔄 Real-time Inventory** - Sincronizare inventar în timp real
-3. **📋 Order Processing** - Procesare automată comenzi
-4. **📱 Mobile Alerts** - Notificări push pentru probleme critice
+1. **🔄 Real-time Inventory** - Sincronizare inventar în timp real
+1. **📋 Order Processing** - Procesare automată comenzi
+1. **📱 Mobile Alerts** - Notificări push pentru probleme critice
 
----
+______________________________________________________________________
 
 ## 📞 Suport și Documentație
 

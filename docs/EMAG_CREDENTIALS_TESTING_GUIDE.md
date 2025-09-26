@@ -1,3 +1,9 @@
+---
+title: Testing eMAG Integration cu Credențiale Reale
+last_reviewed: 2025-09-25
+owner: integrations-team
+---
+
 # 🧪 Testing eMAG Integration cu Credențiale Reale
 
 ## 📋 Prezentare Generală
@@ -9,6 +15,7 @@ Acest ghid explică cum să testezi în siguranță integrarea eMAG cu **credien
 ### 1. Pregătire Prealabilă
 
 #### **✅ Verifică Configurația**
+
 ```bash
 # Asigură-te că server-ul rulează
 curl http://localhost:8000/health
@@ -18,6 +25,7 @@ curl http://localhost:8000/api/v1/emag/test/status
 ```
 
 #### **✅ Pregătește Credențialele**
+
 - **Username**: Username-ul tău eMAG Marketplace
 - **Password**: Parola corespunzătoare
 - **IP Whitelist**: Asigură-te că IP-ul tău este în whitelist-ul eMAG
@@ -26,12 +34,14 @@ curl http://localhost:8000/api/v1/emag/test/status
 ### 2. Rulare Teste
 
 #### **Metoda 1: Script Interactiv**
+
 ```bash
 # Rulare script interactiv cu meniu
 ./test_emag_credentials.sh
 ```
 
 #### **Metoda 2: API Direct**
+
 ```bash
 # Testare credentiale
 curl -X POST "http://localhost:8000/api/v1/emag/test/credentials" \
@@ -46,6 +56,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/credentials" \
 ## 📊 Tipuri de Teste Disponibile
 
 ### 1. Test Conexiune și Autentificare
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/test/credentials" \
   -H "Content-Type: application/json" \
@@ -53,12 +64,14 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/credentials" \
 ```
 
 **Ce testează:**
+
 - ✅ Conectivitate la eMAG API
 - ✅ Autentificare Basic Auth
 - ✅ IP whitelisting
 - ✅ Status API eMAG
 
 ### 2. Test Suite Complet
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/test/full-suite" \
   -H "Content-Type: application/json" \
@@ -70,12 +83,14 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/full-suite" \
 ```
 
 **Include:**
+
 - Conexiune și autentificare
 - Rate limiting behavior
 - Data retrieval capabilities
 - Sync operations
 
 ### 3. Test Rate Limits
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/test/rate-limits" \
   -H "Content-Type: application/json" \
@@ -87,11 +102,13 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/rate-limits" \
 ```
 
 **Analizează:**
+
 - Rate limits per endpoint
 - Comportament la supraîncărcare
 - Recovery după rate limiting
 
 ### 4. Test Data Retrieval
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/test/data-retrieval" \
   -H "Content-Type: application/json" \
@@ -103,12 +120,14 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/data-retrieval" \
 ```
 
 **Verifică:**
+
 - Preluare produse
 - Preluare oferte
 - Calitate date
 - Performance
 
 ### 5. Test Sync Operation
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
   -H "Content-Type: application/json" \
@@ -120,6 +139,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 **Testează:**
+
 - Sync complet MAIN + FBE
 - Deduplicare SKU
 - Performance sync
@@ -129,6 +149,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ### 1. Rezultate Succes
 
 #### **Conexiune și Autentificare ✅**
+
 ```json
 {
   "test_results": {
@@ -141,6 +162,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 #### **Rate Limits ✅**
+
 ```json
 {
   "test_result": {
@@ -155,6 +177,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ### 2. Rezultate cu Probleme
 
 #### **Autentificare Eșuată ❌**
+
 ```json
 {
   "test_results": {
@@ -173,6 +196,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 #### **Rate Limits Probleme ❌**
+
 ```json
 {
   "test_result": {
@@ -190,6 +214,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ## 🔧 Rezolvarea Problemelor Comune
 
 ### 1. **Authentication Failed**
+
 ```bash
 # Soluții:
 1. Verifică username și password
@@ -198,6 +223,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 ### 2. **Rate Limits Hit**
+
 ```bash
 # Soluții:
 1. Crește delay-ul între request-uri
@@ -206,6 +232,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 ### 3. **Connection Timeout**
+
 ```bash
 # Soluții:
 1. Verifică conexiunea la internet
@@ -214,6 +241,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 ### 4. **Insufficient Quota**
+
 ```bash
 # Soluții:
 1. Verifică API quota în dashboard-ul eMAG
@@ -224,6 +252,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ## ⚙️ Configurare și Setări
 
 ### 1. **Setări de Testare**
+
 ```json
 {
   "recommended_settings": {
@@ -241,6 +270,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/test/sync-operation" \
 ```
 
 ### 2. **Environment Configuration**
+
 ```bash
 # Development/Testing
 EMAG_API_BASE_URL=https://marketplace-api.emag.ro/api-3
@@ -254,15 +284,17 @@ TEST_ENVIRONMENT=production
 ## 📈 Metrici și Performanță
 
 ### 1. **Target Metrics**
-| Metrică | Valoare Target | Status |
-|---------|---------------|---------|
-| **Connection Time** | <500ms | ✅ |
-| **Authentication Time** | <300ms | ✅ |
-| **Requests/Second** | >1.0 | ✅ |
-| **Success Rate** | >95% | ✅ |
-| **Data Quality** | >90% | ✅ |
+
+| Metrică                 | Valoare Target | Status |
+| ----------------------- | -------------- | ------ |
+| **Connection Time**     | \<500ms        | ✅     |
+| **Authentication Time** | \<300ms        | ✅     |
+| **Requests/Second**     | >1.0           | ✅     |
+| **Success Rate**        | >95%           | ✅     |
+| **Data Quality**        | >90%           | ✅     |
 
 ### 2. **Performance Benchmarks**
+
 ```json
 {
   "sync_performance": {
@@ -281,22 +313,26 @@ TEST_ENVIRONMENT=production
 ## 🛡️ Caracteristici de Siguranță
 
 ### 1. **Test Mode**
+
 - ✅ Nu modifică date în eMAG
 - ✅ Respectă rate limits
 - ✅ Logging detaliat pentru troubleshooting
 - ✅ Error recovery automat
 
 ### 2. **IP Whitelisting Check**
+
 - ✅ Verifică automat whitelist status
 - ✅ Oferă instrucțiuni pentru whitelist
 - ✅ Previne teste cu IP neautorizat
 
 ### 3. **Quota Management**
+
 - ✅ Monitorizează utilizarea API quota
 - ✅ Oferă alternative la quota epuizată
 - ✅ Previzionează consumul de quota
 
 ### 4. **Error Handling**
+
 - ✅ Graceful failure handling
 - ✅ Detailed error messages
 - ✅ Recommendations pentru rezolvare
@@ -305,6 +341,7 @@ TEST_ENVIRONMENT=production
 ## 🚀 Best Practices pentru Testare
 
 ### 1. **Înainte de Testare**
+
 ```bash
 # Checklist:
 ✅ IP whitelisted în eMAG
@@ -315,6 +352,7 @@ TEST_ENVIRONMENT=production
 ```
 
 ### 2. **În Timpul Testării**
+
 ```bash
 # Monitor:
 📊 Response times
@@ -325,6 +363,7 @@ TEST_ENVIRONMENT=production
 ```
 
 ### 3. **După Testare**
+
 ```bash
 # Analyze:
 📈 Performance metrics
@@ -337,6 +376,7 @@ TEST_ENVIRONMENT=production
 ## 📞 Suport și Troubleshooting
 
 ### 1. **Contact eMAG Support**
+
 - **Website**: https://marketplace.emag.ro
 - **API Documentation**: https://developers.emag.ro
 - **Support Email**: marketplace@emag.ro
@@ -345,6 +385,7 @@ TEST_ENVIRONMENT=production
 ### 2. **Common Issues & Solutions**
 
 #### **Issue: IP Not Whitelisted**
+
 ```bash
 # Solution:
 1. Login to eMAG Marketplace
@@ -355,6 +396,7 @@ TEST_ENVIRONMENT=production
 ```
 
 #### **Issue: Invalid Credentials**
+
 ```bash
 # Solution:
 1. Verify username in eMAG account
@@ -364,6 +406,7 @@ TEST_ENVIRONMENT=production
 ```
 
 #### **Issue: Rate Limits Exceeded**
+
 ```bash
 # Solution:
 1. Reduce test intensity
@@ -377,21 +420,25 @@ TEST_ENVIRONMENT=production
 ### ✅ **Sistemul de Testare Oferă:**
 
 1. **🛡️ Siguranță Completă**
+
    - Test mode fără modificări date
    - Rate limiting respectat
    - Error recovery robust
 
-2. **📊 Diagnostic Detaliat**
+1. **📊 Diagnostic Detaliat**
+
    - Teste comprehensive
    - Metrici detaliate
    - Recommendations automate
 
-3. **🚀 Ușurință în Utilizare**
+1. **🚀 Ușurință în Utilizare**
+
    - Script interactiv
    - API endpoints simple
    - Documentație comprehensivă
 
-4. **🔧 Troubleshooting Eficient**
+1. **🔧 Troubleshooting Eficient**
+
    - Error messages clare
    - Ghiduri de rezolvare
    - Suport pentru probleme comune
@@ -401,9 +448,10 @@ TEST_ENVIRONMENT=production
 **Sistemul este pregătit pentru testare cu credentiale reale eMAG în deplină siguranță!**
 
 **Următorii pași:**
+
 1. **Testează cu credentiale** folosind script-ul interactiv
-2. **Configurează pentru production** dacă testele trec
-3. **Monitorizează și alertează** în timp real
-4. **Scalează și optimizează** după nevoi
+1. **Configurează pentru production** dacă testele trec
+1. **Monitorizează și alertează** în timp real
+1. **Scalează și optimizează** după nevoi
 
 **🚀 Succes cu testarea eMAG integration!**

@@ -16,7 +16,7 @@ app_dir = str(Path(__file__).parent.parent / "app")
 sys.path.insert(0, app_dir)
 
 from app.db.session import engine  # noqa: E402
-from app.models.base import Base  # noqa: E402
+from app.db.base_class import Base  # noqa: E402
 
 def confirm_reset() -> bool:
     """Ask for confirmation before resetting the database."""

@@ -178,14 +178,14 @@ async def validation_exception_handler(
     # Create a validation problem
     problem = ValidationProblem(
         detail="One or more validation errors occurred",
-        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status=status.HTTP_422_UNPROCESSABLE_CONTENT,
         instance=request.url.path,
         errors=errors,
     )
 
     return create_problem_response(
         problem,
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
     )
 
 

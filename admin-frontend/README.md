@@ -5,18 +5,21 @@ A modern, responsive admin dashboard for MagFlow ERP built with React, TypeScrip
 ## 🚀 Features
 
 ### 📊 Dashboard Overview
+
 - **Real-time metrics** - Sales, orders, customers, inventory
 - **Interactive charts** - Sales trends, product performance, inventory levels
 - **eMAG integration status** - Sync status, product counts, recent updates
 - **Quick actions** - Fast access to common tasks
 
 ### 🔗 eMAG Integration
+
 - **Live sync status** - Real-time synchronization monitoring
 - **Product management** - View and manage eMAG products
 - **Sync history** - Complete audit trail of all synchronizations
 - **Manual sync control** - Trigger synchronizations on demand
 
 ### 🎨 Modern UI/UX
+
 - **Responsive design** - Works on desktop, tablet, and mobile
 - **Dark/Light theme** - Professional appearance
 - **Intuitive navigation** - Easy to find and use features
@@ -25,6 +28,7 @@ A modern, responsive admin dashboard for MagFlow ERP built with React, TypeScrip
 ## 🛠️ Technology Stack
 
 ### Frontend
+
 - **React 18** - Modern React with hooks and functional components
 - **TypeScript** - Type-safe development
 - **Vite** - Fast build tool and development server
@@ -34,6 +38,7 @@ A modern, responsive admin dashboard for MagFlow ERP built with React, TypeScrip
 - **Axios** - HTTP client for API calls
 
 ### Backend Integration
+
 - **FastAPI** - High-performance async API framework
 - **SQLAlchemy** - Database ORM with async support
 - **PostgreSQL** - Robust database with JSON support
@@ -68,12 +73,14 @@ admin-frontend/
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 16+ and npm (or yarn)
 - Python 3.8+ with FastAPI backend running
 
 ### Installation
 
 1. **Install dependencies:**
+
    ```bash
    cd admin-frontend
    npm install
@@ -81,14 +88,15 @@ admin-frontend/
    yarn install
    ```
 
-2. **Start development server:**
+1. **Start development server:**
+
    ```bash
    npm run dev
    # or
    yarn dev
    ```
 
-3. **Open browser:**
+1. **Open browser:**
    Navigate to `http://localhost:3000`
 
 ### Backend Setup
@@ -103,6 +111,7 @@ uvicorn app.main:app --reload --port 8000
 ## 📖 Usage
 
 ### Dashboard Navigation
+
 - **Dashboard** (`/`) - Main overview with key metrics
 - **eMAG Integration** (`/emag`) - Manage eMAG synchronization
 - **Products** (`/products`) - Product inventory management
@@ -121,6 +130,7 @@ The dashboard communicates with the FastAPI backend through REST APIs:
 ## 🎨 Customization
 
 ### Theming
+
 The dashboard uses Ant Design's theming system. Customize colors and styles in `src/styles/index.css`:
 
 ```css
@@ -133,18 +143,21 @@ The dashboard uses Ant Design's theming system. Customize colors and styles in `
 ```
 
 ### Adding New Pages
+
 1. Create component in `src/pages/`
-2. Add route in `src/App.tsx`
-3. Add navigation item in `src/components/Layout.tsx`
+1. Add route in `src/App.tsx`
+1. Add navigation item in `src/components/Layout.tsx`
 
 ### API Integration
+
 1. Add API endpoint in FastAPI backend
-2. Create service function in `src/services/`
-3. Use service in component with proper error handling
+1. Create service function in `src/services/`
+1. Use service in component with proper error handling
 
 ## 🔧 Development
 
 ### Available Scripts
+
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
@@ -152,11 +165,13 @@ The dashboard uses Ant Design's theming system. Customize colors and styles in `
 - `npm run type-check` - Run TypeScript type checking
 
 ### Code Quality
+
 - **ESLint** - JavaScript/TypeScript linting
 - **TypeScript** - Type checking
 - **Prettier** - Code formatting (recommended)
 
 ### Best Practices
+
 - Use **TypeScript** for all new code
 - Follow **React hooks** patterns
 - Use **custom hooks** for reusable logic
@@ -166,11 +181,13 @@ The dashboard uses Ant Design's theming system. Customize colors and styles in `
 ## 📱 Responsive Design
 
 The dashboard is fully responsive and works on:
+
 - Desktop computers (1200px+)
 - Tablets (768px - 1199px)
-- Mobile phones (< 768px)
+- Mobile phones (\< 768px)
 
 Key responsive features:
+
 - Collapsible sidebar navigation
 - Responsive charts and tables
 - Mobile-optimized touch interactions
@@ -179,18 +196,21 @@ Key responsive features:
 ## 🔐 Authentication
 
 The dashboard includes a login system with:
+
 - JWT token-based authentication
 - Protected routes
 - User session management
 - Role-based access control (extensible)
 
 **Demo Credentials:**
+
 - Username: `admin`
 - Password: `admin123`
 
 ## 🚀 Deployment
 
 ### Production Build
+
 ```bash
 npm run build
 ```
@@ -198,7 +218,9 @@ npm run build
 The build artifacts will be stored in the `dist/` directory.
 
 ### Environment Variables
+
 Create `.env` file for configuration:
+
 ```env
 REACT_APP_API_BASE_URL=http://localhost:8000
 REACT_APP_WS_URL=ws://localhost:8000
@@ -208,16 +230,16 @@ REACT_APP_ENVIRONMENT=development
 ## 🤝 Contributing
 
 1. Follow the established code structure
-2. Use TypeScript for all new features
-3. Add proper error handling
-4. Write meaningful commit messages
-5. Test on multiple screen sizes
-6. Update documentation as needed
+1. Use TypeScript for all new features
+1. Add proper error handling
+1. Write meaningful commit messages
+1. Test on multiple screen sizes
+1. Update documentation as needed
 
 ## 📄 License
 
 This project is part of MagFlow ERP and follows the same licensing terms.
 
----
+______________________________________________________________________
 
 **🎉 Happy coding! The admin dashboard is ready for development and customization.**

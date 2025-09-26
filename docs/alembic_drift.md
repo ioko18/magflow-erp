@@ -6,9 +6,9 @@ Comanda `alembic stamp` marchează baza de date ca fiind la o anumită versiune,
 
 1. **Alinierea bazei de date existente**: Când aveți o bază de date care corespunde deja unei versiuni specifice din istoricul de migrări, dar tabela `alembic_version` nu a fost actualizată corespunzător.
 
-2. **Sincronizarea mediilor**: Pentru a sincroniza mediile de dezvoltare, testare sau producție fără a rula din nou migrările care au fost deja aplicate.
+1. **Sincronizarea mediilor**: Pentru a sincroniza mediile de dezvoltare, testare sau producție fără a rula din nou migrările care au fost deja aplicate.
 
-3. **Corectarea derapajelor de versiune**: Când există o discrepanță între versiunea înregistrată și starea reală a bazei de date.
+1. **Corectarea derapajelor de versiune**: Când există o discrepanță între versiunea înregistrată și starea reală a bazei de date.
 
 ## Cum se folosește
 
@@ -17,6 +17,7 @@ alembic stamp <revision>
 ```
 
 Unde `<revision>` poate fi:
+
 - Un hash de revizuire specific (ex: `a1b2c3d4`)
 - O referință relativă (ex: `head`, `head-1`)
 - Un tag specific din fișierele de migrare

@@ -8,7 +8,7 @@ import asyncio
 import logging
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +16,11 @@ from app.core.dependency_injection import ServiceBase, ServiceContext
 from app.services.emag_integration_service import EmagIntegrationService
 
 logger = logging.getLogger(__name__)
+
+
+def _utcnow() -> datetime:
+    """Timezone-aware current UTC timestamp."""
+    return datetime.now(timezone.utc)
 
 
 class TestEnvironment(str, Enum):
@@ -76,7 +81,7 @@ class TestSuite:
     credentials: EmagCredentials
     tests: List[TestType]
     results: List[TestResult] = field(default_factory=list)
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=_utcnow)
     completed_at: Optional[datetime] = None
     overall_success: bool = False
     summary: Dict[str, Any] = field(default_factory=dict)
@@ -117,7 +122,7 @@ class EmagTestingService(ServiceBase):
     ) -> TestResult:
         """Test basic connection with eMAG credentials."""
         test_id = secrets.token_hex(16)
-        start_time = datetime.utcnow()
+        start_time = _utcnow()
 
         try:
             logger.info(f"Testing eMAG connection for {credentials.environment.value}")
@@ -131,7 +136,7 @@ class EmagTestingService(ServiceBase):
                 ),
             )
 
-            duration = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            duration = int((_utcnow() - start_time).total_seconds() * 1000)
 
             success = test_result.get("status") == "success"
 
@@ -154,7 +159,7 @@ class EmagTestingService(ServiceBase):
             )
 
         except Exception as e:
-            duration = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            duration = int((_utcnow() - start_time).total_seconds() * 1000)
 
             logger.error(f"Connection test failed: {e}")
 
@@ -173,7 +178,7 @@ class EmagTestingService(ServiceBase):
     async def test_authentication(self, credentials: EmagCredentials) -> TestResult:
         """Test eMAG authentication."""
         test_id = secrets.token_hex(16)
-        start_time = datetime.utcnow()
+        start_time = _utcnow()
 
         try:
             logger.info(
@@ -193,7 +198,7 @@ class EmagTestingService(ServiceBase):
                     delay_between_requests=0,
                 )
 
-                duration = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                duration = int((_utcnow() - start_time).total_seconds() * 1000)
 
                 success = len(products) >= 0  # Even empty result means auth worked
 
@@ -220,9 +225,7 @@ class EmagTestingService(ServiceBase):
                     "auth" in str(auth_error).lower()
                     or "credential" in str(auth_error).lower()
                 ):
-                    duration = int(
-                        (datetime.utcnow() - start_time).total_seconds() * 1000,
-                    )
+                    duration = int((_utcnow() - start_time).total_seconds() * 1000)
 
                     return TestResult(
                         test_id=test_id,
@@ -272,11 +275,11 @@ class EmagTestingService(ServiceBase):
             error_count = 0
             rate_limited_count = 0
 
-            end_time = datetime.utcnow() + timedelta(seconds=test_duration_seconds)
+            end_time = _utcnow() + timedelta(seconds=test_duration_seconds)
 
-            while datetime.utcnow() < end_time:
+            while _utcnow() < end_time:
                 try:
-                    request_start = datetime.utcnow()
+                    request_start = _utcnow()
 
                     # Make a test request
                     await self.emag_service.get_all_products(
@@ -290,7 +293,7 @@ class EmagTestingService(ServiceBase):
                     )
 
                     request_duration = (
-                        datetime.utcnow() - request_start
+                        _utcnow() - request_start
                     ).total_seconds() * 1000
                     request_times.append(request_duration)
                     success_count += 1
@@ -306,9 +309,7 @@ class EmagTestingService(ServiceBase):
                     # Continue testing even on errors
                     await asyncio.sleep(1)
 
-            total_duration = int(
-                (datetime.utcnow() - start_time).total_seconds() * 1000,
-            )
+            total_duration = int((_utcnow() - start_time).total_seconds() * 1000)
             avg_response_time = (
                 sum(request_times) / len(request_times) if request_times else 0
             )
@@ -392,7 +393,7 @@ class EmagTestingService(ServiceBase):
                 )
 
                 request_duration = (
-                    datetime.utcnow() - request_start
+                    _utcnow() - request_start
                 ).total_seconds() * 1000
                 request_times.append(request_duration)
                 total_products = len(products)
@@ -590,7 +591,7 @@ class EmagTestingService(ServiceBase):
                         environment=credentials.environment,
                         success=False,
                         duration_ms=0,
-                        timestamp=datetime.utcnow(),
+                        timestamp=_utcnow(),
                         request_count=0,
                         response_time_avg_ms=0,
                         error_message=f"Unsupported test type: {test_type}",
@@ -615,7 +616,7 @@ class EmagTestingService(ServiceBase):
                 test_suite.results.append(result)
 
         # Calculate overall results
-        test_suite.completed_at = datetime.utcnow()
+        test_suite.completed_at = _utcnow()
         test_suite.overall_success = all(
             result.success for result in test_suite.results
         )

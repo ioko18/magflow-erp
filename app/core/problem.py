@@ -3,68 +3,43 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from fastapi import status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+from http import HTTPStatus
 
 T = TypeVar("T", bound="Problem")
-
 
 class ProblemType(str, Enum):
     """Standard problem types as defined by RFC 9457."""
 
     ABOUT_BLANK = "about:blank"
-    # Client errors (4xx)
-    INVALID_REQUEST = "https://tools.ietf.org/html/rfc9110#section-15.5.1"
-    UNAUTHORIZED = "https://tools.ietf.org/html/rfc9110#section-15.5.2"
-    PAYMENT_REQUIRED = "https://tools.ietf.org/html/rfc9110#section-15.5.3"
-    FORBIDDEN = "https://tools.ietf.org/html/rfc9110#section-15.5.4"
-    NOT_FOUND = "https://tools.ietf.org/html/rfc9110#section-15.5.5"
-    METHOD_NOT_ALLOWED = "https://tools.ietf.org/html/rfc9110#section-15.5.6"
-    NOT_ACCEPTABLE = "https://tools.ietf.org/html/rfc9110#section-15.5.7"
-    PROXY_AUTH_REQUIRED = "https://tools.ietf.org/html/rfc9110#section-15.5.8"
-    REQUEST_TIMEOUT = "https://tools.ietf.org/html/rfc9110#section-15.5.9"
-    CONFLICT = "https://tools.ietf.org/html/rfc9110#section-15.5.10"
-    GONE = "https://tools.ietf.org/html/rfc9110#section-15.5.9"
-    LENGTH_REQUIRED = "https://tools.ietf.org/html/rfc9110#section-15.5.11"
-    PRECONDITION_FAILED = "https://tools.ietf.org/html/rfc9110#section-15.5.13"
-    PAYLOAD_TOO_LARGE = "https://tools.ietf.org/html/rfc9110#section-15.5.12"
-    URI_TOO_LONG = "https://tools.ietf.org/html/rfc9110#section-15.5.14"
-    UNSUPPORTED_MEDIA_TYPE = "https://tools.ietf.org/html/rfc9110#section-15.5.17"
-    RANGE_NOT_SATISFIABLE = "https://tools.ietf.org/html/rfc9110#section-15.5.17"
-    EXPECTATION_FAILED = "https://tools.ietf.org/html/rfc9110#section-15.5.18"
-    IM_A_TEAPOT = "https://tools.ietf.org/html/rfc2324#section-2.3.2"
-    MISDIRECTED_REQUEST = "https://tools.ietf.org/html/rfc9110#section-15.5.20"
-    UNPROCESSABLE_ENTITY = "https://tools.ietf.org/html/rfc9110#section-15.5.21"
-    LOCKED = "https://tools.ietf.org/html/rfc4918#section-11.3"
-    FAILED_DEPENDENCY = "https://tools.ietf.org/html/rfc4918#section-11.4"
-    TOO_EARLY = "https://tools.ietf.org/html/rfc8470#section-5.2"
-    UPGRADE_REQUIRED = "https://tools.ietf.org/html/rfc9110#section-15.5.22"
-    PRECONDITION_REQUIRED = "https://tools.ietf.org/html/rfc6585#section-3"
-    TOO_MANY_REQUESTS = "https://tools.ietf.org/html/rfc6585#section-4"
-    REQUEST_HEADER_FIELDS_TOO_LARGE = "https://tools.ietf.org/html/rfc6585#section-5"
-    UNAVAILABLE_FOR_LEGAL_REASONS = "https://tools.ietf.org/html/rfc7725#section-3"
-
-    # Server errors (5xx)
-    INTERNAL_SERVER_ERROR = "https://tools.ietf.org/html/rfc9110#section-15.6.1"
-    NOT_IMPLEMENTED = "https://tools.ietf.org/html/rfc9110#section-15.6.2"
-    BAD_GATEWAY = "https://tools.ietf.org/html/rfc9110#section-15.6.3"
-    SERVICE_UNAVAILABLE = "https://tools.ietf.org/html/rfc9110#section-15.6.4"
-    GATEWAY_TIMEOUT = "https://tools.ietf.org/html/rfc9110#section-15.6.5"
-    HTTP_VERSION_NOT_SUPPORTED = "https://tools.ietf.org/html/rfc9110#section-15.6.6"
-    VARIANT_ALSO_NEGOTIATES = "https://tools.ietf.org/html/rfc2295#section-8.1"
-    INSUFFICIENT_STORAGE = "https://tools.ietf.org/html/rfc4918#section-11.5"
-    LOOP_DETECTED = "https://tools.ietf.org/html/rfc5842#section-7.2"
-    NOT_EXTENDED = "https://tools.ietf.org/html/rfc2774#section-7"
-    NETWORK_AUTHENTICATION_REQUIRED = "https://tools.ietf.org/html/rfc6585#section-6"
+    VALIDATION_ERROR = "https://example.com/probs/validation-error"
+    UNAUTHORIZED = "https://example.com/probs/unauthorized"
+    FORBIDDEN = "https://example.com/probs/forbidden"
+    NOT_FOUND = "https://example.com/probs/not-found"
+    CONFLICT = "https://example.com/probs/conflict"
+    TOO_MANY_REQUESTS = "https://example.com/probs/too-many-requests"
+    INTERNAL_SERVER_ERROR = "https://example.com/probs/internal-server-error"
+    SERVICE_UNAVAILABLE = "https://example.com/probs/service-unavailable"
 
 
-@dataclass
-class ErrorDetail:
+PROBLEM_TYPE_MAP: Dict[int, str] = {
+    status.HTTP_400_BAD_REQUEST: ProblemType.VALIDATION_ERROR.value,
+    status.HTTP_401_UNAUTHORIZED: ProblemType.UNAUTHORIZED.value,
+    status.HTTP_403_FORBIDDEN: ProblemType.FORBIDDEN.value,
+    status.HTTP_404_NOT_FOUND: ProblemType.NOT_FOUND.value,
+    status.HTTP_409_CONFLICT: ProblemType.CONFLICT.value,
+    status.HTTP_422_UNPROCESSABLE_CONTENT: ProblemType.VALIDATION_ERROR.value,
+    status.HTTP_429_TOO_MANY_REQUESTS: ProblemType.TOO_MANY_REQUESTS.value,
+    status.HTTP_500_INTERNAL_SERVER_ERROR: ProblemType.INTERNAL_SERVER_ERROR.value,
+    status.HTTP_503_SERVICE_UNAVAILABLE: ProblemType.SERVICE_UNAVAILABLE.value,
+}
+
+class ErrorDetail(BaseModel):
     """Detailed error information for a specific field or context."""
 
     type: str
@@ -113,9 +88,18 @@ class Problem(BaseModel):
         description="A unique identifier for the request, used for correlation.",
         alias="traceId",
     )
+    correlation_id: Optional[str] = Field(
+        default=None,
+        description="Correlation identifier echoed back to clients.",
+    )
+    retry_after: Optional[int] = Field(
+        default=None,
+        description="Number of seconds to wait before retrying the request.",
+    )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
                 "type": "https://example.com/probs/validation-error",
                 "title": "Your request parameters didn't validate.",
@@ -134,8 +118,8 @@ class Problem(BaseModel):
                     },
                 ],
             },
-        }
-        populate_by_name = True
+        },
+    )
 
     @classmethod
     def from_status(
@@ -145,11 +129,16 @@ class Problem(BaseModel):
         instance: Optional[str] = None,
         errors: Optional[List[ErrorDetail]] = None,
         trace_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> T:
         """Create a Problem instance from an HTTP status code."""
-        title = status.HTTP_STATUS_CODES.get(status_code, "Unknown Error")
+        try:
+            title = HTTPStatus(status_code).phrase
+        except ValueError:
+            title = "Unknown Error"
         problem_type = cls._get_problem_type(status_code)
+        effective_trace_id = trace_id or correlation_id
 
         return cls(
             type=problem_type,
@@ -158,7 +147,8 @@ class Problem(BaseModel):
             detail=detail or title,
             instance=instance or "",
             errors=errors or [],
-            trace_id=trace_id,
+            trace_id=effective_trace_id,
+            correlation_id=correlation_id,
             **kwargs,
         )
 
@@ -169,6 +159,7 @@ class Problem(BaseModel):
         status_code: int = 500,
         instance: Optional[str] = None,
         trace_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
         **kwargs: Any,
     ) -> T:
         """Create a Problem instance from an exception."""
@@ -177,6 +168,7 @@ class Problem(BaseModel):
             detail=str(exc),
             instance=instance or "",
             trace_id=trace_id,
+            correlation_id=correlation_id,
             **kwargs,
         )
 
@@ -186,6 +178,7 @@ class Problem(BaseModel):
         errors: List[Dict[str, Any]],
         instance: Optional[str] = None,
         trace_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
     ) -> T:
         """Create a Problem instance from Pydantic validation errors."""
         error_details = []
@@ -203,23 +196,23 @@ class Problem(BaseModel):
             )
 
         return cls.from_status(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Validation failed. See 'errors' for details.",
             instance=instance or "",
             errors=error_details,
             trace_id=trace_id,
+            correlation_id=correlation_id,
         )
 
     @staticmethod
     def _get_problem_type(status_code: int) -> str:
         """Get the appropriate problem type URI for a status code."""
         # For now, default to about:blank; specific mappings can be added if needed
-        return ProblemType.ABOUT_BLANK.value
+        return PROBLEM_TYPE_MAP.get(status_code, ProblemType.ABOUT_BLANK.value)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the Problem to a dictionary, excluding None values."""
-        data = asdict(self)
-        return {k: v for k, v in data.items() if v is not None}
+        return self.model_dump(by_alias=True, exclude_none=True)
 
     def to_json(self, **kwargs: Any) -> str:
         """Serialize the Problem to a JSON string."""

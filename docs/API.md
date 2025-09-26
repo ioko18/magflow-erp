@@ -23,9 +23,11 @@ All API endpoints require authentication using JWT tokens.
 ### Login & Token Management
 
 #### POST `/api/v1/auth/access-token`
+
 Get JWT access token for authentication.
 
 **Request:**
+
 ```json
 {
   "username": "admin",
@@ -34,6 +36,7 @@ Get JWT access token for authentication.
 ```
 
 **Response:**
+
 ```json
 {
   "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
@@ -43,6 +46,7 @@ Get JWT access token for authentication.
 ```
 
 **Usage:**
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/auth/access-token" \
   -H "Content-Type: application/x-www-form-urlencoded" \
@@ -50,9 +54,11 @@ curl -X POST "http://localhost:8000/api/v1/auth/access-token" \
 ```
 
 #### POST `/api/v1/auth/register`
+
 Register a new user account.
 
 **Request:**
+
 ```json
 {
   "email": "user@example.com",
@@ -63,9 +69,11 @@ Register a new user account.
 ```
 
 #### GET `/api/v1/users/me`
+
 Get current user information.
 
 **Headers:**
+
 ```
 Authorization: Bearer <your_jwt_token>
 ```
@@ -75,13 +83,16 @@ Authorization: Bearer <your_jwt_token>
 ### Users
 
 #### GET `/api/v1/users/`
+
 List all users with pagination.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of users to skip (default: 0)
 - `limit` (int, optional): Number of users to return (default: 100)
 
 **Response:**
+
 ```json
 {
   "users": [
@@ -101,9 +112,11 @@ List all users with pagination.
 ```
 
 #### POST `/api/v1/users/`
+
 Create a new user.
 
 **Request:**
+
 ```json
 {
   "email": "user@example.com",
@@ -114,20 +127,25 @@ Create a new user.
 ```
 
 #### GET `/api/v1/users/{user_id}`
+
 Get user by ID.
 
 #### PUT `/api/v1/users/{user_id}`
+
 Update user information.
 
 #### DELETE `/api/v1/users/{user_id}`
+
 Delete user (soft delete).
 
 ### Roles & Permissions
 
 #### GET `/api/v1/roles/`
+
 List all roles.
 
 **Response:**
+
 ```json
 {
   "roles": [
@@ -146,6 +164,7 @@ List all roles.
 ```
 
 #### GET `/api/v1/permissions/`
+
 List all permissions.
 
 ## 📦 Inventory Management
@@ -153,9 +172,11 @@ List all permissions.
 ### Inventory Items
 
 #### GET `/api/v1/inventory/`
+
 List all inventory items with pagination and filters.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of items to skip
 - `limit` (int, optional): Number of items to return
 - `search` (str, optional): Search in name and description
@@ -164,6 +185,7 @@ List all inventory items with pagination and filters.
 - `low_stock` (bool, optional): Show only low stock items
 
 **Response:**
+
 ```json
 {
   "items": [
@@ -187,9 +209,11 @@ List all inventory items with pagination and filters.
 ```
 
 #### POST `/api/v1/inventory/`
+
 Create a new inventory item.
 
 **Request:**
+
 ```json
 {
   "name": "Gaming Laptop",
@@ -204,18 +228,23 @@ Create a new inventory item.
 ```
 
 #### GET `/api/v1/inventory/{item_id}`
+
 Get inventory item by ID.
 
 #### PUT `/api/v1/inventory/{item_id}`
+
 Update inventory item.
 
 #### DELETE `/api/v1/inventory/{item_id}`
+
 Delete inventory item.
 
 #### POST `/api/v1/inventory/{item_id}/adjust-stock`
+
 Adjust stock quantity.
 
 **Request:**
+
 ```json
 {
   "adjustment": 10,
@@ -227,9 +256,11 @@ Adjust stock quantity.
 ### Categories
 
 #### GET `/api/v1/categories/`
+
 List all categories.
 
 **Response:**
+
 ```json
 {
   "categories": [
@@ -243,20 +274,25 @@ List all categories.
 ```
 
 #### POST `/api/v1/categories/`
+
 Create a new category.
 
 #### PUT `/api/v1/categories/{category_id}`
+
 Update category.
 
 #### DELETE `/api/v1/categories/{category_id}`
+
 Delete category.
 
 ### Warehouses
 
 #### GET `/api/v1/warehouses/`
+
 List all warehouses.
 
 **Response:**
+
 ```json
 {
   "warehouses": [
@@ -271,9 +307,11 @@ List all warehouses.
 ```
 
 #### POST `/api/v1/warehouses/`
+
 Create a new warehouse.
 
 **Request:**
+
 ```json
 {
   "name": "Secondary Warehouse",
@@ -285,15 +323,18 @@ Create a new warehouse.
 ### Stock Movements
 
 #### GET `/api/v1/stock-movements/`
+
 List stock movements with pagination.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of movements to skip
 - `limit` (int, optional): Number of movements to return
 - `item_id` (int, optional): Filter by inventory item
 - `warehouse_id` (int, optional): Filter by warehouse
 
 **Response:**
+
 ```json
 {
   "movements": [
@@ -316,14 +357,17 @@ List stock movements with pagination.
 ### Customers
 
 #### GET `/api/v1/customers/`
+
 List all customers.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of customers to skip
 - `limit` (int, optional): Number of customers to return
 - `search` (str, optional): Search in name and email
 
 **Response:**
+
 ```json
 {
   "customers": [
@@ -341,9 +385,11 @@ List all customers.
 ```
 
 #### POST `/api/v1/customers/`
+
 Create a new customer.
 
 **Request:**
+
 ```json
 {
   "name": "Jane Smith",
@@ -354,20 +400,25 @@ Create a new customer.
 ```
 
 #### GET `/api/v1/customers/{customer_id}`
+
 Get customer by ID.
 
 #### PUT `/api/v1/customers/{customer_id}`
+
 Update customer.
 
 #### DELETE `/api/v1/customers/{customer_id}`
+
 Delete customer.
 
 ### Sales Orders
 
 #### GET `/api/v1/sales-orders/`
+
 List sales orders.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of orders to skip
 - `limit` (int, optional): Number of orders to return
 - `customer_id` (int, optional): Filter by customer
@@ -376,6 +427,7 @@ List sales orders.
 - `date_to` (date, optional): Filter to date
 
 **Response:**
+
 ```json
 {
   "orders": [
@@ -402,9 +454,11 @@ List sales orders.
 ```
 
 #### POST `/api/v1/sales-orders/`
+
 Create a new sales order.
 
 **Request:**
+
 ```json
 {
   "customer_id": 1,
@@ -420,34 +474,43 @@ Create a new sales order.
 ```
 
 #### GET `/api/v1/sales-orders/{order_id}`
+
 Get sales order by ID.
 
 #### PUT `/api/v1/sales-orders/{order_id}`
+
 Update sales order.
 
 #### DELETE `/api/v1/sales-orders/{order_id}`
+
 Cancel sales order.
 
 ### Sales Quotes
 
 #### GET `/api/v1/sales-quotes/`
+
 List sales quotes.
 
 #### POST `/api/v1/sales-quotes/`
+
 Create a new sales quote.
 
 #### PUT `/api/v1/sales-quotes/{quote_id}/convert`
+
 Convert quote to sales order.
 
 ### Invoices
 
 #### GET `/api/v1/invoices/`
+
 List invoices.
 
 #### POST `/api/v1/invoices/`
+
 Create invoice from sales order.
 
 #### GET `/api/v1/invoices/{invoice_id}/pdf`
+
 Download invoice PDF.
 
 ## 🛒 Purchase Management
@@ -455,9 +518,11 @@ Download invoice PDF.
 ### Suppliers
 
 #### GET `/api/v1/suppliers/`
+
 List all suppliers.
 
 **Response:**
+
 ```json
 {
   "suppliers": [
@@ -475,9 +540,11 @@ List all suppliers.
 ```
 
 #### POST `/api/v1/suppliers/`
+
 Create a new supplier.
 
 **Request:**
+
 ```json
 {
   "name": "New Supplier Ltd",
@@ -488,20 +555,25 @@ Create a new supplier.
 ```
 
 #### GET `/api/v1/suppliers/{supplier_id}`
+
 Get supplier by ID.
 
 #### PUT `/api/v1/suppliers/{supplier_id}`
+
 Update supplier.
 
 #### DELETE `/api/v1/suppliers/{supplier_id}`
+
 Delete supplier.
 
 ### Purchase Orders
 
 #### GET `/api/v1/purchase-orders/`
+
 List purchase orders.
 
 **Parameters:**
+
 - `skip` (int, optional): Number of orders to skip
 - `limit` (int, optional): Number of orders to return
 - `supplier_id` (int, optional): Filter by supplier
@@ -510,6 +582,7 @@ List purchase orders.
 - `date_to` (date, optional): Filter to date
 
 **Response:**
+
 ```json
 {
   "orders": [
@@ -536,9 +609,11 @@ List purchase orders.
 ```
 
 #### POST `/api/v1/purchase-orders/`
+
 Create a new purchase order.
 
 **Request:**
+
 ```json
 {
   "supplier_id": 1,
@@ -555,34 +630,43 @@ Create a new purchase order.
 ```
 
 #### GET `/api/v1/purchase-orders/{order_id}`
+
 Get purchase order by ID.
 
 #### PUT `/api/v1/purchase-orders/{order_id}`
+
 Update purchase order.
 
 #### DELETE `/api/v1/purchase-orders/{order_id}`
+
 Cancel purchase order.
 
 ### Purchase Receipts
 
 #### GET `/api/v1/purchase-receipts/`
+
 List purchase receipts.
 
 #### POST `/api/v1/purchase-receipts/`
+
 Create purchase receipt.
 
 #### PUT `/api/v1/purchase-receipts/{receipt_id}/receive`
+
 Mark items as received.
 
 ### Purchase Requisitions
 
 #### GET `/api/v1/purchase-requisitions/`
+
 List purchase requisitions.
 
 #### POST `/api/v1/purchase-requisitions/`
+
 Create purchase requisition.
 
 #### PUT `/api/v1/purchase-requisitions/{req_id}/approve`
+
 Approve requisition.
 
 ## 🔧 System & Monitoring
@@ -590,9 +674,11 @@ Approve requisition.
 ### Health Checks
 
 #### GET `/health`
+
 Basic health check endpoint.
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -601,9 +687,11 @@ Basic health check endpoint.
 ```
 
 #### GET `/health/detailed`
+
 Detailed health information.
 
 **Response:**
+
 ```json
 {
   "status": "healthy",
@@ -628,17 +716,21 @@ Detailed health information.
 ```
 
 #### GET `/health/database`
+
 Database-specific health check.
 
 #### GET `/health/external`
+
 External services health check.
 
 ### Metrics
 
 #### GET `/metrics`
+
 Prometheus-compatible metrics endpoint.
 
 **Response:** Prometheus format metrics for:
+
 - Request counts and latency
 - Database connection pool status
 - Memory and CPU usage
@@ -647,9 +739,11 @@ Prometheus-compatible metrics endpoint.
 ### System Information
 
 #### GET `/api/v1/system/info`
+
 Get system information.
 
 **Response:**
+
 ```json
 {
   "version": "1.0.0",
@@ -671,6 +765,7 @@ Get system information.
 All API errors follow a consistent format:
 
 **Validation Error:**
+
 ```json
 {
   "error": {
@@ -685,6 +780,7 @@ All API errors follow a consistent format:
 ```
 
 **Authentication Error:**
+
 ```json
 {
   "error": {
@@ -698,6 +794,7 @@ All API errors follow a consistent format:
 ```
 
 **Business Logic Error:**
+
 ```json
 {
   "error": {
@@ -921,30 +1018,34 @@ curl -X POST "http://localhost:8000/api/v1/sales-orders/" \
 ## 📋 Best Practices
 
 ### Authentication
+
 - Always store JWT tokens securely
 - Implement token refresh logic
 - Use HTTPS in production
 - Validate tokens on every request
 
 ### Error Handling
+
 - Implement proper error handling for all API calls
 - Log errors for debugging
 - Provide meaningful error messages to users
 - Handle network timeouts gracefully
 
 ### Performance
+
 - Use pagination for large datasets
 - Implement caching for frequently accessed data
 - Use connection pooling for database connections
 - Monitor API response times
 
 ### Security
+
 - Validate all input data
 - Use parameterized queries to prevent SQL injection
 - Implement rate limiting
 - Use HTTPS for all API calls
 - Regularly update dependencies
 
----
+______________________________________________________________________
 
 **MagFlow ERP API** - Complete API Documentation 📚

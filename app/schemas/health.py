@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class HealthCheckResult(BaseModel):
@@ -60,5 +60,12 @@ class StartupProbeResponse(BaseModel):
         description="Whether the service is ready to handle requests",
     )
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict()
+
+    @field_serializer(
+        "timestamp",
+        "startup_time",
+        when_used="json",
+    )
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()

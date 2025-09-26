@@ -9,7 +9,7 @@ import logging
 import random
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, cast
 from urllib.parse import urljoin
 
@@ -22,7 +22,6 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
-from .config import EmagAccountType, EmagSettings, get_settings
 from .exceptions import (
     EmagAPIError,
     EmagAuthError,
@@ -32,6 +31,7 @@ from .exceptions import (
     EmagRetryableError,
 )
 from .rate_limiting import RateLimiter
+from .config import EmagAccountType, EmagSettings, get_settings
 
 # Type variable for response data
 T = TypeVar("T")
@@ -150,19 +150,24 @@ class EmagAPIClient(Generic[T]):
             return
 
         # If circuit is open, check if we should try to close it
-        if self._circuit_state["opened_at"]:
+        opened_at = self._circuit_state.get("opened_at")
+        if opened_at:
+            if opened_at.tzinfo is None:
+                opened_at = opened_at.replace(tzinfo=timezone.utc)
+                self._circuit_state["opened_at"] = opened_at
+
             retry_after = min(
                 300,  # Max 5 minutes
                 2 ** (self._circuit_state["failure_count"] - 1),  # Exponential backoff
             )
 
-            if (datetime.utcnow() - self._circuit_state["opened_at"]) < timedelta(
-                seconds=retry_after,
-            ):
+            if (
+                datetime.now(timezone.utc) - opened_at
+            ) < timedelta(seconds=retry_after):
                 raise EmagNonRetryableError(
                     "Circuit breaker is open",
                     status_code=503,
-                    retry_after=retry_after,
+                    details={"retry_after": retry_after},
                 )
 
             # Half-open the circuit
@@ -171,12 +176,12 @@ class EmagAPIClient(Generic[T]):
     def _record_failure(self) -> None:
         """Record a failed request and update circuit breaker state."""
         self._circuit_state["failure_count"] += 1
-        self._circuit_state["last_failure"] = datetime.utcnow()
+        self._circuit_state["last_failure"] = datetime.now(timezone.utc)
 
         # Trip the circuit if we've had too many failures
         if self._circuit_state["failure_count"] >= 5:  # Threshold configurable
             self._circuit_state["open"] = True
-            self._circuit_state["opened_at"] = datetime.utcnow()
+            self._circuit_state["opened_at"] = datetime.now(timezone.utc)
 
     def _record_success(self) -> None:
         """Record a successful request and reset circuit breaker state."""
@@ -256,6 +261,7 @@ class EmagAPIClient(Generic[T]):
             "Accept": "application/json",
             "Content-Type": "application/json",
             "X-Request-ID": str(uuid.uuid4()),
+            "X-Client-Id": self.account_config.username,
         }
         headers.update(kwargs.pop("headers", {}))
 
@@ -263,18 +269,18 @@ class EmagAPIClient(Generic[T]):
         url = urljoin(self.base_url, endpoint.lstrip("/"))
 
         try:
-            start_time = datetime.utcnow()
+            start_time = datetime.now(timezone.utc)
 
             async with self.session.request(
-                method=method,
-                url=url,
+                method,
+                url,
                 json=data,
                 params=params,
                 headers=headers,
                 **kwargs,
             ) as response:
                 # Log request metrics
-                duration = (datetime.utcnow() - start_time).total_seconds()
+                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
                 self._logger.debug(
                     "%s %s - %d (%.3fs)",
                     method.upper(),
@@ -284,43 +290,50 @@ class EmagAPIClient(Generic[T]):
                 )
 
                 # Handle error responses
-                if not response.ok:
+                if response.status >= 400:
                     error_text = await response.text()
 
                     if response.status == 401:
                         self._auth_token = None  # Force token refresh on next request
+                        self._record_failure()
                         raise EmagAuthError(
                             "Authentication failed. Please check your credentials.",
                         )
                     if response.status == 429:
                         retry_after = int(response.headers.get("Retry-After", "1"))
-                        raise EmagRateLimitError(
-                            "Rate limit exceeded",
-                            status_code=429,
-                            retry_after=retry_after,
-                        )
+                        error = EmagRateLimitError("Rate limit exceeded")
+                        error.details["retry_after"] = retry_after
+                        self._record_failure()
+                        raise error
                     try:
                         error_data = await response.json()
                         error_msg = error_data.get("message", error_text)
                         if error_data.get("isError", False):
-                            error_msg = error_data.get(
+                            error_messages = error_data.get(
                                 "messages",
                                 [{"message": "Unknown error from eMAG API"}],
                             )
-                            if isinstance(error_msg, list) and len(error_msg) > 0:
-                                error_msg = error_msg[0].get(
-                                    "message",
-                                    "Unknown error",
-                                )
+                            if isinstance(error_messages, list) and error_messages:
+                                first_msg = error_messages[0]
+                                if isinstance(first_msg, dict):
+                                    error_msg = first_msg.get("message", "Unknown error")
+                                else:
+                                    error_msg = str(first_msg)
+                            elif isinstance(error_messages, dict):
+                                error_msg = error_messages.get("message", "Unknown error")
+                            else:
+                                error_msg = str(error_messages)
                     except ValueError:
                         error_msg = error_text
 
                     # For server errors, raise a retryable error
                     if 500 <= response.status < 600:
+                        self._record_failure()
                         raise EmagRetryableError(
                             f"Server error: {error_msg}",
                             status_code=response.status,
                         )
+                    self._record_failure()
                     raise EmagAPIError(
                         f"API error: {error_msg}",
                         status_code=response.status,
@@ -330,6 +343,7 @@ class EmagAPIClient(Generic[T]):
                 try:
                     response_data = await response.json()
                 except ValueError as e:
+                    self._record_failure()
                     raise EmagError(f"Failed to parse JSON response: {e}")
 
                 # VALIDARE CRITICĂ: Verifică isError conform API v4.4.8
@@ -337,15 +351,24 @@ class EmagAPIClient(Generic[T]):
                     is_error = response_data.get("isError", False)
                     if is_error:
                         error_messages = response_data.get("messages", [])
-                        if error_messages:
-                            error_msg = error_messages[0].get(
-                                "message",
-                                "Unknown API error",
-                            )
-                        else:
-                            error_msg = "API returned isError=true without details"
+                        error_msg = "API returned isError=true without details"
+
+                        if isinstance(error_messages, list) and error_messages:
+                            first_msg = error_messages[0]
+                            if isinstance(first_msg, dict):
+                                error_msg = first_msg.get(
+                                    "message",
+                                    "Unknown API error",
+                                )
+                            else:
+                                error_msg = str(first_msg)
+                        elif isinstance(error_messages, dict):
+                            error_msg = error_messages.get("message", error_msg)
+                        elif error_messages:
+                            error_msg = str(error_messages)
 
                         self._logger.error(f"eMAG API Error: {error_msg}")
+                        self._record_failure()
                         raise EmagAPIError(
                             f"eMAG API error: {error_msg}",
                             status_code=400,
@@ -356,6 +379,8 @@ class EmagAPIClient(Generic[T]):
 
                 # Log the response
                 self._logger.debug("API response: %s", response_data)
+
+                self._record_success()
 
                 # Validate and parse response if a model is provided
                 if response_model:
@@ -377,11 +402,14 @@ class EmagAPIClient(Generic[T]):
 
         except aiohttp.ClientError as e:
             self._logger.error("Network error during API request: %s", str(e))
+            self._record_failure()
             raise EmagError(f"Network error: {e!s}")
         except EmagError:
+            self._record_failure()
             raise
         except Exception as e:
             self._logger.exception("Unexpected error during API request")
+            self._record_failure()
             raise EmagError(f"Unexpected error: {e!s}")
 
     # Convenience methods for common HTTP methods

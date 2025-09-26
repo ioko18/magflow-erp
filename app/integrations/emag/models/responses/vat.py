@@ -7,7 +7,7 @@ returned by the eMAG API endpoints.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, confloat, field_validator
+from pydantic import BaseModel, ConfigDict, Field, confloat, field_serializer, field_validator
 
 
 class VatRate(BaseModel):
@@ -68,11 +68,13 @@ class VatRate(BaseModel):
         description="Whether this VAT rate is currently active",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(populate_by_name=True)
 
-        populate_by_name = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
+    @field_serializer("valid_from", "valid_until", when_used="json")
+    def serialize_optional_datetime(
+        self, value: Optional[datetime], _info
+    ) -> Optional[str]:
+        return value.isoformat() if value else None
 
     @field_validator("country_code")
     def validate_country_code(cls, v):
@@ -129,11 +131,11 @@ class VatResponse(BaseModel):
         description="Total number of results available, if known",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(populate_by_name=True)
 
-        populate_by_name = True
-        json_encoders = {datetime: lambda v: v.isoformat() if v else None}
+    @field_serializer("timestamp", when_used="json")
+    def serialize_timestamp(self, value: datetime, _info) -> str:
+        return value.isoformat()
 
     @classmethod
     def from_emag_response(

@@ -8,9 +8,97 @@
 
 **MagFlow ERP** is a modern, comprehensive Enterprise Resource Planning system built with FastAPI, SQLAlchemy, and PostgreSQL. It provides complete inventory management, sales, purchasing, and financial operations with real-time analytics and monitoring.
 
+## 🧪 Testing
+
+MagFlow uses `pytest` for testing with a comprehensive test suite including unit, integration, and API tests.
+
+### Running Tests
+
+```bash
+# Install test dependencies
+pip install -e ".[test]"
+
+# Run all tests
+./run_tests.py
+
+# Run specific test types
+./run_tests.py --unit           # Run only unit tests
+./run_tests.py --integration    # Run only integration tests
+./run_tests.py --api            # Run only API tests
+
+# Run specific test file or directory
+./run_tests.py tests/unit/emag  # Run all unit tests for eMAG
+./run_tests.py tests/test_db.py # Run specific test file
+
+# Run with coverage report (HTML and console)
+./run_tests.py --cov
+
+# Run with verbose output
+./run_tests.py -v
+
+# Run tests matching a specific marker
+./run_tests.py -m "not slow"    # Run all tests except slow ones
+```
+
+### Test Structure
+
+```
+tests/
+├── api/                # API test cases
+├── config/             # Test configuration
+├── database/           # Database tests
+├── fixtures/           # Test fixtures
+├── integration/        # Integration tests
+│   └── emag/          # eMAG platform integration tests
+├── load/               # Load testing
+├── performance/        # Performance tests
+├── reports/            # Test reports
+├── scripts/            # Test utility scripts
+├── security/           # Security tests
+├── test_data/          # Test data files
+└── unit/               # Unit tests
+    └── emag/          # eMAG unit tests
+```
+
+### Writing Tests
+
+- **Unit Tests**: Test individual functions and classes in isolation
+- **Integration Tests**: Test interactions between components
+- **API Tests**: Test API endpoints and responses
+
+Example test file:
+
+```python
+import pytest
+from fastapi.testclient import TestClient
+from app.main import app
+
+client = TestClient(app)
+
+def test_read_main():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json() == {"message": "Welcome to MagFlow ERP"}
+```
+
+### Test Coverage
+
+To generate a coverage report:
+
+```bash
+./run_tests.py --cov
+```
+
+This will generate:
+
+- Console report showing coverage percentage
+- HTML report in `htmlcov/` directory
+- XML report for CI integration
+
 ## 🚀 Features
 
 ### Core Modules
+
 - **📦 Inventory Management**: Warehouses, stock tracking, reservations, transfers
 - **💰 Sales Management**: Orders, invoices, payments, quotes, customers
 - **🛒 Purchase Management**: Orders, receipts, suppliers, requisitions
@@ -22,6 +110,7 @@
 - **📈 Monitoring**: Health checks, metrics, alerts, observability
 
 ### Technical Features
+
 - **⚡ Async/Await**: Full async support for high performance
 - **🗄️ Database**: PostgreSQL with async SQLAlchemy
 - **🔄 Caching**: Redis for performance optimization
@@ -31,7 +120,7 @@
 - **📊 Metrics**: Prometheus and Grafana monitoring
 - **🔍 Logging**: Structured logging with ELK stack ready
 - **🧪 Testing**: Comprehensive test suite with 70+ tests
-- **📝 Documentation**: Complete API docs and guides
+- **📝 Documentation**: Complete API docs and guides (see `docs/integrations/emag/README.md` for the eMAG integration index)
 
 ## 📋 Table of Contents
 
@@ -50,18 +139,21 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.11+
 - PostgreSQL 15+
 - Redis 6+ (optional, for caching)
 - Docker & Docker Compose (optional)
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/your-org/magflow-erp.git
 cd magflow-erp
 ```
 
 ### 2. Environment Setup
+
 ```bash
 # Copy environment file
 cp .env.example .env
@@ -71,6 +163,7 @@ vim .env
 ```
 
 ### 3. Install Dependencies
+
 ```bash
 # Using pip
 pip install -r requirements.txt
@@ -81,6 +174,7 @@ conda activate magflow-erp
 ```
 
 ### 4. Database Setup
+
 ```bash
 # Initialize database
 python -c "from app.db.base import engine; from app.models import *; print('Database ready')"
@@ -90,6 +184,7 @@ docker-compose up -d postgres
 ```
 
 ### 5. Start the Application
+
 ```bash
 # Development server
 uvicorn app.main:app --reload
@@ -102,6 +197,7 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
 ### 6. Access the Application
+
 - **API Documentation**: http://localhost:8000/docs
 - **Alternative Docs**: http://localhost:8000/redoc
 - **Health Check**: http://localhost:8000/health
@@ -110,6 +206,7 @@ gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ## 📦 Installation
 
 ### Option 1: Local Development
+
 ```bash
 # 1. Clone repository
 git clone <repository-url>
@@ -137,17 +234,24 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Option 2: Docker Development
+
 ```bash
 # 1. Clone repository
 git clone <repository-url>
 cd magflow-erp
 
 # 2. Start services (recommended shortcuts)
-# Minimal core stack (db + redis + app worker):
+# Minimal core stack (app + db + redis):
 make up-simple
 
-# Full stack with PgBouncer (recommended):
+# Full stack with background processing:
+docker compose up -d app db redis worker beat
+
+# Or start everything defined in docker-compose.yml:
 docker compose up -d
+
+# Verify container health (app, db, redis, worker, beat)
+docker compose ps
 
 # 3. Initialize database
 docker-compose exec app python scripts/init_db.py
@@ -161,6 +265,7 @@ docker-compose exec app python scripts/init_db.py
 ```
 
 ### Option 3: Production Deployment
+
 ```bash
 # 1. Clone repository
 git clone <repository-url>
@@ -180,6 +285,7 @@ docker-compose -f docker-compose.prod.yml exec app alembic upgrade head
 ## ⚙️ Configuration
 
 ### Environment Variables
+
 ```bash
 # Database
 POSTGRES_SERVER=localhost
@@ -216,6 +322,7 @@ LOG_LEVEL=INFO
 ```
 
 ### Configuration Files
+
 - `config/mapping_default.json` - Field mapping configuration
 - `config/examples/.env.emag.example` - EMAG integration example
 - `app/core/config.py` - Application configuration
@@ -224,6 +331,7 @@ LOG_LEVEL=INFO
 ## 📖 Usage
 
 ### Basic API Usage
+
 ```python
 import httpx
 
@@ -240,6 +348,7 @@ response = httpx.get("http://localhost:8000/api/v1/users/me", headers=headers)
 ```
 
 ### Inventory Management
+
 ```python
 # Create warehouse
 warehouse = httpx.post(
@@ -263,6 +372,7 @@ item = httpx.post(
 ```
 
 ### Sales Management
+
 ```python
 # Create customer
 customer = httpx.post(
@@ -296,29 +406,34 @@ order = httpx.post(
 ## 📚 API Documentation
 
 ### Authentication
+
 - **POST** `/api/v1/auth/access-token` - Login and get JWT token
 - **POST** `/api/v1/auth/register` - Register new user
 - **GET** `/api/v1/users/me` - Get current user info
 
 ### Inventory
+
 - **GET** `/api/v1/inventory/` - List inventory items
 - **POST** `/api/v1/inventory/` - Create inventory item
 - **GET** `/api/v1/warehouses/` - List warehouses
 - **POST** `/api/v1/warehouses/` - Create warehouse
 
 ### Sales
+
 - **GET** `/api/v1/customers/` - List customers
 - **POST** `/api/v1/customers/` - Create customer
 - **GET** `/api/v1/sales-orders/` - List sales orders
 - **POST** `/api/v1/sales-orders/` - Create sales order
 
 ### Purchasing
+
 - **GET** `/api/v1/suppliers/` - List suppliers
 - **POST** `/api/v1/suppliers/` - Create supplier
 - **GET** `/api/v1/purchase-orders/` - List purchase orders
 - **POST** `/api/v1/purchase-orders/` - Create purchase order
 
 ### Health & Monitoring
+
 - **GET** `/health` - Health check endpoint
 - **GET** `/health/detailed` - Detailed health information
 - **GET** `/metrics` - Prometheus metrics
@@ -326,6 +441,7 @@ order = httpx.post(
 ## 🛠️ Development
 
 ### Project Structure
+
 ```
 magflow-erp/
 ├── app/                    # Main application
@@ -344,6 +460,7 @@ magflow-erp/
 ```
 
 ### Development Commands
+
 ```bash
 # Run tests
 pytest tests/
@@ -365,6 +482,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Database Operations
+
 ```bash
 # Create migration
 alembic revision --autogenerate -m "description"
@@ -383,6 +501,7 @@ alembic history
 ## 🚀 Deployment
 
 ### Environment Setup
+
 ```bash
 # Development
 cp .env.example .env
@@ -394,6 +513,7 @@ cp .env.example .env.production
 ```
 
 ### Docker Deployment
+
 ```bash
 # Build and run
 docker-compose up -d
@@ -406,6 +526,7 @@ docker-compose up -d --scale app=3
 ```
 
 ### Kubernetes Deployment
+
 ```bash
 # Apply configurations
 kubectl apply -f deployment/kubernetes/
@@ -422,6 +543,7 @@ kubectl logs -f deployment/magflow-erp
 ## 📊 Monitoring
 
 ### Health Checks
+
 ```bash
 # Basic health check
 curl http://localhost:8000/health
@@ -437,11 +559,13 @@ curl http://localhost:8000/health/external
 ```
 
 ### Metrics & Analytics
+
 - **Prometheus**: http://localhost:9090
 - **Grafana**: http://localhost:3000
 - **Application Metrics**: http://localhost:8000/metrics
 
 ### Logs
+
 ```bash
 # Application logs
 tail -f logs/app.log
@@ -458,6 +582,7 @@ kubectl logs -f deployment/magflow-erp
 ### Common Issues
 
 #### Database Connection Issues
+
 ```bash
 # Check database connectivity
 python -c "from app.db.base import engine; print('Database connected')"
@@ -470,6 +595,7 @@ echo $DATABASE_URL
 ```
 
 #### Permission Issues
+
 ```bash
 # Fix file permissions
 chmod +x scripts/*.sh
@@ -478,6 +604,7 @@ chmod 644 certs/*.pem
 ```
 
 #### Import Errors
+
 ```bash
 # Check Python path
 python -c "import sys; print(sys.path)"
@@ -490,6 +617,7 @@ python -m py_compile app/main.py
 ```
 
 ### Debug Mode
+
 ```bash
 # Start with debug logging
 export LOG_LEVEL=DEBUG
@@ -500,6 +628,7 @@ export SQL_ECHO=1
 ```
 
 ### Performance Issues
+
 ```bash
 # Check memory usage
 ps aux | grep python
@@ -514,16 +643,18 @@ redis-cli INFO
 ## 🤝 Contributing
 
 ### Development Workflow
+
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/new-feature`
-3. Make your changes and add tests
-4. Run the test suite: `pytest tests/`
-5. Format code: `black app/ && ruff check app/`
-6. Commit your changes: `git commit -am 'Add new feature'`
-7. Push to the branch: `git push origin feature/new-feature`
-8. Submit a Pull Request
+1. Create a feature branch: `git checkout -b feature/new-feature`
+1. Make your changes and add tests
+1. Run the test suite: `pytest tests/`
+1. Format code: `black app/ && ruff check app/`
+1. Commit your changes: `git commit -am 'Add new feature'`
+1. Push to the branch: `git push origin feature/new-feature`
+1. Submit a Pull Request
 
 ### Code Standards
+
 - Follow PEP 8 style guidelines
 - Use type hints for all functions
 - Write comprehensive docstrings
@@ -531,6 +662,7 @@ redis-cli INFO
 - Update documentation for API changes
 
 ### Testing Requirements
+
 - Unit tests for all new functions
 - Integration tests for API endpoints
 - Minimum 80% code coverage
@@ -552,11 +684,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For support and questions:
+
 - 📧 Email: support@magflow-erp.com
 - 📱 Issues: [GitHub Issues](https://github.com/your-org/magflow-erp/issues)
 - 💬 Discussions: [GitHub Discussions](https://github.com/your-org/magflow-erp/discussions)
 
----
+______________________________________________________________________
 
 **MagFlow ERP** - Enterprise Resource Planning Made Simple 🚀
-

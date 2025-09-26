@@ -56,9 +56,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 Dacă întâmpini erori:
 
 1. Rulează `python -m pip install -r requirements.txt` pentru a instala toate pachetele necesare (inclusiv `dependency-injector`).
-2. Rulează `./start_server.sh` – scriptul verifică și instalează automat pachetele lipsă în mediul curent.
-3. Verifică dacă serverul rulează pe portul 8080.
-4. Accesează http://localhost:8080/docs pentru documentație.
+1. Rulează `./start_server.sh` – scriptul verifică și instalează automat pachetele lipsă în mediul curent.
+1. Verifică dacă serverul rulează pe portul 8080.
+1. Accesează http://localhost:8080/docs pentru documentație.
 
 > Eroare frecventă: `ModuleNotFoundError: No module named 'dependency_injector'` – indică faptul că pachetele nu sunt instalate în mediul curent. Soluție: reinstalează dependențele folosind comanda de la pasul 1.
 

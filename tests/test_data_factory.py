@@ -4,13 +4,30 @@ This module provides comprehensive test data generation utilities,
 factory patterns, and enhanced fixtures for consistent testing.
 """
 
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List
+from datetime import date, datetime
+from typing import List
 from unittest.mock import AsyncMock, MagicMock
 
 import factory
 import pytest
-from factory.fuzzy import FuzzyChoice, FuzzyDate, FuzzyInteger
+from factory.fuzzy import FuzzyChoice, FuzzyDate, FuzzyInteger, FuzzyFloat
+import json
+
+# Import actual models for database factories
+try:
+    from app.models.user import User
+    from app.models.role import Role
+    from app.models.permission import Permission
+    from app.models.product import Product
+    from app.models.category import Category
+    from app.models.order import Order, OrderLine
+    from app.models.purchase import Supplier
+    from app.models.sales import Customer
+    from app.models.inventory import Warehouse
+    from app.models.audit_log import AuditLog
+    DATABASE_MODELS_AVAILABLE = True
+except ImportError:
+    DATABASE_MODELS_AVAILABLE = False
 
 
 class BaseFactory(factory.Factory):
@@ -22,9 +39,9 @@ class BaseFactory(factory.Factory):
         return [cls(**kwargs) for _ in range(size)]
 
 
-# User Test Data Factories
-class UserFactory(BaseFactory):
-    """Factory for generating user test data."""
+# Dictionary-based factories (for simple testing)
+class UserDictFactory(BaseFactory):
+    """Factory for generating user test data dictionaries."""
 
     class Meta:
         model = dict
@@ -38,57 +55,16 @@ class UserFactory(BaseFactory):
     updated_at = factory.LazyAttribute(lambda obj: obj.created_at)
 
 
-class AuditLogFactory(BaseFactory):
-    """Factory for generating audit log test data."""
+class AdminUserDictFactory(UserDictFactory):
+    """Factory for generating admin user test data dictionaries."""
 
-    class Meta:
-        model = dict
-
-    id = factory.Sequence(lambda n: n)
-    user_id = FuzzyInteger(1, 100)
-    action = FuzzyChoice(
-        [
-            "login_success",
-            "login_attempt",
-            "create",
-            "update",
-            "delete",
-            "view",
-            "export",
-            "import",
-            "login_failed",
-            "logout",
-        ]
-    )
-    resource = FuzzyChoice(
-        [
-            "users",
-            "products",
-            "orders",
-            "reports",
-            "inventory",
-            "settings",
-            "auth",
-            "dashboard",
-            "api",
-        ]
-    )
-    resource_id = factory.LazyAttribute(
-        lambda obj: f"{obj.resource}:{factory.Faker('uuid4')}",
-    )
-    details = factory.LazyAttribute(
-        lambda obj: {
-            "ip_address": factory.Faker("ipv4"),
-            "user_agent": factory.Faker("user_agent"),
-            "metadata": {"test": True, "factory_generated": True},
-        }
-    )
-    success = FuzzyChoice([True, False])
-    timestamp = FuzzyDate(start_date=date(2024, 1, 1))
+    is_superuser = True
+    email = factory.LazyAttribute(lambda obj: f"admin{obj.id}@example.com")
+    full_name = factory.Faker("name") + " (Admin)"
 
 
-class ProductFactory(BaseFactory):
-    """Factory for generating product test data."""
+class ProductDictFactory(BaseFactory):
+    """Factory for generating product test data dictionaries."""
 
     class Meta:
         model = dict
@@ -97,15 +73,15 @@ class ProductFactory(BaseFactory):
     name = factory.Faker("word")
     sku = factory.LazyAttribute(lambda obj: f"SKU-{obj.id:06d}")
     description = factory.Faker("text", max_nb_chars=200)
-    price = FuzzyInteger(10, 1000)
+    price = FuzzyFloat(10.0, 1000.0, precision=2)
     stock_quantity = FuzzyInteger(0, 1000)
     is_active = FuzzyChoice([True, False])
     category_id = FuzzyInteger(1, 10)
     created_at = FuzzyDate(start_date=date(2023, 1, 1))
 
 
-class OrderFactory(BaseFactory):
-    """Factory for generating order test data."""
+class OrderDictFactory(BaseFactory):
+    """Factory for generating order test data dictionaries."""
 
     class Meta:
         model = dict
@@ -113,106 +89,303 @@ class OrderFactory(BaseFactory):
     id = factory.Sequence(lambda n: n)
     customer_id = FuzzyInteger(1, 100)
     order_date = FuzzyDate(start_date=date(2024, 1, 1))
-    total_amount = FuzzyInteger(50, 5000)
+    total_amount = FuzzyFloat(50.0, 5000.0, precision=2)
     status = FuzzyChoice(["pending", "processing", "shipped", "delivered", "cancelled"])
     order_lines = factory.LazyAttribute(
         lambda obj: [
             {
                 "product_id": factory.Faker("random_int")(min=1, max=100),
                 "quantity": factory.Faker("random_int")(min=1, max=10),
-                "unit_price": factory.Faker("random_int")(min=10, max=100),
+                "unit_price": factory.Faker("random_float")(min=10, max=100),
             }
             for _ in range(factory.Faker("random_int")(min=1, max=5))
         ]
     )
 
 
-class ReportFactory(BaseFactory):
-    """Factory for generating report test data."""
+# SQLAlchemy model factories (for database testing)
+if DATABASE_MODELS_AVAILABLE:
 
-    class Meta:
-        model = dict
+    class UserFactory(BaseFactory):
+        """Factory for creating User database instances."""
 
-    id = factory.Faker("uuid4")
-    title = factory.Faker("sentence", nb_words=3)
-    description = factory.Faker("text", max_nb_chars=100)
-    report_type = FuzzyChoice(
-        [
-            "sales_overview",
-            "inventory_status",
-            "user_activity",
-            "financial_summary",
-            "system_metrics",
-        ]
-    )
-    date_range = factory.LazyAttribute(
-        lambda obj: {
-            "start_date": (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),
-            "end_date": datetime.now().strftime("%Y-%m-%d"),
-        }
-    )
-    filters = factory.LazyAttribute(
-        lambda obj: {
-            "category": factory.Faker("word"),
-            "status": FuzzyChoice(["active", "inactive", "all"]),
-        }
-    )
-    created_at = FuzzyDate(start_date=date(2024, 1, 1))
+        class Meta:
+            model = User
+
+        id = factory.Sequence(lambda n: n)
+        email = factory.Sequence(lambda n: f"user{n}@example.com")
+        hashed_password = factory.Faker("password")
+        full_name = factory.Faker("name")
+        is_active = True
+        is_superuser = False
+        email_verified = True
+        failed_login_attempts = 0
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class AdminUserFactory(UserFactory):
+        """Factory for creating admin User database instances."""
+
+        is_superuser = True
+        email = factory.Sequence(lambda n: f"admin{n}@example.com")
+        full_name = factory.Faker("name") + " (Admin)"
+
+
+    class RoleFactory(BaseFactory):
+        """Factory for creating Role database instances."""
+
+        class Meta:
+            model = Role
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Sequence(lambda n: f"role_{n}")
+        description = factory.Faker("sentence", nb_words=6)
+        is_system_role = False
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class PermissionFactory(BaseFactory):
+        """Factory for creating Permission database instances."""
+
+        class Meta:
+            model = Permission
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Sequence(lambda n: f"permission_{n}")
+        description = factory.Faker("sentence", nb_words=8)
+        resource = FuzzyChoice(["users", "products", "orders", "categories", "reports"])
+        action = FuzzyChoice(["read", "write", "delete", "execute", "admin"])
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class CategoryFactory(BaseFactory):
+        """Factory for creating Category database instances."""
+
+        class Meta:
+            model = Category
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Sequence(lambda n: f"Category {n}")
+        description = factory.Faker("sentence", nb_words=10)
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class ProductFactory(BaseFactory):
+        """Factory for creating Product database instances."""
+
+        class Meta:
+            model = Product
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Sequence(lambda n: f"Test Product {n}")
+        description = factory.Faker("sentence", nb_words=15)
+        price = FuzzyFloat(10.0, 1000.0, precision=2)
+        sku = factory.Sequence(lambda n: f"SKU-{n:06d}")
+        stock_quantity = FuzzyInteger(0, 1000)
+        is_active = True
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class CustomerFactory(BaseFactory):
+        """Factory for creating Customer database instances."""
+
+        class Meta:
+            model = Customer
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Faker("name")
+        email = factory.Sequence(lambda n: f"customer{n}@example.com")
+        phone = factory.Faker("phone_number")
+        address = factory.Faker("address")
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class WarehouseFactory(BaseFactory):
+        """Factory for creating Warehouse database instances."""
+
+        class Meta:
+            model = Warehouse
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Sequence(lambda n: f"Warehouse {n}")
+        code = factory.Sequence(lambda n: f"WH{n:03d}")
+        address = factory.Faker("street_address")
+        city = factory.Faker("city")
+        country = factory.Faker("country")
+        is_active = True
+
+
+    class AuditLogFactory(BaseFactory):
+        """Factory for creating AuditLog database instances."""
+
+        class Meta:
+            model = AuditLog
+
+        id = factory.Sequence(lambda n: n)
+        user_id = FuzzyInteger(1, 100)
+        action = FuzzyChoice([
+            "login_success", "login_attempt", "create", "update", "delete",
+            "view", "export", "import", "login_failed", "logout"
+        ])
+        resource = FuzzyChoice([
+            "users", "products", "orders", "reports", "inventory",
+            "settings", "auth", "dashboard", "api"
+        ])
+        resource_id = factory.LazyAttribute(
+            lambda obj: f"{obj.resource}:{factory.Faker('uuid4')}"
+        )
+        details = factory.LazyFunction(lambda: json.dumps({
+            "ip_address": factory.Faker("ipv4"),
+            "user_agent": factory.Faker("user_agent"),
+            "metadata": {"test": True, "factory_generated": True}
+        }))
+        success = FuzzyChoice([True, False])
+        timestamp = factory.Faker("past_datetime", start_date="-30d")
+
+
+    class OrderFactory(BaseFactory):
+        """Factory for creating Order database instances."""
+
+        class Meta:
+            model = Order
+
+        id = factory.Sequence(lambda n: n)
+        customer_id = FuzzyInteger(1, 100)
+        order_date = factory.Faker("past_datetime", start_date="-30d")
+        total_amount = FuzzyFloat(50.0, 5000.0, precision=2)
+        status = FuzzyChoice(["pending", "processing", "shipped", "delivered", "cancelled"])
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
+
+
+    class OrderLineFactory(BaseFactory):
+        """Factory for creating OrderLine database instances."""
+
+        class Meta:
+            model = OrderLine
+
+        id = factory.Sequence(lambda n: n)
+        order_id = FuzzyInteger(1, 100)
+        product_id = FuzzyInteger(1, 200)
+        quantity = FuzzyInteger(1, 10)
+        unit_price = FuzzyFloat(10.0, 100.0, precision=2)
+        total_price = factory.LazyAttribute(lambda obj: obj.quantity * obj.unit_price)
+
+
+    class SupplierFactory(BaseFactory):
+        """Factory for creating Supplier database instances."""
+
+        class Meta:
+            model = Supplier
+
+        id = factory.Sequence(lambda n: n)
+        name = factory.Sequence(lambda n: f"Supplier {n}")
+        contact_email = factory.Sequence(lambda n: f"contact{n}@example.com")
+        phone = factory.Faker("phone_number")
+        address = factory.Faker("address")
+        is_active = True
+        created_at = factory.Faker("past_datetime", start_date="-30d")
+        updated_at = factory.Faker("recent_datetime")
 
 
 # Enhanced Test Fixtures
 @pytest.fixture
 def sample_user():
     """Provide a sample user for testing."""
-    return UserFactory()
+    if DATABASE_MODELS_AVAILABLE:
+        return UserFactory()
+    return UserDictFactory()
 
 
 @pytest.fixture
 def sample_users():
     """Provide multiple sample users for testing."""
-    return UserFactory.create_batch(5)
+    if DATABASE_MODELS_AVAILABLE:
+        return UserFactory.create_batch(5)
+    return UserDictFactory.create_batch(5)
+
+
+@pytest.fixture
+def sample_admin_user():
+    """Provide a sample admin user for testing."""
+    if DATABASE_MODELS_AVAILABLE:
+        return AdminUserFactory()
+    return AdminUserDictFactory()
 
 
 @pytest.fixture
 def sample_audit_log():
     """Provide a sample audit log entry."""
-    return AuditLogFactory()
+    if DATABASE_MODELS_AVAILABLE:
+        return AuditLogFactory()
+    return {
+        "id": 1,
+        "user_id": 1,
+        "action": "login_success",
+        "resource": "auth",
+        "resource_id": "auth:123",
+        "details": {"ip_address": "127.0.0.1", "user_agent": "test"},
+        "success": True,
+        "timestamp": datetime.now()
+    }
 
 
 @pytest.fixture
 def sample_audit_logs():
     """Provide multiple sample audit logs."""
-    return AuditLogFactory.create_batch(10)
+    if DATABASE_MODELS_AVAILABLE:
+        return AuditLogFactory.create_batch(10)
+    return [
+        {
+            "id": i,
+            "user_id": i % 5 + 1,
+            "action": "login_success",
+            "resource": "auth",
+            "resource_id": f"auth:{i}",
+            "details": {"ip_address": "127.0.0.1", "user_agent": "test"},
+            "success": True,
+            "timestamp": datetime.now()
+        }
+        for i in range(10)
+    ]
 
 
 @pytest.fixture
 def sample_product():
     """Provide a sample product."""
-    return ProductFactory()
+    if DATABASE_MODELS_AVAILABLE:
+        return ProductFactory()
+    return ProductDictFactory()
 
 
 @pytest.fixture
 def sample_products():
     """Provide multiple sample products."""
-    return ProductFactory.create_batch(5)
+    if DATABASE_MODELS_AVAILABLE:
+        return ProductFactory.create_batch(5)
+    return ProductDictFactory.create_batch(5)
 
 
 @pytest.fixture
 def sample_order():
     """Provide a sample order."""
-    return OrderFactory()
+    if DATABASE_MODELS_AVAILABLE:
+        return OrderFactory()
+    return OrderDictFactory()
 
 
 @pytest.fixture
 def sample_orders():
     """Provide multiple sample orders."""
-    return OrderFactory.create_batch(3)
-
-
-@pytest.fixture
-def sample_report():
-    """Provide a sample report configuration."""
-    return ReportFactory()
+    if DATABASE_MODELS_AVAILABLE:
+        return OrderFactory.create_batch(3)
+    return OrderDictFactory.create_batch(3)
 
 
 @pytest.fixture
@@ -255,263 +428,187 @@ def mock_cache_service():
     return mock_cache
 
 
-@pytest.fixture
-def mock_reporting_service():
-    """Create a mock reporting service."""
-    mock_service = AsyncMock()
+# Database session-based fixtures
+if DATABASE_MODELS_AVAILABLE:
 
-    # Configure service methods
-    mock_service.get_available_reports = AsyncMock(
-        return_value=[
-            {"type": "sales_overview", "name": "Sales Overview", "category": "Sales"},
-        ]
-    )
-
-    mock_service._generate_sales_overview = AsyncMock(
-        return_value={
-            "summary": {"total_records": 100, "key_metrics": {"total_orders": 100}},
-            "charts": {"sales_trend": {"chart_type": "line", "data": []}},
-            "raw_data": [],
-        }
-    )
-
-    mock_service._generate_inventory_status = AsyncMock(
-        return_value={
-            "summary": {"total_records": 50, "key_metrics": {"total_products": 500}},
-            "charts": {"stock_levels": {"chart_type": "bar", "data": []}},
-            "raw_data": [],
-        }
-    )
-
-    mock_service.export_report = AsyncMock(return_value=b'{"test": "data"}')
-
-    return mock_service
-
-
-# Test Data Generators
-class TestDataGenerator:
-    """Generate test data for various scenarios."""
-
-    @staticmethod
-    def generate_user_activity_data(days: int = 30) -> List[Dict[str, Any]]:
-        """Generate user activity data for the specified number of days."""
-        activities = []
-
-        for day in range(days):
-            current_date = date.today() - timedelta(days=day)
-
-            # Generate login activities
-            for hour in range(24):
-                # Random activity count for this hour
-                activity_count = max(1, (day * hour) % 10)
-
-                for i in range(activity_count):
-                    activities.append(
-                        AuditLogFactory(
-                            action=FuzzyChoice(["login_success", "login_attempt"]),
-                            resource="auth",
-                            timestamp=current_date,
-                            details={
-                                "ip_address": factory.Faker("ipv4"),
-                                "user_agent": factory.Faker("user_agent"),
-                            },
-                        )
-                    )
-
-        return activities
-
-    @staticmethod
-    def generate_sales_data(months: int = 12) -> List[Dict[str, Any]]:
-        """Generate sales data for the specified number of months."""
-        sales_data = []
-
-        for month in range(months):
-            month_date = datetime.now().replace(month=month + 1, day=1)
-
-            # Generate daily sales for this month
-            for day in range(30):  # Approximate 30 days per month
-                daily_orders = max(5, (month * day) % 50)
-                daily_revenue = daily_orders * 100  # Average $100 per order
-
-                sales_data.append(
-                    {
-                        "date": month_date.replace(day=day + 1).strftime("%Y-%m-%d"),
-                        "orders": daily_orders,
-                        "revenue": daily_revenue,
-                    }
-                )
-
-        return sales_data
-
-    @staticmethod
-    def generate_inventory_movements(days: int = 30) -> List[Dict[str, Any]]:
-        """Generate inventory movement data."""
-        movements = []
-
-        for day in range(days):
-            current_date = date.today() - timedelta(days=day)
-
-            # Generate stock movements
-            movement_count = max(2, (day) % 15)
-
-            for i in range(movement_count):
-                movements.append(
-                    {
-                        "date": current_date.strftime("%Y-%m-%d"),
-                        "product": f"Product {i % 10 + 1}",
-                        "movement_type": FuzzyChoice(["in", "out", "adjustment"]),
-                        "quantity": FuzzyInteger(1, 100),
-                        "reason": FuzzyChoice(
-                            ["Sale", "Purchase", "Return", "Adjustment"]
-                        ),
-                    }
-                )
-
-        return movements
-
-    @staticmethod
-    def generate_performance_metrics(hours: int = 24) -> List[Dict[str, Any]]:
-        """Generate system performance metrics."""
-        metrics = []
-
-        for hour in range(hours):
-            current_time = datetime.now() - timedelta(hours=hour)
-
-            metrics.append(
-                {
-                    "timestamp": current_time.strftime("%Y-%m-%d %H:%M"),
-                    "cpu_usage": FuzzyInteger(20, 90),
-                    "memory_usage": FuzzyInteger(40, 85),
-                    "disk_usage": FuzzyInteger(10, 70),
-                    "response_time": FuzzyInteger(50, 500),  # milliseconds
-                    "error_rate": FuzzyInteger(0, 5) / 100,  # 0-5% error rate
-                }
-            )
-
-        return metrics
-
-
-# Performance Test Data
-@pytest.fixture
-def performance_test_data():
-    """Provide data for performance testing."""
-    return {
-        "users": UserFactory.create_batch(100),
-        "audit_logs": AuditLogFactory.create_batch(500),
-        "products": ProductFactory.create_batch(200),
-        "orders": OrderFactory.create_batch(50),
-        "reports": ReportFactory.create_batch(20),
-    }
-
-
-# Load Test Data
-@pytest.fixture
-def load_test_data():
-    """Provide large datasets for load testing."""
-    return {
-        "large_user_set": UserFactory.create_batch(1000),
-        "large_audit_set": AuditLogFactory.create_batch(5000),
-        "large_product_set": ProductFactory.create_batch(2000),
-    }
-
-
-# Edge Case Test Data
-@pytest.fixture
-def edge_case_data():
-    """Provide edge case data for boundary testing."""
-    return {
-        "empty_user": UserFactory(id=0, email="", full_name="", is_active=False),
-        "invalid_email_user": UserFactory(email="invalid-email-format"),
-        "zero_quantity_product": ProductFactory(stock_quantity=0, is_active=False),
-        "negative_price_product": ProductFactory(price=-100),  # Invalid data
-        "very_long_name_product": ProductFactory(
-            name="A" * 1000,  # Very long product name
-        ),
-        "special_characters_order": OrderFactory(
-            customer_id=999999,  # Large ID
-            total_amount=999999,  # Large amount
-        ),
-    }
-
-
-# Test Configuration
-@pytest.fixture
-def test_config():
-    """Provide test configuration settings."""
-    return {
-        "database": {
-            "pool_size": 5,
-            "max_overflow": 10,
-            "pool_timeout": 10,
-            "pool_recycle": 300,
-        },
-        "cache": {
-            "default_ttl": 300,
-            "max_ttl": 3600,
-        },
-        "security": {
-            "rate_limit": 100,
-            "rate_window": 60,
-        },
-        "testing": {
-            "mock_external_services": True,
-            "disable_auth": True,
-            "fast_mode": True,
-        },
-    }
-
-
-# Database Test Helpers
-class DatabaseTestHelper:
-    """Helper class for database testing operations."""
-
-    @staticmethod
-    async def create_test_user(session, user_data: Dict[str, Any]):
+    @pytest.fixture
+    async def db_user(db_session):
         """Create a test user in the database."""
-        # This would be implemented with actual database operations
-
-    @staticmethod
-    async def create_test_audit_log(session, log_data: Dict[str, Any]):
-        """Create a test audit log entry."""
-        # This would be implemented with actual database operations
-
-    @staticmethod
-    async def cleanup_test_data(session, table_name: str):
-        """Clean up test data from specified table."""
-        # This would be implemented with actual database operations
+        user = UserFactory()
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
 
 
-# API Test Client Helper
-class APITestClient:
-    """Helper class for API testing operations."""
+    @pytest.fixture
+    async def db_admin_user(db_session):
+        """Create a test admin user in the database."""
+        user = AdminUserFactory()
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        return user
 
-    def __init__(self, client):
-        self.client = client
 
-    async def authenticate_user(self, email: str, password: str):
-        """Authenticate a user and return tokens."""
-        response = await self.client.post(
-            "/api/v1/auth/login",
-            json={"email": email, "password": password},
-        )
-        if response.status_code == 200:
-            data = response.json()
-            return data["access_token"], data["refresh_token"]
-        return None, None
+    @pytest.fixture
+    async def db_product(db_session):
+        """Create a test product in the database."""
+        product = ProductFactory()
+        db_session.add(product)
+        await db_session.commit()
+        await db_session.refresh(product)
+        return product
 
-    async def make_authenticated_request(
-        self, method: str, url: str, token: str, **kwargs
-    ):
-        """Make an authenticated API request."""
-        headers = kwargs.get("headers", {})
-        headers["Authorization"] = f"Bearer {token}"
 
-        return await self.client.request(method, url, headers=headers, **kwargs)
+    @pytest.fixture
+    async def db_category(db_session):
+        """Create a test category in the database."""
+        category = CategoryFactory()
+        db_session.add(category)
+        await db_session.commit()
+        await db_session.refresh(category)
+        return category
 
-    async def create_test_report(self, report_type: str, filters: Dict = None):
-        """Create a test report."""
-        data = {"report_type": report_type}
-        if filters:
-            data["filters"] = filters
 
-        return await self.client.post("/api/v1/reports/generate", json=data)
+    @pytest.fixture
+    async def db_role(db_session):
+        """Create a test role in the database."""
+        role = RoleFactory()
+        db_session.add(role)
+        await db_session.commit()
+        await db_session.refresh(role)
+        return role
+
+
+    @pytest.fixture
+    async def db_permission(db_session):
+        """Create a test permission in the database."""
+        permission = PermissionFactory()
+        db_session.add(permission)
+        await db_session.commit()
+        await db_session.refresh(permission)
+        return permission
+
+
+    @pytest.fixture
+    async def db_audit_log(db_session):
+        """Create a test audit log in the database."""
+        audit_log = AuditLogFactory()
+        db_session.add(audit_log)
+        await db_session.commit()
+        await db_session.refresh(audit_log)
+        return audit_log
+
+
+# Convenience functions for creating test data with relationships
+def create_user_with_role(db_session, role_name: str = "user", **user_kwargs):
+    """Create a user with a specific role."""
+    if not DATABASE_MODELS_AVAILABLE:
+        return {"email": f"{role_name}@example.com", "role": role_name, **user_kwargs}
+
+    # Create or get role
+    role = db_session.query(Role).filter_by(name=role_name).first()
+    if not role:
+        role = RoleFactory(name=role_name, description=f"{role_name} role")
+        db_session.add(role)
+        db_session.commit()
+
+    # Create user
+    user = UserFactory(roles=[role], **user_kwargs)
+    db_session.add(user)
+    db_session.commit()
+
+    return user
+
+
+def create_product_with_categories(db_session, category_count: int = 2):
+    """Create a product with random categories."""
+    if not DATABASE_MODELS_AVAILABLE:
+        return {
+            "name": "Test Product",
+            "categories": [f"Category {i}" for i in range(category_count)]
+        }
+
+    # Create categories if they don't exist
+    categories = []
+    for i in range(category_count):
+        category = CategoryFactory(name=f"Test Category {i}")
+        db_session.add(category)
+        categories.append(category)
+
+    db_session.commit()
+
+    # Create product
+    product = ProductFactory()
+    product.categories = categories
+    db_session.add(product)
+    db_session.commit()
+
+    return product
+
+
+def create_admin_user(db_session):
+    """Create an admin user with admin role."""
+    return create_user_with_role(db_session, "admin", is_superuser=True)
+
+
+def create_test_user_data():
+    """Create sample user data for API testing."""
+    return {
+        "email": "test@example.com",
+        "password": "test_password123",
+        "full_name": "Test User",
+        "is_active": True
+    }
+
+
+def create_test_product_data():
+    """Create sample product data for API testing."""
+    return {
+        "name": "Test Product",
+        "description": "This is a test product for API testing",
+        "price": 99.99,
+        "sku": "TEST-001",
+        "stock_quantity": 100,
+        "is_active": True
+    }
+
+
+def create_test_category_data():
+    """Create sample category data for API testing."""
+    return {
+        "name": "Test Category",
+        "description": "This is a test category for API testing"
+    }
+
+
+# Bulk data creation functions
+def create_bulk_users(db_session, count: int = 10):
+    """Create multiple users for performance testing."""
+    if not DATABASE_MODELS_AVAILABLE:
+        return [UserDictFactory() for _ in range(count)]
+
+    users = []
+    for _ in range(count):
+        user = UserFactory()
+        db_session.add(user)
+        users.append(user)
+
+    db_session.commit()
+    return users
+
+
+def create_bulk_products(db_session, count: int = 20):
+    """Create multiple products for performance testing."""
+    if not DATABASE_MODELS_AVAILABLE:
+        return [ProductDictFactory() for _ in range(count)]
+
+    products = []
+    for _ in range(count):
+        product = ProductFactory()
+        db_session.add(product)
+        products.append(product)
+
+    db_session.commit()
+    return products

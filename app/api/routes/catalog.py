@@ -46,13 +46,15 @@ async def list_products(
     # Forward parameters via schema the service expects
     from app.schemas.catalog import ProductFilter, SortDirection, SortField
 
-    sort_field = None
+    sort_field = SortField.CREATED_AT
     if sort_by == "name":
         sort_field = SortField.NAME
     elif sort_by == "price":
         sort_field = SortField.PRICE
+    elif sort_by == "updated_at":
+        sort_field = SortField.UPDATED_AT
 
-    sort_dir = None
+    sort_dir = SortDirection.DESC
     if sort_direction == "asc":
         sort_dir = SortDirection.ASC
     elif sort_direction == "desc":

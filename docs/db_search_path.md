@@ -9,6 +9,7 @@ Această configurare setează `search_path` la nivel de rol și bază de date î
 ## Motivația schimbării
 
 Anterior, `search_path` era setat prin parametrul `options` în conexiunea SQLAlchemy:
+
 ```python
 connect_args={
     "options": f"-c search_path={settings.search_path}",
@@ -17,6 +18,7 @@ connect_args={
 ```
 
 Această abordare cauzează probleme cu PgBouncer, care poate respinge parametrii de startup non-standard cu eroarea:
+
 ```
 unsupported startup parameter: options
 ```
@@ -24,11 +26,12 @@ unsupported startup parameter: options
 ## Soluția implementată
 
 1. **Eliminarea parametrului din client**: Am eliminat `options` din `connect_args` în `app/db.py`
-2. **Setarea la nivel de DB**: Am aplicat `ALTER ROLE app IN DATABASE magflow SET search_path = app, public;`
+1. **Setarea la nivel de DB**: Am aplicat `ALTER ROLE app IN DATABASE magflow SET search_path = app, public;`
 
 ## Fallback pentru PgBouncer (dacă este necesar)
 
 Dacă în viitor apar alte probleme cu parametrii de startup, se poate configura PgBouncer să ignore anumiți parametri:
+
 ```ini
 ignore_startup_parameters = extra_float_digits
 ```
@@ -36,6 +39,7 @@ ignore_startup_parameters = extra_float_digits
 ## Verificare
 
 Pentru a verifica că configurarea funcționează:
+
 ```sql
 SHOW search_path;
 ```

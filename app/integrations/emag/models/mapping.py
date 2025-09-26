@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class MappingStatus(str, Enum):
@@ -52,13 +52,17 @@ class ProductMapping(BaseModel):
         description="List of sync errors",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(use_enum_values=True)
 
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            MappingStatus: lambda v: v.value,
-        }
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
+
+    @field_serializer("last_synced_at", when_used="json")
+    def serialize_optional_datetime(
+        self, value: Optional[datetime], _info
+    ) -> Optional[str]:
+        return value.isoformat() if value else None
 
 
 class CategoryIdMapping(BaseModel):
@@ -85,13 +89,11 @@ class CategoryIdMapping(BaseModel):
         description="Parent category mapping ID",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(use_enum_values=True)
 
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            MappingStatus: lambda v: v.value,
-        }
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
 
 
 class BrandIdMapping(BaseModel):
@@ -114,13 +116,11 @@ class BrandIdMapping(BaseModel):
         description="Last update timestamp",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(use_enum_values=True)
 
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            MappingStatus: lambda v: v.value,
-        }
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
 
 
 class CharacteristicIdMapping(BaseModel):
@@ -147,13 +147,11 @@ class CharacteristicIdMapping(BaseModel):
         description="Last update timestamp",
     )
 
-    class Config:
-        """Pydantic config."""
+    model_config = ConfigDict(use_enum_values=True)
 
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            MappingStatus: lambda v: v.value,
-        }
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
 
 
 class FieldMappingRule(BaseModel):

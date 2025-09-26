@@ -68,6 +68,7 @@ class ReturnRequest(Base, TimestampMixin):
     """Return request model for managing product returns."""
 
     __tablename__ = "return_requests"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     return_number: Mapped[str] = mapped_column(
@@ -152,11 +153,12 @@ class ReturnItem(Base, TimestampMixin):
     """Individual items within a return request."""
 
     __tablename__ = "return_items"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     return_request_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("return_requests.id"),
+        ForeignKey("app.return_requests.id"),
         nullable=False,
     )
 
@@ -206,6 +208,7 @@ class RefundTransaction(Base, TimestampMixin):
     """Tracks refund transactions for returns."""
 
     __tablename__ = "refund_transactions"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     transaction_id: Mapped[str] = mapped_column(
@@ -218,7 +221,7 @@ class RefundTransaction(Base, TimestampMixin):
     # Related entities
     return_request_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey("return_requests.id"),
+        ForeignKey("app.return_requests.id"),
         nullable=True,
     )
     order_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -253,11 +256,12 @@ class EmagReturnIntegration(Base, TimestampMixin):
     """Tracks integration with eMAG RMA system."""
 
     __tablename__ = "emag_return_integrations"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     return_request_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("return_requests.id"),
+        ForeignKey("app.return_requests.id"),
         nullable=False,
     )
 

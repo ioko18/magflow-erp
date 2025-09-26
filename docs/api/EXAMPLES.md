@@ -3,6 +3,7 @@
 This document provides copy-paste examples for using the MagFlow ERP Catalog API.
 
 ## Table of Contents
+
 - [Authentication](#authentication)
 - [Products](#products)
   - [List Products](#list-products)
@@ -43,11 +44,13 @@ curl -X POST https://api.example.com/auth/token \
 ### List Products
 
 **Request:**
+
 ```http
 GET /catalog/products?q=wireless&category_id=1&min_price=50&max_price=200&in_stock=true&limit=10&sort_by=price&sort_direction=asc
 ```
 
 **Response:**
+
 ```json
 {
   "data": [
@@ -81,11 +84,13 @@ GET /catalog/products?q=wireless&category_id=1&min_price=50&max_price=200&in_sto
 ### Get Product by ID
 
 **Request:**
+
 ```http
 GET /catalog/products/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -105,6 +110,7 @@ GET /catalog/products/550e8400-e29b-41d4-a716-446655440000
 ### Create Product
 
 **Request:**
+
 ```http
 POST /catalog/products
 Content-Type: application/json
@@ -122,6 +128,7 @@ Content-Type: application/json
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "id": "660e8400-e29b-41d4-a716-446655441111",
@@ -141,6 +148,7 @@ Content-Type: application/json
 ### Update Product
 
 **Request:**
+
 ```http
 PUT /catalog/products/660e8400-e29b-41d4-a716-446655441111
 Content-Type: application/json
@@ -153,6 +161,7 @@ Content-Type: application/json
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "id": "660e8400-e29b-41d4-a716-446655441111",
@@ -172,6 +181,7 @@ Content-Type: application/json
 ### Delete Product
 
 **Request:**
+
 ```http
 DELETE /catalog/products/660e8400-e29b-41d4-a716-446655441111
 ```
@@ -183,11 +193,13 @@ DELETE /catalog/products/660e8400-e29b-41d4-a716-446655441111
 ### List Brands
 
 **Request:**
+
 ```http
 GET /catalog/brands?limit=5
 ```
 
 **Response:**
+
 ```json
 {
   "data": [
@@ -224,11 +236,13 @@ GET /catalog/brands?limit=5
 ### Get Brand by ID
 
 **Request:**
+
 ```http
 GET /catalog/brands/1
 ```
 
 **Response:**
+
 ```json
 {
   "id": 1,
@@ -245,11 +259,13 @@ GET /catalog/brands/1
 ### List Characteristics
 
 **Request:**
+
 ```http
 GET /catalog/characteristics?category_id=1
 ```
 
 **Response:**
+
 ```json
 {
   "data": [
@@ -328,11 +344,13 @@ GET /catalog/characteristics?category_id=1
 ### Get Characteristic Values
 
 **Request:**
+
 ```http
 GET /catalog/characteristics/1/values?category_id=1
 ```
 
 **Response:**
+
 ```json
 [
   {
@@ -361,11 +379,13 @@ GET /catalog/characteristics/1/values?category_id=1
 The API uses cursor-based pagination. Here's an example of paginating through results:
 
 **First Page:**
+
 ```http
 GET /catalog/products?limit=2
 ```
 
 **Response:**
+
 ```json
 {
   "data": [
@@ -386,6 +406,7 @@ GET /catalog/products?limit=2
 ```
 
 **Next Page (using next_cursor):**
+
 ```http
 GET /catalog/products?limit=2&cursor=eyJjcmVhdGVkX2F0IjoiMjAyMy0xMC0wMlQwMDowMDowMFoiLCJpZCI6IjIifQ==
 ```
@@ -429,6 +450,7 @@ GET /catalog/products?sort_by=name&sort_direction=asc
 ## Error Handling
 
 ### Login with curl
+
 ```bash
 curl -X 'POST' \
   'http://localhost:8000/api/v1/auth/login' \
@@ -437,6 +459,7 @@ curl -X 'POST' \
 ```
 
 ### Login with httpie
+
 ```bash
 http -f POST http://localhost:8000/api/v1/auth/login \
   username=admin@example.com \
@@ -444,6 +467,7 @@ http -f POST http://localhost:8000/api/v1/auth/login \
 ```
 
 ### Using the access token
+
 ```bash
 # Set token from login response
 export TOKEN="your_jwt_token_here"
@@ -456,12 +480,14 @@ curl -H "Authorization: Bearer $TOKEN" \
 ## Products
 
 ### Get all products
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   'http://localhost:8000/api/v1/products?limit=10&offset=0'
 ```
 
 ### Create a new product
+
 ```bash
 curl -X 'POST' \
   -H "Authorization: Bearer $TOKEN" \
@@ -473,12 +499,14 @@ curl -X 'POST' \
 ## Categories
 
 ### Get all categories
+
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   'http://localhost:8000/api/v1/categories'
 ```
 
 ### Create a new category
+
 ```bash
 curl -X 'POST' \
   -H "Authorization: Bearer $TOKEN" \
@@ -492,6 +520,7 @@ curl -X 'POST' \
 ### 400 Bad Request
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/bad-request",
@@ -515,6 +544,7 @@ curl -X 'POST' \
 ### 401 Unauthorized
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/unauthorized",
@@ -528,6 +558,7 @@ curl -X 'POST' \
 ### 403 Forbidden
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/forbidden",
@@ -541,6 +572,7 @@ curl -X 'POST' \
 ### 404 Not Found
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/not-found",
@@ -554,6 +586,7 @@ curl -X 'POST' \
 ### 422 Unprocessable Entity
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/validation-error",
@@ -580,6 +613,7 @@ curl -X 'POST' \
 ### 429 Too Many Requests
 
 **Response:**
+
 ```http
 HTTP/1.1 429 Too Many Requests
 Content-Type: application/problem+json
@@ -600,6 +634,7 @@ X-RateLimit-Reset: 1634567890
 ### 500 Internal Server Error
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/internal-server-error",
@@ -613,6 +648,7 @@ X-RateLimit-Reset: 1634567890
 ### 502 Bad Gateway
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/bad-gateway",
@@ -626,6 +662,7 @@ X-RateLimit-Reset: 1634567890
 ### 503 Service Unavailable
 
 **Response:**
+
 ```json
 {
   "type": "https://example.com/probs/service-unavailable",
@@ -638,6 +675,7 @@ X-RateLimit-Reset: 1634567890
 ```
 
 ### Handling validation errors
+
 ```http
 HTTP/1.1 422 Unprocessable Entity
 {
@@ -653,6 +691,7 @@ HTTP/1.1 422 Unprocessable Entity
 ```
 
 ### Handling authentication errors
+
 ```http
 HTTP/1.1 401 Unauthorized
 {
@@ -668,6 +707,7 @@ HTTP/1.1 401 Unauthorized
 ## Pagination
 
 ### Using pagination parameters
+
 ```bash
 # First page
 curl 'http://localhost:8000/api/v1/products?limit=10&offset=0'
@@ -677,6 +717,7 @@ curl 'http://localhost:8000/api/v1/products?limit=10&offset=10'
 ```
 
 ### Using cursor-based pagination
+
 ```bash
 # Initial request
 curl 'http://localhost:8000/api/v1/products?limit=10'
@@ -688,6 +729,7 @@ curl 'http://localhost:8000/api/v1/products?limit=10&after=eyJpZCI6MTB9'
 ## Rate Limiting
 
 ### Checking rate limit headers
+
 ```http
 HTTP/1.1 200 OK
 X-RateLimit-Limit: 1000
@@ -697,6 +739,7 @@ X-RateLimit-Used: 1
 ```
 
 ### Handling rate limit exceeded
+
 ```http
 HTTP/1.1 429 Too Many Requests
 Retry-After: 60

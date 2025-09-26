@@ -1,9 +1,0 @@
-{
-  "kid": "key_rs256_1758348752",
-  "private_key": "change_me_secure",
-  "public_key": "change_me_secure",
-  "algorithm": "RS256",
-  "key_type": "oct",
-  "expires_at": "2025-10-20 09:12:32.316567",
-  "created_at": "2025-09-20 09:12:32.316578"
-}

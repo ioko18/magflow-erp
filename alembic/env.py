@@ -13,22 +13,29 @@ app_dir = str(Path(__file__).parent.parent)
 sys.path.insert(0, app_dir)
 
 # Import the settings to get the database schema
-from app.core.config import settings
+from app.core.config import settings  # noqa: E402
 
 # Import the Base class to get the metadata
-from app.models.base import Base  # noqa: E402
+from app.db.base_class import Base  # noqa: E402
 
 # Import all models to ensure they are registered with SQLAlchemy's metadata
 # This is necessary for Alembic to detect all models
 import app.models  # noqa: F401, E402
 
-# Set the schema for all tables
+# Set the schema for all tables using sanitized value
+schema_name = settings.db_schema_safe
 for table in Base.metadata.tables.values():
-    table.schema = settings.DB_SCHEMA
+    table.schema = schema_name
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+if config is not None:
+    # Align Alembic configuration with runtime settings to avoid stale URLs
+    config.set_main_option("sqlalchemy.url", settings.alembic_url)
+    config.set_section_option("alembic", "search_path", f"{schema_name},public")
+    config.set_section_option("alembic", "version_table_schema", schema_name)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -56,7 +63,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,  # Include all schemas in autogenerate
-        version_table_schema=settings.DB_SCHEMA,  # Store version in app schema
+        version_table_schema=schema_name,  # Store version in app schema
         include_name=include_name,  # Function to filter object names
         compare_type=True,  # Check for column type changes
         compare_server_default=True,  # Check for server default changes
@@ -64,10 +71,14 @@ def do_run_migrations(connection: Connection) -> None:
     
     # Create the schema if it doesn't exist
     with context.begin_transaction():
-        connection.execute(f'CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}')
-        
+        connection.execute(
+            text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
+        )
+
         # Set the search path for this connection
-        connection.execute(f'SET search_path TO {settings.DB_SCHEMA}, public')
+        connection.execute(
+            text(f'SET search_path TO "{schema_name}", public')
+        )
         
         # Run migrations
         context.run_migrations()
@@ -86,7 +97,7 @@ def include_name(name, type_, parent_names):
     """
     if type_ == 'schema':
         # Only include the app schema
-        return name == settings.DB_SCHEMA
+        return name == schema_name
     return True
 
 
@@ -108,15 +119,19 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
-        version_table_schema=settings.DB_SCHEMA,
+        version_table_schema=schema_name,
         include_name=include_name,
         compare_type=True,
         compare_server_default=True,
     )
 
     with context.begin_transaction():
-        context.execute(f'CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}')
-        context.execute(f'SET search_path TO {settings.DB_SCHEMA}, public')
+        context.execute(
+            text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
+        )
+        context.execute(
+            text(f'SET search_path TO "{schema_name}", public')
+        )
         context.run_migrations()
 
 
@@ -131,10 +146,14 @@ async def run_migrations_online() -> None:
     
     async with connectable.connect() as connection:
         # Set the search path for this connection
-        await connection.execute(text(f'SET search_path TO {settings.DB_SCHEMA}, public'))
+        await connection.execute(
+            text(f'SET search_path TO "{schema_name}", public')
+        )
         
         # Create the schema if it doesn't exist
-        await connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}'))
+        await connection.execute(
+            text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
+        )
         await connection.commit()
         
         # Run migrations

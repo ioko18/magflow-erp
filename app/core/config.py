@@ -10,7 +10,7 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional, Set
 
 from pydantic import computed_field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ..core.exceptions import ConfigurationError
 
@@ -77,6 +77,27 @@ class Settings(BaseSettings):
     @property
     def search_path(self) -> str:
         return self.DB_SCHEMA
+
+    @property
+    def db_schema_safe(self) -> str:
+        """Return a sanitized schema name safe for SQL usage."""
+        schema = (self.DB_SCHEMA or "").strip()
+        sanitized = "".join(ch for ch in schema if ch.isalnum() or ch == "_")
+
+        if not sanitized:
+            logger.warning(
+                "DB_SCHEMA is empty after sanitization; defaulting to 'public' schema",
+            )
+            return "public"
+
+        if sanitized != schema:
+            logger.warning(
+                "DB_SCHEMA value '%s' contained unsafe characters; using sanitized '%s'",
+                schema,
+                sanitized,
+            )
+
+        return sanitized
 
     # Redis settings
     REDIS_ENABLED: bool = True
@@ -282,8 +303,10 @@ class Settings(BaseSettings):
     secret_key: str = "your-super-secure-secret-key-change-this-in-production-2025"
     jwt_issuer: str = "magflow-service"
     jwt_audience: str = "magflow-api"
-    jwt_supported_algorithms: List[str] = ["HS256", "RS256"]
+    jwt_supported_algorithms: List[str] = ["HS256", "RS256", "EDDSA"]
     jwt_keyset_dir: str = "jwt-keys"
+    jwt_rotate_days: float = 7.0
+    jwt_key_expire_days: float = 30.0
 
     # JWT Authentication settings (uppercase for compatibility)
     JWT_ALGORITHM: str = "RS256"
@@ -294,8 +317,9 @@ class Settings(BaseSettings):
     JWT_AUDIENCE: str = "magflow-api"
     JWT_LEEWAY: int = 60
     JWT_MAX_ACTIVE_KEYS: int = 2
+    JWT_ROTATE_DAYS: float = 7.0
     JWKS_CACHE_MAX_AGE: int = 3600
-    JWT_SUPPORTED_ALGORITHMS: List[str] = ["HS256", "RS256"]
+    JWT_SUPPORTED_ALGORITHMS: List[str] = ["HS256", "RS256", "EDDSA"]
     JWT_KEYSET_DIR: str = "jwt-keys"
     AUDIT_LOG_FILE: str = "logs/audit.log"
     AUDIT_LOG_LEVEL: str = "INFO"
@@ -312,10 +336,11 @@ class Settings(BaseSettings):
         # Validate required settings
         required_settings = {
             "SECRET_KEY": self.SECRET_KEY,
-            "DB_HOST": self.DB_HOST,
             "DB_NAME": self.DB_NAME,
             "DB_USER": self.DB_USER,
         }
+        # DB_HOST is optional; validation does not enforce it.
+
 
         for setting_name, setting_value in required_settings.items():
             if not setting_value or setting_value in [
@@ -360,9 +385,10 @@ class Settings(BaseSettings):
 
         logger.info("Configuration validation passed successfully")
 
-    class Config:
-        env_file = ".env"
-        extra = "allow"  # Allow extra fields in environment
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="allow",  # Allow extra fields in environment
+    )
 
     @property
     def db_pool_size(self) -> int:

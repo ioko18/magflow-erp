@@ -17,6 +17,7 @@ class Warehouse(Base, TimestampMixin):
     """Warehouse model for inventory management."""
 
     __tablename__ = "warehouses"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
@@ -44,13 +45,20 @@ class InventoryItem(Base, TimestampMixin):
     """Inventory item model for tracking stock levels."""
 
     __tablename__ = "inventory_items"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    product_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    product_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.products.id"),
+        nullable=False,
+        index=True,
+    )
     warehouse_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("warehouses.id"),
+        ForeignKey("app.warehouses.id"),
         nullable=False,
+        index=True,
     )
     quantity: Mapped[int] = mapped_column(Integer, default=0)
     reserved_quantity: Mapped[int] = mapped_column(Integer, default=0)
@@ -69,6 +77,14 @@ class InventoryItem(Base, TimestampMixin):
         "Product",
         back_populates="inventory_items",
     )
+    warehouse: Mapped["Warehouse"] = relationship(
+        "Warehouse",
+        back_populates="inventory_items",
+    )
+    stock_movements: Mapped[List["StockMovement"]] = relationship(
+        "StockMovement",
+        back_populates="inventory_item",
+    )
 
     def __repr__(self) -> str:
         return f"<InventoryItem product:{self.product_id} warehouse:{self.warehouse_id} qty:{self.quantity}>"
@@ -78,17 +94,20 @@ class StockMovement(Base, TimestampMixin):
     """Stock movement model for tracking inventory changes."""
 
     __tablename__ = "stock_movements"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     inventory_item_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("inventory_items.id"),
+        ForeignKey("app.inventory_items.id"),
         nullable=False,
+        index=True,
     )
     warehouse_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("warehouses.id"),
+        ForeignKey("app.warehouses.id"),
         nullable=False,
+        index=True,
     )
     movement_type: Mapped[str] = mapped_column(
         String(20),
@@ -128,12 +147,14 @@ class StockReservation(Base, TimestampMixin):
     """Stock reservation model for order fulfillment."""
 
     __tablename__ = "stock_reservations"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     inventory_item_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("inventory_items.id"),
+        ForeignKey("app.inventory_items.id"),
         nullable=False,
+        index=True,
     )
     order_id: Mapped[Optional[str]] = mapped_column(
         String(100),
@@ -156,6 +177,7 @@ class StockTransfer(Base, TimestampMixin):
     """Stock transfer model for moving inventory between warehouses."""
 
     __tablename__ = "stock_transfers"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     transfer_number: Mapped[str] = mapped_column(
@@ -165,18 +187,21 @@ class StockTransfer(Base, TimestampMixin):
     )
     from_warehouse_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("warehouses.id"),
+        ForeignKey("app.warehouses.id"),
         nullable=False,
+        index=True,
     )
     to_warehouse_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("warehouses.id"),
+        ForeignKey("app.warehouses.id"),
         nullable=False,
+        index=True,
     )
     inventory_item_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("inventory_items.id"),
+        ForeignKey("app.inventory_items.id"),
         nullable=False,
+        index=True,
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     transfer_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)

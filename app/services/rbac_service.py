@@ -49,7 +49,7 @@ class RBACService:
         if user.is_superuser:
             # Attempt to load from DB if models are available
             try:
-                from app.db.models import Permission  # type: ignore
+                from app.models.permission import Permission  # type: ignore
 
                 result = await self.db.execute(
                     select(Permission).order_by(Permission.resource, Permission.action),
@@ -117,7 +117,7 @@ class AuditService:
     ) -> None:
         """Log user action to audit log."""
         try:
-            from app.db.models import AuditLog  # type: ignore
+            from app.models.audit_log import AuditLog  # type: ignore
 
             audit_log = AuditLog(
                 user_id=getattr(user, "id", None) if user else None,
@@ -158,7 +158,7 @@ class AuditService:
     ) -> List[Any]:
         """Get audit logs for a specific user."""
         try:
-            from app.db.models import AuditLog  # type: ignore
+            from app.models.audit_log import AuditLog  # type: ignore
 
             result = await self.db.execute(
                 select(AuditLog)
@@ -193,7 +193,7 @@ class AuditService:
     ) -> List[Any]:
         """Get audit logs with optional filters."""
         try:
-            from app.db.models import AuditLog  # type: ignore
+            from app.models.audit_log import AuditLog  # type: ignore
 
             query = select(AuditLog)
 
@@ -265,7 +265,7 @@ class SessionService:
         expires_at = datetime.utcnow() + timedelta(days=7)  # 7 days
 
         try:
-            from app.db.models import UserSession  # type: ignore
+            from app.models.user_session import UserSession  # type: ignore
         except Exception:
             UserSession = None  # type: ignore
 
@@ -305,7 +305,7 @@ class SessionService:
     async def get_session(self, session_token: str) -> Optional[Any]:
         """Get session by token."""
         try:
-            from app.db.models import UserSession  # type: ignore
+            from app.models.user_session import UserSession  # type: ignore
         except Exception:
             UserSession = None  # type: ignore
 

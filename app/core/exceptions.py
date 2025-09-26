@@ -64,22 +64,28 @@ class ResourceNotFoundError(MagFlowBaseException):
     """Resource not found errors."""
 
 
+# HTTP status mappings for MagFlow exceptions
+STATUS_CODE_MAP: Dict[type[MagFlowBaseException], int]
+STATUS_CODE_MAP = {
+    ValidationError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    AuthenticationError: status.HTTP_401_UNAUTHORIZED,
+    ResourceNotFoundError: status.HTTP_404_NOT_FOUND,
+    ConfigurationError: status.HTTP_500_INTERNAL_SERVER_ERROR,
+    DatabaseError: status.HTTP_500_INTERNAL_SERVER_ERROR,
+    ConnectionServiceError: status.HTTP_503_SERVICE_UNAVAILABLE,
+    ExternalServiceError: status.HTTP_502_BAD_GATEWAY,
+    MagFlowBaseException: status.HTTP_500_INTERNAL_SERVER_ERROR,
+}
+
+
 # HTTP Exception mappings
 def create_http_exception(exc: MagFlowBaseException) -> HTTPException:
     """Convert MagFlow exceptions to HTTP exceptions."""
-    status_code_map = {
-        "ValidationError": status.HTTP_422_UNPROCESSABLE_ENTITY,
-        "AuthenticationError": status.HTTP_401_UNAUTHORIZED,
-        "ResourceNotFoundError": status.HTTP_404_NOT_FOUND,
-        "ConfigurationError": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "DatabaseError": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "ConnectionServiceError": status.HTTP_503_SERVICE_UNAVAILABLE,
-        "ExternalServiceError": status.HTTP_502_BAD_GATEWAY,
-    }
+    for exc_type, code in STATUS_CODE_MAP.items():
+        if isinstance(exc, exc_type):
+            return HTTPException(status_code=code, detail=exc.to_dict())
 
-    status_code = status_code_map.get(
-        exc.error_code,
-        status.HTTP_500_INTERNAL_SERVER_ERROR,
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=exc.to_dict(),
     )
-
-    return HTTPException(status_code=status_code, detail=exc.to_dict())

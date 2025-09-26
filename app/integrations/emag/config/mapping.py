@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 # ---------------------------------------------------------------------------
 # Exception
@@ -55,8 +55,7 @@ class FieldMappingConfig(BaseModel):
     min_value: Optional[float] = None
     default: Optional[Any] = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CategoryMappingConfig(BaseModel):
@@ -68,8 +67,7 @@ class CategoryMappingConfig(BaseModel):
         description="eMAG ID of the parent category (null for root)",
     )
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class BrandMappingConfig(BaseModel):
@@ -77,8 +75,7 @@ class BrandMappingConfig(BaseModel):
     emag_id: int = Field(..., description="eMAG brand identifier")
     name: str = Field(..., description="Brand name")
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CharacteristicValueConfig(BaseModel):
@@ -86,8 +83,7 @@ class CharacteristicValueConfig(BaseModel):
     emag_value_id: int = Field(..., description="eMAG value identifier")
     display_value: str = Field(..., description="Human readable label")
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CharacteristicMappingConfig(BaseModel):
@@ -96,8 +92,7 @@ class CharacteristicMappingConfig(BaseModel):
     type: str = Field(..., description="Characteristic type (e.g., dropdown)")
     values: List[CharacteristicValueConfig] = Field(..., description="Allowed values")
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ProductDefaultsConfig(BaseModel):
@@ -105,8 +100,7 @@ class ProductDefaultsConfig(BaseModel):
     status: Optional[str] = None
     marketplace_status: Optional[str] = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ProductMappingConfig(BaseModel):
@@ -122,8 +116,7 @@ class ProductMappingConfig(BaseModel):
     characteristic_mappings: List[CharacteristicMappingConfig]
     product_defaults: ProductDefaultsConfig
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +144,7 @@ def load_mapping_config(path: str | Path) -> ProductMappingConfig:
 
     """
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         # Pydantic will validate required fields; we translate ValidationError
         # into MappingConfigError so the test suite sees a consistent exception type.

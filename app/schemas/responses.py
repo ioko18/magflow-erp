@@ -7,7 +7,7 @@ and RFC 9457 (Problem Details for HTTP APIs) for error responses.
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from fastapi import status
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 # Type variable for generic response types
 T = TypeVar("T")
@@ -46,8 +46,8 @@ class ErrorResponse(BaseModel):
         example="550e8400-e29b-41d4-a716-446655440000",
     )
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "https://example.com/probs/validation-error",
                 "title": "Validation Error",
@@ -56,7 +56,8 @@ class ErrorResponse(BaseModel):
                 "instance": "/api/v1/resource/123",
                 "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
             },
-        }
+        },
+    )
 
 
 class ValidationErrorDetail(BaseModel):
@@ -81,12 +82,12 @@ class ValidationErrorResponse(ErrorResponse):
         description="Detailed validation error information.",
     )
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "type": "https://example.com/probs/validation-error",
                 "title": "Validation Error",
-                "status": status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "status": status.HTTP_422_UNPROCESSABLE_CONTENT,
                 "detail": "Invalid request data",
                 "instance": "/api/v1/resource/123",
                 "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -98,7 +99,8 @@ class ValidationErrorResponse(ErrorResponse):
                     },
                 ],
             },
-        }
+        },
+    )
 
 
 # Standard error responses for OpenAPI documentation
@@ -129,7 +131,7 @@ RESPONSES: Dict[Union[int, str], Dict[str, Any]] = {
         "model": ErrorResponse,
         "description": "Conflict - The request conflicts with the current state of the server.",
     },
-    status.HTTP_422_UNPROCESSABLE_ENTITY: {
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {
         "model": ValidationErrorResponse,
         "description": "Validation Error - The request was well-formed but was unable to be followed due to semantic errors.",
     },

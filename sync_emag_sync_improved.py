@@ -12,6 +12,7 @@ Enhancements:
 
 import aiohttp
 import asyncio
+import argparse
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -96,6 +97,41 @@ shutdown_requested = False
 OFFERS_METADATA_COLUMN = None
 PRODUCTS_PART_NUMBER_KEY_COLUMN = None
 OFFERS_PART_NUMBER_KEY_COLUMN = None
+
+
+def _sanitize_schema_name(raw_schema: str | None) -> str:
+    """Return a safe schema name derived from environment configuration."""
+    schema = (raw_schema or "app").strip()
+    sanitized = "".join(ch for ch in schema if ch.isalnum() or ch == "_")
+
+    if not sanitized:
+        logger.warning(
+            "DB schema configuration '%s' invalid after sanitization; falling back to 'public'",
+            schema,
+        )
+        return "public"
+
+    if sanitized != schema:
+        logger.warning(
+            "DB schema configuration '%s' contained unsupported characters; using '%s'",
+            schema,
+            sanitized,
+        )
+
+    return sanitized
+
+
+DB_SCHEMA = _sanitize_schema_name(os.getenv("DB_SCHEMA"))
+
+
+def _qualified(table_name: str) -> str:
+    """Return the fully qualified table name for the configured schema."""
+    return f"{DB_SCHEMA}.{table_name}"
+
+
+EMAG_OFFER_SYNCS_TABLE = _qualified("emag_offer_syncs")
+EMAG_PRODUCTS_TABLE = _qualified("emag_products")
+EMAG_PRODUCT_OFFERS_TABLE = _qualified("emag_product_offers")
 
 
 def _extract_part_number_key_from_url(url):
@@ -431,8 +467,8 @@ def update_sync_status(sync_id, status, offers_processed=0, error_message=None):
     try:
         with get_db() as session:
             if error_message:
-                session.execute(text("""
-                    UPDATE app.emag_offer_syncs
+                session.execute(text(f"""
+                    UPDATE {EMAG_OFFER_SYNCS_TABLE}
                     SET status = :status,
                         total_offers_processed = :processed,
                         error_count = error_count + 1,
@@ -446,8 +482,8 @@ def update_sync_status(sync_id, status, offers_processed=0, error_message=None):
                     "error_message": error_message
                 })
             else:
-                session.execute(text("""
-                    UPDATE app.emag_offer_syncs
+                session.execute(text(f"""
+                    UPDATE {EMAG_OFFER_SYNCS_TABLE}
                     SET status = :status,
                         total_offers_processed = :processed,
                         updated_at = NOW()
@@ -477,13 +513,13 @@ def check_table_columns_exist():
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_schema = :schema AND table_name = :table AND column_name = :column
-            """), {"schema": "app", "table": "emag_products", "column": "part_number_key"})
+            """), {"schema": DB_SCHEMA, "table": "emag_products", "column": "part_number_key"})
             PRODUCTS_PART_NUMBER_KEY_COLUMN = result.fetchone() is not None
             
             if not PRODUCTS_PART_NUMBER_KEY_COLUMN:
                 logger.info("Adding part_number_key column to emag_products table")
-                connection.execute(text("""
-                    ALTER TABLE app.emag_products 
+                connection.execute(text(f"""
+                    ALTER TABLE {DB_SCHEMA}.emag_products 
                     ADD COLUMN IF NOT EXISTS part_number_key VARCHAR(100)
                 """))
                 connection.commit()
@@ -494,13 +530,13 @@ def check_table_columns_exist():
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_schema = :schema AND table_name = :table AND column_name = :column
-            """), {"schema": "app", "table": "emag_product_offers", "column": "part_number_key"})
+            """), {"schema": DB_SCHEMA, "table": "emag_product_offers", "column": "part_number_key"})
             OFFERS_PART_NUMBER_KEY_COLUMN = result.fetchone() is not None
             
             if not OFFERS_PART_NUMBER_KEY_COLUMN:
                 logger.info("Adding part_number_key column to emag_product_offers table")
-                connection.execute(text("""
-                    ALTER TABLE app.emag_product_offers 
+                connection.execute(text(f"""
+                    ALTER TABLE {DB_SCHEMA}.emag_product_offers 
                     ADD COLUMN IF NOT EXISTS part_number_key VARCHAR(100)
                 """))
                 connection.commit()
@@ -517,33 +553,37 @@ def check_table_columns_exist():
         return False
 
 def get_offers_metadata_column():
-    """Determine the metadata column name for app.emag_product_offers"""
+    """Determine the metadata column name for emag_product_offers."""
     global OFFERS_METADATA_COLUMN
     if OFFERS_METADATA_COLUMN:
         return OFFERS_METADATA_COLUMN
 
     try:
         engine = get_db_engine()
-        with engine.connect() as connection:
+        with engine.begin() as connection:
             result = connection.execute(text("""
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_schema = :schema AND table_name = :table
-            """), {"schema": "app", "table": "emag_product_offers"})
+            """), {"schema": DB_SCHEMA, "table": "emag_product_offers"})
             columns = {row[0] for row in result}
-        if 'metadata_payload' in columns:
-            OFFERS_METADATA_COLUMN = 'metadata_payload'
-        else:
-            # Add the metadata_payload column if it doesn't exist
-            try:
-                connection.execute(text("""
-                    ALTER TABLE app.emag_product_offers ADD COLUMN IF NOT EXISTS metadata_payload JSONB
-                """))
-                logger.info("Added metadata_payload column to app.emag_product_offers")
+            if 'metadata_payload' in columns:
                 OFFERS_METADATA_COLUMN = 'metadata_payload'
-            except Exception as alter_e:
-                logger.warning(f"Could not add metadata_payload column: {alter_e}; skipping metadata payload")
-                OFFERS_METADATA_COLUMN = None
+            else:
+                # Add the metadata_payload column if it doesn't exist
+                try:
+                    connection.execute(text(f"""
+                        ALTER TABLE {DB_SCHEMA}.emag_product_offers ADD COLUMN IF NOT EXISTS metadata_payload JSONB
+                    """))
+                    logger.info("Added metadata_payload column to %s.emag_product_offers", DB_SCHEMA)
+                    OFFERS_METADATA_COLUMN = 'metadata_payload'
+                except Exception as alter_e:
+                    logger.warning(
+                        "Could not add metadata_payload column to %s.emag_product_offers: %s; skipping metadata payload",
+                        DB_SCHEMA,
+                        alter_e,
+                    )
+                    OFFERS_METADATA_COLUMN = None
     except Exception as e:
         OFFERS_METADATA_COLUMN = None
         logger.error(f"Could not determine metadata column for offers table: {e}")
@@ -574,16 +614,23 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
     
     try:
         with get_db() as session:
-            session.execute(text("""
-               INSERT INTO app.emag_offer_syncs
-               (sync_id, account_type, operation_type, status, started_at, 
-                total_offers_processed, offers_created, offers_updated, 
-                offers_failed, offers_skipped, error_count, errors, filters)
-               VALUES (
-                   :sync_id, :account_type, 'full_import', 'running', :started_at,
-                   0, 0, 0, 0, 0, 0, '[]'::jsonb, '{}'::jsonb
-               )
-            """), {"sync_id": sync_id, "account_type": account_type, "started_at": _now_utc()})
+            session.execute(
+                text(
+                    f"""
+                INSERT INTO {EMAG_OFFER_SYNCS_TABLE}
+                (sync_id, account_type, operation_type, status, started_at,
+                 total_offers_processed, offers_created, offers_updated,
+                 offers_failed, offers_skipped, error_count, errors, filters,
+                 metadata, created_at, updated_at)
+                VALUES (
+                    :sync_id, :account_type, 'full_import', 'running', :started_at,
+                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{{}}'::jsonb,
+                    '{{}}'::jsonb, NOW(), NOW()
+                )
+                """
+                ),
+                {"sync_id": sync_id, "account_type": account_type, "started_at": _now_utc()},
+            )
 
             logger.info(f"Sync record created for {account_type}: {sync_id}")
             SYNC_RUN_STATUS.labels(account_type).set(1)
@@ -704,16 +751,23 @@ async def sync_emag_offers():
 
     try:
         with get_db() as session:
-            session.execute(text("""
-                INSERT INTO app.emag_offer_syncs
-                (sync_id, account_type, operation_type, status, started_at, 
-                 total_offers_processed, offers_created, offers_updated, 
-                 offers_failed, offers_skipped, error_count, errors, filters)
+            session.execute(
+                text(
+                    f"""
+                INSERT INTO {EMAG_OFFER_SYNCS_TABLE}
+                (sync_id, account_type, operation_type, status, started_at,
+                 total_offers_processed, offers_created, offers_updated,
+                 offers_failed, offers_skipped, error_count, errors, filters,
+                 metadata, created_at, updated_at)
                 VALUES (
                     :sync_id, :account_type, 'full_import', 'running', :started_at,
-                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{}'::jsonb
+                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{{}}'::jsonb,
+                    '{{}}'::jsonb, NOW(), NOW()
                 )
-            """), {"sync_id": sync_id, "account_type": EMAG_ACCOUNT_TYPE, "started_at": _now_utc()})
+                """
+                ),
+                {"sync_id": sync_id, "account_type": EMAG_ACCOUNT_TYPE, "started_at": _now_utc()},
+            )
 
             logger.info(f"Sync record created: {sync_id}")
             # Metrics: mark run as running
@@ -795,16 +849,18 @@ async def sync_emag_offers():
             if not sync_failed:
                 try:
                     with get_db() as final_db:
-                        final_db.execute(text("""
-                            UPDATE app.emag_offer_syncs
+                        final_db.execute(
+                            text(
+                                f"""
+                            UPDATE {EMAG_OFFER_SYNCS_TABLE}
                             SET status = 'completed',
                                 completed_at = :completed_at,
                                 updated_at = NOW()
                             WHERE sync_id = :sync_id
-                        """), {
-                            "sync_id": sync_id,
-                            "completed_at": _now_utc()
-                        })
+                            """
+                            ),
+                            {"sync_id": sync_id, "completed_at": _now_utc()},
+                        )
 
                     SYNC_RUN_STATUS.labels(EMAG_ACCOUNT_TYPE).set(2)
                     SYNC_LAST_SUCCESS.labels(EMAG_ACCOUNT_TYPE).set_to_current_time()
@@ -918,6 +974,10 @@ async def process_offers_batch(offers, sync_id):
                 "warehouse_name": _safe_str(offer.get("warehouse_name"), 255),
                 "account_type": EMAG_ACCOUNT_TYPE,
                 "warranty": _safe_int(offer.get("warranty")),
+                "metadata": {
+                    "sync_source": "emag",
+                    "account_type": EMAG_ACCOUNT_TYPE,
+                },
                 "raw_data": json.dumps(offer),
             }
 
@@ -926,11 +986,11 @@ async def process_offers_batch(offers, sync_id):
                 offer_data["part_number_key"] = _extract_part_number_key_from_url(offer.get("url", ""))
 
             if metadata_column:
-                offer_data["metadata_payload"] = json.dumps({
+                offer_data["metadata_payload"] = {
                     "validation_status": offer.get("offer_validation_status", {}),
                     "availability": offer.get("availability", []),
                     "genius_eligibility": offer.get("genius_eligibility")
-                })
+                }
 
             offers_batch.append(offer_data)
 
@@ -966,7 +1026,7 @@ async def process_offers_batch(offers, sync_id):
                         
                         # Try to get existing product ID
                         result = db.execute(
-                            text("SELECT id, emag_id FROM app.emag_products WHERE emag_id = :emag_id"),
+                            text(f"SELECT id, emag_id FROM {DB_SCHEMA}.emag_products WHERE emag_id = :emag_id"),
                             {'emag_id': emag_id}
                         ).fetchone()
                         
@@ -984,8 +1044,8 @@ async def process_offers_batch(offers, sync_id):
                         
                         # Prepare the SQL query based on whether part_number_key exists
                         if 'part_number_key' in product and columns_exist:
-                            sql = """
-                                INSERT INTO app.emag_products (
+                            sql = f"""
+                                INSERT INTO {DB_SCHEMA}.emag_products (
                                     emag_id, name, description, part_number, part_number_key, emag_category_id,
                                     emag_brand_id, emag_category_name, emag_brand_name,
                                     characteristics, images, is_active, last_imported_at, emag_updated_at, 
@@ -1016,8 +1076,8 @@ async def process_offers_batch(offers, sync_id):
                                 RETURNING id
                             """
                         else:
-                            sql = """
-                                INSERT INTO app.emag_products (
+                            sql = f"""
+                                INSERT INTO {DB_SCHEMA}.emag_products (
                                     emag_id, name, description, part_number, emag_category_id,
                                     emag_brand_id, emag_category_name, emag_brand_name,
                                     characteristics, images, is_active, last_imported_at, emag_updated_at, 
@@ -1098,7 +1158,7 @@ async def process_offers_batch(offers, sync_id):
                         # Try to get the product from the database
                         try:
                             result = db.execute(
-                                text("SELECT id, emag_id FROM app.emag_products WHERE emag_id = :emag_id"),
+                                text(f"SELECT id, emag_id FROM {DB_SCHEMA}.emag_products WHERE emag_id = :emag_id"),
                                 {'emag_id': emag_id}
                             ).fetchone()
                             
@@ -1143,20 +1203,20 @@ async def process_offers_batch(offers, sync_id):
                     chunk_batch = chunk[i:i+chunk_size]
 
                     if metadata_column:
-                        sql = text("""
-                            INSERT INTO app.emag_product_offers (
+                        sql = text(f"""
+                            INSERT INTO {DB_SCHEMA}.emag_product_offers (
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, raw_data, created_at, updated_at
+                                account_type, warranty, metadata, raw_data, created_at, updated_at
                             )
                             VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
                                 :stock, :stock_status, :handling_time, :status, :is_available,
                                 :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :raw_data, NOW(), NOW()
+                                :account_type, :warranty, :metadata, :raw_data, NOW(), NOW()
                             )
-                            ON CONFLICT (emag_offer_id) DO UPDATE SET
+                            ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
                                 price = EXCLUDED.price,
                                 sale_price = EXCLUDED.sale_price,
                                 currency = EXCLUDED.currency,
@@ -1173,6 +1233,7 @@ async def process_offers_batch(offers, sync_id):
                                 account_type = EXCLUDED.account_type,
                                 warranty = EXCLUDED.warranty,
                                 raw_data = EXCLUDED.raw_data,
+                                metadata = EXCLUDED.metadata,
                                 {metadata_column} = :metadata_payload,
                                 updated_at = NOW()
                         """.format(metadata_column=metadata_column))
@@ -1183,13 +1244,13 @@ async def process_offers_batch(offers, sync_id):
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, raw_data, created_at, updated_at
+                                account_type, warranty, metadata, raw_data, created_at, updated_at
                             )
                             VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
                                 :stock, :stock_status, :handling_time, :status, :is_available,
                                 :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :raw_data, NOW(), NOW()
+                                :account_type, :warranty, :metadata, :raw_data, NOW(), NOW()
                             )
                             ON CONFLICT (emag_offer_id) DO UPDATE SET
                                 price = EXCLUDED.price,
@@ -1208,6 +1269,7 @@ async def process_offers_batch(offers, sync_id):
                                 account_type = EXCLUDED.account_type,
                                 warranty = EXCLUDED.warranty,
                                 raw_data = EXCLUDED.raw_data,
+                                metadata = EXCLUDED.metadata,
                                 updated_at = NOW()
                             WHERE emag_product_offers.emag_offer_id = EXCLUDED.emag_offer_id
                         """)
@@ -1221,7 +1283,7 @@ async def process_offers_batch(offers, sync_id):
                         required_fields = ['emag_product_id', 'emag_offer_id', 'price', 'sale_price', 'currency',
                                          'stock', 'stock_status', 'handling_time', 'status', 'is_available',
                                          'is_visible', 'vat_rate', 'vat_included', 'warehouse_id', 'warehouse_name',
-                                         'account_type', 'warranty', 'raw_data']
+                                         'account_type', 'warranty', 'metadata', 'raw_data']
                         
                         # Add part_number_key only if the column exists
                         if columns_exist:
@@ -1236,8 +1298,25 @@ async def process_offers_batch(offers, sync_id):
                             del entry_data['part_number_key']
                         
                         # Handle metadata if needed
-                        if metadata_column and 'metadata_payload' not in entry_data:
-                            entry_data['metadata_payload'] = {}
+                        entry_data.setdefault('metadata', {})
+                        if not isinstance(entry_data['metadata'], str):
+                            try:
+                                entry_data['metadata'] = json.dumps(entry_data['metadata'], default=str)
+                            except Exception:
+                                entry_data['metadata'] = json.dumps({}, default=str)
+
+                        if metadata_column:
+                            metadata_payload = entry_data.get('metadata_payload')
+                            if metadata_payload is None:
+                                metadata_payload = {}
+                            if not isinstance(metadata_payload, str):
+                                try:
+                                    metadata_payload = json.dumps(metadata_payload, default=str)
+                                except Exception:
+                                    metadata_payload = json.dumps({}, default=str)
+                            entry_data['metadata_payload'] = metadata_payload
+                        else:
+                            entry_data.pop('metadata_payload', None)
                         
                         batch_data.append(entry_data)
                     
@@ -1248,12 +1327,12 @@ async def process_offers_batch(offers, sync_id):
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, part_number_key, raw_data, created_at, updated_at
+                                account_type, warranty, part_number_key, metadata, raw_data, created_at, updated_at
                             ) VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
                                 :stock, :stock_status, :handling_time, :status, :is_available,
                                 :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :part_number_key, :raw_data, NOW(), NOW()
+                                :account_type, :warranty, :part_number_key, :metadata, :raw_data, NOW(), NOW()
                             )
                             ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
                                 emag_product_id = EXCLUDED.emag_product_id,
@@ -1271,6 +1350,7 @@ async def process_offers_batch(offers, sync_id):
                                 warehouse_id = EXCLUDED.warehouse_id,
                                 warehouse_name = EXCLUDED.warehouse_name,
                                 warranty = EXCLUDED.warranty,
+                                metadata = EXCLUDED.metadata,
                                 part_number_key = EXCLUDED.part_number_key,
                                 raw_data = EXCLUDED.raw_data,
                                 updated_at = NOW()
@@ -1281,12 +1361,12 @@ async def process_offers_batch(offers, sync_id):
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, raw_data, created_at, updated_at
+                                account_type, warranty, metadata, raw_data, created_at, updated_at
                             ) VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
                                 :stock, :stock_status, :handling_time, :status, :is_available,
                                 :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :raw_data, NOW(), NOW()
+                                :account_type, :warranty, :metadata, :raw_data, NOW(), NOW()
                             )
                             ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
                                 emag_product_id = EXCLUDED.emag_product_id,
@@ -1304,6 +1384,7 @@ async def process_offers_batch(offers, sync_id):
                                 warehouse_id = EXCLUDED.warehouse_id,
                                 warehouse_name = EXCLUDED.warehouse_name,
                                 warranty = EXCLUDED.warranty,
+                                metadata = EXCLUDED.metadata,
                                 raw_data = EXCLUDED.raw_data,
                                 updated_at = NOW()
                         """)
@@ -1487,16 +1568,23 @@ async def sync_single_account(account_type, credentials):
         
         try:
             with get_db() as session:
-                session.execute(text("""
-                    INSERT INTO app.emag_offer_syncs
-                    (sync_id, account_type, operation_type, status, started_at, 
-                     total_offers_processed, offers_created, offers_updated, 
-                     offers_failed, offers_skipped, error_count, errors, filters)
+                session.execute(
+                    text(
+                        f"""
+                    INSERT INTO {EMAG_OFFER_SYNCS_TABLE}
+                    (sync_id, account_type, operation_type, status, started_at,
+                     total_offers_processed, offers_created, offers_updated,
+                     offers_failed, offers_skipped, error_count, errors, filters,
+                     metadata, created_at, updated_at)
                     VALUES (
                         :sync_id, :account_type, 'full_import', 'running', :started_at,
-                        0, 0, 0, 0, 0, 0, '[]'::jsonb, '{}'::jsonb
+                        0, 0, 0, 0, 0, 0, '[]'::jsonb, '{{}}'::jsonb,
+                        '{{}}'::jsonb, NOW(), NOW()
                     )
-                """), {"sync_id": sync_id, "account_type": account_type, "started_at": _now_utc()})
+                    """
+                    ),
+                    {"sync_id": sync_id, "account_type": account_type, "started_at": _now_utc()},
+                )
 
                 logger.info(f"[{account_type.upper()}] Sync record created: {sync_id}")
                 SYNC_RUN_STATUS.labels(account_type).set(1)
@@ -1567,10 +1655,10 @@ async def sync_single_account(account_type, credentials):
                         page += 1
                         await asyncio.sleep(1)  # Rate limiting between pages
 
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         logger.error(f"[{account_type.upper()}] Error processing page {page}: {e}")
                         SYNC_REQUEST_ERRORS.labels(endpoint="product_offer/read", account_type=account_type, reason=str(e)[:50]).inc()
-                        
+
                         # Continue to next page on error, but log it
                         page += 1
                         if page > MAX_PAGES:
@@ -1584,30 +1672,90 @@ async def sync_single_account(account_type, credentials):
 
         logger.info(f"✅ [{account_type.upper()}] Sync completed. Total processed: {total_processed}")
         return {"account_type": account_type, "total_processed": total_processed, "sync_failed": sync_failed, "sync_id": sync_id}
-        
+
     finally:
         # Restore original credentials
         EMAG_USER, EMAG_PASS, EMAG_ACCOUNT_TYPE = original_user, original_pass, original_type
 
 
-if __name__ == "__main__":
+def _parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Sync eMAG offers for MAIN and/or FBE accounts",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["single", "main", "fbe", "both"],
+        default=None,
+        help="Sync mode: single (default, uses EMAG_ACCOUNT_TYPE/env auto), main, fbe, or both",
+    )
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=None,
+        help="Override maximum pages to fetch",
+    )
+    parser.add_argument(
+        "--progress-interval",
+        type=int,
+        default=None,
+        help="Override progress update interval",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=None,
+        help="Override offer processing batch size",
+    )
+    return parser.parse_args(argv)
+
+
+async def _run_with_mode(sync_mode: str | None) -> None:
+    load_credentials()
+
+    if sync_mode in {"main", "fbe"}:
+        if sync_mode not in ACCOUNT_CREDENTIALS:
+            raise ValueError(f"Credentials for {sync_mode.upper()} are not configured")
+        os.environ["EMAG_ACCOUNT_TYPE"] = sync_mode
+        logger.info("🔄 Sync mode: %s", sync_mode.upper())
+        await sync_emag_offers()
+        return
+
+    if sync_mode == "both":
+        logger.info("🔄 Sync mode: BOTH accounts")
+        await sync_both_accounts()
+        return
+
+    # single or None -> rely on existing auto logic
+    logger.info("🔄 Sync mode: SINGLE (auto)")
+    await sync_emag_offers()
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv or sys.argv[1:])
+
+    if args.max_pages is not None:
+        os.environ["EMAG_SYNC_MAX_PAGES"] = str(args.max_pages)
+    if args.progress_interval is not None:
+        os.environ["EMAG_SYNC_PROGRESS_INTERVAL"] = str(args.progress_interval)
+    if args.batch_size is not None:
+        os.environ["EMAG_SYNC_BATCH_SIZE"] = str(args.batch_size)
+
+    sync_mode = args.mode or os.getenv("EMAG_SYNC_MODE")
+
     try:
-        # Check sync mode from environment variable
-        sync_mode = os.getenv('EMAG_SYNC_MODE', 'single').lower()
-        
-        if sync_mode == 'both':
-            logger.info("🔄 Multi-account sync mode enabled")
-            asyncio.run(sync_both_accounts())
-        else:
-            logger.info("🔄 Single account sync mode (default)")
-            asyncio.run(sync_emag_offers())
-            
+        asyncio.run(_run_with_mode(sync_mode.lower() if sync_mode else None))
+        return 0
     except KeyboardInterrupt:
         logger.info("Sync interrupted by user")
         if current_sync_id:
-            update_sync_status(current_sync_id, 'failed', error_message="Interrupted by user")
-    except Exception as e:
-        logger.error(f"Sync failed with exception: {e}")
+            update_sync_status(current_sync_id, "failed", error_message="Interrupted by user")
+        return 1
+    except Exception as exc:
+        logger.error("Sync failed with exception: %s", exc)
         if current_sync_id:
-            update_sync_status(current_sync_id, 'failed', error_message=str(e))
-        sys.exit(1)
+            update_sync_status(current_sync_id, "failed", error_message=str(exc))
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

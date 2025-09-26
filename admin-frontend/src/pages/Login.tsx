@@ -20,19 +20,33 @@ const Login: React.FC = () => {
     setError('')
 
     try {
-      // Mock authentication - in real app, call API
-      if (values.username === 'admin' && values.password === 'admin123') {
-        // Store auth token
-        localStorage.setItem('token', 'mock-jwt-token')
-        localStorage.setItem('user', JSON.stringify({
-          username: values.username,
-          role: 'admin'
-        }))
-
-        navigate('/dashboard')
-      } else {
-        setError('Invalid username or password')
-      }
+      // Call the login endpoint
+      const api = (await import('../services/api')).default
+      
+      const response = await api.post('/auth/simple-login', {
+        username: values.username,
+        password: values.password
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      const { access_token, refresh_token } = response.data
+      
+      // Store the tokens
+      localStorage.setItem('access_token', access_token)
+      localStorage.setItem('refresh_token', refresh_token)
+      localStorage.setItem('user', JSON.stringify({
+        username: values.username,
+        role: 'admin'
+      }))
+      
+      // Set the default Authorization header for API calls
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
+      
+      // Redirect to dashboard
+      navigate('/dashboard')
     } catch (err) {
       setError('Login failed. Please try again.')
     } finally {
@@ -127,10 +141,10 @@ const Login: React.FC = () => {
               Demo Credentials:
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
-              Username: <strong>admin</strong>
+              Username: <strong>admin@magflow.local</strong>
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
-              Password: <strong>admin123</strong>
+              Password: <strong>secret</strong>
             </div>
           </Space>
         </div>

@@ -12,11 +12,12 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from app.models.base import Base
+from app.db.base_class import Base
 from app.models.mixins import TimestampMixin
 
 
@@ -99,6 +100,11 @@ class EmagProductOffer(Base, TimestampMixin):
         Index("idx_emag_offer_status", "status"),
         Index("idx_emag_offer_imported", "last_imported_at"),
         Index("idx_emag_offer_batch", "import_batch_id"),
+        UniqueConstraint(
+            "emag_offer_id",
+            "account_type",
+            name="uq_emag_product_offers_offer_id_account_type",
+        ),
         {"schema": "app"},
     )
 

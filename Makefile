@@ -1,6 +1,11 @@
 .PHONY: help install test test-unit test-integration test-e2e test-cov lint format type-check check pre-commit-install pre-commit-run pre-commit-update clean start
 .PHONY: up up-proxy up-monitoring up-ops down logs prod prod-proxy prod-monitoring prod-otel prod-certs ci ci-down
 .PHONY: up-simple down-simple logs-simple ps-simple restart-simple clean-orphans migrate-compose downgrade-compose app-shell db-shell redis-cli compose-lint logs-worker logs-flower health
+.PHONY: local-smoke manage-logs
+
+# Local maintenance defaults (overridable via environment)
+MAX_DIR_MB ?= 200
+ARCHIVE_EXPIRY_DAYS ?= 30
 
 # Default target
 help:
@@ -8,12 +13,15 @@ help:
 	@echo "  make start        - Pornește serverul (recomandat)"
 	@echo "  make install      - Instalează dependințele de dezvoltare"
 	@echo "  make test         - Rulează toate testele"
+	@echo "  make test-fast    - Rulează rapid un test/fișier fără xdist & coverage (set TEST=<target>)"
 	@echo "  make test-unit    - Rulează testele unitare"
 	@echo "  make test-cov     - Rulează testele cu raport de acoperire"
 	@echo "  make lint         - Rulează linterele"
 	@echo "  make format       - Formatează codul"
 	@echo "  make check        - Rulează toate verificările"
 	@echo "  make clean        - Curăță fișierele temporare"
+	@echo "  make local-smoke  - Rulează verificări rapide pentru setup local"
+	@echo "  make manage-logs  - Rulează scriptul de întreținere a logurilor"
 	@echo ""
 	@echo "📖 Pentru documentație completă: http://localhost:8080/docs"
 	@echo ""
@@ -67,6 +75,9 @@ start:
 up:
 	docker compose up
 
+ps:
+	docker compose ps
+
 up-proxy:
 	docker compose --profile proxy up
 
@@ -79,14 +90,11 @@ up-ops:
 down:
 	docker compose down -v
 
-logs:
-	docker compose logs -f app
-
-ps:
-	docker compose ps
-
 restart:
 	docker compose restart app
+
+logs:
+	docker compose logs -f app
 
 deep-health:
 	curl -s http://localhost:8000/health/full | jq . || curl -s http://localhost:8000/health/full
@@ -168,10 +176,15 @@ install:
 # Testing
 TEST_ARGS ?= -v --durations=10
 TEST_PATH ?= tests/
+TEST ?= tests/
 
 # Run all tests
 test:
 	pytest $(TEST_ARGS) $(TEST_PATH)
+
+# Run focused test without xdist/coverage
+test-fast:
+	pytest -n 0 --no-cov $(TEST)
 
 # Run unit tests
 test-unit:
@@ -280,20 +293,20 @@ ci-all: ci-lint ci-format ci-type-check ci-test
 	@echo "✅ All CI checks passed!"
 
 # Performance testing
-test-perf:
-	@echo "⚡ Running performance tests..."
-	@pytest tests/test_performance.py -v
+local-smoke:
+	@echo "⚙️  Local smoke tests"
+	@PYTHONPATH=. python3 tests/scripts/test_db_direct.py
+	@PYTHONPATH=. python3 tests/scripts/test_app_db.py
+	@pytest tests/unit -m "unit" -q
 
-# Load testing
-test-load:
-	@echo "🔥 Running load tests..."
-	@DURATION=30s USERS=10 SPAWN_RATE=5 ./scripts/run_perf_test.sh
+manage-logs:
+	@echo "🗂️  Archiving și curățare loguri locale"
+	MAX_DIR_MB=$(MAX_DIR_MB) ARCHIVE_EXPIRY_DAYS=$(ARCHIVE_EXPIRY_DAYS) ./scripts/manage_logs.sh
 
 # Database operations
 db-migrate:
 	@echo "🗄️ Running database migrations..."
 	alembic upgrade head
-
 db-rollback:
 	@echo "⏪ Rolling back last migration..."
 	alembic downgrade -1

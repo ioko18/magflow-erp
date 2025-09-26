@@ -5,6 +5,7 @@ This document outlines the health check implementation for the MagFlow ERP platf
 ## Health Check Endpoints
 
 ### 1. Liveness Probe (`/api/v1/health/live`)
+
 - **Purpose**: Indicates if the service is running
 - **Response**:
   ```json
@@ -17,6 +18,7 @@ This document outlines the health check implementation for the MagFlow ERP platf
   - `200 OK`: Service is running
 
 ### 2. Readiness Probe (`/api/v1/health/ready`)
+
 - **Purpose**: Indicates if the service is ready to handle requests
 - **Checks**:
   - Database connectivity
@@ -39,6 +41,7 @@ This document outlines the health check implementation for the MagFlow ERP platf
   - `503 Service Unavailable`: One or more dependencies are unavailable
 
 ### 3. Startup Probe (`/api/v1/health/startup`)
+
 - **Purpose**: Indicates if the service has completed its startup sequence
 - **Behavior**:
   - Returns `425 Too Early` during warmup period (first 30 seconds)
@@ -63,6 +66,7 @@ HEALTHCHECK --interval=30s \
 ## Kubernetes Probes
 
 ### Liveness Probe
+
 - **Path**: `/api/v1/health/live`
 - **Initial Delay**: 30s
 - **Period**: 30s
@@ -70,6 +74,7 @@ HEALTHCHECK --interval=30s \
 - **Failure Threshold**: 3
 
 ### Readiness Probe
+
 - **Path**: `/api/v1/health/ready`
 - **Initial Delay**: 10s
 - **Period**: 10s
@@ -77,6 +82,7 @@ HEALTHCHECK --interval=30s \
 - **Failure Threshold**: 3
 
 ### Startup Probe
+
 - **Path**: `/api/v1/health/startup`
 - **Initial Delay**: 0s
 - **Period**: 10s
@@ -94,16 +100,19 @@ Health check metrics are exposed via the `/metrics` endpoint and can be scraped 
 ## Troubleshooting
 
 1. **Service Not Starting**
+
    - Check container logs: `docker-compose logs app`
    - Verify environment variables are set correctly
    - Check database and Redis connectivity
 
-2. **Readiness Probe Failing**
+1. **Readiness Probe Failing**
+
    - Verify all dependencies are running
    - Check network connectivity between services
    - Review logs for connection errors
 
-3. **Startup Probe Failing**
+1. **Startup Probe Failing**
+
    - Check application logs for startup errors
    - Verify resource constraints (CPU/memory)
    - Check for deadlocks during initialization
@@ -117,6 +126,7 @@ Health check metrics are exposed via the `/metrics` endpoint and can be scraped 
 ## Performance Impact
 
 Health checks are designed to be lightweight:
+
 - Liveness checks are minimal and fast
 - Readiness checks are cached for 5 seconds to reduce load
 - Database queries are optimized and use connection pooling

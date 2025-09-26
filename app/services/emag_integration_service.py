@@ -9,11 +9,12 @@ import asyncio
 import base64
 import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 from urllib.parse import urljoin
 
 import aiohttp
@@ -107,11 +108,14 @@ class EmagRateLimiter:
     orders_rps: int = 12  # 12 requests per second for orders
     other_rps: int = 3  # 3 requests per second for other endpoints
     jitter_max: float = 0.1  # Maximum jitter to avoid thundering herd
+    window_seconds: float = 1.0  # Duration of the rate limit window
+    sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep  # Injectable sleep function
 
     def __post_init__(self):
         self._last_request_times: Dict[str, float] = {}
         self._request_counts: Dict[str, int] = {}
         self._windows: Dict[str, float] = {}
+        self._locks: Dict[str, asyncio.Lock] = {}
 
     async def acquire(self, resource_type: str = "other"):
         """Acquire permission to make a request.
@@ -120,35 +124,42 @@ class EmagRateLimiter:
             resource_type: "orders" or "other"
 
         """
-        now = time.time()
         rps_limit = self.orders_rps if resource_type == "orders" else self.other_rps
-        window_duration = 1.0  # 1 second window
+        window_duration = self.window_seconds
 
-        # Initialize or reset window if needed
-        if (
-            resource_type not in self._windows
-            or now - self._windows[resource_type] >= window_duration
-        ):
-            self._windows[resource_type] = now
-            self._request_counts[resource_type] = 0
+        # Lazily create a lock per resource type to synchronize concurrent callers
+        lock = self._locks.setdefault(resource_type, asyncio.Lock())
 
-        # Check if we're within the rate limit
-        if self._request_counts[resource_type] >= rps_limit:
-            # Calculate wait time until next window
-            wait_time = window_duration - (now - self._windows[resource_type])
-            if wait_time > 0:
-                # Add jitter to avoid thundering herd
+        time_source = time.monotonic
+
+        while True:
+            async with lock:
+                now = time_source()
+
+                window_start = self._windows.get(resource_type)
+                if window_start is None or now - window_start >= window_duration:
+                    self._windows[resource_type] = now
+                    self._request_counts[resource_type] = 0
+                    window_start = now
+
+                if self._request_counts[resource_type] < rps_limit:
+                    self._request_counts[resource_type] += 1
+                    self._last_request_times[resource_type] = now
+                    return
+
+                wait_time = window_duration - (now - window_start)
+                if wait_time <= 0:
+                    # Window already expired due to scheduling delays; reset and retry
+                    self._windows[resource_type] = now
+                    self._request_counts[resource_type] = 0
+                    continue
+
+                # Add jitter to avoid thundering herd effects when waiting
                 import random
 
-                jitter = random.uniform(0, self.jitter_max)
-                await asyncio.sleep(wait_time + jitter)
-                # Reset window after waiting
-                self._windows[resource_type] = time.time()
-                self._request_counts[resource_type] = 0
+                sleep_duration = wait_time + random.uniform(0, self.jitter_max)
 
-        # Record the request
-        self._request_counts[resource_type] += 1
-        self._last_request_times[resource_type] = time.time()
+            await self.sleep_fn(sleep_duration)
 
 
 @dataclass
@@ -325,10 +336,12 @@ class EmagApiClient:
                 if inspect.isawaitable(req_obj):
                     req_obj = await req_obj
 
-                # Try async context manager first
+                response = None
+                response_data = None
+
                 try:
-                    async with req_obj as response:
-                        self._request_count += 1
+                    async with req_obj as resp:
+                        response = resp
                         json_val = response.json()
                         response_data = (
                             await json_val
@@ -338,63 +351,76 @@ class EmagApiClient:
                 except TypeError:
                     # Fallback: treat req_obj as response directly
                     response = req_obj
-                    self._request_count += 1
                     json_val = response.json()
                     response_data = (
                         await json_val if inspect.isawaitable(json_val) else json_val
                     )
 
-                    # Check for isError field - all responses must have it
-                    if "isError" not in response_data:
-                        logger.warning(
-                            f"eMAG API response missing 'isError' field: {response_data}"
-                        )
-                        raise EmagApiError(
-                            "Invalid API response: missing 'isError' field",
-                            getattr(response, "status", 200),
-                            response_data,
-                        )
+                self._request_count += 1
 
-                    # If isError is true, it's an error
-                    if response_data.get("isError", False):
-                        error_msg = response_data.get("messages", ["Unknown error"])[0]
-                        raise EmagApiError(
-                            f"eMAG API error: {error_msg}",
-                            response.status,
-                            response_data,
-                        )
+                status_code = getattr(response, "status", 200)
 
-                    # Handle HTTP errors
-                    status_code = getattr(response, "status", 200)
-                    if status_code >= 400:
-                        if response.status == 429:  # Rate limit exceeded
-                            if retry_count < max_retries:
-                                # Exponential backoff with jitter
-                                import random
+                # Ensure we received a JSON object we can reason about
+                if not isinstance(response_data, dict):
+                    logger.warning(
+                        "eMAG API response returned non-object JSON: %s", response_data
+                    )
+                    raise EmagApiError(
+                        "Invalid API response: expected JSON object",
+                        status_code,
+                        {"raw_response": response_data},
+                    )
 
-                                wait_time = (2**retry_count) + random.uniform(0, 1)
-                                logger.warning(
-                                    f"Rate limit hit, retrying in {wait_time:.2f}s"
-                                )
-                                await asyncio.sleep(wait_time)
-                                retry_count += 1
-                                continue
-                        elif response.status == 401:
-                            # Token might be invalid, try re-authenticating once
-                            if retry_count == 0:
-                                await self.authenticate()
-                                headers["Authorization"] = self.access_token
-                                retry_count += 1
-                                continue
+                # Check for isError field - all responses must have it
+                if "isError" not in response_data:
+                    logger.warning(
+                        "eMAG API response missing 'isError' field: %s", response_data
+                    )
+                    raise EmagApiError(
+                        "Invalid API response: missing 'isError' field",
+                        status_code,
+                        response_data,
+                    )
 
-                        error_text = response_data.get("messages", ["Unknown error"])[0]
-                        raise EmagApiError(
-                            f"API request failed: {error_text}",
-                            status_code,
-                            response_data,
-                        )
+                # If isError is true, it's an error
+                if response_data.get("isError", False):
+                    error_msg = response_data.get("messages", ["Unknown error"])[0]
+                    raise EmagApiError(
+                        f"eMAG API error: {error_msg}",
+                        status_code,
+                        response_data,
+                    )
 
-                    return response_data
+                # Handle HTTP errors
+                if status_code >= 400:
+                    if status_code == 429:  # Rate limit exceeded
+                        if retry_count < max_retries:
+                            # Exponential backoff with jitter
+                            import random
+
+                            wait_time = (2**retry_count) + random.uniform(0, 1)
+                            logger.warning(
+                                "Rate limit hit, retrying in %.2fs", wait_time
+                            )
+                            await asyncio.sleep(wait_time)
+                            retry_count += 1
+                            continue
+                    elif status_code == 401:
+                        # Token might be invalid, try re-authenticating once
+                        if retry_count == 0:
+                            await self.authenticate()
+                            headers["Authorization"] = self.access_token
+                            retry_count += 1
+                            continue
+
+                    error_text = response_data.get("messages", ["Unknown error"])[0]
+                    raise EmagApiError(
+                        f"API request failed: {error_text}",
+                        status_code,
+                        response_data,
+                    )
+
+                return response_data
 
             except aiohttp.ClientError as e:
                 if retry_count < max_retries:
@@ -406,6 +432,22 @@ class EmagApiClient:
                 raise EmagApiError(f"Request failed after {max_retries} retries: {e}")
 
         raise EmagApiError(f"Request failed after {max_retries} retries")
+
+    async def request(
+        self,
+        method: str,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Public helper to execute raw eMAG API requests."""
+
+        return await self._make_request(
+            method,
+            endpoint,
+            data=data,
+            params=params,
+        )
 
     def _get_resource_type(self, endpoint: str) -> str:
         """Determine resource type for rate limiting based on endpoint."""
@@ -609,6 +651,36 @@ class EmagIntegrationService(ServiceBase):
         self.order_repository = None  # get_order_repository()
         self._sync_tasks: Dict[str, asyncio.Task] = {}
 
+    def _normalize_environment(self, environment: Any) -> EmagApiEnvironment:
+        """Normalize environment names from settings.
+
+        Accepts values like "production", "prod", "sandbox", "sand", or the
+        enum itself. Raises a ``ConfigurationError`` for unsupported values to
+        surface misconfiguration early.
+        """
+
+        if isinstance(environment, EmagApiEnvironment):
+            return environment
+
+        if isinstance(environment, str):
+            normalized = environment.strip().lower()
+            aliases = {
+                "production": EmagApiEnvironment.PRODUCTION,
+                "prod": EmagApiEnvironment.PRODUCTION,
+                "live": EmagApiEnvironment.PRODUCTION,
+                "sandbox": EmagApiEnvironment.SANDBOX,
+                "sand": EmagApiEnvironment.SANDBOX,
+                "test": EmagApiEnvironment.SANDBOX,
+            }
+
+            if normalized in aliases:
+                return aliases[normalized]
+
+        raise ConfigurationError(
+            "Invalid EMAG_ENVIRONMENT value. Expected one of: "
+            "production, prod, live, sandbox, sand, test."
+        )
+
     def _load_config(self) -> EmagApiConfig:
         """Load eMAG API configuration."""
         settings = self.context.settings
@@ -637,7 +709,7 @@ class EmagIntegrationService(ServiceBase):
 
         try:
             return EmagApiConfig(
-                environment=EmagApiEnvironment(environment),
+                environment=self._normalize_environment(environment),
                 api_username=api_username,
                 api_password=api_password,
                 api_timeout=api_timeout,
@@ -670,6 +742,37 @@ class EmagIntegrationService(ServiceBase):
         self._sync_tasks.clear()
         logger.info("eMAG integration service cleaned up")
 
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Delegate HTTP requests to the underlying API client.
+
+        Prefers a public request helper on the client when available,
+        otherwise safely falls back to the protected `_make_request`
+        implementation to maintain compatibility with the existing client
+        contract without duplicating logic in this service.
+        """
+
+        if not self.api_client:
+            raise EmagApiError("eMAG API client not initialized")
+
+        # Prefer a public request helper when available to avoid relying on
+        # internals of the API client.
+        request_fn = getattr(self.api_client, "request", None)
+        if request_fn:
+            return await request_fn(method, endpoint, data=data, params=params)
+
+        return await self.api_client._make_request(  # pylint: disable=protected-access
+            method,
+            endpoint,
+            data=data,
+            params=params,
+        )
+
     @performance_monitor("EmagIntegrationService.sync_products")
     async def sync_products(self, full_sync: bool = False) -> Dict[str, Any]:
         """Sync products between ERP and eMAG."""
@@ -683,16 +786,35 @@ class EmagIntegrationService(ServiceBase):
             # Get products from ERP
             erp_products = await self._get_erp_products()
 
+            # Build SKU lookup map once to avoid repeated linear scans when
+            # reconciling products. This dramatically reduces the complexity of
+            # the sync from O(n^2) to O(n) for large catalogs.
+            erp_products_by_sku = {}
+            duplicate_erp_skus = set()
+
+            for product in erp_products:
+                if not product.sku:
+                    continue
+
+                if product.sku in erp_products_by_sku:
+                    duplicate_erp_skus.add(product.sku)
+                    continue
+
+                erp_products_by_sku[product.sku] = product
+
+            if duplicate_erp_skus:
+                logger.warning(
+                    "Duplicate SKU entries detected in ERP during sync: %s",
+                    sorted(duplicate_erp_skus),
+                )
+
             # Compare and sync
             sync_results = {"created": [], "updated": [], "deleted": [], "errors": []}
 
             # Process products
             for emag_product in emag_products:
                 try:
-                    erp_product = next(
-                        (p for p in erp_products if p.sku == emag_product.sku),
-                        None,
-                    )
+                    erp_product = erp_products_by_sku.get(emag_product.sku)
 
                     if not erp_product:
                         # Create new product in ERP
@@ -780,13 +902,13 @@ class EmagIntegrationService(ServiceBase):
         self,
         inventory_updates: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
-        """Bulk update inventory for multiple products with proper chunking."""
+        """Bulk update inventory for multiple products."""
         try:
             if not self.api_client:
                 raise EmagApiError("eMAG API client not initialized")
 
             # Validate and filter inventory updates
-            validated_updates = []
+            validated_updates: List[Dict[str, Any]] = []
             for update in inventory_updates:
                 if (
                     not isinstance(update, dict)
@@ -795,17 +917,52 @@ class EmagIntegrationService(ServiceBase):
                 ):
                     logger.warning(f"Invalid inventory update format: {update}")
                     continue
-                validated_updates.append(update)
+                validated_updates.append(
+                    {
+                        "sku": str(update["sku"]),
+                        "quantity": update["quantity"],
+                    }
+                )
+
+            deduped_updates: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+            duplicate_skus: Set[str] = set()
+
+            for inventory_update in validated_updates:
+                sku = inventory_update["sku"]
+
+                if sku in deduped_updates:
+                    duplicate_skus.add(sku)
+                    deduped_updates[sku] = inventory_update
+                    deduped_updates.move_to_end(sku)
+                else:
+                    deduped_updates[sku] = inventory_update
+
+            deduped_list = list(deduped_updates.values())
+            duplicates_filtered = len(validated_updates) - len(deduped_list)
+
+            if duplicate_skus:
+                logger.info(
+                    "Collapsed %d duplicate inventory updates for SKUs: %s",
+                    duplicates_filtered,
+                    sorted(duplicate_skus),
+                )
 
             # Use generic bulk operation executor
             async def process_chunk(chunk: List[Dict[str, Any]]) -> Dict[str, Any]:
                 return await self.api_client.bulk_update_inventory(chunk)
 
-            return await self._execute_bulk_operation(
-                validated_updates,
+            result = await self._execute_bulk_operation(
+                deduped_list,
                 process_chunk,
                 "inventory",
             )
+
+            result["duplicate_skus_filtered"] = sorted(duplicate_skus)
+            result["total_duplicates_filtered"] = duplicates_filtered
+            result["items_before_dedup"] = len(validated_updates)
+            result["items_after_dedup"] = len(deduped_list)
+
+            return result
 
         except Exception as e:
             logger.error("Bulk inventory update failed: %s", e)
@@ -819,16 +976,8 @@ class EmagIntegrationService(ServiceBase):
         chunk_size: Optional[int] = None,
         validate_item: Optional[Callable[[Any], bool]] = None,
     ) -> Dict[str, Any]:
-        """Generic bulk operation executor with proper chunking and validation.
+        """Generic bulk operation executor with proper chunking and validation."""
 
-        Args:
-            items: List of items to process
-            operation_func: Async function that takes a chunk and returns result
-            operation_name: Name for logging purposes
-            chunk_size: Override default chunk size
-            validate_item: Optional function to validate individual items
-
-        """
         if not items:
             return {
                 "message": f"No {operation_name} items to process",
@@ -1063,28 +1212,87 @@ class EmagIntegrationService(ServiceBase):
 
             orders = []
             for order_data in orders_data:
-                order = EmagOrder(
-                    id=order_data.get("id"),
-                    emag_order_id=order_data.get("emag_order_id", order_data.get("id")),
-                    status=order_data.get("status", ""),
-                    customer_name=order_data.get("customer_name", ""),
-                    customer_email=order_data.get("customer_email", ""),
-                    total_amount=float(order_data.get("total_amount", 0)),
-                    currency=order_data.get("currency", "RON"),
-                    order_date=datetime.fromisoformat(order_data.get("order_date")),
-                    items=order_data.get("items", []),
-                    shipping_address=order_data.get("shipping_address", {}),
-                    billing_address=order_data.get("billing_address", {}),
-                    payment_method=order_data.get("payment_method", ""),
-                    shipping_cost=float(order_data.get("shipping_cost", 0)),
-                )
-                orders.append(order)
+                orders.append(self._build_emag_order(order_data))
 
             return orders
 
         except Exception as e:
             logger.error("Failed to get orders from eMAG: %s", e)
             raise
+
+    def _build_emag_order(self, order_data: Dict[str, Any]) -> EmagOrder:
+        """Create an `EmagOrder` instance from raw API payload with robust parsing."""
+        return EmagOrder(
+            id=str(order_data.get("id", "")),
+            emag_order_id=str(
+                order_data.get("emag_order_id") or order_data.get("id", "")
+            ),
+            status=order_data.get("status", ""),
+            customer_name=order_data.get("customer_name", ""),
+            customer_email=order_data.get("customer_email", ""),
+            total_amount=float(order_data.get("total_amount", 0) or 0),
+            currency=order_data.get("currency", "RON"),
+            order_date=self._parse_emag_datetime(order_data.get("order_date")),
+            items=list(order_data.get("items", [])),
+            shipping_address=dict(order_data.get("shipping_address", {})),
+            billing_address=dict(order_data.get("billing_address", {})),
+            payment_method=order_data.get("payment_method", ""),
+            shipping_cost=float(order_data.get("shipping_cost", 0) or 0),
+        )
+
+    def _parse_emag_datetime(self, value: Any) -> Optional[datetime]:
+        """Parse eMAG datetime formats safely.
+
+        Supports ISO 8601 strings (with or without timezone or trailing Z) and Unix
+        timestamps. Returns `None` when parsing fails instead of raising to avoid
+        aborting the entire sync.
+        """
+        if isinstance(value, datetime):
+            return value
+
+        if value is None:
+            return None
+
+        # Handle numeric timestamps (seconds since epoch)
+        if isinstance(value, (int, float)):
+            try:
+                return datetime.fromtimestamp(value, tz=timezone.utc)
+            except (OverflowError, OSError, ValueError) as exc:
+                logger.warning("Invalid timestamp for eMAG order date: %s", exc)
+                return None
+
+        if not isinstance(value, str):
+            logger.warning("Unexpected eMAG order date type: %r", value)
+            return None
+
+        trimmed = value.strip()
+        if not trimmed:
+            return None
+
+        iso_candidate = trimmed.replace("Z", "+00:00")
+
+        try:
+            return datetime.fromisoformat(iso_candidate)
+        except ValueError:
+            pass
+
+        fallback_formats = [
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S%z",
+            "%Y-%m-%dT%H:%M:%S",
+        ]
+
+        for fmt in fallback_formats:
+            try:
+                parsed = datetime.strptime(iso_candidate, fmt)
+                if parsed.tzinfo is None:
+                    return parsed.replace(tzinfo=timezone.utc)
+                return parsed
+            except ValueError:
+                continue
+
+        logger.warning("Failed to parse eMAG order date: %s", value)
+        return None
 
     async def _create_erp_order(self, emag_order: EmagOrder):
         """Create order in ERP system."""

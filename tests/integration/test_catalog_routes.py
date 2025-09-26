@@ -100,7 +100,7 @@ class TestProductRoutes:
 
         response = await test_client.post("/api/v1/catalog/products", json=invalid_data)
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         data = response.json()
         assert "detail" in data
         assert any("name" in error["loc"] for error in data["detail"])
@@ -235,7 +235,7 @@ class TestErrorHandling:
             },
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         data = response.json()
         assert "detail" in data
         assert any("name" in error["loc"] for error in data["detail"])

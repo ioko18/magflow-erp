@@ -24,6 +24,8 @@ from typing import Dict, Tuple
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
+from app.core.problem import Problem
+from app.middleware.correlation_id import get_correlation_id
 # Paths that should not be rate limited
 EXCLUDED_PATHS = [
     "/health/live",
@@ -38,12 +40,14 @@ RATE_LIMITS: Dict[str, Tuple[int, int]] = {
     "default": (10, 60),  # 10 requests / 60 seconds
     "auth": (5, 60),  # 5 requests / 60 seconds
     "read": (20, 60),  # 20 requests / 60 seconds
+    "health": (5, 60),  # Allow fewer health checks when enabled
 }
 
 # Path prefix mapping to a named rate limit
 PATH_RATE_LIMITS: Dict[str, str] = {
     "/api/v1/auth/": "auth",
     "/api/v1/products": "read",
+    "/api/v1/health/": "health",
     # Test-specific paths
     "/api/v1/test/auth": "auth",
     "/api/v1/test/read": "read",
@@ -57,16 +61,21 @@ def get_rate_limit_key_for_path(path: str) -> str:
     return "default"
 
 
-def should_rate_limit(request: Request) -> bool:
+def should_rate_limit(request: Request, *, rate_limit_health: bool) -> bool:
     path = request.url.path
-    # Exact or prefix match for excluded health endpoints
-    if path in EXCLUDED_PATHS:
+
+    if not rate_limit_health:
+        if path in EXCLUDED_PATHS:
+            return False
+        if path.startswith("/health/"):
+            return False
+        if "/health" in path:
+            return False
+
+    # Always skip metrics regardless of config
+    if path.startswith("/metrics"):
         return False
-    if path.startswith("/health/"):
-        return False
-    # Exclude any route that contains '/health' (covers /api/v1/health/* as well)
-    if "/health" in path:
-        return False
+
     return True
 
 
@@ -77,14 +86,16 @@ def _get_counter_key(path: str, window_seconds: int) -> str:
     return f"{name}:{window_start}"
 
 
-def init_rate_limiter(app: FastAPI) -> None:
+def init_rate_limiter(app: FastAPI, *, rate_limit_health: bool = False) -> None:
     if not hasattr(app.state, "_rate_limit_counters"):
         app.state._rate_limit_counters = {}
+    app.state._rate_limit_health = rate_limit_health
 
     @app.middleware("http")
     async def rate_limit_middleware(request: Request, call_next):
         # Skip excluded paths
-        if not should_rate_limit(request):
+        rate_limit_health_flag = getattr(app.state, "_rate_limit_health", False)
+        if not should_rate_limit(request, rate_limit_health=rate_limit_health_flag):
             response: Response = await call_next(request)
             # Explicitly ensure no rate limit headers for excluded paths
             if "X-RateLimit-Limit" in response.headers:
@@ -105,17 +116,29 @@ def init_rate_limiter(app: FastAPI) -> None:
         # If over limit, reject with 429 and Retry-After
         if count >= limit:
             retry_after = 1  # minimal value for tests; not strictly accurate
+            correlation_id = get_correlation_id()
+            problem = Problem.from_status(
+                status_code=429,
+                detail="Too many requests, please try again later.",
+                instance=str(request.url),
+                correlation_id=correlation_id,
+            )
+            problem.retry_after = retry_after
+            problem_dict = problem.to_dict()
+
+            headers = {
+                "Retry-After": str(retry_after),
+                "X-RateLimit-Limit": str(limit),
+                "X-RateLimit-Remaining": "0",
+            }
+            if correlation_id:
+                headers["X-Correlation-ID"] = correlation_id
+
             return JSONResponse(
                 status_code=429,
-                content={
-                    "detail": "Too Many Requests",
-                    "rate_limit": key_name,
-                },
-                headers={
-                    "Retry-After": str(retry_after),
-                    "X-RateLimit-Limit": str(limit),
-                    "X-RateLimit-Remaining": "0",
-                },
+                content=problem_dict,
+                headers=headers,
+                media_type="application/problem+json",
             )
 
         # Increment count and proceed
@@ -125,6 +148,9 @@ def init_rate_limiter(app: FastAPI) -> None:
         remaining = max(0, limit - counters[counter_key])
         response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
+        correlation_id = get_correlation_id()
+        if correlation_id and "X-Correlation-ID" not in response.headers:
+            response.headers["X-Correlation-ID"] = correlation_id
         return response
 
 

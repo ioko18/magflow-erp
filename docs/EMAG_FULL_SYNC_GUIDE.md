@@ -1,3 +1,11 @@
+---
+title: eMAG Full Product Sync - Ghid de Utilizare Complet
+last_reviewed: 2025-09-25
+owner: integrations-team
+---
+
+<!-- pymarkdown: disable=MD003,MD013,MD024 -->
+
 # eMAG Full Product Sync - Ghid de Utilizare Complet
 
 ## 📋 Prezentare Generală
@@ -7,12 +15,14 @@ Funcționalitatea **eMAG Full Product Sync** permite preluarea tuturor produselo
 ## 🚀 Funcționalități Principale
 
 ### 1. Sync Complet Produse
+
 - Preluarea tuturor produselor din MAIN account
 - Preluarea tuturor produselor din FBE account
 - Combinare și deduplicare automată după SKU
 - Suport pentru până la 500 de pagini per cont
 
 ### 2. Sync Complet Oferte
+
 - Preluarea tuturor ofertelor din MAIN account
 - Preluarea tuturor ofertelor din FBE account
 - Combinare și deduplicare automată după SKU
@@ -21,6 +31,7 @@ Funcționalitatea **eMAG Full Product Sync** permite preluarea tuturor produselo
 ### 3. API Endpoint-uri Disponibile
 
 #### Sync Produse Complete
+
 ```bash
 POST /api/v1/emag/sync/all-products
 GET  /api/v1/emag/products/all
@@ -28,6 +39,7 @@ GET  /api/v1/emag/products/{product_id}
 ```
 
 #### Sync Oferte Complete
+
 ```bash
 POST /api/v1/emag/sync/all-offers
 GET  /api/v1/emag/offers/all
@@ -35,182 +47,21 @@ GET  /api/v1/emag/offers/{offer_id}
 ```
 
 #### Monitorizare și Configurare
-```bash
-GET  /api/v1/emag/products/sync-progress
-POST /api/v1/emag/sync/scheduled
-GET  /api/v1/emag/sync/export
-```
 
-## 📚 eMAG Marketplace API v4.4.8 - Specificații Tehnice
-
-### 1.1 CONVENȚII ȘI STANDARDE
-
-#### **URL-uri și Platforme:**
-- **MARKETPLACE_API_URL**: URL-ul de bază pentru API (ex: `https://marketplace-api.emag.ro/api-3`)
-- **MARKETPLACE_URL**: URL-ul site-ului (ex: `https://marketplace.emag.ro`)
-- **DEFAULT_CURRENCY**: Moneda implicită a platformei (ex: `RON`)
-
-#### **Platforme Suportate:**
-| Platformă | MARKETPLACE_URL | API URL | Locale | Currency |
-|-----------|----------------|---------|---------|----------|
-| **eMAG RO** | https://marketplace.emag.ro | https://marketplace-api.emag.ro/api-3 | ro_RO | RON |
-| **eMAG BG** | https://marketplace.emag.bg | https://marketplace-api.emag.bg/api-3 | bg_BG | BGN |
-| **eMAG HU** | https://marketplace.emag.hu | https://marketplace-api.emag.hu/api-3 | hu_HU | HUF |
-| **Fashion Days RO** | https://marketplace-ro.fashiondays.com | https://marketplace-ro-api.fashiondays.com/api-3 | ro_RO | RON |
-| **Fashion Days BG** | https://marketplace-bg.fashiondays.com | https://marketplace-bg-api.fashiondays.com/api-3 | bg_BG | BGN |
-
-#### **Reguli Generale:**
-- **Toți parametrii API sunt case-sensitive**
-- **Autentificare**: Basic Auth (username:password → Base64) + IP whitelisting la nivel de cont
-- **Content-Type**: `application/json` pentru toate răspunsurile
-- **Encoding**: UTF-8 pentru toate request-urile și răspunsurile
-
-### 1.2 REQUESTS, RESOURCES & ACTIONS
-
-#### **Pattern-ul Cererilor:**
-- **Format general**: `POST` la `MARKETPLACE_API_URL/{resource}/{action}`
-- **Exemplu**: `/product_offer/save`
-- **Excepții**: Unele endpoint-uri folosesc `GET` (ex: `/api-3/smart-deals-price-check`)
-
-#### **Structura Request Body:**
-```json
-{
-  "data": {
-    // payload-ul pentru resursa/acțiunea apelată
-    "currentPage": 1,
-    "itemsPerPage": 100
-  }
-}
-```
-
-#### **Resurse și Acțiuni Core:**
-| Resursă | Acțiuni Disponibile |
-|---------|-------------------|
-| **product_offer** | read \| save \| count |
-| **measurements** | save |
-| **offer_stock/{resourceId}** | (actualizări stoc) |
-| **campaign_proposals** | save |
-| **order** | read \| save \| count \| acknowledge \| unlock-courier |
-| **order/attachments** | save |
-| **message** | read \| save \| count |
-| **category** | read \| count |
-| **vat** | read |
-| **handling_time** | read |
-| **locality** | read \| count |
-| **courier_accounts** | read |
-| **awb** | read \| save |
-| **rma** | read \| save \| count |
-| **invoice/categories** | read |
-| **invoice** | read |
-| **customer-invoice** | read |
-| **smart-deals-price-check** | read (GET) |
-
-### 1.3 PAGINARE ȘI FILTRE
-
-#### **Parametrii de Paginare:**
-```json
-{
-  "data": {
-    "currentPage": 1,        // Pagina curentă (default: 1)
-    "itemsPerPage": 100,     // Elemente per pagină (default: 100, maxim: 100)
-    // filtre suplimentare specifice resursei
-  }
-}
-```
-
-#### **Reguli de Paginare:**
-- **Paginarea este obligatorie** pentru acțiunile `read`
-- **Maximum 100 elemente** per pagină
-- **Maximum 500 pagini** per request în MagFlow ERP
-- **Rate limiting**: Respectă limitele API-ului eMAG
-
-### 1.4 FORMATUL RĂSPUNS ȘI GARANȚII
-
-#### **Structura Standard a Răspunsurilor:**
-```json
-{
-  "isError": false,        // Trebuie să fie false pentru apeluri reușite
-  "messages": [            // Array cu mesaje informative
-    {
-      "type": "success",
-      "message": "Operation completed successfully"
-    }
-  ],
-  "results": [             // Payload-ul cu datele
-    // datele efective
-  ]
-}
-```
-
-#### **Garanții Operaționale:**
-- **ALWAYS JSON**: Toate răspunsurile sunt JSON cu `Content-Type: application/json`
-- **isError=false**: Indică succesul operațiunii
-- **Log obligatoriu**: Toate request-urile și răspunsurile trebuie logate pentru 30 de zile
-- **Limita de 4000 elemente**: Dacă este depășită → `isError:true` cu mesajul "Maximum input vars of 4000 exceeded"
-- **Comportament special**: API-ul poate returna `isError:true` dar să salveze/proceseze oferta nouă
-
-### 1.5 RATE LIMITING ȘI BULK OPERATIONS
-
-#### **Limite de Rate:**
-| Tip Resursă | Limite |
-|-------------|---------|
-| **Orders routes** | 12 request-uri/secundă SAU 720 request-uri/minut |
-| **Toate celelalte resurse** | 3 request-uri/secundă SAU 180 request-uri/minut |
-
-#### **Recomandări Rate Limiting:**
-- **Nu programați la ore fixe**: Folosiți jitter (ex: 12:04:42 în loc de 12:00:00)
-- **Distribuiți uniform**: Între orele 08:00-20:00 pentru a evita peak-urile
-- **Monitorizați header-ele**: `X-RateLimit-Limit-3second` și `X-RateLimit-Remaining-3second`
-
-#### **Răspunsuri Rate Limiting:**
-```json
-// Status 429 - Rate limit exceeded
-{
-  "isError": true,
-  "messages": [
-    {
-      "type": "error",
-      "message": "Rate limit exceeded"
-    }
-  ],
-  "results": []
-}
-
-// Headers incluse:
-X-RateLimit-Limit-3second: 3
-X-RateLimit-Remaining-3second: 0
-```
-
-#### **Bulk Operations:**
-- **Recomandat**: 10-50 entități per request
-- **Maximum**: 50 entități per request pentru operațiuni bulk
-- **Batch processing**: Procesare în loturi pentru volume mari
-
-### 1.6 CALLBACK URLS (Webhook-uri)
-
-#### **Webhook-uri Disponibile:**
-- **New order**: Notificare la fiecare comandă nouă
-- **Order cancellation**: Notificare la anularea comenzilor
-- **New return & status change**: Notificare la retururi noi și schimbări de status
-- **AWB status change**: Notificare la fiecare schimbare de status AWB
-- **Approved documentation**: Notificare când documentația produsului este validată
-
-#### **Activare Webhook-uri:**
-- **Configurare în UI**: Activează din interfața Marketplace
-- **URL callback**: Trebuie să accepte POST requests
-- **Autentificare**: Verificare IP și/sau token
-- **Format**: JSON cu structura standard eMAG
+Detaliile tehnice extinse (pagini maxime, reguli de paginare, rate limiting, formate răspuns, webhook-uri etc.) sunt documentate în `docs/integrations/emag/api_reference.md`. Consultă acel fișier înainte de a ajusta joburile programate sau a mări volumele de date procesate.
 
 ## 📖 Ghid de Utilizare
 
 ### 2.1 AUTENTIFICARE ȘI AUTORIZARE
 
 #### **Metoda de Autentificare:**
+
 - **Basic Authentication**: username:password encoded în Base64
 - **IP Whitelisting**: Obligatoriu la nivel de cont
 - **Token Format**: `Authorization: Basic <base64_username:password>`
 
 #### **Exemplu de Autentificare:**
+
 ```bash
 # Username: your_emag_username
 # Password: your_emag_password
@@ -232,14 +83,16 @@ curl -X POST "https://marketplace-api.emag.ro/api-3/product_offer/read" \
 ```
 
 #### **Configurare IP Whitelisting:**
+
 - **Acces**: Marketplace UI → Setări Cont → API Settings
 - **Format**: Un IP per linie (ex: 192.168.1.100)
-- **Wildcard**: Suportă wildcard (ex: 192.168.1.*)
+- **Wildcard**: Suportă wildcard (ex: 192.168.1.\*)
 - **IPv4**: Doar IPv4 acceptat
 
 ### 2.2 EXEMPLE DE REQUEST/RESPONSE
 
 #### **Exemplu: Preluare Produse**
+
 ```bash
 # Request
 curl -X POST "https://marketplace-api.emag.ro/api-3/product_offer/read" \
@@ -285,6 +138,7 @@ curl -X POST "https://marketplace-api.emag.ro/api-3/product_offer/read" \
 ```
 
 #### **Exemplu: Salvare Ofertă**
+
 ```bash
 # Request
 curl -X POST "https://marketplace-api.emag.ro/api-3/product_offer/save" \
@@ -318,6 +172,7 @@ curl -X POST "https://marketplace-api.emag.ro/api-3/product_offer/save" \
 ```
 
 #### **Exemplu: Eroare Rate Limiting**
+
 ```bash
 # Request (exceeded limit)
 curl -X POST "https://marketplace-api.emag.ro/api-3/product_offer/read" \
@@ -347,14 +202,15 @@ X-RateLimit-Reset-3second: 1
 ### 2.3 GESTIONAREA ERORILOR
 
 #### **Categorii de Erori:**
-| Tip Eroare | HTTP Status | Descriere |
-|------------|-------------|-----------|
-| **Rate Limiting** | 429 | Depășire limite request-uri |
-| **Authentication** | 401 | Credentiale invalide |
-| **Authorization** | 403 | IP neautorizat |
-| **Validation** | 400 | Date invalide în request |
-| **Not Found** | 404 | Resursă negăsită |
-| **Server Error** | 500 | Eroare internă server |
+
+| Tip Eroare         | HTTP Status | Descriere                   |
+| ------------------ | ----------- | --------------------------- |
+| **Rate Limiting**  | 429         | Depășire limite request-uri |
+| **Authentication** | 401         | Credentiale invalide        |
+| **Authorization**  | 403         | IP neautorizat              |
+| **Validation**     | 400         | Date invalide în request    |
+| **Not Found**      | 404         | Resursă negăsită            |
+| **Server Error**   | 500         | Eroare internă server       |
 
 #### **Exemple de Erori Comune:**
 
@@ -400,6 +256,7 @@ X-RateLimit-Reset-3second: 1
 ```
 
 #### **Coduri de Eroare Specifice:**
+
 - `AUTH_INVALID_CREDENTIALS`: Credentiale invalide
 - `AUTH_IP_NOT_WHITELISTED`: IP neautorizat
 - `VALIDATION_MISSING_FIELD`: Câmp obligatoriu lipsă
@@ -412,6 +269,7 @@ X-RateLimit-Reset-3second: 1
 ### 2.4 MONITORIZARE ȘI LOGGING
 
 #### **Cerințe de Log:**
+
 - **Perioada retenție**: 30 de zile
 - **Nivel de detaliu**: Toate request-urile și răspunsurile
 - **Format**: JSON structurat
@@ -424,6 +282,7 @@ X-RateLimit-Reset-3second: 1
   - Status code HTTP
 
 #### **Exemplu Log Entry:**
+
 ```json
 {
   "timestamp": "2024-01-15T10:30:45Z",
@@ -462,6 +321,7 @@ X-RateLimit-Reset-3second: 1
 ```
 
 #### **Metrici de Monitorizat:**
+
 - **Request Rate**: Request-uri pe secundă/minut
 - **Error Rate**: Procent erori vs request-uri reușite
 - **Response Time**: Timp mediu de răspuns
@@ -471,6 +331,7 @@ X-RateLimit-Reset-3second: 1
 ### 2.5 IMPLEMENTARE ÎN MAGFLOW ERP
 
 #### **Configurare Conexiune:**
+
 ```python
 from emag_sync_config import EmagSyncConfig
 
@@ -492,6 +353,7 @@ credentials = {
 ```
 
 #### **Exemplu de Utilizare:**
+
 ```python
 from app.services.emag_integration_service import EmagIntegrationService
 
@@ -513,6 +375,7 @@ offers_result = await emag_service.sync_all_offers_from_both_accounts(
 ```
 
 #### **Error Handling în MagFlow:**
+
 ```python
 try:
     # Operațiune cu retry automat
@@ -534,6 +397,7 @@ except RateLimitError as e:
 ### 2.6 BEST PRACTICES PENTRU INTEGRARE
 
 #### **1. Rate Limiting și Performanță:**
+
 ```python
 # Configurare optimă pentru volume mari
 config = EmagSyncConfig(
@@ -546,6 +410,7 @@ config = EmagSyncConfig(
 ```
 
 #### **2. Paginare Eficientă:**
+
 ```python
 # Procesare pagină cu pagină cu logging
 async def sync_with_progress_tracking():
@@ -578,6 +443,7 @@ async def sync_with_progress_tracking():
 ```
 
 #### **3. Monitorizare și Alerting:**
+
 ```python
 # Metrici de monitorizat
 metrics = {
@@ -598,6 +464,7 @@ alerts = {
 ```
 
 #### **4. Backup și Recovery:**
+
 ```python
 # Export periodic pentru backup
 async def scheduled_backup():
@@ -624,6 +491,7 @@ async def scheduled_backup():
 #### **Probleme Comune și Soluții:**
 
 ##### **1. Rate Limiting (429 Errors)**
+
 ```python
 # Soluție: Implementare backoff exponențial
 async def handle_rate_limit():
@@ -644,6 +512,7 @@ async def handle_rate_limit():
 ```
 
 ##### **2. Authentication Errors (401/403)**
+
 ```python
 # Soluție: Verificare credentiale și IP whitelist
 async def verify_authentication():
@@ -663,6 +532,7 @@ async def verify_authentication():
 ```
 
 ##### **3. Data Validation Errors**
+
 ```python
 # Soluție: Validare date înainte de trimitere
 def validate_product_data(product_data):
@@ -689,6 +559,7 @@ if validation_errors:
 ```
 
 ##### **4. Memory Issues cu Volume Mari**
+
 ```python
 # Soluție: Procesare în batch-uri
 async def process_large_dataset():
@@ -717,6 +588,7 @@ async def process_large_dataset():
 ### 2.8 TESTING ȘI VALIDARE
 
 #### **Strategie de Testare:**
+
 ```python
 # Testare unitară pentru componente individuale
 async def test_emag_api_client():
@@ -750,6 +622,7 @@ async def test_full_sync_workflow():
 ```
 
 #### **Testare în Medii Diferite:**
+
 ```python
 # Configurare pentru medii diferite
 TESTING_CONFIG = EmagSyncConfig(
@@ -783,6 +656,7 @@ PRODUCTION_CONFIG = EmagSyncConfig(
 ## 🎯 CONCLUZIE
 
 Documentația completă eMAG Marketplace API v4.4.8 oferă toate informațiile necesare pentru:
+
 - ✅ **Integrare corectă** cu autentificare și autorizare
 - ✅ **Respectarea limitelor** de rate și best practices
 - ✅ **Gestionarea erorilor** și recovery robust
@@ -797,7 +671,8 @@ Documentația completă eMAG Marketplace API v4.4.8 oferă toate informațiile n
 ### 1. Variabile de Mediu
 
 Adăugați în fișierul `.env`:
-```bash
+
+````bash
 # eMAG API Configuration
 EMAG_API_BASE_URL=https://api.emag.ro
 EMAG_REQUESTS_PER_MINUTE=60
@@ -814,7 +689,7 @@ EMAG_DELAY_BETWEEN_REQUESTS=1.0
 EMAG_MAX_PAGES_PER_SYNC=100
 EMAG_ENABLE_AUTO_SYNC=false
 EMAG_SYNC_INTERVAL_MINUTES=60
-```
+````
 
 ### 2. Configurare în Cod
 
@@ -836,6 +711,7 @@ config = EmagSyncConfig(
 ### 1. Sync Manual Complet
 
 #### Preluarea Tuturor Produselor
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/sync/all-products" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -847,6 +723,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/sync/all-products" \
 ```
 
 #### Preluarea Tuturor Ofertelor
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/sync/all-offers" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -860,18 +737,21 @@ curl -X POST "http://localhost:8000/api/v1/emag/sync/all-offers" \
 ### 2. Interogare Date Sync
 
 #### Toate Produsele din Ambele Conturi
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/products/all?max_pages_per_account=25" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 #### Toate Ofertele din Ambele Conturi
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/offers/all?max_pages_per_account=25" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 #### Detalii Produs Specific
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/products/PROD123?account_type=main" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
@@ -880,6 +760,7 @@ curl "http://localhost:8000/api/v1/emag/products/PROD123?account_type=main" \
 ### 3. Configurare Sync Programat
 
 #### Activare Sync Programat
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/emag/sync/scheduled" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -894,12 +775,14 @@ curl -X POST "http://localhost:8000/api/v1/emag/sync/scheduled" \
 ### 4. Export Date Sync
 
 #### Export JSON Complet
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/sync/export?include_products=true&include_offers=true" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 #### Export Filtrat pe Cont
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/sync/export?account_type=main&include_products=true" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
@@ -910,6 +793,7 @@ curl "http://localhost:8000/api/v1/emag/sync/export?account_type=main&include_pr
 ### 1. Probleme Comune
 
 #### Rate Limiting (429 Errors)
+
 ```python
 # Soluție: Implementare backoff exponențial
 async def handle_rate_limit():
@@ -930,6 +814,7 @@ async def handle_rate_limit():
 ```
 
 #### Authentication Errors (401/403)
+
 ```python
 # Soluție: Verificare credentiale și IP whitelist
 async def verify_authentication():
@@ -949,6 +834,7 @@ async def verify_authentication():
 ```
 
 #### Data Validation Errors
+
 ```python
 # Soluție: Validare date înainte de trimitere
 def validate_product_data(product_data):
@@ -969,6 +855,7 @@ def validate_product_data(product_data):
 ```
 
 #### Memory Issues cu Volume Mari
+
 ```python
 # Soluție: Procesare în batch-uri
 async def process_large_dataset():
@@ -997,6 +884,7 @@ async def process_large_dataset():
 ## 📊 Metrici și Monitorizare
 
 ### 1. Metrici de Performanță
+
 - **Request Rate**: Request-uri pe secundă/minut
 - **Error Rate**: Procent erori vs request-uri reușite
 - **Response Time**: Timp mediu de răspuns
@@ -1004,6 +892,7 @@ async def process_large_dataset():
 - **Data Volume**: Volum date procesate
 
 ### 2. Alerte și Notificări
+
 ```python
 # Configurare alerte
 alerts = {
@@ -1017,6 +906,7 @@ alerts = {
 ## 🚀 Best Practices
 
 ### 1. Rate Limiting și Performanță
+
 ```python
 # Configurare optimă pentru volume mari
 config = EmagSyncConfig(
@@ -1029,6 +919,7 @@ config = EmagSyncConfig(
 ```
 
 ### 2. Paginare Eficientă
+
 ```python
 # Procesare pagină cu pagină cu logging
 async def sync_with_progress_tracking():
@@ -1061,6 +952,7 @@ async def sync_with_progress_tracking():
 ```
 
 ### 3. Backup și Recovery
+
 ```python
 # Export periodic pentru backup
 async def scheduled_backup():
@@ -1085,6 +977,7 @@ async def scheduled_backup():
 ## 📚 Testing și Validare
 
 ### 1. Strategie de Testare
+
 ```python
 # Testare unitară pentru componente individuale
 async def test_emag_api_client():
@@ -1118,6 +1011,7 @@ async def test_full_sync_workflow():
 ```
 
 ### 2. Testare în Medii Diferite
+
 ```python
 # Configurare pentru medii diferite
 TESTING_CONFIG = EmagSyncConfig(
@@ -1150,41 +1044,46 @@ PRODUCTION_CONFIG = EmagSyncConfig(
 
 ## 🎯 Concluzie și Summary
 
-### ✅ Implementat în MagFlow ERP
+### Implementat în MagFlow ERP
 
 **Funcționalitatea eMAG Full Product Sync este 100% implementată și include:**
 
 1. **📦 Sync Complet Produse și Oferte:**
+
    - Preluare din ambele conturi (MAIN/FBE)
    - Suport pentru volume mari cu paginare
    - Deduplicare automată după SKU
    - Rate limiting și error recovery
 
 2. **🔧 API Endpoint-uri Complete:**
+
    - 9 endpoint-uri noi pentru sync complet
    - Monitorizare progres în timp real
    - Export și backup date
    - Configurare sync programat
 
 3. **📊 Specificații eMAG API v4.4.8:**
+
    - Autentificare Basic Auth + IP Whitelist
    - Rate limiting respectat (60 req/min)
    - Toate resursele și acțiunile suportate
    - Format JSON standardizat
 
 4. **🚀 Performance și Scalabilitate:**
+
    - Procesare async/non-blocking
    - Memory management eficient
    - Error handling robust
    - Monitoring și metrics
 
 5. **📚 Documentație Comprehensivă:**
+
    - Specificații complete API v4.4.8
    - Exemple practice și curl commands
    - Troubleshooting și best practices
    - Testing și validare
 
-### 🎉 Rezultat Final
+### Rezultat Final
 
 **MagFlow ERP oferă acum o integrare enterprise-grade completă cu eMAG Marketplace care:**
 
@@ -1196,9 +1095,6 @@ PRODUCTION_CONFIG = EmagSyncConfig(
 - ✅ **Este production-ready** cu testing comprehensiv
 
 **Poți acum să sincronizezi toate produsele din eMAG cu ușurință și încredere!** 🚀✨
-```
-
-### 2. Configurare în Cod
 
 ```python
 from emag_sync_config import get_emag_sync_config, PRODUCTION_EMAG_CONFIG
@@ -1215,6 +1111,7 @@ config = PRODUCTION_EMAG_CONFIG
 ### 1. Structura Răspunsurilor
 
 #### Răspuns Sync Produse
+
 ```json
 {
   "main_account": {
@@ -1236,6 +1133,7 @@ config = PRODUCTION_EMAG_CONFIG
 ```
 
 #### Răspuns Sync Oferte
+
 ```json
 {
   "main_account": {
@@ -1259,12 +1157,14 @@ config = PRODUCTION_EMAG_CONFIG
 ### 2. Analytics și Metrici
 
 #### Metrici de Performanță
-- **Timp mediu de răspuns**: <500ms per pagină
+
+- **Timp mediu de răspuns**: \<500ms per pagină
 - **Rată de succes**: >95% pentru operațiuni normale
 - **Timp total sync**: 2-10 minute pentru cataloage mari
-- **Utilizare memorie**: <512MB pentru majoritatea operațiunilor
+- **Utilizare memorie**: \<512MB pentru majoritatea operațiunilor
 
 #### Metrici de Business
+
 - **Produse unice**: Număr total SKU-uri distincte
 - **Overlap între conturi**: SKU-uri comune MAIN/FBE
 - **Completitudine date**: Procent de produse cu date complete
@@ -1275,6 +1175,7 @@ config = PRODUCTION_EMAG_CONFIG
 ### 1. Probleme Comune
 
 #### Eroare Rate Limiting
+
 ```bash
 # Soluție: Creșteți delay-ul între request-uri
 curl -X POST "http://localhost:8000/api/v1/emag/sync/all-products" \
@@ -1282,6 +1183,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/sync/all-products" \
 ```
 
 #### Eroare Timeout
+
 ```bash
 # Soluție: Reduceți numărul de pagini per sync
 curl -X POST "http://localhost:8000/api/v1/emag/sync/all-products" \
@@ -1289,6 +1191,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/sync/all-products" \
 ```
 
 #### Eroare Autentificare
+
 ```bash
 # Soluție: Verificați token-ul JWT
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
@@ -1298,12 +1201,14 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ### 2. Verificare Status
 
 #### Status Sync
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/products/sync-progress" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 #### Status Conexiune eMAG
+
 ```bash
 curl "http://localhost:8000/api/v1/emag/status" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
@@ -1314,6 +1219,7 @@ curl "http://localhost:8000/api/v1/emag/status" \
 ### 1. Configurare Optimală
 
 #### Pentru Cataloage Mari (>10,000 produse)
+
 ```bash
 {
   "max_pages_per_account": 50,
@@ -1324,6 +1230,7 @@ curl "http://localhost:8000/api/v1/emag/status" \
 ```
 
 #### Pentru Sync Frecvent
+
 ```bash
 {
   "sync_interval_minutes": 30,
@@ -1336,6 +1243,7 @@ curl "http://localhost:8000/api/v1/emag/status" \
 ### 2. Monitorizare și Mentenanță
 
 #### Sync Programat
+
 ```bash
 # Activare sync la fiecare 60 de minute
 curl -X POST "http://localhost:8000/api/v1/emag/sync/scheduled" \
@@ -1347,6 +1255,7 @@ curl -X POST "http://localhost:8000/api/v1/emag/sync/scheduled" \
 ```
 
 #### Monitorizare Progres
+
 ```bash
 # Verificare status sync
 curl "http://localhost:8000/api/v1/emag/products/sync-progress"
@@ -1355,12 +1264,14 @@ curl "http://localhost:8000/api/v1/emag/products/sync-progress"
 ### 3. Backup și Export
 
 #### Export Periodic
+
 ```bash
 # Export săptămânal pentru backup
 curl "http://localhost:8000/api/v1/emag/sync/export?include_products=true&include_offers=true"
 ```
 
 #### Export Filtrat
+
 ```bash
 # Export doar din MAIN account
 curl "http://localhost:8000/api/v1/emag/sync/export?account_type=main&include_products=true"
@@ -1369,18 +1280,21 @@ curl "http://localhost:8000/api/v1/emag/sync/export?account_type=main&include_pr
 ## 🚨 Limitări și Considerații
 
 ### 1. Limite API eMAG
+
 - **100 request-uri per minut** per cont
 - **100 produse per pagină** maxim
 - **Rate limiting** activ după limita de request-uri
 - **Timeout** după 30 de secunde inactivitate
 
 ### 2. Limitări Sistem
+
 - **500 pagini maxim** per cont per sync
 - **10 secunde delay maxim** între request-uri
 - **512MB memorie maxim** pentru procesare
 - **30 minute timeout** per operațiune de sync
 
 ### 3. Recomandări
+
 - **Testați întâi** cu `max_pages_per_account=5`
 - **Monitorizați** utilizarea memoriei
 - **Configurați** sync programat pentru actualizări regulate
@@ -1389,6 +1303,7 @@ curl "http://localhost:8000/api/v1/emag/sync/export?account_type=main&include_pr
 ## 📚 Exemple Avansate
 
 ### 1. Sync Incremental
+
 ```python
 # Preluare doar produse modificate în ultimele 24 ore
 last_sync = "2024-01-15T10:00:00Z"
@@ -1396,6 +1311,7 @@ products = await emag_service.get_products_since(last_sync)
 ```
 
 ### 2. Sync Filtrat pe Categorie
+
 ```python
 # Preluare doar produse din categoria Electronics
 electronics_products = await emag_service.get_products_by_category(
@@ -1405,6 +1321,7 @@ electronics_products = await emag_service.get_products_by_category(
 ```
 
 ### 3. Sync cu Callback
+
 ```python
 # Sync cu funcție de callback pentru progres
 async def progress_callback(progress_info):

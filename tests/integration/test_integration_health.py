@@ -141,7 +141,7 @@ async def test_readiness_probe_healthy(client):
 
 
 @pytest.mark.asyncio
-async def test_startup_probe_ready():
+async def test_startup_probe_ready(client):
     """Test the startup probe when the service is ready."""
     with patch(
         "app.api.v1.endpoints.health.STARTUP_TIME",
@@ -181,7 +181,7 @@ async def test_startup_probe_ready():
 
 
 @pytest.mark.asyncio
-async def test_startup_probe_starting():
+async def test_startup_probe_starting(client):
     """Test the startup probe when service is still starting."""
     with patch("app.api.v1.endpoints.health.datetime") as mock_datetime, patch(
         "app.api.v1.endpoints.health.STARTUP_TIME",
@@ -211,7 +211,7 @@ async def test_startup_probe_starting():
 
 
 @pytest.mark.asyncio
-async def test_database_check_failure():
+async def test_database_check_failure(client):
     """Test database health check failure."""
     mock_db_response = {
         "status": "unhealthy",
@@ -259,7 +259,7 @@ async def test_database_check_failure():
 
 
 @pytest.mark.asyncio
-async def test_jwks_check_failure():
+async def test_jwks_check_failure(client):
     """Test JWKS health check failure."""
     mock_jwks_response = {
         "status": "unhealthy",

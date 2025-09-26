@@ -129,6 +129,24 @@ repos:
         args: ['--fix=lf']
       - id: trailing-whitespace
 
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        name: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-frontmatter
+        types: [markdown]
+
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.22
+    hooks:
+      - id: pymarkdown
+        name: pymarkdown
+        args: [scan]
+        types: [markdown]
+
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v3.12.0
     hooks:

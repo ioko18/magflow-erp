@@ -194,6 +194,34 @@ class TestEmagBulkOperations:
             ]
         )
 
+    def test_bulk_inventory_update_deduplicates_by_sku(self, service):
+        """Ensure duplicate SKUs are collapsed before bulk update."""
+        updates = [
+            {"sku": "SKU001", "quantity": 5},
+            {"sku": "SKU001", "quantity": 7},  # Latest quantity should win
+            {"sku": "SKU002", "quantity": 3},
+        ]
+
+        service.api_client.bulk_update_inventory = AsyncMock(
+            return_value={"success": True}
+        )
+
+        result = asyncio.run(service.bulk_update_inventory(updates))
+
+        # Only two unique SKUs should be sent to API with latest values retained
+        service.api_client.bulk_update_inventory.assert_called_once()
+        sent_payload = service.api_client.bulk_update_inventory.call_args[0][0]
+        assert sent_payload == [
+            {"sku": "SKU001", "quantity": 7},
+            {"sku": "SKU002", "quantity": 3},
+        ]
+
+        # Result metadata should reflect deduplication
+        assert result["items_before_dedup"] == 3
+        assert result["items_after_dedup"] == 2
+        assert result["total_duplicates_filtered"] == 1
+        assert result["duplicate_skus_filtered"] == ["SKU001"]
+
     def test_bulk_inventory_update_no_client(self, service):
         """Test bulk inventory update when API client is not available."""
         service.api_client = None

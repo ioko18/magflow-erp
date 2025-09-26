@@ -18,6 +18,7 @@ graph TD
 ### 1. OpenTelemetry Integration
 
 #### Configuration
+
 - **Service Name**: `magflow-api`
 - **Environment**: `production`/`development`
 - **Exporters**:
@@ -25,6 +26,7 @@ graph TD
   - Console (for development)
 
 #### Environment Variables
+
 ```bash
 # Required
 OTEL_SERVICE_NAME=magflow-api
@@ -39,6 +41,7 @@ OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=[]  # List of disabled instrumentations
 ### 2. Prometheus Metrics
 
 #### Key Metrics
+
 - `http_server_duration_seconds`: HTTP request duration in seconds
 - `http_server_requests_total`: Total HTTP requests
 - `http_server_request_size_bytes`: HTTP request size in bytes
@@ -46,7 +49,9 @@ OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=[]  # List of disabled instrumentations
 - `http_server_active_requests`: Number of active requests
 
 #### Scrape Configuration
+
 Add to `prometheus.yml`:
+
 ```yaml
 scrape_configs:
   - job_name: 'magflow-api'
@@ -59,31 +64,38 @@ scrape_configs:
 ### 3. Grafana Dashboard
 
 #### Dashboard Panels
+
 1. **Request Rate**
+
    - Requests per second by endpoint and method
    - Alerts on abnormal request patterns
 
-2. **Response Latency**
+1. **Response Latency**
+
    - p95 and p99 latency by endpoint
    - Alert on high latency
 
-3. **Error Rate**
+1. **Error Rate**
+
    - 5xx error rate
    - Alert on error rate spikes
 
-4. **Service Status**
+1. **Service Status**
+
    - Service health and uptime
    - Instance status
 
 #### Import Dashboard
+
 1. Navigate to Grafana
-2. Click "+" > "Import"
-3. Upload `docker/grafana/provisioning/dashboards/magflow-dashboard.json`
-4. Select Prometheus as the data source
+1. Click "+" > "Import"
+1. Upload `docker/grafana/provisioning/dashboards/magflow-dashboard.json`
+1. Select Prometheus as the data source
 
 ## Testing the Setup
 
 ### 1. Generate Test Traffic
+
 ```bash
 # Using hey for load testing
 hey -n 1000 -c 10 http://localhost:8000/health
@@ -96,6 +108,7 @@ done
 ```
 
 ### 2. Verify Metrics
+
 ```bash
 # Check if metrics are being exposed
 curl -s http://localhost:8000/metrics | grep http_server
@@ -105,33 +118,38 @@ curl -s http://localhost:8000/metrics | grep http_server_duration_seconds_count
 ```
 
 ### 3. Verify Traces
+
 1. Open Jaeger UI at `http://localhost:16686`
-2. Select `magflow-api` service
-3. Click "Find Traces"
+1. Select `magflow-api` service
+1. Click "Find Traces"
 
 ## Troubleshooting
 
 ### No Metrics Appearing
+
 1. Check if the application is running
-2. Verify the `/metrics` endpoint is accessible
-3. Check OpenTelemetry collector logs
+1. Verify the `/metrics` endpoint is accessible
+1. Check OpenTelemetry collector logs
    ```bash
    docker-compose logs otel-collector
    ```
 
 ### High Latency
+
 1. Check database query performance
-2. Look for slow endpoints in the latency panel
-3. Check for resource constraints (CPU/Memory)
+1. Look for slow endpoints in the latency panel
+1. Check for resource constraints (CPU/Memory)
 
 ### High Error Rate
+
 1. Check application logs
-2. Look for patterns in error types
-3. Verify dependencies (database, Redis, etc.)
+1. Look for patterns in error types
+1. Verify dependencies (database, Redis, etc.)
 
 ## Alerting
 
 ### Example Alert Rules
+
 ```yaml
 # alert.rules
 groups:
@@ -159,22 +177,27 @@ groups:
 ## Performance Considerations
 
 ### Cardinality
+
 Be cautious with high-cardinality labels as they can significantly impact Prometheus performance.
 
 ### Retention
+
 Configure appropriate retention policies in Prometheus based on your storage capacity.
 
 ### Sampling
+
 For high-traffic services, consider implementing sampling for traces to reduce overhead.
 
 ## Security
 
 ### Authentication
+
 - Enable authentication for Grafana and Prometheus
 - Use HTTPS for all endpoints
 - Implement proper CORS policies
 
 ### Data Protection
+
 - Be cautious with sensitive data in logs and metrics
 - Use environment variables for secrets
 - Regularly rotate API keys and certificates

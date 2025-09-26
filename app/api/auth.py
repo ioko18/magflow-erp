@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..core.config import settings
 from ..core.database import get_async_session
 from ..db.models import User as UserModel
+from ..middleware.correlation_id import get_correlation_id
 from ..schemas.auth import LoginRequest, Token, User, UserInDB
 from ..services.cache_service import CacheManager, get_cache_service
 from ..services.rbac_service import AuditService
@@ -280,10 +281,14 @@ async def login_for_access_token(
                 user_agent=request.headers.get("user-agent"),
                 success=False,
             )
+            correlation_id = get_correlation_id()
+            headers = {"WWW-Authenticate": "Bearer"}
+            if correlation_id:
+                headers["X-Correlation-ID"] = correlation_id
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
+                headers=headers,
             )
 
         # Check if user is active
@@ -333,10 +338,14 @@ async def login_for_access_token(
                 user_agent=request.headers.get("user-agent"),
                 success=False,
             )
+            correlation_id = get_correlation_id()
+            headers = {"WWW-Authenticate": "Bearer"}
+            if correlation_id:
+                headers["X-Correlation-ID"] = correlation_id
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
+                headers=headers,
             )
 
         # Password verified successfully

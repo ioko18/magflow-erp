@@ -20,6 +20,7 @@ Comprehensive database schema documentation for MagFlow ERP system.
 ## 🗄️ Database Overview
 
 ### Database Configuration
+
 ```python
 # app/core/database.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -42,6 +43,7 @@ async_session = sessionmaker(
 ```
 
 ### Database Specifications
+
 - **Database**: PostgreSQL 15+
 - **ORM**: SQLAlchemy 2.0+
 - **Async Support**: asyncpg driver
@@ -55,17 +57,20 @@ async_session = sessionmaker(
 ### Design Principles
 
 #### 1. Normalized Structure
+
 - **1NF**: Atomic values in each column
 - **2NF**: No partial dependencies
 - **3NF**: No transitive dependencies
 - **BCNF**: Every determinant is a candidate key
 
 #### 2. Audit Trail
+
 - All tables have `created_at` and `updated_at` columns
 - Soft deletes using `is_active` flag
 - User tracking with `created_by` and `updated_by`
 
 #### 3. Extensibility
+
 - Generic foreign key relationships
 - Flexible attribute storage
 - Plugin architecture support
@@ -73,6 +78,7 @@ async_session = sessionmaker(
 ### Naming Conventions
 
 #### Tables
+
 ```sql
 -- Core business tables (singular)
 users, customers, orders, products
@@ -85,6 +91,7 @@ sys_settings, sys_logs, sys_jobs
 ```
 
 #### Columns
+
 ```sql
 -- Primary keys
 id (SERIAL PRIMARY KEY)
@@ -110,6 +117,7 @@ name, description, notes (VARCHAR/TEXT)
 ### Users & Authentication
 
 #### users table
+
 ```sql
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -131,6 +139,7 @@ CREATE INDEX idx_users_is_active ON users(is_active);
 ```
 
 #### user_roles table
+
 ```sql
 CREATE TABLE user_roles (
     id SERIAL PRIMARY KEY,
@@ -142,6 +151,7 @@ CREATE TABLE user_roles (
 ```
 
 #### roles table
+
 ```sql
 CREATE TABLE roles (
     id SERIAL PRIMARY KEY,
@@ -159,6 +169,7 @@ INSERT INTO roles (name, description) VALUES
 ```
 
 #### permissions table
+
 ```sql
 CREATE TABLE permissions (
     id SERIAL PRIMARY KEY,
@@ -180,6 +191,7 @@ INSERT INTO permissions (name, description, module) VALUES
 ### Inventory Management
 
 #### categories table
+
 ```sql
 CREATE TABLE categories (
     id SERIAL PRIMARY KEY,
@@ -196,6 +208,7 @@ CREATE INDEX idx_categories_parent_id ON categories(parent_id);
 ```
 
 #### inventory_items table
+
 ```sql
 CREATE TABLE inventory_items (
     id SERIAL PRIMARY KEY,
@@ -218,6 +231,7 @@ CREATE INDEX idx_inventory_items_is_active ON inventory_items(is_active);
 ```
 
 #### warehouses table
+
 ```sql
 CREATE TABLE warehouses (
     id SERIAL PRIMARY KEY,
@@ -233,6 +247,7 @@ CREATE INDEX idx_warehouses_name ON warehouses(name);
 ```
 
 #### stock_movements table
+
 ```sql
 CREATE TABLE stock_movements (
     id SERIAL PRIMARY KEY,
@@ -254,6 +269,7 @@ CREATE INDEX idx_stock_movements_created_at ON stock_movements(created_at);
 ### Sales Management
 
 #### customers table
+
 ```sql
 CREATE TABLE customers (
     id SERIAL PRIMARY KEY,
@@ -274,6 +290,7 @@ CREATE INDEX idx_customers_is_active ON customers(is_active);
 ```
 
 #### sales_orders table
+
 ```sql
 CREATE TABLE sales_orders (
     id SERIAL PRIMARY KEY,
@@ -298,6 +315,7 @@ CREATE INDEX idx_sales_orders_order_date ON sales_orders(order_date);
 ```
 
 #### sales_order_items table
+
 ```sql
 CREATE TABLE sales_order_items (
     id SERIAL PRIMARY KEY,
@@ -314,6 +332,7 @@ CREATE INDEX idx_sales_order_items_inventory_item_id ON sales_order_items(invent
 ```
 
 #### invoices table
+
 ```sql
 CREATE TABLE invoices (
     id SERIAL PRIMARY KEY,
@@ -340,6 +359,7 @@ CREATE INDEX idx_invoices_status ON invoices(status);
 ### Purchase Management
 
 #### suppliers table
+
 ```sql
 CREATE TABLE suppliers (
     id SERIAL PRIMARY KEY,
@@ -360,6 +380,7 @@ CREATE INDEX idx_suppliers_is_active ON suppliers(is_active);
 ```
 
 #### purchase_orders table
+
 ```sql
 CREATE TABLE purchase_orders (
     id SERIAL PRIMARY KEY,
@@ -384,6 +405,7 @@ CREATE INDEX idx_purchase_orders_status ON purchase_orders(status);
 ```
 
 #### purchase_order_items table
+
 ```sql
 CREATE TABLE purchase_order_items (
     id SERIAL PRIMARY KEY,
@@ -400,6 +422,7 @@ CREATE INDEX idx_purchase_order_items_inventory_item_id ON purchase_order_items(
 ```
 
 #### purchase_receipts table
+
 ```sql
 CREATE TABLE purchase_receipts (
     id SERIAL PRIMARY KEY,
@@ -424,6 +447,7 @@ CREATE INDEX idx_purchase_receipts_order_id ON purchase_receipts(order_id);
 ### Entity Relationship Diagram
 
 #### User Management
+
 ```
 users (1:N) user_roles (N:1) roles
 users (1:N) sales_orders (created_by)
@@ -431,6 +455,7 @@ users (1:N) purchase_orders (created_by)
 ```
 
 #### Inventory Management
+
 ```
 categories (1:N) inventory_items
 warehouses (1:N) stock_movements
@@ -440,6 +465,7 @@ inventory_items (1:N) purchase_order_items
 ```
 
 #### Sales Management
+
 ```
 customers (1:N) sales_orders
 sales_orders (1:N) sales_order_items
@@ -447,6 +473,7 @@ sales_orders (1:1) invoices
 ```
 
 #### Purchase Management
+
 ```
 suppliers (1:N) purchase_orders
 purchase_orders (1:N) purchase_order_items
@@ -456,6 +483,7 @@ purchase_orders (1:N) purchase_receipts
 ### Foreign Key Constraints
 
 #### Cascade Operations
+
 ```sql
 -- Sales orders cascade delete items
 ALTER TABLE sales_order_items
@@ -469,6 +497,7 @@ FOREIGN KEY (item_id) REFERENCES inventory_items(id) ON DELETE CASCADE;
 ```
 
 #### Set Null Operations
+
 ```sql
 -- Orders set customer to null if customer deleted
 ALTER TABLE sales_orders
@@ -481,6 +510,7 @@ FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL;
 ### Performance Indexes
 
 #### Composite Indexes
+
 ```sql
 -- Sales orders by customer and date
 CREATE INDEX idx_sales_orders_customer_date ON sales_orders(customer_id, order_date);
@@ -493,6 +523,7 @@ CREATE INDEX idx_stock_movements_item_date ON stock_movements(item_id, created_a
 ```
 
 #### Partial Indexes
+
 ```sql
 -- Active users only
 CREATE INDEX idx_users_active_email ON users(email) WHERE is_active = true;
@@ -505,6 +536,7 @@ CREATE INDEX idx_sales_orders_pending ON sales_orders(created_at) WHERE status =
 ```
 
 #### Unique Constraints
+
 ```sql
 -- User email uniqueness
 ALTER TABLE users ADD CONSTRAINT uk_users_email UNIQUE (email);
@@ -519,6 +551,7 @@ ALTER TABLE sales_orders ADD CONSTRAINT uk_sales_orders_order_number UNIQUE (ord
 ### Check Constraints
 
 #### Business Rules
+
 ```sql
 -- Positive quantities
 ALTER TABLE sales_order_items ADD CONSTRAINT chk_positive_quantity CHECK (quantity > 0);
@@ -533,6 +566,7 @@ ALTER TABLE purchase_orders ADD CONSTRAINT chk_positive_amount CHECK (total_amou
 ```
 
 #### Data Integrity
+
 ```sql
 -- Min/max stock levels
 ALTER TABLE inventory_items ADD CONSTRAINT chk_stock_levels CHECK (min_stock_level >= 0 AND max_stock_level >= min_stock_level);
@@ -544,6 +578,7 @@ ALTER TABLE customers ADD CONSTRAINT chk_credit_limit CHECK (credit_limit >= 0);
 ## 🔄 Database Migrations
 
 ### Migration Structure
+
 ```
 alembic/
 ├── versions/
@@ -556,6 +591,7 @@ alembic/
 ```
 
 ### Migration Commands
+
 ```bash
 # Create new migration
 alembic revision --autogenerate -m "add_user_preferences"
@@ -574,6 +610,7 @@ alembic history
 ```
 
 ### Migration Example
+
 ```python
 # alembic/versions/xxxx_add_user_preferences.py
 """Add user preferences
@@ -621,6 +658,7 @@ def downgrade():
 ### PostgreSQL Data Types Used
 
 #### Numeric Types
+
 ```sql
 -- Integer types
 id SERIAL PRIMARY KEY           -- Auto-incrementing integer
@@ -634,6 +672,7 @@ total_amount DECIMAL(12,2)      -- Order totals
 ```
 
 #### Character Types
+
 ```sql
 -- Variable length strings
 name VARCHAR(255) NOT NULL      -- Product names
@@ -646,6 +685,7 @@ status VARCHAR(20) NOT NULL     -- Status values
 ```
 
 #### Date/Time Types
+
 ```sql
 -- Timestamp with timezone
 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -660,6 +700,7 @@ lead_time_days INTEGER DEFAULT 7  -- Days for delivery
 ```
 
 #### Boolean Types
+
 ```sql
 -- Boolean flags
 is_active BOOLEAN DEFAULT true
@@ -668,6 +709,7 @@ is_deleted BOOLEAN DEFAULT false
 ```
 
 #### JSON Types
+
 ```sql
 -- Flexible data storage
 metadata JSONB                  -- Additional data
@@ -678,6 +720,7 @@ characteristics JSONB           -- Product attributes
 ### Data Type Best Practices
 
 #### Use Appropriate Types
+
 ```sql
 -- Good: Specific types
 price DECIMAL(10,2) NOT NULL    -- Exact decimal places
@@ -690,6 +733,7 @@ info VARCHAR(1000)              -- Arbitrary limit
 ```
 
 #### NULL vs Empty Strings
+
 ```sql
 -- Prefer NULL for optional data
 description TEXT                -- NULL when no description
@@ -701,6 +745,7 @@ sku VARCHAR(100) UNIQUE NOT NULL -- Must have value
 ```
 
 #### Enum vs VARCHAR
+
 ```sql
 -- Use VARCHAR with CHECK constraints for status
 status VARCHAR(20) NOT NULL CHECK (status IN ('draft', 'confirmed', 'cancelled'))
@@ -715,6 +760,7 @@ ALTER TABLE sales_orders ALTER COLUMN status TYPE order_status;
 ### Audit Tables
 
 #### audit_log table
+
 ```sql
 CREATE TABLE audit_log (
     id SERIAL PRIMARY KEY,
@@ -733,6 +779,7 @@ CREATE INDEX idx_audit_log_changed_by ON audit_log(changed_by);
 ```
 
 #### system_logs table
+
 ```sql
 CREATE TABLE system_logs (
     id SERIAL PRIMARY KEY,
@@ -755,6 +802,7 @@ CREATE INDEX idx_system_logs_user_id ON system_logs(user_id);
 ### Audit Triggers
 
 #### Automatic Audit Logging
+
 ```sql
 -- Function to log changes
 CREATE OR REPLACE FUNCTION audit_trigger_function()
@@ -792,6 +840,7 @@ CREATE TRIGGER audit_inventory_items_trigger
 ### Query Optimization
 
 #### Use Proper Indexing
+
 ```sql
 -- Index for common queries
 CREATE INDEX CONCURRENTLY idx_inventory_items_low_stock ON inventory_items(stock_quantity) WHERE stock_quantity <= min_stock_level;
@@ -804,6 +853,7 @@ CREATE INDEX CONCURRENTLY idx_users_active ON users(id) WHERE is_active = true;
 ```
 
 #### Optimize Queries
+
 ```sql
 -- Good: Uses indexes
 SELECT * FROM sales_orders
@@ -823,6 +873,7 @@ WHERE order_date >= '2024-01-01' AND order_date < '2025-01-01';
 ### Connection Pooling
 
 #### SQLAlchemy Configuration
+
 ```python
 engine = create_async_engine(
     DATABASE_URL,
@@ -838,6 +889,7 @@ engine = create_async_engine(
 ```
 
 #### Connection Pool Monitoring
+
 ```python
 # app/services/database_monitoring.py
 from sqlalchemy import text
@@ -865,6 +917,7 @@ async def get_pool_status():
 ### Partitioning Strategy
 
 #### Date-based Partitioning
+
 ```sql
 -- Create partitioned table
 CREATE TABLE sales_orders_partitioned (
@@ -886,6 +939,7 @@ CREATE TABLE sales_orders_2025 PARTITION OF sales_orders_partitioned
 ```
 
 #### Automated Partition Management
+
 ```sql
 -- Function to create new partitions
 CREATE OR REPLACE FUNCTION create_monthly_partition(
@@ -909,6 +963,6 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
----
+______________________________________________________________________
 
 **MagFlow ERP Database Schema** - Complete Database Documentation 🗄️

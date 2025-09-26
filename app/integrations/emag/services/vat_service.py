@@ -492,7 +492,7 @@ class VatService:
             country_code: ISO 2-letter country code
 
         """
-        await self._cache.invalidate_vat_rates(country_code)
+        await self._cache.invalidate_vat_cache(country_code)
 
     async def refresh_vat_rates(
         self,

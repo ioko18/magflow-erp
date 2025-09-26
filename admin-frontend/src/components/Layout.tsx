@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Layout as AntLayout, Menu, Button, Avatar, Dropdown, Badge } from 'antd'
+import { Layout as AntLayout, Menu, Button, Avatar, Dropdown, Badge, Switch, Tooltip } from 'antd'
 import {
   DashboardOutlined,
   ShoppingCartOutlined,
@@ -10,12 +10,17 @@ import {
   MenuUnfoldOutlined,
   LinkOutlined,
   BarChartOutlined,
-  DatabaseOutlined
+  ReconciliationOutlined,
+  TeamOutlined,
+  SunOutlined,
+  MoonOutlined,
 } from '@ant-design/icons'
 import { Link, useLocation } from 'react-router-dom'
+import { useTheme } from '../contexts/ThemeContext'
+import { useNotifications } from '../contexts/NotificationContext'
+import NotificationPanel from './NotificationPanel'
 
 const { Header, Sider, Content } = AntLayout
-const { SubMenu } = Menu
 
 interface LayoutProps {
   children: React.ReactNode
@@ -23,7 +28,10 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false)
+  const [notificationPanelVisible, setNotificationPanelVisible] = useState(false)
   const location = useLocation()
+  const { isDarkMode, toggleTheme } = useTheme()
+  const { unreadCount } = useNotifications()
 
   const menuItems = [
     {
@@ -40,6 +48,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/products',
       icon: <ShoppingCartOutlined />,
       label: <Link to="/products">Products</Link>,
+    },
+    {
+      key: '/orders',
+      icon: <ReconciliationOutlined />,
+      label: <Link to="/orders">Orders</Link>,
+    },
+    {
+      key: '/customers',
+      icon: <TeamOutlined />,
+      label: <Link to="/customers">Customers</Link>,
     },
     {
       key: '/users',
@@ -132,9 +150,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           />
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <Badge count={3} size="small">
-              <BarChartOutlined style={{ fontSize: '18px', color: '#1890ff' }} />
-            </Badge>
+            <Tooltip title="Notifications">
+              <Badge count={unreadCount} size="small">
+                <Button
+                  type="text"
+                  icon={<BarChartOutlined style={{ fontSize: '18px', color: '#1890ff' }} />}
+                  onClick={() => setNotificationPanelVisible(true)}
+                />
+              </Badge>
+            </Tooltip>
+
+            <Tooltip title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
+              <Switch
+                checked={isDarkMode}
+                onChange={toggleTheme}
+                checkedChildren={<MoonOutlined />}
+                unCheckedChildren={<SunOutlined />}
+                style={{ backgroundColor: isDarkMode ? '#1890ff' : '#d9d9d9' }}
+              />
+            </Tooltip>
 
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -157,6 +191,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {children}
         </Content>
       </AntLayout>
+      
+      <NotificationPanel
+        visible={notificationPanelVisible}
+        onClose={() => setNotificationPanelVisible(false)}
+      />
     </AntLayout>
   )
 }

@@ -3,7 +3,15 @@ from enum import Enum
 from typing import List, Optional
 
 from fastapi import Form
-from pydantic import BaseModel, EmailStr, Field, HttpUrl, validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    field_serializer,
+    validator,
+)
 
 
 class TokenType(str, Enum):
@@ -47,8 +55,11 @@ class TokenData(BaseModel):
     iat: datetime = Field(default_factory=datetime.utcnow)
     jti: str = Field(..., description="JWT ID")
 
-    class Config:
-        json_encoders = {datetime: lambda dt: int(dt.timestamp())}
+    model_config = ConfigDict()
+
+    @field_serializer("exp", "iat", when_used="json")
+    def serialize_epoch(self, value: datetime, _info) -> int:
+        return int(value.timestamp())
 
 
 class UserRole(str, Enum):
@@ -111,9 +122,22 @@ class UserInDB(UserBase):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda dt: dt.isoformat()}
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
+
+    @field_serializer(
+        "last_login",
+        "last_failed_login",
+        "password_changed_at",
+        when_used="json",
+    )
+    def serialize_optional_datetime(
+        self, value: Optional[datetime], _info
+    ) -> Optional[str]:
+        return value.isoformat() if value else None
 
 
 class User(UserBase):
@@ -125,9 +149,17 @@ class User(UserBase):
     last_login: Optional[datetime] = None
     is_verified: bool = False
 
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda dt: dt.isoformat()}
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at", when_used="json")
+    def serialize_datetime(self, value: datetime, _info) -> str:
+        return value.isoformat()
+
+    @field_serializer("last_login", when_used="json")
+    def serialize_optional_datetime(
+        self, value: Optional[datetime], _info
+    ) -> Optional[str]:
+        return value.isoformat() if value else None
 
 
 class UserCreate(BaseModel):
@@ -198,8 +230,7 @@ class RateLimitConfig(BaseModel):
     requests_per_minute: int
     burst_capacity: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OAuth2TokenRequestForm:

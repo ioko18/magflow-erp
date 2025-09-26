@@ -5,11 +5,13 @@ This document outlines the procedures for testing the SLO-based alerting system 
 ## Test Environment Setup
 
 ### Prerequisites
+
 - Docker and Docker Compose
 - `curl` and `jq` installed
 - Access to Grafana and Alertmanager UIs
 
 ### Start Test Environment
+
 ```bash
 # Start the full stack with monitoring
 docker-compose -f docker-compose.yml -f docker-compose.observability.yml up -d
@@ -25,16 +27,18 @@ docker-compose ps
 **Objective**: Verify that the alert triggers when p95 latency exceeds 300ms for 5 minutes.
 
 **Steps**:
+
 1. Generate artificial latency:
    ```bash
    # In a separate terminal, run the latency generator
    ./tests/alert_testing/generate_latency.sh 500 300
    ```
-2. Monitor alerts in Alertmanager UI (http://localhost:9093)
-3. Check Grafana dashboard for latency metrics
-4. Verify notification delivery
+1. Monitor alerts in Alertmanager UI (http://localhost:9093)
+1. Check Grafana dashboard for latency metrics
+1. Verify notification delivery
 
 **Expected Result**:
+
 - Alert triggers after 5 minutes
 - Notification is received
 - Alert appears in Grafana dashboard
@@ -44,14 +48,16 @@ docker-compose ps
 **Objective**: Verify that the alert triggers when p95 latency exceeds 300ms for 1 hour.
 
 **Steps**:
+
 1. Generate sustained latency:
    ```bash
    ./tests/alert_testing/generate_latency.sh 350 3600
    ```
-2. Monitor for alert after 1 hour
-3. Verify alert details in Alertmanager
+1. Monitor for alert after 1 hour
+1. Verify alert details in Alertmanager
 
 **Expected Result**:
+
 - Alert triggers after 1 hour
 - Notification is received with correct severity
 
@@ -60,14 +66,16 @@ docker-compose ps
 **Objective**: Verify that the alert triggers when error rate exceeds 1.44% for 5 minutes.
 
 **Steps**:
+
 1. Generate errors:
    ```bash
    ./tests/alert_testing/generate_errors.sh 2 300
    ```
-2. Monitor error rate in Grafana
-3. Check for alert in Alertmanager
+1. Monitor error rate in Grafana
+1. Check for alert in Alertmanager
 
 **Expected Result**:
+
 - Alert triggers after 5 minutes
 - Error rate is visible in dashboard
 
@@ -76,14 +84,16 @@ docker-compose ps
 **Objective**: Verify that the alert triggers when error rate exceeds 0.36% for 1 hour.
 
 **Steps**:
+
 1. Generate sustained errors:
    ```bash
    ./tests/alert_testing/generate_errors.sh 0.5 3600
    ```
-2. Monitor for alert after 1 hour
-3. Verify alert details
+1. Monitor for alert after 1 hour
+1. Verify alert details
 
 **Expected Result**:
+
 - Alert triggers after 1 hour
 - Correct burn rate is calculated
 
@@ -92,21 +102,24 @@ docker-compose ps
 **Objective**: Verify that fast burn alerts are suppressed when slow burn alerts fire.
 
 **Steps**:
+
 1. Start error generation:
    ```bash
    ./tests/alert_testing/generate_errors.sh 1.5 3600
    ```
-2. Let fast burn alert trigger
-3. Wait for slow burn alert
-4. Verify fast burn alert is suppressed
+1. Let fast burn alert trigger
+1. Wait for slow burn alert
+1. Verify fast burn alert is suppressed
 
 **Expected Result**:
+
 - Fast burn alert is suppressed when slow burn alert is active
 - Only one notification is received for the incident
 
 ## Test Scripts
 
 ### `generate_latency.sh`
+
 ```bash
 #!/bin/bash
 # Usage: ./generate_latency.sh <latency_ms> <duration_sec>
@@ -127,6 +140,7 @@ done
 ```
 
 ### `generate_errors.sh`
+
 ```bash
 #!/bin/bash
 # Usage: ./generate_errors.sh <error_percent> <duration_sec>
@@ -158,20 +172,23 @@ done
 ## Verification Steps
 
 1. **Alertmanager UI**
+
    - Navigate to http://localhost:9093
    - Verify alerts appear with correct labels
    - Check alert grouping
 
-2. **Grafana Dashboard**
+1. **Grafana Dashboard**
+
    - Open SLO dashboard
    - Verify metrics match expected values
    - Check burn rate calculations
 
-3. **Logs**
+1. **Logs**
+
    ```bash
    # Check application logs
    docker-compose logs --tail=100 app
-   
+
    # Check Alertmanager logs
    docker-compose logs alertmanager
    ```
@@ -187,6 +204,7 @@ docker-compose -f docker-compose.yml -f docker-compose.observability.yml down
 ## Test Data
 
 ### Expected Alert Labels
+
 ```yaml
 alertname: HighLatencyFastBurn|HighLatencySlowBurn|HighErrorRateFastBurn|HighErrorRateSlowBurn
 severity: page|ticket
@@ -197,6 +215,7 @@ method: GET|POST|PUT|DELETE
 ```
 
 ### Expected Annotations
+
 ```yaml
 description: "High latency detected: {{ $value }}s (threshold: 0.3s)"
 summary: "High latency on {{ $labels.route }} ({{ $labels.method }}) - {{ $value | humanize }}s"

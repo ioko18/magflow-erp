@@ -8,8 +8,12 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api import health as complex_health
+from app.api import simple_products as products
+from app.api import test_sync
+from app.api import test_admin
 
 from ..auth import router as auth_router
+from .endpoints.auth import users_router as auth_users_router
 from ..routes.catalog import router as catalog_router
 from ..tasks import router as tasks_router
 from .endpoints import (
@@ -24,6 +28,8 @@ from .endpoints import (
     reporting,
     rma,
     sms_notifications,
+    test_auth,
+    vat,
 )
 
 api_router = APIRouter()
@@ -31,20 +37,36 @@ api_router = APIRouter()
 # Health endpoints mounted at /health so tests can call /api/v1/health/
 api_router.include_router(complex_health.router, prefix="/health")
 
-# Auth endpoints mounted at /auth
+# Products endpoints
+api_router.include_router(products.router, tags=["products"])
+
+# Auth endpoints mounted at /auth and user info at /users
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
+api_router.include_router(auth_users_router, prefix="/users", tags=["users"])
 
 # eMAG marketplace integration endpoints
 api_router.include_router(emag_integration.router, tags=["emag"])
 
+# Admin dashboard endpoints (test version without auth)
+api_router.include_router(test_admin.router, tags=["admin"])
+
+# Test authentication endpoints
+api_router.include_router(test_auth.router, prefix="/test-auth", tags=["test-auth"])
+
 # eMAG offers management endpoints
 api_router.include_router(emag_offers.router, prefix="/offers", tags=["emag-offers"])
+
+# VAT endpoints
+api_router.include_router(vat.router, tags=["vat"])
 
 # eMAG DB browse endpoints (read-only, local database)
 api_router.include_router(emag_db_offers.router, prefix="/emag/db", tags=["emag-db"])
 
 # eMAG sync endpoints
-api_router.include_router(emag_sync.router, prefix="/sync", tags=["emag-sync"])
+api_router.include_router(emag_sync.router, prefix="/emag/sync", tags=["emag-sync"])
+
+# Test sync endpoints (without auth for development)
+api_router.include_router(test_sync.router, prefix="/test/sync", tags=["test-sync"])
 
 # Payment gateways endpoints
 api_router.include_router(

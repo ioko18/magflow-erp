@@ -10,7 +10,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.db.base_class import Base
-from app.db.models import Permission, Role, User
+from app.models.permission import Permission
+from app.models.role import Role
+from app.models.user import User
 
 # Test database configuration
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"

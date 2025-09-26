@@ -1,12 +1,17 @@
 """Redis-based caching with namespacing and automatic invalidation."""
 
+import fnmatch
 import hashlib
 import json
 import logging
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar
 
-import redis.asyncio as redis
+try:
+    import redis.asyncio as redis
+except Exception:  # pragma: no cover - optional dependency in testing
+    redis = None
+
 from fastapi import Request
 
 from app.core.config import settings
@@ -16,15 +21,55 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+class _InMemoryRedis:
+    """Minimal async-compatible Redis replacement for tests."""
+
+    def __init__(self) -> None:
+        self._store: dict[str, str] = {}
+
+    async def get(self, key: str) -> Optional[str]:
+        return self._store.get(key)
+
+    async def set(self, key: str, value: str) -> bool:
+        self._store[key] = value
+        return True
+
+    async def setex(self, key: str, ttl: int, value: str) -> bool:  # noqa: ARG002
+        self._store[key] = value
+        return True
+
+    async def delete(self, *keys: str) -> int:
+        removed = 0
+        for key in keys:
+            if key in self._store:
+                del self._store[key]
+                removed += 1
+        return removed
+
+    async def keys(self, pattern: str) -> list[str]:
+        return [key for key in self._store if fnmatch.fnmatch(key, pattern)]
+
+    async def dbsize(self) -> int:
+        return len(self._store)
+
+    async def close(self) -> None:  # pragma: no cover - trivial
+        self._store.clear()
+
+
 class RedisCache:
     """Redis-based cache with namespacing and automatic invalidation."""
 
     def __init__(self, redis_url: str = None, namespace: str = "magflow"):
         redis_url = redis_url or settings.REDIS_URL
-        self.redis = redis.Redis.from_url(redis_url, decode_responses=True)
         self.namespace = namespace
         self.hits = 0
         self.misses = 0
+
+        if settings.TESTING or not settings.REDIS_ENABLED or redis is None:
+            self.redis = _InMemoryRedis()
+            logger.debug("Using in-memory Redis cache for testing")
+        else:
+            self.redis = redis.Redis.from_url(redis_url, decode_responses=True)
 
     def _get_key(self, key: str) -> str:
         """Get namespaced key."""

@@ -1,7 +1,11 @@
 """eMAG Marketplace API endpoints for MagFlow ERP using dependency injection."""
 
+import asyncio
 import logging
-from datetime import datetime, timedelta
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from fastapi import (
@@ -30,6 +34,136 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/emag", tags=["emag"])
 
+PROJECT_ROOT = Path(__file__).resolve().parents[4].parent
+SYNC_SCRIPT_PATH = PROJECT_ROOT / "sync_emag_sync_improved.py"
+
+
+def _build_sync_env(account_type: str) -> Dict[str, str]:
+    env = os.environ.copy()
+    env["EMAG_SYNC_MODE"] = "single"
+    env["EMAG_ACCOUNT_TYPE"] = account_type
+
+    if account_type == "main":
+        username = env.get("EMAG_MAIN_USERNAME") or env.get("EMAG_API_USERNAME")
+        password = env.get("EMAG_MAIN_PASSWORD") or env.get("EMAG_API_PASSWORD")
+    else:
+        username = env.get("EMAG_FBE_USERNAME") or env.get("EMAG_FBE_API_USERNAME")
+        password = env.get("EMAG_FBE_PASSWORD") or env.get("EMAG_FBE_API_PASSWORD")
+
+    if not username or not password:
+        raise ConfigurationError(
+            f"Missing credentials for {account_type.upper()} account. Please set the appropriate environment variables."
+        )
+
+    env["EMAG_API_USERNAME"] = username
+    env["EMAG_API_PASSWORD"] = password
+    return env
+
+
+async def _run_sync_process(account_type: str) -> None:
+    env = _build_sync_env(account_type)
+
+    if not SYNC_SCRIPT_PATH.exists():
+        raise ConfigurationError(
+            f"Sync script not found at {SYNC_SCRIPT_PATH}. Ensure the file is present."
+        )
+
+    logger.info("Starting %s account sync via background process", account_type.upper())
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        str(SYNC_SCRIPT_PATH),
+        cwd=str(PROJECT_ROOT),
+        env=env,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+
+    stdout, stderr = await process.communicate()
+
+    if stdout:
+        logger.info("[%s sync stdout] %s", account_type.upper(), stdout.decode().strip())
+    if stderr:
+        logger.warning("[%s sync stderr] %s", account_type.upper(), stderr.decode().strip())
+
+    if process.returncode != 0:
+        raise RuntimeError(
+            f"Sync process for {account_type.upper()} exited with code {process.returncode}"
+        )
+
+
+async def _execute_sync(mode: str) -> None:
+    if mode == "both":
+        await _run_sync_process("main")
+        await _run_sync_process("fbe")
+    elif mode == "main":
+        await _run_sync_process("main")
+    elif mode == "fbe":
+        await _run_sync_process("fbe")
+    else:
+        # default to main for unknown modes
+        await _run_sync_process("main")
+
+
+@router.post("/sync")
+async def enhanced_emag_sync(
+    background_tasks: BackgroundTasks,
+    sync_request: Dict[str, Any] = Body(default={})
+) -> Dict[str, Any]:
+    """Trigger the real sync script for MAIN, FBE or both accounts (no auth required)."""
+
+    mode = sync_request.get("mode", "single")
+    max_pages = sync_request.get("maxPages", 100)
+    batch_size = sync_request.get("batchSize", 50)
+    progress_interval = sync_request.get("progressInterval", 10)
+
+    # Generate sync ID based on mode
+    sync_id = f"dev-sync-{mode}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    if mode not in {"main", "fbe", "both", "single"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid sync mode. Choose from 'main', 'fbe', 'both'.",
+        )
+
+    # Kick off the background task to run the real sync script
+    async def runner() -> None:
+        try:
+            await _execute_sync("main" if mode == "single" else mode)
+        except Exception as exc:  # pragma: no cover - logging
+            logger.error("Sync task failed for mode %s: %s", mode, exc)
+
+    background_tasks.add_task(runner)
+
+    accounts = (
+        ["main", "fbe"]
+        if mode == "both"
+        else ["main"]
+        if mode in {"main", "single"}
+        else ["fbe"]
+    )
+
+    message = {
+        "both": "Multi-account synchronization started (MAIN + FBE accounts)",
+        "main": "MAIN account synchronization started",
+        "single": "MAIN account synchronization started",
+        "fbe": "FBE account synchronization started",
+    }.get(mode, "Synchronization started")
+
+    return {
+        "status": "success",
+        "message": message,
+        "data": {
+            "sync_id": sync_id,
+            "mode": mode,
+            "accounts": accounts,
+            "max_pages": max_pages,
+            "batch_size": batch_size,
+            "progress_interval": progress_interval,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "status": "running",
+        },
+    }
+
 
 @router.get("/health")
 async def get_emag_health() -> Dict[str, Any]:
@@ -45,7 +179,7 @@ async def get_emag_health() -> Dict[str, Any]:
         return {
             "status": "unhealthy",
             "service": "emag_integration",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": str(e),
             "version": "1.0.0",
         }
@@ -69,7 +203,7 @@ async def get_emag_health() -> Dict[str, Any]:
         return {
             "status": "unhealthy",
             "service": "emag_integration",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": str(e),
             "version": "1.0.0",
         }
@@ -77,7 +211,7 @@ async def get_emag_health() -> Dict[str, Any]:
     return {
         "status": "healthy" if config_loaded else "unhealthy",
         "service": "emag_integration",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0",
         "config_loaded": config_loaded,
         "environment": environment,

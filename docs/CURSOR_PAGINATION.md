@@ -24,12 +24,14 @@ GET /products
 ```
 
 **Query Parameters:**
+
 - `limit`: Number of items per page (default: 20, max: 100)
 - `after`: Cursor for next page
 - `before`: Cursor for previous page
 - `q`: Search query for product names
 
 **Response Format:**
+
 ```json
 {
   "items": [
@@ -49,6 +51,7 @@ GET /products
 ### Cursor Format
 
 Cursors are base64-encoded JSON objects containing the sorting criteria:
+
 ```json
 {
   "created_at": "2023-01-01T00:00:00Z",
@@ -66,11 +69,13 @@ Cursors are base64-encoded JSON objects containing the sorting criteria:
 ## Testing
 
 Run the test suite with:
+
 ```bash
 pytest tests/test_cursor_pagination.py -v
 ```
 
 Test cases cover:
+
 - Basic pagination
 - Forward and backward pagination
 - Search with pagination
@@ -80,16 +85,19 @@ Test cases cover:
 ## Example Usage
 
 1. Get first page of products:
+
    ```bash
    curl "http://localhost:8000/products?limit=5"
    ```
 
-2. Get next page using cursor:
+1. Get next page using cursor:
+
    ```bash
    curl "http://localhost:8000/products?limit=5&after=eyJjcmVhdGVkX2F0IjoiMjAyMy0wMS0wMVQwMDowMDowMFoiLCJpZCI6NX0="
    ```
 
-3. Search products with pagination:
+1. Search products with pagination:
+
    ```bash
    curl "http://localhost:8000/products?limit=5&q=Product"
    ```

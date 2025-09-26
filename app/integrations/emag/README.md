@@ -1,6 +1,13 @@
+---
+title: eMAG Marketplace Integration
+last_reviewed: 2025-09-25
+owner: integrations-team
+---
+
 # eMAG Marketplace Integration
 
-This module provides integration with the eMAG Marketplace API, supporting both Seller-Fulfilled (MAIN) and Fulfilled by eMAG (FBE) account types.
+This module provides integration with the eMAG Marketplace API, supporting both Seller-Fulfilled
+(MAIN) and Fulfilled by eMAG (FBE) account types.
 
 ## Features
 
@@ -14,16 +21,18 @@ This module provides integration with the eMAG Marketplace API, supporting both 
 ## Installation
 
 1. Install dependencies:
+
    ```bash
    pip install aiohttp pydantic python-dotenv
    ```
 
-2. Copy the example environment file:
+1. Copy the example environment file:
+
    ```bash
    cp config/examples/.env.emag.example .env
    ```
 
-3. Update the `.env` file with your eMAG API credentials and settings.
+1. Update the `.env` file with your eMAG API credentials and settings.
 
 ## Usage
 
@@ -98,10 +107,10 @@ pytest tests/integrations/emag/
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+1. Create a feature branch
+1. Commit your changes
+1. Push to the branch
+1. Create a new Pull Request
 
 ## License
 

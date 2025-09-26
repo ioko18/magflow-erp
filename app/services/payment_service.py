@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Coroutine
 
 import aiohttp
 
@@ -588,6 +588,10 @@ class PayPalPaymentGateway(BasePaymentGateway):
 class BankTransferPaymentGateway(BasePaymentGateway):
     """Bank transfer payment gateway implementation."""
 
+    async def _validate_config(self):  # type: ignore[override]
+        """Bank transfer gateway does not require API credentials."""
+        return True
+
     async def create_payment_intent(
         self,
         amount: Decimal,
@@ -742,6 +746,8 @@ class PaymentService(ServiceBase):
         super().__init__(context)
         self.gateway_manager = PaymentGatewayManager()
         self.order_repository = get_order_repository()
+        self._pending_gateway_initializations: List[Coroutine[Any, Any, Any]] = []
+        self._gateway_init_tasks: List[asyncio.Task[Any]] = []
         self._initialize_gateways()
 
     def _initialize_gateways(self):
@@ -749,15 +755,16 @@ class PaymentService(ServiceBase):
         settings = self.context.settings
 
         # Initialize Stripe if configured
-        if hasattr(settings, "stripe_api_key") and settings.stripe_api_key:
+        stripe_api_key = getattr(settings, "stripe_api_key", "")
+        if isinstance(stripe_api_key, str) and stripe_api_key.strip():
             stripe_config = PaymentGatewayConfig(
                 gateway_type=PaymentGatewayType.STRIPE,
-                api_key=settings.stripe_api_key,
+                api_key=stripe_api_key,
                 public_key=getattr(settings, "stripe_public_key", ""),
                 webhook_secret=getattr(settings, "stripe_webhook_secret", ""),
                 test_mode=getattr(settings, "stripe_test_mode", True),
             )
-            asyncio.create_task(
+            self._schedule_gateway_initialization(
                 self.gateway_manager.add_gateway(
                     PaymentGatewayType.STRIPE,
                     stripe_config,
@@ -765,14 +772,21 @@ class PaymentService(ServiceBase):
             )
 
         # Initialize PayPal if configured
-        if hasattr(settings, "paypal_client_id") and settings.paypal_client_id:
+        paypal_client_id = getattr(settings, "paypal_client_id", "")
+        paypal_client_secret = getattr(settings, "paypal_client_secret", "")
+        if (
+            isinstance(paypal_client_id, str)
+            and paypal_client_id.strip()
+            and isinstance(paypal_client_secret, str)
+            and paypal_client_secret.strip()
+        ):
             paypal_config = PaymentGatewayConfig(
                 gateway_type=PaymentGatewayType.PAYPAL,
-                api_key=settings.paypal_client_id,
-                api_secret=settings.paypal_client_secret,
+                api_key=paypal_client_id,
+                api_secret=paypal_client_secret,
                 test_mode=getattr(settings, "paypal_test_mode", True),
             )
-            asyncio.create_task(
+            self._schedule_gateway_initialization(
                 self.gateway_manager.add_gateway(
                     PaymentGatewayType.PAYPAL,
                     paypal_config,
@@ -780,20 +794,37 @@ class PaymentService(ServiceBase):
             )
 
         # Initialize Bank Transfer
-        bank_config = PaymentGatewayConfig(
-            gateway_type=PaymentGatewayType.BANK_TRANSFER,
-            test_mode=False,
-        )
-        asyncio.create_task(
-            self.gateway_manager.add_gateway(
-                PaymentGatewayType.BANK_TRANSFER,
-                bank_config,
-            ),
-        )
+        if getattr(settings, "enable_bank_transfer_gateway", True):
+            bank_config = PaymentGatewayConfig(
+                gateway_type=PaymentGatewayType.BANK_TRANSFER,
+                test_mode=getattr(settings, "bank_transfer_test_mode", False),
+            )
+            self._schedule_gateway_initialization(
+                self.gateway_manager.add_gateway(
+                    PaymentGatewayType.BANK_TRANSFER,
+                    bank_config,
+                ),
+            )
+
+    def _schedule_gateway_initialization(self, coro: Coroutine[Any, Any, Any]):
+        """Schedule gateway initialization respecting current event loop state."""
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop – execute immediately in current context.
+            # This keeps tests that instantiate the service without an event
+            # loop from failing while still ensuring gateways are ready.
+            self._pending_gateway_initializations.append(coro)
+        else:
+            task = loop.create_task(coro)
+            self._gateway_init_tasks.append(task)
+            task.add_done_callback(lambda t: self._gateway_init_tasks.remove(t) if t in self._gateway_init_tasks else None)
 
     async def initialize(self):
         """Initialize payment service."""
         await super().initialize()
+        await self._ensure_gateways_ready()
         logger.info(
             "Payment service initialized with %d gateways",
             len(self.gateway_manager.gateways),
@@ -817,6 +848,7 @@ class PaymentService(ServiceBase):
     ) -> PaymentTransaction:
         """Create a payment transaction."""
         try:
+            await self._ensure_gateways_ready()
             gateway = await self.gateway_manager.get_gateway(gateway_type)
 
             # Create payment intent
@@ -865,6 +897,7 @@ class PaymentService(ServiceBase):
     ) -> PaymentTransaction:
         """Process a payment transaction."""
         try:
+            await self._ensure_gateways_ready()
             # Get transaction (in real implementation, this would come from database)
             # For now, we'll create a mock transaction
             transaction = PaymentTransaction(
@@ -910,6 +943,7 @@ class PaymentService(ServiceBase):
     ) -> PaymentTransaction:
         """Refund a payment transaction."""
         try:
+            await self._ensure_gateways_ready()
             # Get transaction (in real implementation, this would come from database)
             # For now, we'll create a mock transaction
             transaction = PaymentTransaction(
@@ -947,6 +981,7 @@ class PaymentService(ServiceBase):
     async def get_payment_status(self, transaction_id: str) -> PaymentTransaction:
         """Get payment transaction status."""
         try:
+            await self._ensure_gateways_ready()
             # Get transaction (in real implementation, this would come from database)
             # For now, we'll create a mock transaction
             transaction = PaymentTransaction(
@@ -982,23 +1017,19 @@ class PaymentService(ServiceBase):
         self,
         gateway_type: PaymentGatewayType,
         payload: Dict[str, Any],
-        signature: str = "",
+        signature: str,
     ) -> Dict[str, Any]:
-        """Handle webhook from payment gateway."""
+        """Handle payment gateway webhook."""
         try:
+            await self._ensure_gateways_ready()
             gateway = await self.gateway_manager.get_gateway(gateway_type)
 
             # Process webhook
             result = await gateway.handle_webhook(payload, signature)
-
-            # Update relevant transactions based on webhook data
             await self._process_webhook_data(gateway_type, payload)
 
-            logger.info(
-                "Processed webhook from %s: %s",
-                gateway_type,
-                result.get("event_type"),
-            )
+            event_type = result.get("event_type") or payload.get("type") or "unknown"
+            logger.info("Processed webhook from %s: %s", gateway_type, event_type)
             return result
 
         except Exception as e:
@@ -1006,8 +1037,9 @@ class PaymentService(ServiceBase):
             raise PaymentGatewayError(f"Webhook handling failed: {e}", gateway_type)
 
     async def get_supported_gateways(self) -> List[Dict[str, Any]]:
-        """Get list of supported payment gateways."""
-        gateways_info = []
+        """Get list of supported gateways."""
+        await self._ensure_gateways_ready()
+        gateways_info: List[Dict[str, Any]] = []
 
         for gateway_type, config in self.gateway_manager.configs.items():
             gateways_info.append(
@@ -1017,12 +1049,33 @@ class PaymentService(ServiceBase):
                     "test_mode": config.test_mode,
                     "supported_currencies": config.supported_currencies,
                     "max_amount": float(config.max_amount),
-                    "min_amount": float(config.min_amount),
                     "status": "configured",
                 },
             )
 
+        for gateway_type in PaymentGatewayType:
+            if gateway_type not in self.gateway_manager.configs:
+                gateways_info.append(
+                    {
+                        "type": gateway_type.value,
+                        "name": gateway_type.value.title(),
+                        "status": "not_configured",
+                    },
+                )
+
         return gateways_info
+
+    async def _ensure_gateways_ready(self):
+        """Ensure any pending gateway initializations are completed."""
+
+        if self._pending_gateway_initializations:
+            pending = self._pending_gateway_initializations
+            self._pending_gateway_initializations = []
+            await asyncio.gather(*pending)
+
+        active_tasks = [task for task in self._gateway_init_tasks if not task.done()]
+        if active_tasks:
+            await asyncio.gather(*active_tasks)
 
     async def _process_webhook_data(
         self,

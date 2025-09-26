@@ -34,11 +34,13 @@ Comprehensive user training guide and tutorials for MagFlow ERP system.
 ### First Login
 
 1. **Access the Application**
+
    - Open your browser
    - Go to: `http://localhost:8000` (or your server URL)
    - Click on "API Documentation" or go directly to `/docs`
 
-2. **Authentication**
+1. **Authentication**
+
    ```bash
    # Get authentication token
    curl -X POST "http://localhost:8000/api/v1/auth/access-token" \
@@ -46,7 +48,8 @@ Comprehensive user training guide and tutorials for MagFlow ERP system.
      -d "username=admin&password=admin"
    ```
 
-3. **Explore the Interface**
+1. **Explore the Interface**
+
    - Visit `/docs` for interactive API documentation
    - Try the health check endpoint: `/health`
    - Explore available endpoints in the documentation
@@ -54,6 +57,7 @@ Comprehensive user training guide and tutorials for MagFlow ERP system.
 ### Navigation Guide
 
 #### Main Sections
+
 - **Authentication** (`/api/v1/auth/`): Login and user management
 - **Inventory** (`/api/v1/inventory/`): Product and stock management
 - **Sales** (`/api/v1/sales-orders/`): Order and customer management
@@ -66,12 +70,14 @@ Comprehensive user training guide and tutorials for MagFlow ERP system.
 ### API Documentation Interface
 
 #### Swagger UI (`/docs`)
+
 - Interactive API documentation
 - Try API endpoints directly from browser
 - View request/response schemas
 - Test authentication and authorization
 
 #### ReDoc Interface (`/redoc`)
+
 - Alternative API documentation
 - Clean, readable format
 - Easy navigation between endpoints
@@ -79,6 +85,7 @@ Comprehensive user training guide and tutorials for MagFlow ERP system.
 ### Making API Requests
 
 #### Using cURL
+
 ```bash
 # Health check
 curl http://localhost:8000/health
@@ -101,6 +108,7 @@ curl -X POST "http://localhost:8000/api/v1/inventory/" \
 ```
 
 #### Using HTTPie
+
 ```bash
 # Login
 http POST localhost:8000/api/v1/auth/access-token \
@@ -119,6 +127,7 @@ http POST localhost:8000/api/v1/customers/ \
 ```
 
 #### Using Python
+
 ```python
 import httpx
 import asyncio
@@ -176,6 +185,7 @@ asyncio.run(api_example())
 ### Managing Products
 
 #### Creating Products
+
 ```bash
 # Create a new product
 curl -X POST "http://localhost:8000/api/v1/inventory/" \
@@ -194,6 +204,7 @@ curl -X POST "http://localhost:8000/api/v1/inventory/" \
 ```
 
 #### Updating Stock Levels
+
 ```bash
 # Adjust stock quantity
 curl -X POST "http://localhost:8000/api/v1/inventory/1/adjust-stock" \
@@ -207,6 +218,7 @@ curl -X POST "http://localhost:8000/api/v1/inventory/1/adjust-stock" \
 ```
 
 #### Searching Products
+
 ```bash
 # Search products
 curl -X GET "http://localhost:8000/api/v1/inventory/?search=laptop&category_id=1" \
@@ -220,6 +232,7 @@ curl -X GET "http://localhost:8000/api/v1/inventory/?low_stock=true" \
 ### Managing Categories
 
 #### Creating Categories
+
 ```bash
 # Create category hierarchy
 curl -X POST "http://localhost:8000/api/v1/categories/" \
@@ -244,6 +257,7 @@ curl -X POST "http://localhost:8000/api/v1/categories/" \
 ### Managing Warehouses
 
 #### Creating Warehouses
+
 ```bash
 # Create warehouse
 curl -X POST "http://localhost:8000/api/v1/warehouses/" \
@@ -257,6 +271,7 @@ curl -X POST "http://localhost:8000/api/v1/warehouses/" \
 ```
 
 #### Stock Movement
+
 ```bash
 # Transfer stock between warehouses
 curl -X POST "http://localhost:8000/api/v1/stock-movements/" \
@@ -277,6 +292,7 @@ curl -X POST "http://localhost:8000/api/v1/stock-movements/" \
 ### Managing Customers
 
 #### Creating Customers
+
 ```bash
 # Create new customer
 curl -X POST "http://localhost:8000/api/v1/customers/" \
@@ -294,6 +310,7 @@ curl -X POST "http://localhost:8000/api/v1/customers/" \
 ```
 
 #### Customer Search
+
 ```bash
 # Search customers
 curl -X GET "http://localhost:8000/api/v1/customers/?search=acme" \
@@ -307,6 +324,7 @@ curl -X GET "http://localhost:8000/api/v1/sales-orders/?customer_id=1" \
 ### Sales Orders
 
 #### Creating Orders
+
 ```bash
 # Create sales order
 curl -X POST "http://localhost:8000/api/v1/sales-orders/" \
@@ -331,6 +349,7 @@ curl -X POST "http://localhost:8000/api/v1/sales-orders/" \
 ```
 
 #### Order Processing
+
 ```bash
 # Update order status
 curl -X PUT "http://localhost:8000/api/v1/sales-orders/1" \
@@ -352,6 +371,7 @@ curl -X PUT "http://localhost:8000/api/v1/sales-orders/1" \
 ### Invoices
 
 #### Creating Invoices
+
 ```bash
 # Create invoice from order
 curl -X POST "http://localhost:8000/api/v1/invoices/" \
@@ -365,6 +385,7 @@ curl -X POST "http://localhost:8000/api/v1/invoices/" \
 ```
 
 #### Invoice Management
+
 ```bash
 # Get invoice PDF (if implemented)
 curl -X GET "http://localhost:8000/api/v1/invoices/1/pdf" \
@@ -385,6 +406,7 @@ curl -X PUT "http://localhost:8000/api/v1/invoices/1" \
 ### Managing Suppliers
 
 #### Creating Suppliers
+
 ```bash
 # Create supplier
 curl -X POST "http://localhost:8000/api/v1/suppliers/" \
@@ -402,6 +424,7 @@ curl -X POST "http://localhost:8000/api/v1/suppliers/" \
 ```
 
 #### Supplier Evaluation
+
 ```bash
 # Get supplier performance
 curl -X GET "http://localhost:8000/api/v1/suppliers/1/performance" \
@@ -415,6 +438,7 @@ curl -X GET "http://localhost:8000/api/v1/purchase-orders/?supplier_id=1" \
 ### Purchase Orders
 
 #### Creating Purchase Orders
+
 ```bash
 # Create purchase order
 curl -X POST "http://localhost:8000/api/v1/purchase-orders/" \
@@ -435,6 +459,7 @@ curl -X POST "http://localhost:8000/api/v1/purchase-orders/" \
 ```
 
 #### Order Processing
+
 ```bash
 # Update order status
 curl -X PUT "http://localhost:8000/api/v1/purchase-orders/1" \
@@ -462,6 +487,7 @@ curl -X POST "http://localhost:8000/api/v1/purchase-orders/1/receive" \
 ### Purchase Receipts
 
 #### Creating Receipts
+
 ```bash
 # Create purchase receipt
 curl -X POST "http://localhost:8000/api/v1/purchase-receipts/" \
@@ -487,6 +513,7 @@ curl -X POST "http://localhost:8000/api/v1/purchase-receipts/" \
 ### User Authentication
 
 #### Login Process
+
 ```bash
 # Authenticate user
 curl -X POST "http://localhost:8000/api/v1/auth/access-token" \
@@ -502,6 +529,7 @@ curl -X POST "http://localhost:8000/api/v1/auth/access-token" \
 ```
 
 #### Token Usage
+
 ```bash
 # Use token in requests
 curl -X GET "http://localhost:8000/api/v1/users/me" \
@@ -515,6 +543,7 @@ curl -X POST "http://localhost:8000/api/v1/auth/refresh" \
 ### User Management
 
 #### Creating Users
+
 ```bash
 # Create new user (admin only)
 curl -X POST "http://localhost:8000/api/v1/users/" \
@@ -530,6 +559,7 @@ curl -X POST "http://localhost:8000/api/v1/users/" \
 ```
 
 #### Managing Roles
+
 ```bash
 # Get user roles
 curl -X GET "http://localhost:8000/api/v1/users/1/roles" \
@@ -549,6 +579,7 @@ curl -X POST "http://localhost:8000/api/v1/users/1/roles" \
 ### Basic Reports
 
 #### Sales Reports
+
 ```bash
 # Daily sales summary
 curl -X GET "http://localhost:8000/api/v1/reports/sales/daily?date=2024-01-15" \
@@ -564,6 +595,7 @@ curl -X GET "http://localhost:8000/api/v1/reports/sales/by-customer?customer_id=
 ```
 
 #### Inventory Reports
+
 ```bash
 # Low stock report
 curl -X GET "http://localhost:8000/api/v1/reports/inventory/low-stock" \
@@ -581,6 +613,7 @@ curl -X GET "http://localhost:8000/api/v1/reports/inventory/valuation" \
 ### Analytics
 
 #### Dashboard Data
+
 ```bash
 # Get dashboard metrics
 curl -X GET "http://localhost:8000/api/v1/analytics/dashboard" \
@@ -600,6 +633,7 @@ curl -X GET "http://localhost:8000/api/v1/analytics/dashboard" \
 ```
 
 #### Trend Analysis
+
 ```bash
 # Sales trends
 curl -X GET "http://localhost:8000/api/v1/analytics/sales-trends?days=30" \
@@ -615,24 +649,28 @@ curl -X GET "http://localhost:8000/api/v1/analytics/inventory-turnover?months=6"
 ### API Usage Best Practices
 
 #### Authentication
+
 - Always store tokens securely
 - Use HTTPS in production
 - Implement token refresh logic
 - Set appropriate token expiration times
 
 #### Error Handling
+
 - Always check HTTP status codes
 - Handle rate limiting gracefully
 - Implement retry logic for transient errors
 - Log errors for debugging
 
 #### Data Management
+
 - Use pagination for large datasets
 - Implement proper data validation
 - Use appropriate data types
 - Maintain data integrity
 
 #### Performance
+
 - Use caching for frequently accessed data
 - Implement connection pooling
 - Use async operations when possible
@@ -641,18 +679,21 @@ curl -X GET "http://localhost:8000/api/v1/analytics/inventory-turnover?months=6"
 ### Security Best Practices
 
 #### Access Control
+
 - Use appropriate authentication methods
 - Implement role-based permissions
 - Validate user input thoroughly
 - Use parameterized queries
 
 #### Data Protection
+
 - Encrypt sensitive data
 - Use secure communication (HTTPS)
 - Implement audit logging
 - Regular security updates
 
 #### API Security
+
 - Rate limiting to prevent abuse
 - Input validation and sanitization
 - CORS configuration
@@ -661,18 +702,21 @@ curl -X GET "http://localhost:8000/api/v1/analytics/inventory-turnover?months=6"
 ### Data Management Best Practices
 
 #### Inventory Management
+
 - Regular stock audits
 - Proper categorization
 - Minimum stock level monitoring
 - Stock movement tracking
 
 #### Sales Management
+
 - Customer data accuracy
 - Order processing workflow
 - Invoice management
 - Payment tracking
 
 #### Purchase Management
+
 - Supplier evaluation
 - Purchase order tracking
 - Receipt verification
@@ -683,6 +727,7 @@ curl -X GET "http://localhost:8000/api/v1/analytics/inventory-turnover?months=6"
 ### Common User Issues
 
 #### Authentication Problems
+
 ```bash
 # Check if server is running
 curl http://localhost:8000/health
@@ -698,6 +743,7 @@ curl -X GET "http://localhost:8000/api/v1/users/me" \
 ```
 
 #### API Connection Issues
+
 ```bash
 # Check server status
 curl -v http://localhost:8000/health
@@ -713,6 +759,7 @@ netstat -tlnp | grep :8000
 ```
 
 #### Data Issues
+
 ```bash
 # Check database connectivity
 python -c "from app.db.base import engine; print('Database connected')"
@@ -729,6 +776,7 @@ curl -X GET "http://localhost:8000/api/v1/users/me" \
 ### Performance Issues
 
 #### Slow Response Times
+
 ```bash
 # Check system resources
 htop
@@ -741,6 +789,7 @@ redis-cli info | grep -E "(used_memory|connected_clients)"
 ```
 
 #### Memory Issues
+
 ```bash
 # Check memory usage
 free -h
@@ -762,10 +811,13 @@ print(f'Memory usage: {process.memory_info().rss / 1024 / 1024:.2f} MB')
 ### General Questions
 
 #### Q: How do I reset my password?
+
 **A:** Contact your system administrator or use the password reset functionality if available.
 
 #### Q: How do I add a new product category?
+
 **A:** Use the categories API endpoint:
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/categories/" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -774,7 +826,9 @@ curl -X POST "http://localhost:8000/api/v1/categories/" \
 ```
 
 #### Q: How do I check system status?
+
 **A:** Use the health check endpoint:
+
 ```bash
 curl http://localhost:8000/health
 ```
@@ -782,7 +836,9 @@ curl http://localhost:8000/health
 ### Technical Questions
 
 #### Q: What are the system requirements?
+
 **A:**
+
 - Python 3.11+
 - PostgreSQL 15+
 - Redis 6+ (optional)
@@ -790,7 +846,9 @@ curl http://localhost:8000/health
 - 10GB storage minimum
 
 #### Q: How do I backup my data?
+
 **A:** Use the database backup tools:
+
 ```bash
 # Create database backup
 pg_dump magflow > magflow_backup_$(date +%Y%m%d_%H%M%S).sql
@@ -800,7 +858,9 @@ psql magflow < magflow_backup_20240115_120000.sql
 ```
 
 #### Q: How do I monitor system performance?
+
 **A:** Use the monitoring endpoints:
+
 ```bash
 curl http://localhost:8000/metrics  # Prometheus metrics
 curl http://localhost:8000/health/detailed  # Detailed health info
@@ -809,7 +869,9 @@ curl http://localhost:8000/health/detailed  # Detailed health info
 ### Business Questions
 
 #### Q: How do I create a sales order?
+
 **A:** Use the sales orders API:
+
 ```bash
 curl -X POST "http://localhost:8000/api/v1/sales-orders/" \
   -H "Authorization: Bearer YOUR_TOKEN" \
@@ -822,19 +884,23 @@ curl -X POST "http://localhost:8000/api/v1/sales-orders/" \
 ```
 
 #### Q: How do I check inventory levels?
+
 **A:** Use the inventory API:
+
 ```bash
 curl -X GET "http://localhost:8000/api/v1/inventory/?low_stock=true" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 #### Q: How do I generate reports?
+
 **A:** Use the reports API:
+
 ```bash
 curl -X GET "http://localhost:8000/api/v1/reports/sales/daily?date=2024-01-15" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
----
+______________________________________________________________________
 
 **MagFlow ERP User Training Guide** - Complete User Training and Tutorial Documentation 👥

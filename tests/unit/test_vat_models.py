@@ -32,12 +32,12 @@ def test_vat_rate_validation():
     # Test invalid country code
     with pytest.raises(ValidationError) as excinfo:
         VatRate(id=1, name="Invalid Country", value=19.0, country_code="INVALID")
-    assert "Country code must be a 2-letter ISO code" in str(excinfo.value)
+    assert "String should have at most 2 characters" in str(excinfo.value)
 
     # Test value out of range
     with pytest.raises(ValidationError) as excinfo:
         VatRate(id=1, name="Invalid Value", value=150.0, country_code="RO")
-    assert "ensure this value is less than or equal to 100" in str(excinfo.value)
+    assert "Input should be less than or equal to 100" in str(excinfo.value)
 
     # Test empty name
     with pytest.raises(ValidationError) as excinfo:

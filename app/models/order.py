@@ -1,21 +1,26 @@
 """Order model."""
 
 from datetime import datetime
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
 
+if TYPE_CHECKING:
+    from app.models.product import Product
+    from app.models.user import User
+
 
 class Order(Base):
     __tablename__ = "orders"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     customer_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("users.id"),
+        ForeignKey("app.users.id"),
         index=True,
     )
     order_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -31,12 +36,17 @@ class Order(Base):
 
 class OrderLine(Base):
     __tablename__ = "order_lines"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    order_id: Mapped[int] = mapped_column(Integer, ForeignKey("orders.id"), index=True)
+    order_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.orders.id"),
+        index=True,
+    )
     product_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("products.id"),
+        ForeignKey("app.products.id"),
         index=True,
     )
     quantity: Mapped[int] = mapped_column(Integer, default=1)

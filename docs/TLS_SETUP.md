@@ -26,11 +26,13 @@ certs/
 ## Initial Setup
 
 1. **Generate CA Certificate** (if not already done):
+
    ```bash
    ./scripts/tls/make-ca.sh
    ```
 
-2. **Generate Certificates** for PgBouncer and PostgreSQL:
+1. **Generate Certificates** for PgBouncer and PostgreSQL:
+
    ```bash
    # For PgBouncer
    ./scripts/tls/make-cert.sh pgbouncer "DNS:pgbouncer,DNS:localhost,IP:127.0.0.1"
@@ -110,13 +112,15 @@ services:
 ## Certificate Rotation
 
 1. **Generate new certificates** (before old ones expire):
+
    ```bash
    # Generate new certificates with updated expiration
    ./scripts/tls/make-cert.sh pgbouncer "DNS:pgbouncer,DNS:localhost,IP:127.0.0.1"
    ./scripts/tls/make-cert.sh postgres "DNS:postgres,DNS:db,DNS:localhost,IP:127.0.0.1"
    ```
 
-2. **Reload services** to use new certificates:
+1. **Reload services** to use new certificates:
+
    ```bash
    docker compose cp certs/pgbouncer-combined.pem pgbouncer:/etc/pgbouncer/certs/pgbouncer.pem
    docker compose cp certs/postgres.crt db:/var/lib/postgresql/data/server.crt
@@ -132,11 +136,13 @@ services:
 ## Testing the Setup
 
 1. **Verify PgBouncer TLS** (from host):
+
    ```bash
    psql "postgresql://app:password@localhost:5432/magflow?sslmode=require" -c "SELECT 1"
    ```
 
-2. **Check TLS connection info** in PostgreSQL:
+1. **Check TLS connection info** in PostgreSQL:
+
    ```sql
    SELECT ssl, version(), inet_client_addr(), usename
    FROM pg_stat_ssl
@@ -149,14 +155,17 @@ services:
 ### Common Issues
 
 1. **Certificate verification failed**
+
    - Ensure the CA certificate is trusted by the client
    - Verify the certificate's subject alternative names (SANs) match the connection hostname
 
-2. **Connection refused**
+1. **Connection refused**
+
    - Check if PgBouncer is running: `docker compose ps pgbouncer`
    - Check logs: `docker compose logs pgbouncer`
 
-3. **TLS handshake failed**
+1. **TLS handshake failed**
+
    - Verify the certificate and key files are readable by the service
    - Check file permissions (should be 600 for private keys)
 
@@ -176,10 +185,10 @@ echo "PostgreSQL cert expires on: $(openssl x509 -enddate -noout -in certs/postg
 ## Security Considerations
 
 1. **CA Private Key**: Keep the CA private key (`ca.key`) secure and never share it.
-2. **Certificate Lifetimes**:
+1. **Certificate Lifetimes**:
    - CA: 10 years
    - Server certificates: 1 year (recommended)
-3. **File Permissions**:
+1. **File Permissions**:
    - Private keys: 600 (rw-------)
    - Certificates: 644 (rw-r--r--)
-4. **Revocation**: Consider implementing CRL or OCSP for certificate revocation if needed.
+1. **Revocation**: Consider implementing CRL or OCSP for certificate revocation if needed.

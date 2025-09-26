@@ -24,6 +24,7 @@ Comprehensive development setup and contribution guide for MagFlow ERP.
 ### Prerequisites
 
 #### System Requirements
+
 - **Operating System**: Linux, macOS, or Windows (WSL recommended)
 - **Python**: 3.11 or higher
 - **PostgreSQL**: 15 or higher
@@ -32,6 +33,7 @@ Comprehensive development setup and contribution guide for MagFlow ERP.
 - **Docker & Docker Compose**: For containerized development
 
 #### Hardware Requirements
+
 - **RAM**: Minimum 4GB, recommended 8GB
 - **Storage**: Minimum 10GB free space
 - **Network**: Internet connection for package installation
@@ -39,6 +41,7 @@ Comprehensive development setup and contribution guide for MagFlow ERP.
 ### Option 1: Local Development Setup
 
 #### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/your-org/magflow-erp.git
 cd magflow-erp
@@ -47,6 +50,7 @@ cd magflow-erp
 #### 2. Setup Python Environment
 
 **Using venv (Recommended):**
+
 ```bash
 # Create virtual environment
 python -m venv venv
@@ -62,6 +66,7 @@ pip install --upgrade pip
 ```
 
 **Using conda:**
+
 ```bash
 # Create conda environment
 conda env create -f environment.yml
@@ -71,6 +76,7 @@ conda activate magflow-erp
 ```
 
 #### 3. Install Dependencies
+
 ```bash
 # Install from requirements.txt
 pip install -r requirements.txt
@@ -82,11 +88,13 @@ pip install -r requirements-dev.txt
 #### 4. Environment Configuration
 
 **Copy environment template:**
+
 ```bash
 cp .env.example .env
 ```
 
 **Edit `.env` with development settings:**
+
 ```bash
 # Database Configuration
 POSTGRES_SERVER=localhost
@@ -123,6 +131,7 @@ EMAG_API_PASSWORD=test-password
 #### 5. Database Setup
 
 **Install PostgreSQL:**
+
 ```bash
 # Ubuntu/Debian
 sudo apt update
@@ -137,6 +146,7 @@ sudo -u postgres psql
 ```
 
 **In PostgreSQL:**
+
 ```sql
 CREATE USER magflow_dev WITH PASSWORD 'dev_password';
 CREATE DATABASE magflow_dev OWNER magflow_dev;
@@ -145,6 +155,7 @@ GRANT ALL PRIVILEGES ON DATABASE magflow_dev TO magflow_dev;
 ```
 
 **Setup Database Schema:**
+
 ```bash
 # Run database migrations
 alembic upgrade head
@@ -156,11 +167,13 @@ python scripts/init_db.py
 #### 6. Start Development Server
 
 **Standard FastAPI server:**
+
 ```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **With additional options:**
+
 ```bash
 # With debug logging
 LOG_LEVEL=DEBUG uvicorn app.main:app --reload --log-level debug
@@ -175,11 +188,13 @@ uvicorn app.main:app --reload --ssl-keyfile=certs/server.key --ssl-certfile=cert
 #### 7. Verify Setup
 
 **Access the application:**
+
 - **API Documentation**: http://localhost:8000/docs
 - **Health Check**: http://localhost:8000/health
 - **Database**: Check logs for successful connection
 
 **Run a quick test:**
+
 ```bash
 # Test database connection
 python -c "from app.db.base import engine; print('Database connected successfully')"
@@ -191,6 +206,7 @@ curl http://localhost:8000/health
 ### Option 2: Docker Development Setup
 
 #### 1. Prerequisites
+
 ```bash
 # Install Docker and Docker Compose
 # On Ubuntu/Debian:
@@ -206,6 +222,7 @@ sudo systemctl enable docker
 ```
 
 #### 2. Clone and Setup
+
 ```bash
 git clone https://github.com/your-org/magflow-erp.git
 cd magflow-erp
@@ -218,6 +235,7 @@ cp .env.example .env
 ```
 
 #### 3. Start All Services
+
 ```bash
 # Start the complete development stack
 docker-compose up -d
@@ -230,6 +248,7 @@ docker-compose logs -f app
 ```
 
 #### 4. Database Setup
+
 ```bash
 # Wait for PostgreSQL to be ready
 docker-compose exec postgres pg_isready -U magflow -d magflow
@@ -242,6 +261,7 @@ docker-compose exec app python scripts/init_db.py
 ```
 
 #### 5. Access the Application
+
 - **API**: http://localhost:8000
 - **Database**: localhost:5432
 - **Redis**: localhost:6379
@@ -251,6 +271,7 @@ docker-compose exec app python scripts/init_db.py
 ### Option 3: Production Development Setup
 
 #### 1. Environment Configuration
+
 ```bash
 # Copy production environment template
 cp .env.example .env.production
@@ -260,6 +281,7 @@ vim .env.production
 ```
 
 #### 2. Production Database Setup
+
 ```bash
 # Create production database
 createdb magflow_prod
@@ -271,6 +293,7 @@ docker run --name postgres-prod -e POSTGRES_DB=magflow_prod \
 ```
 
 #### 3. Production Deployment
+
 ```bash
 # Build production image
 docker build -t magflow-erp:prod .
@@ -288,6 +311,7 @@ docker-compose -f docker-compose.prod.yml up -d
 ## 🏗️ Project Structure
 
 ### Core Application Structure
+
 ```
 magflow-erp/
 ├── app/                          # Main application package
@@ -331,6 +355,7 @@ magflow-erp/
 ### Directory Responsibilities
 
 #### `/app/` - Main Application
+
 - **api/**: FastAPI route definitions and endpoint handlers
 - **core/**: Core configuration, database setup, security
 - **crud/**: Database operations (Create, Read, Update, Delete)
@@ -340,29 +365,34 @@ magflow-erp/
 - **main.py**: FastAPI application instance and startup events
 
 #### `/scripts/` - Utility Scripts
+
 - **init_db.py**: Database initialization
-- **setup-*.sh**: Environment setup scripts
-- **generate_*.py**: Code generation utilities
-- **check_*.py**: Validation and health check scripts
+- **setup-\*.sh**: Environment setup scripts
+- **generate\_\*.py**: Code generation utilities
+- **check\_\*.py**: Validation and health check scripts
 
 #### `/tests/` - Test Suite
+
 - **unit/**: Unit tests for individual components
 - **integration/**: Integration tests for API endpoints
 - **conftest.py**: Pytest fixtures and configuration
-- **test_*.py**: Test files organized by functionality
+- **test\_\*.py**: Test files organized by functionality
 
 #### `/docs/` - Documentation
+
 - **API.md**: Comprehensive API documentation
 - **README.md**: Project overview and setup guide
 - **deployment/**: Deployment guides
 - **architecture/**: Architecture documentation
 
 #### `/deployment/` - Deployment Configurations
+
 - **docker/**: Docker configurations
 - **kubernetes/**: Kubernetes manifests
-- **docker-compose*.yml**: Docker Compose files
+- **docker-compose*.yml*\*: Docker Compose files
 
 #### `/monitoring/` - Monitoring Setup
+
 - **grafana/**: Grafana dashboards
 - **prometheus/**: Prometheus configuration
 - **alerts.py**: Alert definitions
@@ -373,6 +403,7 @@ magflow-erp/
 ### 1. Feature Development Process
 
 #### Create a Feature Branch
+
 ```bash
 # Create and checkout new branch
 git checkout -b feature/new-feature-name
@@ -385,6 +416,7 @@ git checkout -b hotfix/critical-issue
 ```
 
 #### Make Changes
+
 ```bash
 # 1. Create/update models if needed
 # app/models/new_model.py
@@ -406,6 +438,7 @@ git checkout -b hotfix/critical-issue
 ```
 
 #### Test Your Changes
+
 ```bash
 # Run specific tests
 pytest tests/ -k "new_feature"
@@ -418,6 +451,7 @@ pytest tests/integration/ -v
 ```
 
 #### Format and Lint Code
+
 ```bash
 # Format code
 black app/
@@ -436,6 +470,7 @@ black . && ruff check . --fix
 ```
 
 #### Commit Your Changes
+
 ```bash
 # Stage changes
 git add .
@@ -457,6 +492,7 @@ git push origin feature/new-feature-name
 ### 2. Code Review Process
 
 #### Before Submitting PR
+
 - [ ] All tests pass
 - [ ] Code formatted with black
 - [ ] Type checking passes with mypy
@@ -466,6 +502,7 @@ git push origin feature/new-feature-name
 - [ ] Commit messages follow conventional commits
 
 #### PR Template
+
 ```markdown
 ## Description
 Brief description of changes
@@ -497,6 +534,7 @@ Brief description of changes
 ### 3. Database Development Workflow
 
 #### Creating Migrations
+
 ```bash
 # Create new migration
 alembic revision --autogenerate -m "add_new_table"
@@ -509,6 +547,7 @@ vim alembic/versions/xxx_add_new_table.py
 ```
 
 #### Migration File Structure
+
 ```python
 """Add new table
 
@@ -538,6 +577,7 @@ def downgrade():
 ```
 
 #### Running Migrations
+
 ```bash
 # Upgrade to latest
 alembic upgrade head
@@ -564,6 +604,7 @@ alembic heads
 ## 🧪 Testing
 
 ### Test Organization
+
 ```
 tests/
 ├── conftest.py              # Global fixtures and configuration
@@ -579,6 +620,7 @@ tests/
 ```
 
 ### Running Tests
+
 ```bash
 # Run all tests
 pytest
@@ -613,6 +655,7 @@ pytest tests/ --maxfail=5               # Stop after 5 failures
 ### Writing Tests
 
 #### Unit Test Example
+
 ```python
 # tests/unit/test_user_service.py
 import pytest
@@ -652,6 +695,7 @@ class TestUserService:
 ```
 
 #### Integration Test Example
+
 ```python
 # tests/integration/test_api_auth.py
 import pytest
@@ -690,6 +734,7 @@ class TestAuthAPI:
 ### Test Configuration
 
 #### Pytest Configuration
+
 ```python
 # pytest.ini
 [tool:pytest]
@@ -713,6 +758,7 @@ markers =
 ```
 
 #### Conftest.py (Global Fixtures)
+
 ```python
 # tests/conftest.py
 import asyncio
@@ -778,6 +824,7 @@ async def test_user(db_session):
 ### Formatting and Linting
 
 #### Black (Code Formatter)
+
 ```bash
 # Format all Python files
 black .
@@ -790,6 +837,7 @@ black app/
 ```
 
 #### Ruff (Linter)
+
 ```bash
 # Check all files
 ruff check .
@@ -808,6 +856,7 @@ ruff check . --ignore E501
 ```
 
 #### MyPy (Type Checking)
+
 ```bash
 # Type check all files
 mypy app/
@@ -820,6 +869,7 @@ mypy app/ --strict
 ```
 
 ### Pre-commit Hooks
+
 ```yaml
 # .pre-commit-config.yaml
 repos:
@@ -850,6 +900,7 @@ repos:
 ```
 
 ### Code Quality Tools Setup
+
 ```bash
 # Install pre-commit
 pip install pre-commit
@@ -869,6 +920,7 @@ pre-commit run --files app/main.py
 ### Creating New Endpoints
 
 #### 1. Define Pydantic Schemas
+
 ```python
 # app/schemas/item.py
 from pydantic import BaseModel
@@ -897,6 +949,7 @@ class Item(ItemBase):
 ```
 
 #### 2. Create Database Model
+
 ```python
 # app/models/item.py
 from sqlalchemy import Column, Integer, String, Float, DateTime
@@ -917,6 +970,7 @@ class Item(Base):
 ```
 
 #### 3. Create CRUD Operations
+
 ```python
 # app/crud/item.py
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -944,6 +998,7 @@ crud_item = CRUDItem(Item)
 ```
 
 #### 4. Create API Endpoints
+
 ```python
 # app/api/v1/endpoints/items.py
 from typing import List
@@ -1013,6 +1068,7 @@ async def delete_item(
 ```
 
 #### 5. Add to Main API Router
+
 ```python
 # app/api/v1/api.py
 from fastapi import APIRouter
@@ -1025,6 +1081,7 @@ api_router.include_router(items.router, prefix="/items", tags=["items"])
 ```
 
 #### 6. Create Tests
+
 ```python
 # tests/unit/test_item_crud.py
 import pytest
@@ -1055,6 +1112,7 @@ class TestItemsAPI:
 ### API Best Practices
 
 #### Error Handling
+
 ```python
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -1073,6 +1131,7 @@ async def create_item(item: ItemCreate):
 ```
 
 #### Response Models
+
 ```python
 # Use Pydantic models for responses
 @router.get("/items/{item_id}", response_model=Item)
@@ -1086,6 +1145,7 @@ async def get_items():
 ```
 
 #### Query Parameters
+
 ```python
 @router.get("/items/")
 async def get_items(
@@ -1100,6 +1160,7 @@ async def get_items(
 ```
 
 #### Path Parameters
+
 ```python
 @router.get("/items/{item_id}")
 async def get_item(item_id: int = Path(..., gt=0, description="Item ID")):
@@ -1118,6 +1179,7 @@ async def get_user_item(
 ## 🔍 Debugging
 
 ### Debug Mode Setup
+
 ```bash
 # Start with debug logging
 export LOG_LEVEL=DEBUG
@@ -1128,6 +1190,7 @@ uvicorn app.main:app --reload --log-level debug
 ```
 
 ### Common Debug Commands
+
 ```bash
 # Check Python path
 python -c "import sys; print('\n'.join(sys.path))"
@@ -1146,6 +1209,7 @@ pip list | grep -E "(fastapi|sqlalchemy|uvicorn|alembic)"
 ```
 
 ### Database Debugging
+
 ```python
 # Enable SQL query logging
 import logging
@@ -1164,6 +1228,7 @@ async def debug_db():
 ```
 
 ### API Debugging
+
 ```bash
 # Test API endpoints
 curl -v http://localhost:8000/health
@@ -1183,6 +1248,7 @@ http POST localhost:8000/api/v1/auth/access-token \
 ## 🚀 Performance Optimization
 
 ### Database Performance
+
 ```python
 # Use connection pooling
 engine = create_async_engine(
@@ -1209,6 +1275,7 @@ async def get_active_users(db: AsyncSession):
 ```
 
 ### Caching Strategy
+
 ```python
 # app/services/cache_service.py
 from typing import Optional
@@ -1251,6 +1318,7 @@ async def get_user_with_cache(user_id: int):
 ```
 
 ### Async Optimization
+
 ```python
 # Good async patterns
 async def get_multiple_users(user_ids: List[int]):
@@ -1273,6 +1341,7 @@ async def get_multiple_users_bad(user_ids: List[int]):
 ### Common Development Issues
 
 #### Import Errors
+
 ```bash
 # Check Python path
 python -c "import sys; print(sys.path)"
@@ -1288,6 +1357,7 @@ find app/ -name "__init__.py" | xargs ls -la
 ```
 
 #### Database Issues
+
 ```bash
 # Check database connection
 python -c "from app.db.base import engine; print('Connected')"
@@ -1303,6 +1373,7 @@ psql -l | grep magflow
 ```
 
 #### Permission Issues
+
 ```bash
 # Fix file permissions
 find app/ -name "*.py" | xargs chmod 644
@@ -1315,6 +1386,7 @@ chmod 755 scripts/
 ```
 
 #### Testing Issues
+
 ```bash
 # Run specific failing test
 pytest tests/unit/test_user.py::TestUser::test_create_user -v -s
@@ -1330,6 +1402,7 @@ open htmlcov/index.html
 ### Performance Issues
 
 #### Memory Leaks
+
 ```python
 # Check memory usage
 python -c "
@@ -1344,6 +1417,7 @@ watch -n 1 'python -c "import psutil,os; p=psutil.Process(os.getpid()); print(f\
 ```
 
 #### Slow Queries
+
 ```python
 # Enable SQL query logging
 import logging
@@ -1358,6 +1432,7 @@ psql -c "SELECT query, calls, total_time, mean_time FROM pg_stat_statements WHER
 ```
 
 #### High CPU Usage
+
 ```bash
 # Check CPU usage
 top -p $(pgrep -f "uvicorn\|python")
@@ -1374,6 +1449,7 @@ python -m line_profiler app/services/user_service.py.lprof
 ### Development Tools
 
 #### Environment Debugging
+
 ```bash
 # Check all environment variables
 env | grep -E "(DATABASE|REDIS|SECRET|DEBUG|LOG)" | sort
@@ -1386,6 +1462,7 @@ pwd && ls -la
 ```
 
 #### Dependency Issues
+
 ```bash
 # Check for dependency conflicts
 pip check
@@ -1402,6 +1479,7 @@ pip show sqlalchemy
 ```
 
 #### Git Issues
+
 ```bash
 # Check git status
 git status
@@ -1416,6 +1494,6 @@ git log --oneline -10
 git ls-files --others --exclude-standard
 ```
 
----
+______________________________________________________________________
 
 **MagFlow ERP Development Guide** - Complete Development Setup and Workflow 🛠️

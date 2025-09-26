@@ -59,6 +59,7 @@ class CancellationRequest(Base, TimestampMixin):
     """Order cancellation request model."""
 
     __tablename__ = "cancellation_requests"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     cancellation_number: Mapped[str] = mapped_column(
@@ -159,11 +160,12 @@ class CancellationItem(Base, TimestampMixin):
     """Individual items affected by order cancellation."""
 
     __tablename__ = "cancellation_items"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     cancellation_request_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("cancellation_requests.id"),
+        ForeignKey("app.cancellation_requests.id"),
         nullable=False,
     )
 
@@ -205,6 +207,7 @@ class CancellationRefund(Base, TimestampMixin):
     """Tracks refunds processed for cancellations."""
 
     __tablename__ = "cancellation_refunds"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     refund_id: Mapped[str] = mapped_column(
@@ -217,7 +220,7 @@ class CancellationRefund(Base, TimestampMixin):
     # Related entities
     cancellation_request_id: Mapped[Optional[int]] = mapped_column(
         Integer,
-        ForeignKey("cancellation_requests.id"),
+        ForeignKey("app.cancellation_requests.id"),
         nullable=True,
     )
     order_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -257,11 +260,12 @@ class EmagCancellationIntegration(Base, TimestampMixin):
     """Tracks integration with eMAG cancellation system."""
 
     __tablename__ = "emag_cancellation_integrations"
+    __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     cancellation_request_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("cancellation_requests.id"),
+        ForeignKey("app.cancellation_requests.id"),
         nullable=False,
     )
 

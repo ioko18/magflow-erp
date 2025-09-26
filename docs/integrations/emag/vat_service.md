@@ -254,14 +254,14 @@ You can force a refresh of the cache by setting `force_refresh=True` on any meth
 
 1. **Use context managers**: Always use `VatService` as a context manager to ensure proper cleanup of resources.
 
-2. **Handle errors gracefully**: Always catch and handle potential exceptions, especially `EmagAPIError` and `aiohttp.ClientError`.
+1. **Handle errors gracefully**: Always catch and handle potential exceptions, especially `EmagAPIError` and `aiohttp.ClientError`.
 
-3. **Use caching effectively**: Take advantage of the built-in caching to reduce API calls. Only use `force_refresh` when you need the most up-to-date data.
+1. **Use caching effectively**: Take advantage of the built-in caching to reduce API calls. Only use `force_refresh` when you need the most up-to-date data.
 
-4. **Batch operations**: When possible, use batch methods like `get_vat_rates` instead of multiple `get_rate_by_id` calls.
+1. **Batch operations**: When possible, use batch methods like `get_vat_rates` instead of multiple `get_rate_by_id` calls.
 
-5. **Monitor rate limits**: The eMAG API has rate limits. The `VatService` includes rate limiting, but be mindful of your usage patterns.
+1. **Monitor rate limits**: The eMAG API has rate limits. The `VatService` includes rate limiting, but be mindful of your usage patterns.
 
-6. **Logging**: The service logs important events and errors. Make sure your logging configuration is set up to capture these logs.
+1. **Logging**: The service logs important events and errors. Make sure your logging configuration is set up to capture these logs.
 
-7. **Testing**: Use the provided test fixtures to write integration tests for your code that uses `VatService`.
+1. **Testing**: Use the provided test fixtures to write integration tests for your code that uses `VatService`.
