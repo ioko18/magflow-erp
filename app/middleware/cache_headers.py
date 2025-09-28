@@ -33,8 +33,12 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         # Process the request
         response = await call_next(request)
 
+        cache_status = getattr(request.state, "cache_status", None)
+
         # Skip if response already has cache headers
         if any(header in response.headers for header in ["Cache-Control", "ETag"]):
+            if cache_status and "X-Cache-Status" not in response.headers:
+                response.headers["X-Cache-Status"] = cache_status
             return response
 
         # Only cache successful GET/HEAD responses by default
@@ -43,6 +47,8 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
             or response.status_code not in self.cacheable_status_codes
         ):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+            if cache_status and "X-Cache-Status" not in response.headers:
+                response.headers["X-Cache-Status"] = cache_status
             return response
 
         # Add Vary headers

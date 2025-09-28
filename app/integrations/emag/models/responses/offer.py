@@ -95,6 +95,18 @@ class ProductOfferResponse(BaseModel):
     def serialize_datetime(self, value: datetime, _info) -> str:
         return value.isoformat()
 
+    @property
+    def product_name(self) -> str:
+        """Maintain backwards compatibility with legacy attribute name."""
+
+        return self.name
+
+    @property
+    def product_offer_id(self) -> int:
+        """Expose a legacy alias for the offer identifier."""
+
+        return self.id
+
 
 class ProductOfferListResponse(BaseModel):
     """Response model for listing product offers."""

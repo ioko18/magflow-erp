@@ -132,6 +132,10 @@ async def rate_limit_middleware(request: Request, call_next):
     """
     print(f"[RATE LIMIT] Checking {request.method} {request.url.path}")  # Debug print
 
+    # Skip rate limiting if globally disabled
+    if not settings.RATE_LIMIT_ENABLED:
+        return await call_next(request)
+
     # Skip rate limiting for certain endpoints
     if should_skip_rate_limit(request):
         print(f"[RATE LIMIT] Skipping {request.url.path}")  # Debug print
@@ -147,8 +151,8 @@ async def rate_limit_middleware(request: Request, call_next):
         window = 60  # 1 minute window
     elif path.startswith("/api/v1/admin"):
         # Stricter limits for admin endpoints
-        limit = 30  # 30 requests per window
-        window = 60  # 1 minute window
+        limit = settings.RATE_LIMIT_ADMIN_LIMIT or settings.RATE_LIMIT_PER_WINDOW
+        window = settings.RATE_LIMIT_ADMIN_WINDOW or settings.RATE_LIMIT_WINDOW
     else:
         # Default limits for other endpoints
         limit = settings.RATE_LIMIT_PER_WINDOW

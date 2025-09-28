@@ -8,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..core.database_resilience import DatabaseConfig, DatabaseHealthChecker
 from ..core.exceptions import DatabaseError
+from sqlalchemy.orm import declarative_base
+
+# Declarative base for ORM models
+Base = declarative_base()
 
 # Create the async engine
 engine = DatabaseConfig.create_optimized_engine()
@@ -26,6 +30,9 @@ health_checker = DatabaseHealthChecker(async_session_factory)
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    """Async database session dependency.
+    Yields a session and ensures proper cleanup.
+    """
     """Get an async database session."""
     # TODO: Re-enable health check after fixing the issue
     # await health_checker.ensure_healthy()
@@ -46,6 +53,9 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         finally:
             await session.close()
 
+
+# Alias for compatibility with existing imports in tests
+get_db = get_async_session
 
 # Test database engine for development/testing
 test_engine = DatabaseConfig.create_test_engine()

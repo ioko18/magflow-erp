@@ -153,7 +153,7 @@ class CatalogService:
         all_categories = await self.get_categories()
 
         # Build a dictionary of categories by ID
-        categories_by_id = {cat.id: cat.dict() for cat in all_categories}
+        categories_by_id = {cat.id: cat.model_dump() for cat in all_categories}
 
         # Build the tree
         tree = []

@@ -12,6 +12,28 @@ owner: integrations-team
 
 Funcționalitatea **eMAG Full Product Sync** permite preluarea tuturor produselor și ofertelor din ambele conturi eMAG (MAIN și FBE) cu suport complet pentru paginare și deduplicare automată.
 
+## 🔄 Cum colaborează componentele MagFlow ↔️ eMAG
+
+Pentru a evita confuzii între endpoint-uri API și scripturile standalone, reține că fluxul complet este împărțit în două straturi complementare:
+
+| Componentă | Locație | Rol principal | Când o folosești |
+| --- | --- | --- | --- |
+| Backend REST API | `app/api/v1/endpoints/emag_integration.py` | Expune endpoint-uri HTTP (`/api/v1/emag/...`) folosite de frontend și de automatizări din MagFlow. Inițiază task-uri async și rulează verificări de configurare. | Când declanșezi sync din UI (`Admin Dashboard`), din integrarea cu alte servicii sau prin apel programatic HTTP. |
+| Script sync standalone | `sync_emag_sync_improved.py` | Rulează sincronizări complete în linie de comandă, cu batching, retry și logging detaliat. Poate fi pornit direct sau prin API (ca background task). | Când ai nevoie de o rulare full/offline (cron job, depanare masivă) sau când rulezi manual din terminal. |
+
+Cele două componente împart aceeași bază de date și configurare `.env`. API-ul poate lansa scriptul ca proces de background (vezi funcția `enhanced_emag_sync()`), iar logurile generate sunt agregate în aceleași tabele (`emag_products`, `emag_product_offers`, `emag_offer_syncs`).
+
+### ✅ Quick Start în 6 pași
+
+1. **Verifică variabilele de mediu** din `.env` (`EMAG_MAIN_USERNAME`, `EMAG_MAIN_PASSWORD`, etc.).
+2. **Rulare migrații**: `alembic upgrade head` (asigură-te că `alembic.ini` indică portul/Postgres corect).
+3. **Pornește backend-ul**: `make start` → confirmă că `/api/v1/emag/status` returnează `200`.
+4. **Pornește frontend-ul** (opțional): `npm run dev` din `admin-frontend/` pentru a testa dashboard-ul.
+5. **Testează API-ul**: `POST /api/v1/emag/sync` sau `GET /api/v1/admin/emag-products` pentru a verifica autorizarea și răspunsurile.
+6. **Rulare CLI (dacă este nevoie)**: `python3 sync_emag_sync_improved.py --mode both --max-pages 50` pentru un sync manual; monitorizează log-urile corespunzătoare din `logs/`.
+
+> 🔁 Recomandare: menține aceeași versiune de configurare/OAuth tokens între API și script pentru a evita desincronizarea fluxurilor.
+
 ## 🚀 Funcționalități Principale
 
 ### 1. Sync Complet Produse
@@ -671,16 +693,6 @@ Documentația completă eMAG Marketplace API v4.4.8 oferă toate informațiile n
 ### 1. Variabile de Mediu
 
 Adăugați în fișierul `.env`:
-
-````bash
-# eMAG API Configuration
-EMAG_API_BASE_URL=https://api.emag.ro
-EMAG_REQUESTS_PER_MINUTE=60
-## ⚙️ Configurare
-
-### 1. Variabile de Mediu
-
-Adăugați în fișierul `.env`:
 ```bash
 # eMAG API Configuration
 EMAG_API_BASE_URL=https://api.emag.ro
@@ -689,7 +701,18 @@ EMAG_DELAY_BETWEEN_REQUESTS=1.0
 EMAG_MAX_PAGES_PER_SYNC=100
 EMAG_ENABLE_AUTO_SYNC=false
 EMAG_SYNC_INTERVAL_MINUTES=60
-````
+```
+
+#### Descriere variabile
+
+| Variabilă                    | Descriere                                                                 | Exemplu                      |
+| ---------------------------- | ------------------------------------------------------------------------- | ---------------------------- |
+| `EMAG_API_BASE_URL`          | Endpoint-ul de bază pentru toate request-urile către eMAG Marketplace API | `https://marketplace-api.emag.ro/api-3` |
+| `EMAG_REQUESTS_PER_MINUTE`   | Limita maximă de request-uri trimise pe minut                             | `60`                         |
+| `EMAG_DELAY_BETWEEN_REQUESTS`| Pauza în secunde dintre două request-uri consecutive                      | `1.0`                        |
+| `EMAG_MAX_PAGES_PER_SYNC`    | Numărul maxim de pagini procesate în cadrul unui sync complet             | `100`                        |
+| `EMAG_ENABLE_AUTO_SYNC`      | Activează (`true`) sau dezactivează (`false`) job-ul de sync programat    | `false`                      |
+| `EMAG_SYNC_INTERVAL_MINUTES` | Intervalul (în minute) dintre execuțiile automate ale sync-ului          | `60`                         |
 
 ### 2. Configurare în Cod
 
@@ -709,6 +732,14 @@ config = EmagSyncConfig(
 ## 📖 Ghid de Utilizare Complet
 
 ### 1. Sync Manual Complet
+
+#### Checklist pre-sync
+
+- **Credentiale valide**: asigurați-vă că `EMAG_MAIN_USERNAME` și `EMAG_MAIN_PASSWORD` sunt setate în `.env` și verificate prin `debug_emag_api.py`.
+- **IP whitelisted**: confirmați că IP-ul serverului figurează în lista eMAG → API Settings.
+- **Migrations aplicate**: rulați `alembic upgrade head` pentru a avea tabelele `emag_products` și `emag_offers` actualizate.
+- **Servicii auxiliare**: Redis și baza de date PostgreSQL trebuie să fie pornite (docker-compose sau infrastructura producție).
+- **Limite API**: ajustați `EMAG_REQUESTS_PER_MINUTE` și `EMAG_DELAY_BETWEEN_REQUESTS` conform recomandărilor din secțiunea Rate Limiting.
 
 #### Preluarea Tuturor Produselor
 
@@ -881,6 +912,24 @@ async def process_large_dataset():
             total_processed += len(batch)
 ```
 
+#### Script de Diagnostic Rapid
+
+- **Localizare script**: `debug_emag_api.py`
+- **Scop**: validează rapid credentialele, structura răspunsului și câmpurile cheie din ofertele returnate de eMAG.
+
+```bash
+export EMAG_MAIN_USERNAME="contul_tau_emag"
+export EMAG_MAIN_PASSWORD="parola_ta_emag"
+
+python debug_emag_api.py
+```
+
+- **Ce verifică**:
+  - ✅ Conexiunea și codul de răspuns la `product_offer/read`
+  - ✅ Structura primei oferte (campuri cheie precum `id`, `name`, `part_number`)
+  - ✅ Date esențiale pentru maparea în MagFlow (brand, categorie, stoc, preț)
+- **Recomandare**: rulați scriptul după schimbări de credentiale sau când API-ul pare să returneze structuri neașteptate.
+
 ## 📊 Metrici și Monitorizare
 
 ### 1. Metrici de Performanță
@@ -906,6 +955,20 @@ alerts = {
 ## 🚀 Best Practices
 
 ### 1. Rate Limiting și Performanță
+
+- **Limite globale eMAG (v4.4.8)**
+  - **Orders**: maximum 12 request-uri/secundă sau 720 request-uri/minut.
+  - **Alte resurse**: maximum 3 request-uri/secundă sau 180 request-uri/minut, cumulativ pentru toate operațiile (ex: update stoc + creare AWB + update preț).
+- **Programare cereri**: evitați alinierea la ore fixe (ex: porniți la `12:04:42` în loc de `12:00:00`) pentru a distribui încărcarea.
+- **Răspunsuri posibile**:
+  - **429 Too Many Requests**
+    - Header exemplu: `X-RateLimit-Limit-3second: 1`, `X-RateLimit-Remaining-3second: 0`
+    - Body exemplu: `{"message":"API rate limit exceeded"}`
+  - **200 OK (limit neatinge)**
+    - Header exemplu: `X-RateLimit-Limit-3second: 1`, `X-RateLimit-Remaining-3second: 0`
+    - Body exemplu: `{"isError":false,"messages":[],"results":[]}`
+- **Request-uri invalide**: sunt contorizate în aceleași limite de rată.
+- **Bulk save**: maxim 50 entități per request; interval optim 10-50 pentru performanță.
 
 ```python
 # Configurare optimă pentru volume mari
@@ -1095,6 +1158,14 @@ PRODUCTION_CONFIG = EmagSyncConfig(
 - ✅ **Este production-ready** cu testing comprehensiv
 
 **Poți acum să sincronizezi toate produsele din eMAG cu ușurință și încredere!** 🚀✨
+
+### Resurse conexe în MagFlow
+
+- **Servicii principale**: `app/services/emag_integration_service.py` gestionează orchestrarea completă a sincronizării.
+- **Configurație centralizată**: `app/config/emag_sync_config.py` (și helper-ul `get_emag_sync_config()` din `app/config/__init__.py`) definesc presetările pentru medii diferite.
+- **Operațiuni CRUD**: `app/crud/emag_products.py` și `app/crud/emag_offers.py` manipulează persistența produselor și ofertelor.
+- **Teste relevante**: `tests/integrations/test_emag_sync.py` acoperă fluxurile end-to-end de sincronizare.
+- **Documentație API detaliată**: `docs/integrations/emag/api_reference.md` oferă specificațiile complete ale endpoint-urilor eMAG.
 
 ```python
 from emag_sync_config import get_emag_sync_config, PRODUCTION_EMAG_CONFIG

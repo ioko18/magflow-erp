@@ -3,7 +3,7 @@ import json
 import logging
 import time
 from functools import wraps
-from typing import Any, Callable, Dict, List, TypeVar, cast
+from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
 
 import redis.asyncio as redis
 

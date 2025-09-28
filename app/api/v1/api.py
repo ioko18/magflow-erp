@@ -8,7 +8,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.api import health as complex_health
-from app.api import simple_products as products
+from app.api import products
 from app.api import test_sync
 from app.api import test_admin
 

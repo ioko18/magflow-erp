@@ -119,31 +119,33 @@ class DatabaseHealthCheck(BaseModel):
 
 class JWKSHealthCheck(BaseModel):
     ok: bool
-    keys_count: int = 0
     url: str
     error: Optional[str] = None
     response_time_ms: Optional[float] = None
 
 
+class CircuitBreakerStatus(BaseModel):
+    state: str
+    failure_count: int
+    failure_threshold: int
+    opened_at: Optional[str] = None
+    time_until_retry: Optional[float] = None
+
+
 class FullHealthCheckResponse(BaseModel):
     status: str = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat() + "Z"
-    )
+            default_factory=lambda: datetime.now(timezone.utc).isoformat() + "Z"
+        )
     db: DatabaseHealthCheck
     jwks: JWKSHealthCheck
+    circuit_breakers: Dict[str, CircuitBreakerStatus]
     version: str = settings.APP_VERSION
     environment: str = settings.ENVIRONMENT
 
 
 async def resolve_dns(hostname: str) -> Tuple[List[str], Optional[str]]:
     """Resolve a hostname to a list of IP addresses."""
-    # try:
-    #     # First try using aiodns for async DNS resolution
-    #     resolver = aiodns.DNSResolver()
-    #     result = await resolver.gethostbyname(hostname, socket.AF_UNSPEC)
-    #     return result.addresses, None
-    # except aiodns.error.DNSError:
     try:
         # Fall back to socket.gethostbyname if aiodns fails
         loop = asyncio.get_event_loop()
@@ -254,18 +256,17 @@ async def check_migrations() -> Dict[str, Any]:
     }
 
 
-@router.get("", response_model=HealthCheckResponse)
+@router.get("")
 async def health() -> Dict[str, str]:
     """Basic health check endpoint.
 
     This is a lightweight check that only verifies the API is running.
     For a full system health check, use /health/full
     """
-    now = _get_datetime_module().now(timezone.utc)
-    return {"status": "ok", "timestamp": _format_dt(now)}
+    return {"status": "ok"}
 
 
-@router.get("/health", response_model=HealthCheckResponse)
+@router.get("/health")
 async def health_alias() -> Dict[str, str]:  # pragma: no cover - thin wrapper
     """Alias to support legacy /health path used by integration tests."""
     return await health()
@@ -461,17 +462,71 @@ async def database_health() -> Dict[str, Any]:
     return health_data
 
 
+def get_circuit_breakers_status() -> Dict[str, Dict[str, Any]]:
+    """Get the status of all circuit breakers.
+    
+    Returns:
+        Dict containing the status of all circuit breakers
+    """
+    try:
+        # Import the global circuit breaker instance and CircuitState
+        from app.core.circuit_breaker import DATABASE_CIRCUIT_BREAKER, CircuitState
+        
+        logger.debug(f"[CIRCUIT_BREAKER] Getting circuit breaker status for database (instance id: {id(DATABASE_CIRCUIT_BREAKER)})")
+        
+        # Get the current state and other attributes with the lock held
+        with DATABASE_CIRCUIT_BREAKER._lock:
+            # Manually check the state based on internal attributes
+            if DATABASE_CIRCUIT_BREAKER._state == CircuitState.OPEN:
+                current_state = "open"
+            elif DATABASE_CIRCUIT_BREAKER._state == CircuitState.HALF_OPEN:
+                current_state = "half_open"
+            else:
+                current_state = "closed"
+            
+            # Get other circuit breaker attributes
+            failure_count = DATABASE_CIRCUIT_BREAKER._failure_count
+            failure_threshold = DATABASE_CIRCUIT_BREAKER.failure_threshold
+            opened_at = DATABASE_CIRCUIT_BREAKER._opened_at
+            
+            logger.debug(f"[CIRCUIT_BREAKER] Current state: {current_state} (raw state: {DATABASE_CIRCUIT_BREAKER._state})")
+            logger.debug(f"[CIRCUIT_BREAKER] Failure count: {failure_count}/{failure_threshold}")
+            logger.debug(f"[CIRCUIT_BREAKER] Opened at: {opened_at}")
+            
+            cb_status = {
+                "state": current_state,
+                "failure_count": failure_count,
+                "failure_threshold": failure_threshold,
+            }
+            
+            if opened_at is not None:
+                cb_status["opened_at"] = datetime.fromtimestamp(opened_at).isoformat() + "Z"
+                
+                # Calculate time until retry if circuit is open
+                if current_state == "open" and hasattr(DATABASE_CIRCUIT_BREAKER, 'recovery_timeout'):
+                    time_elapsed = time.time() - opened_at
+                    time_until_retry = max(0, DATABASE_CIRCUIT_BREAKER.recovery_timeout - time_elapsed)
+                    cb_status["time_until_retry"] = time_until_retry
+                    logger.debug(f"[CIRCUIT_BREAKER] Time until retry: {time_until_retry:.2f}s")
+            
+            logger.debug(f"[CIRCUIT_BREAKER] Final status: {cb_status}")
+            
+            return {"database": cb_status}
+    except Exception as e:
+        logger.error(f"Error in get_circuit_breakers_status: {e}", exc_info=True)
+        return {}
+
 @router.get("/full", response_model=FullHealthCheckResponse)
 async def full_health_check() -> Dict[str, Any]:
     """Full system health check that verifies all critical dependencies:
     - Database connection and performance
     - Database migrations status
     - JWKS endpoint availability
+    - Circuit breaker status
     - System metrics
 
     Returns:
         FullHealthCheckResponse: Detailed health status with individual component statuses
-
     """
     global health_check_cache, health_check_time
 
@@ -480,12 +535,63 @@ async def full_health_check() -> Dict[str, Any]:
     if current_time - health_check_time < HEALTH_CHECK_CACHE_TTL and health_check_cache:
         return health_check_cache
 
+    # Get circuit breaker status
+    try:
+        logger.debug("Getting circuit breakers status...")
+        from app.core.circuit_breaker import DATABASE_CIRCUIT_BREAKER, CircuitState
+        
+        # Get the current state directly from the circuit breaker
+        with DATABASE_CIRCUIT_BREAKER._lock:
+            current_state = DATABASE_CIRCUIT_BREAKER._state
+            failure_count = DATABASE_CIRCUIT_BREAKER._failure_count
+            failure_threshold = DATABASE_CIRCUIT_BREAKER.failure_threshold
+            opened_at = DATABASE_CIRCUIT_BREAKER._opened_at
+            
+            logger.debug(f"Direct circuit breaker state: {current_state}")
+            logger.debug(f"Direct failure count: {failure_count}/{failure_threshold}")
+            
+            # Manually create the circuit breaker status
+            circuit_breakers = {
+                "database": {
+                    "state": current_state.value.lower(),
+                    "failure_count": failure_count,
+                    "failure_threshold": failure_threshold,
+                }
+            }
+            
+            if opened_at is not None:
+                circuit_breakers["database"]["opened_at"] = datetime.fromtimestamp(opened_at).isoformat() + "Z"
+                
+                # Calculate time until retry if circuit is open
+                if current_state == CircuitState.OPEN and hasattr(DATABASE_CIRCUIT_BREAKER, 'recovery_timeout'):
+                    time_elapsed = time.time() - opened_at
+                    time_until_retry = max(0, DATABASE_CIRCUIT_BREAKER.recovery_timeout - time_elapsed)
+                    circuit_breakers["database"]["time_until_retry"] = time_until_retry
+        
+        logger.debug(f"Circuit breakers status: {circuit_breakers}")
+        
+        # Check if any circuit breaker is open
+        has_open_circuits = False
+        if "database" in circuit_breakers and circuit_breakers["database"].get("state") == "open":
+            has_open_circuits = True
+            cb_status = circuit_breakers["database"]
+            logger.warning(
+                f"Database circuit breaker is open. "
+                f"Failures: {cb_status['failure_count']}/"
+                f"{cb_status['failure_threshold']}"
+            )
+    except Exception as e:
+        logger.error(f"Failed to get circuit breaker status: {e}", exc_info=True)
+        circuit_breakers = {}
+        has_open_circuits = False
+
     # Run health checks with robust JWKS handling
     _db_health_model = await check_database_health()
     try:
         jwks_check = await check_jwks_health()
     except Exception as _e:  # pragma: no cover - defensive fallback
         jwks_check = JWKSHealthCheck(ok=True, keys_count=1, url="auto")
+    
     db_health: Dict[str, Any] = (
         _db_health_model.model_dump()
         if hasattr(_db_health_model, "model_dump")
@@ -494,16 +600,22 @@ async def full_health_check() -> Dict[str, Any]:
 
     # Determine overall status
     overall_status = "ok"
-    if db_health["status"] == "unhealthy" or not jwks_check.ok:
+    if db_health["status"] == "unhealthy" or not jwks_check.ok or has_open_circuits:
         overall_status = "unhealthy"
     elif db_health["status"] == "degraded":
         overall_status = "degraded"
 
-    # Prepare response
+    # Prepare response according to FullHealthCheckResponse model
     response = {
         "status": overall_status,
-        "db": db_health,
-        "jwks": jwks_check.dict(),
+        "db": DatabaseHealthCheck(
+            status=db_health["status"],
+            dsn_host=db_health["dsn_host"],
+            resolved_ips=db_health["resolved_ips"],
+            error=db_health.get("error")
+        ),
+        "jwks": jwks_check,
+        "circuit_breakers": circuit_breakers,
         "version": getattr(settings, "APP_VERSION", "unknown"),
         "environment": getattr(settings, "ENVIRONMENT", "development"),
     }
@@ -513,9 +625,11 @@ async def full_health_check() -> Dict[str, Any]:
     health_check_time = current_time
 
     # Update metrics
-    update_health_metrics(
-        {"status": overall_status, "duration_ms": (time.time() - current_time) * 1000},
-    )
+    update_health_metrics({
+        "status": overall_status, 
+        "duration_ms": (time.time() - current_time) * 1000,
+        "circuit_breakers": circuit_breakers
+    })
     update_database_metrics(db_health)
 
     return response

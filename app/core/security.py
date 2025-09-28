@@ -312,6 +312,51 @@ class SecurityValidator:
         return True
 
     @staticmethod
+    def validate_sql_injection_risk(input_string: str, max_length: int = 1000) -> bool:
+        """Alias for validate_sql_injection to maintain backward compatibility.
+        """
+        return SecurityValidator.validate_sql_injection(input_string, max_length)
+
+    @staticmethod
+    def validate_password_strength(password: str) -> bool:
+        """Validate password strength.
+
+        Checks for minimum length and inclusion of uppercase, lowercase, digits, and special characters.
+        Returns True if the password meets the criteria, False otherwise.
+        """
+        if not isinstance(password, str):
+            return False
+        if len(password) < 8:
+            return False
+        if not re.search(r"[A-Z]", password):
+            return False
+        if not re.search(r"[a-z]", password):
+            return False
+        if not re.search(r"[0-9]", password):
+            return False
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+            return False
+        return True
+
+    @staticmethod
+    def sanitize_html(html: str, max_length: int = 1000) -> str:
+        """Basic HTML sanitization.
+
+        Strips potentially dangerous tags and attributes. For simplicity, this implementation
+        removes script/style tags and any event-handler attributes.
+        """
+        if not isinstance(html, str):
+            return ""
+        # Remove script and style tags
+        cleaned = re.sub(r"<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        # Remove on* event attributes
+        cleaned = re.sub(r"\s+on\w+\s*=\s*['\"]?[^'\"]+['\"]?", "", cleaned, flags=re.IGNORECASE)
+        # Optionally truncate
+        if len(cleaned) > max_length:
+            cleaned = cleaned[:max_length]
+        return cleaned
+
+    @staticmethod
     def validate_url(url: str) -> bool:
         """Validate URL format and allowed schemes.
 

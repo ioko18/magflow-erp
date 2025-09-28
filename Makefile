@@ -297,7 +297,7 @@ local-smoke:
 	@echo "⚙️  Local smoke tests"
 	@PYTHONPATH=. python3 tests/scripts/test_db_direct.py
 	@PYTHONPATH=. python3 tests/scripts/test_app_db.py
-	@pytest tests/unit -m "unit" -q
+	@pytest tests/unit -q
 
 manage-logs:
 	@echo "🗂️  Archiving și curățare loguri locale"

@@ -536,6 +536,69 @@ class VatService:
             # For now, just refresh the default country
             await self.refresh_vat_rates("RO")
 
+    def _find_default_rate(
+        self,
+        rates: Optional[List[VatRate]],
+        effective_date: Optional[datetime] = None,
+    ) -> Optional[VatRate]:
+        """Find the default VAT rate active for the given effective date.
+
+        Args:
+            rates: Collection of VAT rates to inspect.
+            effective_date: Point in time to evaluate activity against. Defaults to now.
+
+        Returns:
+            Optional[VatRate]: The most recent active default rate if available.
+        """
+
+        if not rates:
+            return None
+
+        effective_date = self._ensure_timezone(effective_date or datetime.now(timezone.utc))
+
+        active_defaults = [
+            rate
+            for rate in rates
+            if rate.is_default and self._is_rate_active(rate, effective_date)
+        ]
+
+        if not active_defaults:
+            return None
+
+        return max(
+            active_defaults,
+            key=lambda rate: self._ensure_timezone(rate.valid_from)
+            or datetime.min.replace(tzinfo=timezone.utc),
+        )
+
+    def _is_rate_active(self, rate: VatRate, effective_date: datetime) -> bool:
+        """Check whether a VAT rate is active for the provided effective date."""
+
+        if not rate:
+            return False
+
+        effective_date = self._ensure_timezone(effective_date or datetime.now(timezone.utc))
+        valid_from = self._ensure_timezone(rate.valid_from) or datetime.min.replace(
+            tzinfo=timezone.utc,
+        )
+        valid_until = self._ensure_timezone(rate.valid_until) or datetime.max.replace(
+            tzinfo=timezone.utc,
+        )
+
+        return rate.is_active and valid_from <= effective_date <= valid_until
+
+    @staticmethod
+    def _ensure_timezone(value: Optional[datetime]) -> Optional[datetime]:
+        """Ensure the provided datetime is timezone-aware in UTC."""
+
+        if value is None:
+            return None
+
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value.astimezone(timezone.utc)
+
     @classmethod
     async def get_instance(cls) -> "VatService":
         """Get a shared instance of the VAT service."""

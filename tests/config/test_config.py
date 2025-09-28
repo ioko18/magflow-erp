@@ -23,12 +23,17 @@ _DEFAULT_DB_PORT = (
     or os.getenv("POSTGRES_PORT")
     or "5432"
 )
-_DEFAULT_DB_USER = os.getenv("POSTGRES_USER") or os.getenv("DB_USER") or "app"
+_DEFAULT_DB_USER = (
+    os.getenv("LOCAL_DB_USER")
+    or os.getenv("DB_USER")
+    or os.getenv("POSTGRES_USER")
+    or "magflow_dev"
+)
 _DEFAULT_DB_PASSWORD = (
     os.getenv("LOCAL_DB_PASSWORD")
     or os.getenv("DB_PASS")
     or os.getenv("POSTGRES_PASSWORD")
-    or ""
+    or "dev_password"
 )
 _DEFAULT_DB_NAME = (
     os.getenv("LOCAL_DB_NAME")

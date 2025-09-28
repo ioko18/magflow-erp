@@ -30,9 +30,9 @@ class TestEmagRateLimiter:
         assert rate_limiter.orders_rps == 12
         assert rate_limiter.other_rps == 3
         assert rate_limiter.jitter_max == 0.1
-        assert hasattr(rate_limiter, "_last_request_times")
-        assert hasattr(rate_limiter, "_request_counts")
-        assert hasattr(rate_limiter, "_windows")
+        assert hasattr(rate_limiter, "_locks")
+        assert hasattr(rate_limiter, "_request_windows")
+        assert rate_limiter._request_windows == {}
 
     @pytest.mark.asyncio
     async def test_orders_rate_limiting(self, rate_limiter):

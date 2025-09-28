@@ -60,7 +60,7 @@ class AdminUserDictFactory(UserDictFactory):
 
     is_superuser = True
     email = factory.LazyAttribute(lambda obj: f"admin{obj.id}@example.com")
-    full_name = factory.Faker("name") + " (Admin)"
+    full_name = factory.Faker("name")
 
 
 class ProductDictFactory(BaseFactory):
@@ -121,7 +121,7 @@ if DATABASE_MODELS_AVAILABLE:
         email_verified = True
         failed_login_attempts = 0
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class AdminUserFactory(UserFactory):
@@ -129,7 +129,7 @@ if DATABASE_MODELS_AVAILABLE:
 
         is_superuser = True
         email = factory.Sequence(lambda n: f"admin{n}@example.com")
-        full_name = factory.Faker("name") + " (Admin)"
+        full_name = factory.Faker("name")
 
 
     class RoleFactory(BaseFactory):
@@ -143,7 +143,7 @@ if DATABASE_MODELS_AVAILABLE:
         description = factory.Faker("sentence", nb_words=6)
         is_system_role = False
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class PermissionFactory(BaseFactory):
@@ -158,7 +158,7 @@ if DATABASE_MODELS_AVAILABLE:
         resource = FuzzyChoice(["users", "products", "orders", "categories", "reports"])
         action = FuzzyChoice(["read", "write", "delete", "execute", "admin"])
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class CategoryFactory(BaseFactory):
@@ -171,7 +171,7 @@ if DATABASE_MODELS_AVAILABLE:
         name = factory.Sequence(lambda n: f"Category {n}")
         description = factory.Faker("sentence", nb_words=10)
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class ProductFactory(BaseFactory):
@@ -188,7 +188,7 @@ if DATABASE_MODELS_AVAILABLE:
         stock_quantity = FuzzyInteger(0, 1000)
         is_active = True
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class CustomerFactory(BaseFactory):
@@ -203,7 +203,7 @@ if DATABASE_MODELS_AVAILABLE:
         phone = factory.Faker("phone_number")
         address = factory.Faker("address")
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class WarehouseFactory(BaseFactory):
@@ -240,11 +240,11 @@ if DATABASE_MODELS_AVAILABLE:
         resource_id = factory.LazyAttribute(
             lambda obj: f"{obj.resource}:{factory.Faker('uuid4')}"
         )
-        details = factory.LazyFunction(lambda: json.dumps({
-            "ip_address": factory.Faker("ipv4"),
-            "user_agent": factory.Faker("user_agent"),
-            "metadata": {"test": True, "factory_generated": True}
-        }))
+        details = factory.LazyFunction(lambda: {
+            "ip_address": factory.Faker("ipv4").generate({}),
+            "user_agent": factory.Faker("user_agent").generate({}),
+            "metadata": {"test": True, "factory_generated": True},
+        })
         success = FuzzyChoice([True, False])
         timestamp = factory.Faker("past_datetime", start_date="-30d")
 
@@ -261,7 +261,7 @@ if DATABASE_MODELS_AVAILABLE:
         total_amount = FuzzyFloat(50.0, 5000.0, precision=2)
         status = FuzzyChoice(["pending", "processing", "shipped", "delivered", "cancelled"])
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
     class OrderLineFactory(BaseFactory):
@@ -291,7 +291,7 @@ if DATABASE_MODELS_AVAILABLE:
         address = factory.Faker("address")
         is_active = True
         created_at = factory.Faker("past_datetime", start_date="-30d")
-        updated_at = factory.Faker("recent_datetime")
+        updated_at = factory.Faker("past_datetime", start_date="-1d")
 
 
 # Enhanced Test Fixtures

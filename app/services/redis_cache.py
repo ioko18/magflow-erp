@@ -4,6 +4,7 @@ import fnmatch
 import hashlib
 import json
 import logging
+import time
 from functools import wraps
 from typing import Any, Callable, Optional, TypeVar
 
@@ -13,6 +14,7 @@ except Exception:  # pragma: no cover - optional dependency in testing
     redis = None
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 
 from app.core.config import settings
 
@@ -26,16 +28,20 @@ class _InMemoryRedis:
 
     def __init__(self) -> None:
         self._store: dict[str, str] = {}
+        self._expiry: dict[str, float] = {}
 
     async def get(self, key: str) -> Optional[str]:
+        self._purge_expired()
         return self._store.get(key)
 
     async def set(self, key: str, value: str) -> bool:
         self._store[key] = value
+        self._expiry.pop(key, None)
         return True
 
     async def setex(self, key: str, ttl: int, value: str) -> bool:  # noqa: ARG002
         self._store[key] = value
+        self._expiry[key] = time.time() + ttl
         return True
 
     async def delete(self, *keys: str) -> int:
@@ -43,17 +49,31 @@ class _InMemoryRedis:
         for key in keys:
             if key in self._store:
                 del self._store[key]
+                self._expiry.pop(key, None)
                 removed += 1
         return removed
 
     async def keys(self, pattern: str) -> list[str]:
+        self._purge_expired()
         return [key for key in self._store if fnmatch.fnmatch(key, pattern)]
 
     async def dbsize(self) -> int:
+        self._purge_expired()
         return len(self._store)
 
     async def close(self) -> None:  # pragma: no cover - trivial
         self._store.clear()
+        self._expiry.clear()
+
+    def _purge_expired(self) -> None:
+        if not self._expiry:
+            return
+
+        now = time.time()
+        expired_keys = [key for key, expiry in self._expiry.items() if expiry <= now]
+        for key in expired_keys:
+            self._store.pop(key, None)
+            self._expiry.pop(key, None)
 
 
 class RedisCache:
@@ -92,7 +112,7 @@ class RedisCache:
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Set value in cache with optional TTL in seconds."""
         full_key = self._get_key(key)
-        serialized = json.dumps(value)
+        serialized = json.dumps(jsonable_encoder(value))
 
         if ttl:
             return bool(await self.redis.setex(full_key, ttl, serialized))
@@ -126,14 +146,26 @@ class RedisCache:
 
 def cache_key_builder(func: Callable, namespace: str, *args, **kwargs) -> str:
     """Build a cache key from function call."""
-    # Convert args and kwargs to a stable string representation
+
+    def _is_simple(value: Any) -> bool:
+        return isinstance(value, (str, int, float, bool, type(None)))
+
+    func_id = f"{func.__module__}.{func.__name__}"
+
+    if kwargs and all(_is_simple(value) for value in kwargs.values()):
+        key_parts = ":".join(str(kwargs[name]) for name in sorted(kwargs))
+        return f"{namespace}:{func_id}:{key_parts}"
+
+    if args and all(_is_simple(value) for value in args):
+        key_parts = ":".join(str(value) for value in args)
+        return f"{namespace}:{func_id}:{key_parts}"
+
     args_str = ",".join(str(arg) for arg in args)
     kwargs_str = ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
-    call_str = f"{func.__module__}.{func.__name__}({args_str},{kwargs_str})"
+    call_str = f"{func_id}({args_str},{kwargs_str})"
 
-    # Create a hash of the call string
     key_hash = hashlib.md5(call_str.encode()).hexdigest()
-    return f"{namespace}:{key_hash}"
+    return f"{namespace}:{func_id}:{key_hash}"
 
 
 def cached(
@@ -168,6 +200,7 @@ def cached(
             if cached_result is not None:
                 if request:
                     request.state.cached = True
+                    request.state.cache_status = "HIT"
                 return cached_result
 
             # Call the function and cache the result
@@ -176,6 +209,7 @@ def cached(
 
             if request:
                 request.state.cached = False
+                request.state.cache_status = "MISS"
 
             return result
 

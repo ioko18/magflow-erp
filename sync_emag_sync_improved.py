@@ -46,12 +46,56 @@ EMAG_ACCOUNT_TYPE = None
 ACCOUNT_CREDENTIALS = {}
 semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent requests per second
 
-# Prometheus metrics
-METRICS_PORT = int(os.getenv("EMAG_SYNC_METRICS_PORT", "9108"))
-MAX_PAGES = int(os.getenv("EMAG_SYNC_MAX_PAGES", "100"))  # Maximum pages to fetch
-SYNC_TIMEOUT_HOURS = int(os.getenv("EMAG_SYNC_TIMEOUT_HOURS", "2"))  # Maximum sync duration
-SYNC_BATCH_SIZE = int(os.getenv("EMAG_SYNC_BATCH_SIZE", "50"))  # Batch size for database operations
-PROGRESS_UPDATE_INTERVAL = int(os.getenv("EMAG_SYNC_PROGRESS_INTERVAL", "10"))  # Update progress every N offers
+# Configuration helpers
+def _get_env_int(
+    env_key: str,
+    default: int,
+    *,
+    min_value: int | None = None,
+    max_value: int | None = None,
+) -> int:
+    raw_value = os.getenv(env_key)
+    if raw_value is None or raw_value == "":
+        return default
+
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError):
+        logger.warning(
+            "Invalid integer for %s ('%s'); falling back to default %s",
+            env_key,
+            raw_value,
+            default,
+        )
+        return default
+
+    if min_value is not None and value < min_value:
+        logger.warning(
+            "%s below minimum (%s); using %s",
+            env_key,
+            min_value,
+            min_value,
+        )
+        return min_value
+
+    if max_value is not None and value > max_value:
+        logger.warning(
+            "%s above maximum (%s); using %s",
+            env_key,
+            max_value,
+            max_value,
+        )
+        return max_value
+
+    return value
+
+
+# Prometheus metrics and sync configuration
+METRICS_PORT = _get_env_int("EMAG_SYNC_METRICS_PORT", 9108, min_value=1, max_value=65535)
+MAX_PAGES = _get_env_int("EMAG_SYNC_MAX_PAGES", 100, min_value=1)  # Maximum pages to fetch
+SYNC_TIMEOUT_HOURS = _get_env_int("EMAG_SYNC_TIMEOUT_HOURS", 2, min_value=1)  # Maximum sync duration
+SYNC_BATCH_SIZE = _get_env_int("EMAG_SYNC_BATCH_SIZE", 50, min_value=1)  # Batch size for database operations
+PROGRESS_UPDATE_INTERVAL = _get_env_int("EMAG_SYNC_PROGRESS_INTERVAL", 10, min_value=1)  # Update progress every N offers
 
 # Prometheus metrics
 SYNC_REQUESTS = Counter(

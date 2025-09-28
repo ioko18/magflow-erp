@@ -74,9 +74,46 @@ class Settings(BaseSettings):
     def alembic_url(self) -> str:
         return self.DB_URI.replace("asyncpg", "psycopg2")
 
+    # Feature flag for OpenTelemetry
+    ENABLE_OTEL: bool = False
+
     @property
     def search_path(self) -> str:
         return self.DB_SCHEMA
+
+    # Lower‑case aliases for JWT settings (used by legacy tests)
+    @property
+    def jwt_algorithm(self) -> str:
+        return self.JWT_ALGORITHM
+
+    @property
+    def access_token_expire_minutes(self) -> int:
+        return self.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+
+    @property
+    def refresh_token_expire_days(self) -> int:
+        return self.JWT_REFRESH_TOKEN_EXPIRE_DAYS
+
+    @property
+    def secret_key(self) -> str:
+        return self.JWT_SECRET_KEY
+
+    @property
+    def jwt_issuer(self) -> str:
+        return getattr(self, "JWT_ISSUER", "magflow-service")
+
+    @property
+    def jwt_audience(self) -> str:
+        return getattr(self, "JWT_AUDIENCE", "magflow-api")
+
+    @property
+    def jwt_supported_algorithms(self) -> list[str]:
+        # Provide both HS256 and RS256 as supported algorithms
+        return ["HS256", "RS256"]
+
+    @property
+    def jwt_keyset_dir(self) -> str:
+        return getattr(self, "JWT_KEYSET_DIR", "jwt-keys")
 
     @property
     def db_schema_safe(self) -> str:
@@ -282,6 +319,8 @@ class Settings(BaseSettings):
     # Rate limiting settings
     RATE_LIMIT_PER_WINDOW: int = 100  # Number of requests allowed per window
     RATE_LIMIT_WINDOW: int = 60  # Window size in seconds (1 minute)
+    RATE_LIMIT_ADMIN_LIMIT: int = 120  # Admin endpoints allowed per window
+    RATE_LIMIT_ADMIN_WINDOW: int = 60  # Window size for admin rate limiting
 
     # Security settings
     SECRET_KEY: str = "change_me_secure"
@@ -310,14 +349,13 @@ class Settings(BaseSettings):
 
     # JWT Authentication settings (uppercase for compatibility)
     JWT_ALGORITHM: str = "RS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 7
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     JWT_SECRET_KEY: str = "your-super-secure-secret-key-change-this-in-production-2025"
     JWT_ISSUER: str = "magflow-service"
     JWT_AUDIENCE: str = "magflow-api"
     JWT_LEEWAY: int = 60
     JWT_MAX_ACTIVE_KEYS: int = 2
-    JWT_ROTATE_DAYS: float = 7.0
     JWKS_CACHE_MAX_AGE: int = 3600
     JWT_SUPPORTED_ALGORITHMS: List[str] = ["HS256", "RS256", "EDDSA"]
     JWT_KEYSET_DIR: str = "jwt-keys"

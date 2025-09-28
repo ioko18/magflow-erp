@@ -3,8 +3,11 @@
 import asyncio
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from unittest.mock import patch, AsyncMock
+
+import pytest
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -89,16 +92,133 @@ class MockHttpClient:
         for offer in test_offers:
             self._create_offer(offer)
 
+    def _build_price(
+        self,
+        price: float,
+        vat_rate: Optional[float],
+        sale_price: Optional[float] = None,
+        currency: str = "RON",
+    ) -> Dict[str, Any]:
+        """Create a structured price payload compatible with the response model."""
+
+        vat = float(vat_rate) if vat_rate is not None else 0.0
+        base_price = float(price)
+        current_price = float(sale_price) if sale_price is not None else base_price
+
+        return {
+            "current": current_price,
+            "initial": base_price,
+            "currency": currency,
+            "vat_rate": vat,
+            "vat_amount": current_price * vat / 100,
+        }
+
+    def _build_stock(self, quantity: Optional[int]) -> Dict[str, Any]:
+        """Create a structured stock payload compatible with the response model."""
+
+        qty = int(quantity) if quantity is not None else 0
+        return {
+            "available_quantity": qty,
+            "initial_quantity": max(qty, 0),
+            "reserved_quantity": 0,
+            "sold_quantity": 0,
+        }
+
+    def _update_price_fields(self, product_id: str, updates: Dict[str, Any]) -> None:
+        """Update price-related fields for an offer."""
+
+        if not {"price", "sale_price", "vat_rate"}.intersection(updates.keys()):
+            return
+
+        offer = self.offers[product_id]
+        existing_price = offer["price"]
+        base_price = float(updates.get("price", existing_price["initial"]))
+        vat_rate = float(updates.get("vat_rate", existing_price["vat_rate"]))
+
+        existing_sale_price = (
+            existing_price["current"]
+            if existing_price["current"] != existing_price["initial"]
+            else None
+        )
+        sale_price = updates.get("sale_price", existing_sale_price)
+        if sale_price is not None and sale_price == base_price:
+            sale_price = None
+
+        offer["price"] = self._build_price(
+            price=base_price,
+            vat_rate=vat_rate,
+            sale_price=sale_price,
+            currency=existing_price.get("currency", "RON"),
+        )
+
+    def _apply_offer_updates(self, product_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply update payload to an existing offer."""
+
+        offer = self.offers[product_id]
+
+        if "product_name" in updates:
+            offer["name"] = updates["product_name"]
+        if "part_number" in updates:
+            offer["part_number"] = updates["part_number"]
+
+        self._update_price_fields(product_id, updates)
+
+        if "stock" in updates:
+            stock_qty = int(updates["stock"])
+            offer_stock = offer.setdefault("stock", self._build_stock(stock_qty))
+            offer_stock["available_quantity"] = stock_qty
+            offer_stock["initial_quantity"] = max(
+                offer_stock.get("initial_quantity", stock_qty),
+                stock_qty,
+            )
+
+        if "status" in updates and updates["status"] is not None:
+            offer["status"] = updates["status"]
+
+        if "handling_time" in updates and updates["handling_time"] is not None:
+            offer["handling_time"] = updates["handling_time"]
+
+        if "warranty" in updates and updates["warranty"] is not None:
+            offer["warranty"] = updates["warranty"]
+
+        offer["updated_at"] = datetime.now(timezone.utc).isoformat()
+        return offer
+
     def _create_offer(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new offer in the mock database."""
         emag_id = self.next_id
         self.next_id += 1
 
+        created_at = data.get("created_at", datetime.now(timezone.utc).isoformat())
+        updated_at = data.get("updated_at", created_at) or datetime.now(timezone.utc).isoformat()
+        vat_rate = data.get("vat_rate", 0.0)
+        sale_price = data.get("sale_price")
+        stock_qty = data.get("stock", 0)
+
         offer = {
             "id": emag_id,
             "emag_id": emag_id,
+            "product_id": data["product_id"],
+            "part_number": data.get("part_number"),
+            "name": data.get("product_name", data["product_id"]),
+            "category_id": data["category_id"],
+            "brand_id": data["brand_id"],
+            "brand_name": data["brand_name"],
+            "price": self._build_price(
+                price=data["price"],
+                vat_rate=vat_rate,
+                sale_price=sale_price,
+            ),
+            "stock": self._build_stock(stock_qty),
+            "status": data.get("status", OfferStatus.ACTIVE.value),
+            "images": data.get("images", []),
+            "characteristics": data.get("characteristics", []),
             "url": f"https://www.emag.ro/test-product-{emag_id}",
-            **data,
+            "created_at": created_at,
+            "updated_at": updated_at,
+            "handling_time": data.get("handling_time"),
+            "warranty": data.get("warranty"),
+            "description": data.get("description"),
         }
 
         self.offers[data["product_id"]] = offer
@@ -111,18 +231,25 @@ class MockHttpClient:
         response_model: Any = None,
     ) -> Any:
         """Mock GET request."""
-        # Simulate network delay
-        await asyncio.sleep(0.1)
+        # Reduced delay for testing
+        await asyncio.sleep(0.001)
 
         if endpoint == "product_offer/read":
             if "product_id" in params:
                 # Get single offer
                 product_id = params["product_id"]
                 if product_id in self.offers:
-                    return self._to_response_model(
-                        self.offers[product_id],
-                        response_model,
-                    )
+                    offer = self.offers[product_id]
+                    payload = {
+                        "isError": False,
+                        "messages": [],
+                        "results": [offer],
+                        "currentPage": 1,
+                        "itemsPerPage": 1,
+                        "totalItems": 1,
+                        "totalPages": 1,
+                    }
+                    return self._to_response_model(payload, response_model)
                 return self._error_response("Product not found", 404)
             # List offers with optional filtering
             page = int(params.get("page", 1))
@@ -174,8 +301,8 @@ class MockHttpClient:
         response_model: Any = None,
     ) -> Any:
         """Mock POST request."""
-        # Simulate network delay
-        await asyncio.sleep(0.1)
+        # Reduced delay for testing
+        await asyncio.sleep(0.001)
 
         if endpoint == "product_offer/save":
             if "offers" in data:
@@ -183,34 +310,27 @@ class MockHttpClient:
                 results = []
                 for offer_data in data["offers"]:
                     try:
-                        if offer_data["product_id"] in self.offers:
+                        product_id = offer_data["product_id"]
+                        if product_id in self.offers:
                             # Update existing
-                            self.offers[offer_data["product_id"]].update(offer_data)
+                            updated_offer = self._apply_offer_updates(
+                                product_id,
+                                offer_data,
+                            )
                             result = {
-                                "product_id": offer_data["product_id"],
+                                "product_id": product_id,
                                 "success": True,
                                 "message": "Updated successfully",
-                                "emag_id": self.offers[offer_data["product_id"]][
-                                    "emag_id"
-                                ],
+                                "emag_id": updated_offer["emag_id"],
                             }
                         else:
                             # Create new
-                            emag_id = self.next_id
-                            self.next_id += 1
-                            self.offers[offer_data["product_id"]] = {
-                                "id": emag_id,
-                                "emag_id": emag_id,
-                                "url": f"https://www.emag.ro/test-product-{emag_id}",
-                                "created_at": datetime.utcnow().isoformat(),
-                                "updated_at": datetime.utcnow().isoformat(),
-                                **offer_data,
-                            }
+                            offer = self._create_offer(offer_data)
                             result = {
-                                "product_id": offer_data["product_id"],
+                                "product_id": product_id,
                                 "success": True,
                                 "message": "Created successfully",
-                                "emag_id": emag_id,
+                                "emag_id": offer["emag_id"],
                             }
                         results.append(result)
                     except Exception as e:
@@ -236,22 +356,11 @@ class MockHttpClient:
 
             if product_id in self.offers:
                 # Update existing
-                self.offers[product_id].update(data)
-                self.offers[product_id]["updated_at"] = datetime.utcnow().isoformat()
-                result = [self.offers[product_id]]
+                updated_offer = self._apply_offer_updates(product_id, data)
+                result = [updated_offer]
             else:
                 # Create new
-                emag_id = self.next_id
-                self.next_id += 1
-                self.offers[product_id] = {
-                    "id": emag_id,
-                    "emag_id": emag_id,
-                    "url": f"https://www.emag.ro/test-product-{emag_id}",
-                    "created_at": datetime.utcnow().isoformat(),
-                    "updated_at": datetime.utcnow().isoformat(),
-                    **data,
-                }
-                result = [self.offers[product_id]]
+                result = [self._create_offer(data)]
 
             return self._to_response_model(
                 {
@@ -285,8 +394,8 @@ class MockHttpClient:
         response_model: Any = None,
     ) -> Any:
         """Mock DELETE request."""
-        # Simulate network delay
-        await asyncio.sleep(0.1)
+        # Reduced delay for testing
+        await asyncio.sleep(0.001)
 
         if endpoint == "product_offer/delete":
             product_id = data.get("product_id")
@@ -326,20 +435,21 @@ class MockRateLimiter:
     """Mock rate limiter for testing."""
 
     async def wait_for_capacity(self, is_order_endpoint: bool = False):
-        """Simulate rate limiting."""
-        await asyncio.sleep(0.01)  # Small delay to simulate rate limiting
+        """Simulate rate limiting with minimal delay."""
+        await asyncio.sleep(0.0001)  # Minimal delay for testing
 
 
+@pytest.mark.asyncio
 async def test_offer_service():
     """Test the offer service with mock data."""
-    print("=== Testing eMAG Offer Service ===\n")
-
     # Create mock dependencies
     http_client = MockHttpClient()
     rate_limiter = MockRateLimiter()
 
-    # Create the service
-    service = OfferService(http_client, rate_limiter)
+    # Create the service with patched rate limiter to avoid sleeps in tests
+    with patch('app.integrations.emag.services.offer_service.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        service = OfferService(http_client, rate_limiter)
+        mock_sleep.return_value = None  # Skip sleeps in the actual service
 
     try:
         # Test 1: Get all offers

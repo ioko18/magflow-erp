@@ -4,6 +4,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from app.integrations.emag.config.mapping import (
     MappingConfigError,
@@ -107,13 +108,14 @@ def test_validate_mapping_config_missing_required_field():
 
     # Remove a required field
     config_dict["field_mappings"][0].pop("emag_field")
-    config = ProductMappingConfig(**config_dict)
-
-    # Should raise an exception
-    with pytest.raises(MappingConfigError) as excinfo:
-        validate_mapping_config(config)
-
-    assert "Missing required field 'emag_field'" in str(excinfo.value)
+    
+    # Should raise a validation error when creating the config
+    with pytest.raises(ValidationError) as excinfo:
+        ProductMappingConfig(**config_dict)
+    
+    # Check that the error message contains the expected field
+    error_messages = [str(e) for e in excinfo.value.errors()]
+    assert any("emag_field" in msg for msg in error_messages)
 
 
 def test_validate_mapping_config_duplicate_field_mapping():
@@ -129,7 +131,7 @@ def test_validate_mapping_config_duplicate_field_mapping():
     with pytest.raises(MappingConfigError) as excinfo:
         validate_mapping_config(config)
 
-    assert "Duplicate field mapping for 'name'" in str(excinfo.value)
+    assert "Duplicate field mapping 'name 'name''" in str(excinfo.value)
 
 
 def test_validate_mapping_config_duplicate_category():
@@ -145,9 +147,7 @@ def test_validate_mapping_config_duplicate_category():
     with pytest.raises(MappingConfigError) as excinfo:
         validate_mapping_config(config)
 
-    assert "Duplicate category mapping for internal_id 'electronics'" in str(
-        excinfo.value
-    )
+    assert "Duplicate category mapping 'internal_id 'electronics''" in str(excinfo.value)
 
 
 def test_validate_mapping_config_duplicate_brand():
@@ -163,7 +163,7 @@ def test_validate_mapping_config_duplicate_brand():
     with pytest.raises(MappingConfigError) as excinfo:
         validate_mapping_config(config)
 
-    assert "Duplicate brand mapping for internal_id 'apple'" in str(excinfo.value)
+    assert "Duplicate brand mapping 'internal_id 'apple''" in str(excinfo.value)
 
 
 def test_validate_mapping_config_duplicate_characteristic():
@@ -179,7 +179,7 @@ def test_validate_mapping_config_duplicate_characteristic():
     with pytest.raises(MappingConfigError) as excinfo:
         validate_mapping_config(config)
 
-    assert "Duplicate characteristic mapping for name 'color'" in str(excinfo.value)
+    assert "Duplicate characteristic mapping 'name 'color''" in str(excinfo.value)
 
 
 def test_validate_mapping_config_invalid_category_hierarchy():

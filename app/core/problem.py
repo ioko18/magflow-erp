@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+
+from app.core.utils.datetime_utils import format_utc_datetime
 
 from fastapi import status
 from pydantic import BaseModel, ConfigDict, Field
@@ -80,8 +81,8 @@ class Problem(BaseModel):
         description="Additional error details for validation or business rule violations.",
     )
     timestamp: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat(),
-        description="When the error occurred, in ISO 8601 format.",
+        default_factory=format_utc_datetime,
+        description="When the error occurred, in ISO 8601 format with timezone info.",
     )
     trace_id: Optional[str] = Field(
         None,

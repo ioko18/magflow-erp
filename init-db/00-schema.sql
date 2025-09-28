@@ -1,10 +1,23 @@
 -- 00-schema.sql
 -- This script creates the database schema and tables
 
--- Create extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+-- Create extensions (skip gracefully if current role lacks privileges)
+DO $$
+DECLARE
+    ext TEXT;
+BEGIN
+    FOREACH ext IN ARRAY ARRAY['uuid-ossp', 'pgcrypto', 'pg_stat_statements'] LOOP
+        BEGIN
+            EXECUTE format('CREATE EXTENSION IF NOT EXISTS "%s";', ext);
+        EXCEPTION
+            WHEN insufficient_privilege THEN
+                RAISE NOTICE 'Skipping extension % due to insufficient privileges', ext;
+            WHEN undefined_file THEN
+                RAISE NOTICE 'Extension % not available on this server; skipping', ext;
+        END;
+    END LOOP;
+END
+$$;
 
 -- Set up search path
 SET search_path TO app, public;

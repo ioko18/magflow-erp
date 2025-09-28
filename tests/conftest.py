@@ -3,449 +3,304 @@ Test configuration for MagFlow ERP.
 
 This module provides test fixtures and configuration for the MagFlow ERP test suite.
 """
-
-# Standard library imports
-import inspect
-import sys
+import asyncio
 from pathlib import Path
+import sys
+
+import asyncpg
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+import pytest
 from typing import AsyncGenerator
-
-# Third-party imports
 import pytest_asyncio
-from httpx import AsyncClient
-from httpx import ASGITransport
-from fastapi import status
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import StaticPool
-from sqlalchemy import JSON as SQLAlchemyJSON
-import json
 
-# Application imports
-from app.core.database import get_async_session
-from app.db import get_db
-from app.main import app
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi_limiter import FastAPILimiter
+import redis.asyncio as redis
+
 from app.core.config import settings
-from app.models.base import Base
-from app.services.cache_service import CacheManager, get_cache_service
-
-# Import all models to ensure they are registered with SQLAlchemy
-# The imports are used by SQLAlchemy's metadata, so we suppress unused import warnings
-from app.models import (  # noqa: F401
-    User, Role, Permission, RefreshToken, Product, Category,
-    Warehouse, StockMovement, InventoryItem, Order, OrderLine,
-    Customer, Supplier, PurchaseOrder, PurchaseOrderLine,
-    PurchaseReceipt, PurchaseReceiptLine, SupplierPayment,
-    PurchaseRequisition, PurchaseRequisitionLine, Invoice,
-    InvoiceItem, CancellationRequest, CancellationItem,
-    CancellationRefund, EmagCancellationIntegration,
-    ReturnRequest, ReturnItem, RefundTransaction,
-    EmagReturnIntegration, EmagProductOffer, EmagOfferSync,
-    UserSession, AuditLog
-)
+from app.db.base_class import Base
+from app.db.session import get_async_db
+from app.api.tasks import router as tasks_router
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-
 # Override database settings for testing
-TEST_DB_URL = "sqlite+aiosqlite:///:memory:?cache=shared"
-settings.SQL_ECHO = False  # Disable SQL echo for cleaner test output
 settings.TESTING = True
 
+# Test database URL - Using PostgreSQL for testing to match production
+# Use the asyncpg driver for async database operations
+TEST_DATABASE_URL = "postgresql+asyncpg://postgres:password@localhost:5432/magflow_test"
 
-@pytest_asyncio.fixture(scope="session")
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
+    yield loop
+    loop.close()
+
+async def create_test_database():
+    """Create the test database and required extensions if they don't exist."""
+    # Get the database URL without the database name
+    db_url = "postgresql://postgres:password@localhost:5432/postgres"
+
+    # Connect to the default 'postgres' database
+    conn = await asyncpg.connect(db_url)
+
+    try:
+        # Check if the test database exists
+        result = await conn.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", "magflow_test"
+        )
+
+        if not result:
+            # Create the test database
+            await conn.execute("CREATE DATABASE magflow_test")
+
+        # Create a connection URL for asyncpg (without the +asyncpg part)
+        test_db_url = TEST_DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        
+        # Connect to the test database to create extensions
+        test_conn = await asyncpg.connect(test_db_url)
+        try:
+            # Try to create required extensions, but don't fail if they don't exist
+            for ext in ["uuid-ossp", "pgcrypto"]:
+                try:
+                    await test_conn.execute(f"CREATE EXTENSION IF NOT EXISTS \"{ext}\";")
+                except asyncpg.exceptions.DuplicateObject:
+                    pass
+                except Exception as e:
+                    print(f"Warning: Could not create extension {ext}: {e}")
+        finally:
+            await test_conn.close()
+
+    finally:
+        await conn.close()
+
+
+@pytest_asyncio.fixture(scope="function")
 async def db_engine():
-    """
-    Create a test database engine with proper schema setup.
-
-    This fixture creates a PostgreSQL database with all application
-    models properly initialized. The database is created once per test session
-    and properly cleaned up after all tests complete.
-    """
-    # Create a custom JSON type for SQLite
-    from sqlalchemy.types import TypeDecorator, VARCHAR
+    """Create a test database engine with optimized connection pooling."""
+    # Create the test database if it doesn't exist
+    await create_test_database()
     
-    class JSONEncodedDict(TypeDecorator):
-        """Represents an immutable structure as a json-encoded string."""
-        impl = VARCHAR
-        
-        def load_dialect_impl(self, dialect):
-            if dialect.name == 'postgresql':
-                return dialect.type_descriptor(SQLAlchemyJSON())
-            else:
-                return dialect.type_descriptor(self.impl)
-        
-        def process_bind_param(self, value, dialect):
-            if value is not None:
-                value = json.dumps(value)
-            return value
-        
-        def process_result_value(self, value, dialect):
-            if value is not None:
-                value = json.loads(value)
-            return value
-    
-    # Replace JSONB with our custom type for SQLite and remove schema references
-    from sqlalchemy.dialects.postgresql import JSONB
-    
-    def _patch_for_sqlite():
-        # Patch JSONB columns and strip schema-qualified references that SQLite
-        # does not understand.
-        for table in Base.metadata.tables.values():
-            # Remove schema for SQLite
-            table.schema = None
-
-            # Replace JSONB with our custom type
-            for column in table.columns:
-                if isinstance(column.type, JSONB):
-                    column.type = JSONEncodedDict()
-
-                # Strip schema prefix from column-level foreign keys (e.g. "app.roles.id")
-                for fk in list(column.foreign_keys):
-                    colspec = fk._get_colspec()
-                    if colspec and "." in colspec:
-                        fk._colspec = colspec.split(".", 1)[1]
-
-            # Also strip schema prefixes from table-level foreign key constraints
-            for fk_constraint in list(table.foreign_key_constraints):
-                for element in fk_constraint.elements:
-                    colspec = element.target_fullname
-                    if colspec and "." in colspec:
-                        element._colspec = colspec.split(".", 1)[1]
-                        element._resolved_target = None
-    
-    # Create engine with SQLite in-memory database
+    # Create engine with connection pooling
     engine = create_async_engine(
-        TEST_DB_URL,
+        TEST_DATABASE_URL,
         echo=settings.SQL_ECHO,
-        future=True,
-        connect_args={"check_same_thread": False},
-        json_serializer=json.dumps,
-        json_deserializer=json.loads,
-        poolclass=StaticPool,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        pool_size=10,
+        max_overflow=20,
     )
-    
-    _patch_for_sqlite()
     
     # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
-
+    
     try:
         yield engine
     finally:
+        # Ensure the engine is properly disposed
         await engine.dispose()
 
 
 @pytest_asyncio.fixture
-async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create a transactional database session for tests."""
-    session_factory = async_sessionmaker(
-        bind=db_engine,
+async def db_session(db_engine: AsyncEngine):
+    """Create a database session for testing with automatic rollback."""
+    # Create a connection and transaction
+    connection = await db_engine.connect()
+    transaction = await connection.begin()
+    
+    # Create a session bound to this connection
+    session_factory = sessionmaker(
+        bind=connection,
+        class_=AsyncSession,
         expire_on_commit=False,
-        autocommit=False,
         autoflush=False,
+        future=True
     )
-
-    async with session_factory() as session:
-        transaction = await session.begin()
-        try:
-            yield session
-        finally:
-            await transaction.rollback()
-            await session.close()
-
-
-@pytest_asyncio.fixture
-async def clean_db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Provide a session that commits changes for tests that need persistence."""
-    session_factory = async_sessionmaker(
-        bind=db_engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-
-    async with session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
-
-
-@pytest_asyncio.fixture
-async def client(db_engine) -> AsyncGenerator[AsyncClient, None]:
-    """Create an async HTTP client for the FastAPI application."""
-
-    async_session_factory = async_sessionmaker(
-        bind=db_engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-
-    from app.core import database as core_database_module
-    from app import db as db_module
-    from app.services import cache_service as cache_module
-
-    original_core_engine = getattr(core_database_module, "engine", None)
-    original_core_factory = getattr(core_database_module, "async_session_factory", None)
-    original_db_factory = getattr(db_module, "AsyncSessionFactory", None)
-    original_get_async_session = getattr(core_database_module, "get_async_session", None)
-    original_get_db_dependency = getattr(db_module, "get_db", None)
-    original_cache_service_instance = getattr(cache_module, "cache_service", None)
-    original_get_cache_service = getattr(cache_module, "get_cache_service", None)
-    original_redis_enabled = getattr(settings, "REDIS_ENABLED", False)
-
-    core_database_module.engine = db_engine
-    core_database_module.async_session_factory = async_session_factory
-    db_module.AsyncSessionFactory = async_session_factory
-
-    settings.REDIS_ENABLED = False
-
-    class InMemoryCacheService:
-        def __init__(self):
-            self.store = {}
-
-        async def connect(self):
-            return
-
-        async def is_connected(self):
-            return True
-
-        def _key(self, namespace: str, key: str) -> tuple[str, str]:
-            return (namespace, key)
-
-        async def get(self, key, namespace="default"):
-            return self.store.get(self._key(namespace, key))
-
-        async def set(self, key, value, ttl=None, namespace="default"):
-            self.store[self._key(namespace, key)] = value
-            return True
-
-        async def delete(self, key, namespace="default"):
-            self.store.pop(self._key(namespace, key), None)
-            return True
-
-        async def delete_pattern(self, pattern, namespace="default"):
-            prefix = pattern.rstrip("*")
-            to_delete = [k for k in self.store if k[0] == namespace and k[1].startswith(prefix)]
-            for k in to_delete:
-                self.store.pop(k, None)
-            return len(to_delete)
-
-        async def invalidate_user_cache(self, user_id: int):
-            await self.delete(f"user:{user_id}:permissions", "permissions")
-            await self.delete_pattern(f"user:{user_id}:", "sessions")
-            return True
-
-        async def get_or_set(self, key, value_func, ttl=None, namespace="default"):
-            existing = await self.get(key, namespace)
-            if existing is not None:
-                return existing
-
-            if callable(value_func):
-                value_candidate = value_func()
-                if inspect.isawaitable(value_candidate):
-                    value_candidate = await value_candidate
-            else:
-                value_candidate = value_func
-
-            await self.set(key, value_candidate, ttl, namespace)
-            return value_candidate
-
-        async def get_cache_stats(self):
-            return {
-                "connected": True,
-                "used_memory": 0,
-                "used_memory_peak": 0,
-                "total_connections": len(self.store),
-            }
-
-    cache_stub = InMemoryCacheService()
-
-    async def override_get_cache_service_dependency():
-        return CacheManager(cache_stub)
-
-    async def override_get_session() -> AsyncGenerator[AsyncSession, None]:
-        async with async_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-
-    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
-        async with async_session_factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-
-    core_database_module.get_async_session = override_get_session
-    db_module.get_db = override_get_db
-    cache_module.cache_service = cache_stub
-    cache_module.get_cache_service = override_get_cache_service_dependency
-
-    app.dependency_overrides[get_async_session] = override_get_session
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_cache_service] = override_get_cache_service_dependency
-
+    
+    session = session_factory()
+    
     try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://testserver",
-        ) as test_client:
-            yield test_client
+        yield session
     finally:
-        app.dependency_overrides.clear()
-        if original_core_engine is not None:
-            core_database_module.engine = original_core_engine
-        if original_core_factory is not None:
-            core_database_module.async_session_factory = original_core_factory
-        if original_db_factory is not None:
-            db_module.AsyncSessionFactory = original_db_factory
-        if original_get_async_session is not None:
-            core_database_module.get_async_session = original_get_async_session
-        if original_get_db_dependency is not None:
-            db_module.get_db = original_get_db_dependency
-        if original_cache_service_instance is not None:
-            cache_module.cache_service = original_cache_service_instance
-        if original_get_cache_service is not None:
-            cache_module.get_cache_service = original_get_cache_service
-        settings.REDIS_ENABLED = original_redis_enabled
+        # Roll back the transaction and close the session
+        await session.rollback()
+        await session.close()
+        await transaction.rollback()
+        await connection.close()
 
 
 @pytest_asyncio.fixture
-async def async_client(client: AsyncClient) -> AsyncGenerator[AsyncClient, None]:
-    """Provide a backwards-compatible alias for the async HTTP client."""
-
-    yield client
-
-
-# Authentication helpers
-
-
-@pytest_asyncio.fixture
-async def test_user(clean_db_session) -> dict:
-    """Ensure a baseline test user exists in the database."""
-    from sqlalchemy import select
-
-    from app.core.security import get_password_hash
-    from app.models.user import User as UserModel
-
-    email = "test@example.com"
-
-    result = await clean_db_session.execute(select(UserModel).where(UserModel.email == email))
-    user = result.scalar_one_or_none()
-
-    if user is None:
-        user = UserModel(
-            email=email,
-            full_name="Test User",
-            hashed_password=get_password_hash("testpassword"),
-            is_active=True,
-            is_superuser=False,
-        )
-        clean_db_session.add(user)
-        await clean_db_session.commit()
-        await clean_db_session.refresh(user)
-
-    return {
-        "id": user.id,
-        "email": user.email,
-        "full_name": user.full_name,
-        "password": "testpassword",
-    }
-
-
-@pytest_asyncio.fixture
-async def auth_headers(client: AsyncClient, test_user: dict) -> dict[str, str]:
-    """Obtain Authorization header by logging in the baseline test user."""
-
-    response = await client.post(
-        f"{settings.API_V1_STR}/auth/login",
-        data={
-            "username": test_user["email"],
-            "password": test_user["password"],
-        },
+async def test_category(db_session: AsyncSession):
+    """Create a test category in the database."""
+    from app.models.category import Category
+    from uuid import uuid4
+    
+    # Create a new category
+    category = Category(
+        name=f"Test Category {str(uuid4())[:8]}",
+        description="A test category"
     )
-
-    if response.status_code != status.HTTP_200_OK:
-        raise RuntimeError(f"Failed to authenticate test user: {response.text}")
-
-    token_data = response.json()
+    
+    # Add and commit the category
+    db_session.add(category)
+    await db_session.commit()
+    await db_session.refresh(category)
+    
+    # Return the category data
     return {
-        "Authorization": f"Bearer {token_data['access_token']}",
+        "id": category.id,
+        "name": category.name,
+        "description": category.description
     }
 
+
 @pytest_asyncio.fixture
-def mock_redis():
-    """Mock Redis client for testing."""
-    class MockRedis:
-        def __init__(self):
-            self.data = {}
-
-        async def get(self, key):
-            return self.data.get(key)
-
-        async def set(self, key, value, ex=None):
-            self.data[key] = value
-
-        async def delete(self, key):
-            self.data.pop(key, None)
-
-    return MockRedis()
-
-
-# Test data fixtures
-@pytest_asyncio.fixture
-def sample_user_data():
-    """Sample user data for testing."""
+async def test_product(db_session: AsyncSession, test_category: dict):
+    """Create a test product in the database."""
+    from app.models.product import Product
+    from app.models.category import Category
+    from uuid import uuid4
+    
+    # Create the product
+    product = Product(
+        name=f"Test Product {uuid4().hex[:8]}",
+        sku=f"TEST-{uuid4().hex[:8]}",
+        base_price=99.99,
+        currency="USD",
+        description="A test product",
+        is_active=True
+    )
+    
+    # Get the category
+    category = await db_session.get(Category, test_category["id"])
+    product.categories.append(category)
+    
+    db_session.add(product)
+    await db_session.commit()
+    await db_session.refresh(product)
+    
     return {
-        "email": "test@example.com",
-        "full_name": "Test User",
-        "password": "test_password123",
-        "is_active": True
+        "id": product.id,
+        "name": product.name,
+        "sku": product.sku,
+        "base_price": float(product.base_price),
+        "currency": product.currency,
+        "description": product.description,
+        "is_active": product.is_active,
+        "category_ids": [c.id for c in product.categories]
     }
 
 
 @pytest_asyncio.fixture
 def sample_product_data():
     """Sample product data for testing."""
+    from uuid import uuid4
     return {
-        "emag_id": "test-123",
-        "name": "Test Product",
-        "price": 99.99,
-        "stock": 10,
-        "is_active": True
+        "name": f"Test Product {str(uuid4())[:8]}",
+        "sku": f"TEST-{str(uuid4())[:8]}",
+        "base_price": 99.99,
+        "currency": "USD",
+        "description": "A test product",
+        "is_active": True,
+        "category_ids": [1],
+        "characteristics": [{"name": "color", "value": "red"}],
+        "images": ["test.jpg"]
     }
 
+
+@pytest_asyncio.fixture
+async def async_client(db_engine: AsyncEngine) -> AsyncGenerator[AsyncClient, None]:
+    """Create an async test client for FastAPI endpoints using httpx.AsyncClient with ASGITransport."""
+    # Create a new FastAPI app for testing
+    test_app = FastAPI()
+    
+    # Add CORS middleware
+    test_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Include tasks router with version prefix
+    test_app.include_router(tasks_router, prefix=f"{settings.API_V1_STR}/tasks")
+    
+    # Override the database dependency to use our test database
+    async def override_get_db():
+        connection = await db_engine.connect()
+        transaction = await connection.begin()
+        session_factory = sessionmaker(
+            bind=connection,
+            class_=AsyncSession,
+            expire_on_commit=False,
+            autoflush=False,
+            future=True,
+        )
+        session = session_factory()
+        await session.begin_nested()
+        try:
+            yield session
+        finally:
+            await session.rollback()
+            await session.close()
+            await transaction.rollback()
+            await connection.close()
+    
+    test_app.dependency_overrides[get_async_db] = override_get_db
+    
+    @test_app.on_event("startup")
+    async def startup():
+        try:
+            redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+            await FastAPILimiter.init(test_app, redis_client)
+        except Exception as e:
+            print(f"Warning: Could not connect to Redis: {e}")
+            await FastAPILimiter.init(test_app)
+    
+    async with AsyncClient(transport=ASGITransport(app=test_app), base_url="http://test") as client:
+        yield client
+    
+    if 'redis_client' in locals():
+        await redis_client.close()
+
+# Alias fixture for compatibility with tests expecting a 'client' fixture
+@pytest.fixture
+def client(async_client: AsyncClient) -> AsyncClient:
+    """Provide a synchronous alias for the async client used in tests."""
+    return async_client
+
+# Alias fixture for tests that expect a 'test_client' fixture
+@pytest.fixture
+def test_client(async_client: AsyncClient) -> AsyncClient:
+    """Alias for 'client' to maintain backward compatibility with tests expecting 'test_client'."""
+    return async_client
 
 # Configuration fixtures
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture
+def mock_service_context():
+    """Provide a simple mock service context for DI tests."""
+    from unittest.mock import MagicMock
+    return MagicMock()
+
+@pytest.fixture
 def test_settings():
     """Test-specific settings override."""
-    # Store original settings
-    original_settings = {
-        "SQL_ECHO": settings.SQL_ECHO,
-        "TESTING": settings.TESTING
-    }
-
-    # Override for testing
-    settings.SQL_ECHO = False
-    settings.TESTING = True
-
-    yield settings
-
-    # Restore original settings
-    for key, value in original_settings.items():
-        setattr(settings, key, value)
+    class TestSettings:
+        TESTING = True
+        SQL_ECHO = False
+        DATABASE_URL = TEST_DATABASE_URL
+        SECRET_KEY = "test-secret-key"
+        ACCESS_TOKEN_EXPIRE_MINUTES = 30
+        ALGORITHM = "HS256"
+    return TestSettings()

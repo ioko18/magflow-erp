@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { 
   Row, Col, Card, Button, Table, Typography, Space, Progress, Tag, notification,
-  Select, Switch, Tooltip, Modal, InputNumber, Alert, Statistic,
+  Switch, Tooltip, Modal, InputNumber, Alert, Statistic,
   Divider, Badge, Timeline, Descriptions
 } from 'antd'
 import {
@@ -47,7 +47,6 @@ interface EmagData {
 }
 
 interface SyncOptions {
-  mode: 'single' | 'both' | 'main' | 'fbe'
   maxPages: number
   batchSize: number
   progressInterval: number
@@ -76,7 +75,6 @@ const EmagSync: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncOptions, setSyncOptions] = useState<SyncOptions>({
-    mode: 'both',
     maxPages: 100,
     batchSize: 50,
     progressInterval: 10
@@ -178,29 +176,28 @@ const EmagSync: React.FC = () => {
       setLoading(false)
     }
   }
-
-  const handleSync = async (mode: 'single' | 'both' | 'main' | 'fbe' = syncOptions.mode) => {
+  const handleSync = async () => {
     try {
       setSyncing(true)
       setSyncProgress({ isRunning: true, processedOffers: 0 })
-      
+
       // Start progress tracking
       startProgressTracking()
-      
+
       const syncPayload = {
-        mode,
+        mode: 'both',
         maxPages: syncOptions.maxPages,
         batchSize: syncOptions.batchSize,
         progressInterval: syncOptions.progressInterval
       }
-      
+
       await api.post('/emag/sync', syncPayload)
-      
+
       notificationApi.success({
         message: '🚀 Sincronizare Inițiată',
         description: (
           <div>
-            <p><strong>{mode === 'both' ? 'Multi-Account Sync' : `${mode.toUpperCase()} Account Sync`}</strong></p>
+            <p><strong>Multi-Account Sync (MAIN + FBE)</strong></p>
             <p>📊 Max Pages: {syncOptions.maxPages} | Batch Size: {syncOptions.batchSize}</p>
             <p>⏱️ Progress updates every {syncOptions.progressInterval} batches</p>
           </div>
@@ -586,42 +583,17 @@ const EmagSync: React.FC = () => {
         <div style={{ marginBottom: '24px' }}>
           <h4 style={{ marginBottom: '12px' }}>
             <ThunderboltOutlined style={{ marginRight: '8px' }} />
-            Sync Mode
+            Combined Sync (MAIN + FBE)
           </h4>
-          <Select
-            value={syncOptions.mode}
-            onChange={(value) => setSyncOptions(prev => ({ ...prev, mode: value }))}
-            style={{ width: '200px', marginRight: '16px' }}
-          >
-            <Select.Option value="both">
-              <Space>
-                <CloudSyncOutlined />
-                Both Accounts (MAIN + FBE)
-              </Space>
-            </Select.Option>
-            <Select.Option value="main">
-              <Space>
-                <DatabaseOutlined />
-                MAIN Account Only
-              </Space>
-            </Select.Option>
-            <Select.Option value="fbe">
-              <Space>
-                <LinkOutlined />
-                FBE Account Only
-              </Space>
-            </Select.Option>
-          </Select>
-          
           <Button
             type="primary"
             size="large"
             icon={<SyncOutlined spin={syncing} />}
-            onClick={() => handleSync()}
+            onClick={handleSync}
             loading={syncing}
             disabled={syncProgress.isRunning}
           >
-            {syncing ? 'Synchronizing...' : `Start ${syncOptions.mode === 'both' ? 'Multi-Account' : syncOptions.mode.toUpperCase()} Sync`}
+            {syncing ? 'Synchronizing...' : 'Start Combined Sync'}
           </Button>
         </div>
 
@@ -689,33 +661,13 @@ const EmagSync: React.FC = () => {
               <Space direction="vertical" style={{ width: '100%' }}>
                 <Button
                   type="primary"
-                  icon={<DatabaseOutlined />}
-                  onClick={() => handleSync('main')}
-                  loading={syncing}
-                  block
-                  disabled={syncProgress.isRunning}
-                >
-                  Sync MAIN Account
-                </Button>
-                <Button
-                  type="primary"
-                  icon={<LinkOutlined />}
-                  onClick={() => handleSync('fbe')}
-                  loading={syncing}
-                  block
-                  disabled={syncProgress.isRunning}
-                >
-                  Sync FBE Account
-                </Button>
-                <Button
-                  type="primary"
                   icon={<CloudSyncOutlined />}
-                  onClick={() => handleSync('both')}
+                  onClick={handleSync}
                   loading={syncing}
                   block
                   disabled={syncProgress.isRunning}
                 >
-                  Sync Both Accounts
+                  Sync MAIN + FBE
                 </Button>
                 <Button
                   icon={<ShoppingCartOutlined />}

@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.problem import Problem
 from app.middleware.correlation_id import get_correlation_id
+from app.core.config import settings
 # Paths that should not be rate limited
 EXCLUDED_PATHS = [
     "/health/live",
@@ -41,6 +42,10 @@ RATE_LIMITS: Dict[str, Tuple[int, int]] = {
     "auth": (5, 60),  # 5 requests / 60 seconds
     "read": (20, 60),  # 20 requests / 60 seconds
     "health": (5, 60),  # Allow fewer health checks when enabled
+    "admin": (
+        getattr(settings, "RATE_LIMIT_ADMIN_LIMIT", settings.RATE_LIMIT_PER_WINDOW),
+        getattr(settings, "RATE_LIMIT_ADMIN_WINDOW", settings.RATE_LIMIT_WINDOW),
+    ),
 }
 
 # Path prefix mapping to a named rate limit
@@ -51,6 +56,7 @@ PATH_RATE_LIMITS: Dict[str, str] = {
     # Test-specific paths
     "/api/v1/test/auth": "auth",
     "/api/v1/test/read": "read",
+    "/api/v1/admin/": "admin",
 }
 
 
@@ -79,14 +85,25 @@ def should_rate_limit(request: Request, *, rate_limit_health: bool) -> bool:
     return True
 
 
-def _get_counter_key(path: str, window_seconds: int) -> str:
-    # One counter per named key and rounded time window
+def _get_counter_key(path: str, window_seconds: int, *, method: str | None = None) -> str:
+    """Return the counter key for a given request path within a window.
+
+    Including both the resolved rate limit name and the concrete request path
+    ensures endpoints that share the same rate limit group (for example, all
+    admin endpoints) do not unintentionally consume each other's quota.
+    """
+
+    # One counter per named key, HTTP method, exact path and rounded window
     name = get_rate_limit_key_for_path(path)
     window_start = int(time.time() // window_seconds) * window_seconds
-    return f"{name}:{window_start}"
+    method_part = (method or "").upper()
+    safe_path = path.replace(":", "_")
+    return f"{name}:{method_part}:{safe_path}:{window_start}"
 
 
 def init_rate_limiter(app: FastAPI, *, rate_limit_health: bool = False) -> None:
+    if not getattr(settings, "RATE_LIMIT_ENABLED", True):
+        return
     if not hasattr(app.state, "_rate_limit_counters"):
         app.state._rate_limit_counters = {}
     app.state._rate_limit_health = rate_limit_health
@@ -107,7 +124,11 @@ def init_rate_limiter(app: FastAPI, *, rate_limit_health: bool = False) -> None:
         # Determine limit/window for the path
         key_name = get_rate_limit_key_for_path(request.url.path)
         limit, window_seconds = RATE_LIMITS.get(key_name, RATE_LIMITS["default"])
-        counter_key = _get_counter_key(request.url.path, window_seconds)
+        counter_key = _get_counter_key(
+            request.url.path,
+            window_seconds,
+            method=request.method,
+        )
 
         # Get current count
         counters: Dict[str, int] = app.state._rate_limit_counters
@@ -156,23 +177,35 @@ def init_rate_limiter(app: FastAPI, *, rate_limit_health: bool = False) -> None:
 
 # Minimal async rate limiter used by services during tests
 class RateLimiter:
-    """A minimal no-op async rate limiter for testing.
-
-    Provides an `acquire()` coroutine compatible with production interfaces.
+    """Compatibility wrapper mimicking fastapi_limiter's RateLimiter.
+    Provides an async __call__ that does nothing, allowing existing code to await it.
+    Also provides an async acquire() for compatibility.
     """
 
     def __init__(
         self,
         limit: int | None = None,
         window_seconds: int | None = None,
+        *,
+        times: int | None = None,
+        seconds: int | None = None,
     ) -> None:
+        # Compatibility: if times/seconds provided, use them as limit/window_seconds
+        if times is not None:
+            limit = times
+        if seconds is not None:
+            window_seconds = seconds
         self.limit = limit or RATE_LIMITS["default"][0]
         self.window_seconds = window_seconds or RATE_LIMITS["default"][1]
 
     async def acquire(self) -> None:
-        # No-op in tests; real implementation would coordinate with Redis
+        """Legacy method kept for compatibility; does nothing."""
         return None
 
+    async def __call__(self, request, response=None) -> None:
+        """Async callable interface used in code; no-op implementation."""
+        await self.acquire()
+        return None
 
 _default_rate_limiter: RateLimiter | None = None
 

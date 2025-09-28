@@ -17,28 +17,33 @@ from fastapi import (
     Query,
     status,
 )
-
 if TYPE_CHECKING:
     from app.db.models import User as UserModel
 else:
     UserModel = Any
 
-from app.api.dependencies import get_current_active_user
+from app.api.dependencies import get_current_active_user, get_database_session
 from app.core.config import get_settings  # expose symbol for test patching
 from app.core.dependency_injection import ServiceContext
 from app.core.exceptions import ConfigurationError
 from app.services.emag_integration_service import EmagIntegrationService
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/emag", tags=["emag"])
 
-PROJECT_ROOT = Path(__file__).resolve().parents[4].parent
+# Name of the table storing offer sync metadata. This mirrors the value used in
+# the standalone sync scripts but avoids importing a module that is not part of
+# the packaged application.
+EMAG_OFFER_SYNCS_TABLE = "emag_offer_syncs"
+
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
 SYNC_SCRIPT_PATH = PROJECT_ROOT / "sync_emag_sync_improved.py"
 
 
-def _build_sync_env(account_type: str) -> Dict[str, str]:
+def _build_sync_env(account_type: str, overrides: Dict[str, Any] | None = None) -> Dict[str, str]:
     env = os.environ.copy()
     env["EMAG_SYNC_MODE"] = "single"
     env["EMAG_ACCOUNT_TYPE"] = account_type
@@ -57,11 +62,17 @@ def _build_sync_env(account_type: str) -> Dict[str, str]:
 
     env["EMAG_API_USERNAME"] = username
     env["EMAG_API_PASSWORD"] = password
+
+    if overrides:
+        for key, value in overrides.items():
+            if value is None:
+                continue
+            env[key] = str(value)
     return env
 
 
-async def _run_sync_process(account_type: str) -> None:
-    env = _build_sync_env(account_type)
+async def _run_sync_process(account_type: str, overrides: Dict[str, Any] | None = None) -> None:
+    env = _build_sync_env(account_type, overrides)
 
     if not SYNC_SCRIPT_PATH.exists():
         raise ConfigurationError(
@@ -91,17 +102,17 @@ async def _run_sync_process(account_type: str) -> None:
         )
 
 
-async def _execute_sync(mode: str) -> None:
+async def _execute_sync(mode: str, overrides: Dict[str, Any] | None = None) -> None:
     if mode == "both":
-        await _run_sync_process("main")
-        await _run_sync_process("fbe")
+        await _run_sync_process("main", overrides)
+        await _run_sync_process("fbe", overrides)
     elif mode == "main":
-        await _run_sync_process("main")
+        await _run_sync_process("main", overrides)
     elif mode == "fbe":
-        await _run_sync_process("fbe")
+        await _run_sync_process("fbe", overrides)
     else:
         # default to main for unknown modes
-        await _run_sync_process("main")
+        await _run_sync_process("main", overrides)
 
 
 @router.post("/sync")
@@ -109,52 +120,40 @@ async def enhanced_emag_sync(
     background_tasks: BackgroundTasks,
     sync_request: Dict[str, Any] = Body(default={})
 ) -> Dict[str, Any]:
-    """Trigger the real sync script for MAIN, FBE or both accounts (no auth required)."""
+    """Trigger the real sync script for both MAIN and FBE accounts (no auth required)."""
 
-    mode = sync_request.get("mode", "single")
     max_pages = sync_request.get("maxPages", 100)
     batch_size = sync_request.get("batchSize", 50)
     progress_interval = sync_request.get("progressInterval", 10)
 
-    # Generate sync ID based on mode
-    sync_id = f"dev-sync-{mode}-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    sync_env_overrides = {
+        "EMAG_SYNC_MAX_PAGES": max_pages,
+        "EMAG_SYNC_BATCH_SIZE": batch_size,
+        "EMAG_SYNC_PROGRESS_INTERVAL": progress_interval,
+    }
 
-    if mode not in {"main", "fbe", "both", "single"}:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid sync mode. Choose from 'main', 'fbe', 'both'.",
-        )
+    # Generate sync ID based on mode
+    sync_id = f"dev-sync-both-{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
     # Kick off the background task to run the real sync script
     async def runner() -> None:
         try:
-            await _execute_sync("main" if mode == "single" else mode)
+            await _execute_sync("both", sync_env_overrides)
         except Exception as exc:  # pragma: no cover - logging
-            logger.error("Sync task failed for mode %s: %s", mode, exc)
+            logger.error("Sync task failed for combined mode: %s", exc)
 
     background_tasks.add_task(runner)
 
-    accounts = (
-        ["main", "fbe"]
-        if mode == "both"
-        else ["main"]
-        if mode in {"main", "single"}
-        else ["fbe"]
-    )
+    accounts = ["main", "fbe"]
 
-    message = {
-        "both": "Multi-account synchronization started (MAIN + FBE accounts)",
-        "main": "MAIN account synchronization started",
-        "single": "MAIN account synchronization started",
-        "fbe": "FBE account synchronization started",
-    }.get(mode, "Synchronization started")
+    message = "Multi-account synchronization started (MAIN + FBE accounts)"
 
     return {
         "status": "success",
         "message": message,
         "data": {
             "sync_id": sync_id,
-            "mode": mode,
+            "mode": "both",
             "accounts": accounts,
             "max_pages": max_pages,
             "batch_size": batch_size,
@@ -218,7 +217,7 @@ async def get_emag_health() -> Dict[str, Any]:
     }
 
 
-async def get_emag_service() -> EmagIntegrationService:
+async def get_emag_service() -> Optional[EmagIntegrationService]:
     """FastAPI dependency for EmagIntegrationService."""
     from app.core.service_registry import get_service_registry
 
@@ -238,22 +237,41 @@ async def get_emag_service() -> EmagIntegrationService:
 
     settings = get_settings()
     context = ServiceContext(settings=settings)
-    service = EmagIntegrationService(context)
 
-    await service.initialize()
+    try:
+        service = EmagIntegrationService(context)
+    except ConfigurationError as exc:
+        logger.warning("eMAG integration not configured: %s", exc)
+        return None
+
+    try:
+        await service.initialize()
+    except ConfigurationError as exc:
+        logger.warning(
+            "eMAG integration service initialization failed due to configuration: %s",
+            exc,
+        )
+        return None
+    except Exception:
+        # Initialization failed for another reason; ensure resources are cleaned up
+        await service.cleanup()
+        raise
+
     return service
 
 
 @router.get("/status")
 async def get_emag_status(
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Get eMAG integration status.
 
     - **Returns**: Current status of eMAG integration including sync status
     """
     try:
+        settings = get_settings()
+
         status_info = {
             "service_initialized": emag_service is not None,
             "api_client_available": (
@@ -265,53 +283,32 @@ async def get_emag_status(
             "environment": (
                 emag_service.config.environment.value
                 if emag_service and emag_service.config
-                else "unknown"
+                else getattr(settings, "EMAG_ENVIRONMENT", "unknown")
             ),
         }
 
-        return {
-            "status": (
-                "operational"
-                if status_info["service_initialized"]
-                else "not_configured"
-            ),
-            "details": status_info,
-            "config_status": {
-                "has_username": bool(
-                    getattr(
-                        emag_service.context.settings if emag_service else None,
-                        "EMAG_USERNAME",
-                        "",
-                    )
-                ),
-                "has_password": bool(
-                    getattr(
-                        emag_service.context.settings if emag_service else None,
-                        "EMAG_PASSWORD",
-                        "",
-                    )
-                ),
-                "has_client_id": bool(
-                    getattr(
-                        emag_service.context.settings if emag_service else None,
-                        "EMAG_CLIENT_ID",
-                        "",
-                    )
-                ),
-                "has_client_secret": bool(
-                    getattr(
-                        emag_service.context.settings if emag_service else None,
-                        "EMAG_CLIENT_SECRET",
-                        "",
-                    )
-                ),
-                "environment": getattr(
-                    emag_service.context.settings if emag_service else None,
-                    "EMAG_ENVIRONMENT",
-                    "not_set",
-                ),
-            },
+        config_status = {
+            "has_username": bool(getattr(settings, "EMAG_USERNAME", "")),
+            "has_password": bool(getattr(settings, "EMAG_PASSWORD", "")),
+            "has_client_id": bool(getattr(settings, "EMAG_CLIENT_ID", "")),
+            "has_client_secret": bool(getattr(settings, "EMAG_CLIENT_SECRET", "")),
+            "environment": getattr(settings, "EMAG_ENVIRONMENT", "not_set"),
         }
+
+        base_response = {
+            "details": status_info,
+            "config_status": config_status,
+        }
+
+        if not emag_service:
+            base_response["status"] = "not_configured"
+            base_response["details"]["reason"] = (
+                "eMAG integration not properly configured"
+            )
+            return base_response
+
+        base_response["status"] = "operational"
+        return base_response
 
     except ConfigurationError:
         return {
@@ -330,7 +327,7 @@ async def sync_products(
     background_tasks: BackgroundTasks,
     full_sync: bool = Query(False, description="Perform full synchronization"),
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Sync products between ERP and eMAG marketplace.
 
@@ -338,6 +335,12 @@ async def sync_products(
     - **Returns**: Synchronization results
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         # Run sync in background
         background_tasks.add_task(emag_service.sync_products, full_sync)
 
@@ -363,13 +366,19 @@ async def sync_products(
 async def sync_orders(
     background_tasks: BackgroundTasks,
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Sync orders between ERP and eMAG marketplace.
 
     - **Returns**: Synchronization results
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         # Run sync in background
         background_tasks.add_task(emag_service.sync_orders)
 
@@ -391,13 +400,19 @@ async def sync_orders(
 async def sync_inventory(
     background_tasks: BackgroundTasks,
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Sync inventory levels with eMAG marketplace.
 
     - **Returns**: Synchronization results
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         # Run inventory sync in background
         background_tasks.add_task(emag_service.bulk_update_inventory, [])
 
@@ -419,7 +434,7 @@ async def sync_inventory(
 async def full_synchronization(
     background_tasks: BackgroundTasks,
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Perform full synchronization of all data with eMAG.
 
@@ -428,6 +443,12 @@ async def full_synchronization(
     - **Returns**: Synchronization status
     """
     try:
+
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
 
         async def full_sync():
             results = {}
@@ -479,7 +500,7 @@ async def start_auto_sync(
         le=3600,
     ),
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Start automatic synchronization with eMAG.
 
@@ -487,6 +508,12 @@ async def start_auto_sync(
     - **Returns**: Task information
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         task_id = await emag_service.start_auto_sync(sync_interval)
 
         return {
@@ -512,7 +539,7 @@ async def start_auto_sync(
 async def stop_auto_sync(
     task_id: str = Query(..., description="Task ID to stop"),
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Stop automatic synchronization with eMAG.
 
@@ -520,6 +547,12 @@ async def stop_auto_sync(
     - **Returns**: Stop confirmation
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         success = await emag_service.stop_auto_sync(task_id)
 
         if success:
@@ -547,7 +580,7 @@ async def get_emag_products(
     page: int = Query(1, description="Page number", ge=1),
     limit: int = Query(50, description="Items per page", ge=1, le=100),
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Get products from eMAG marketplace.
 
@@ -555,6 +588,12 @@ async def get_emag_products(
     - **limit**: Number of items per page
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         if not emag_service.api_client:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -594,7 +633,7 @@ async def get_emag_orders(
     page: int = Query(1, description="Page number", ge=1),
     limit: int = Query(50, description="Items per page", ge=1, le=100),
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Get orders from eMAG marketplace.
 
@@ -605,6 +644,12 @@ async def get_emag_orders(
     - **limit**: Number of items per page
     """
     try:
+        if not emag_service:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="eMAG integration not configured",
+            )
+
         if not emag_service.api_client:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -669,7 +714,7 @@ async def get_emag_orders(
 async def get_emag_categories(
     parent_id: Optional[str] = Query(None, description="Parent category ID"),
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Get product categories from eMAG marketplace.
 
@@ -707,7 +752,7 @@ async def get_emag_categories(
 async def update_inventory(
     inventory_updates: Dict[str, Any],
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Update inventory levels on eMAG.
 
@@ -808,10 +853,17 @@ async def get_sync_history(
 @router.get("/sync/tasks")
 async def get_sync_tasks(
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    emag_service: Optional[EmagIntegrationService] = Depends(get_emag_service),
 ) -> Dict[str, Any]:
     """Get active synchronization tasks."""
     try:
+        if not emag_service:
+            return {
+                "tasks": [],
+                "total_count": 0,
+                "status": "not_configured",
+            }
+
         tasks = []
         for task_id, task in emag_service._sync_tasks.items():
             tasks.append(
@@ -1512,58 +1564,90 @@ async def get_offer_details(
         )
 
 
-@router.get("/products/sync-progress")
+@router.get("/sync-progress")
 async def get_sync_progress(
     current_user: UserModel = Depends(get_current_active_user),
-    emag_service: EmagIntegrationService = Depends(get_emag_service),
+    db_session=Depends(get_database_session),
 ) -> Dict[str, Any]:
-    """Get current sync progress and status.
+    """Return aggregated sync progress and recent history."""
 
-    Returns information about ongoing and completed sync operations.
-    """
     try:
-        # In a real implementation, this would query sync status from database
-        # For now, return mock data with service information
-        sync_info = {
-            "service_status": (
-                "operational" if emag_service.api_client else "not_initialized"
-            ),
-            "active_sync_tasks": (
-                len(emag_service._sync_tasks)
-                if hasattr(emag_service, "_sync_tasks")
-                else 0
-            ),
-            "last_sync_time": None,  # Would come from database
-            "total_products_synced": 0,  # Would come from database
-            "total_offers_synced": 0,  # Would come from database
-            "sync_errors": [],  # Would come from logs
-            "estimated_next_sync": None,  # Would be calculated based on schedule
-            "sync_history": [
-                {
-                    "sync_type": "products",
-                    "account_type": "main",
-                    "timestamp": "2024-01-15T10:30:00Z",
-                    "products_count": 1250,
-                    "duration_seconds": 45.2,
-                    "status": "completed",
-                },
-                {
-                    "sync_type": "offers",
-                    "account_type": "fbe",
-                    "timestamp": "2024-01-15T09:15:00Z",
-                    "offers_count": 890,
-                    "duration_seconds": 32.1,
-                    "status": "completed",
-                },
-            ],
-        }
+        result = await db_session.execute(
+            text(
+                f"""
+                WITH last_sync AS (
+                    SELECT sync_id,
+                           account_type,
+                           status,
+                           total_offers_processed,
+                           offers_created,
+                           offers_updated,
+                           offers_failed,
+                           offers_skipped,
+                           error_count,
+                           started_at,
+                           completed_at,
+                           updated_at,
+                           metadata,
+                           errors,
+                           ROW_NUMBER() OVER (PARTITION BY account_type ORDER BY started_at DESC) AS rn
+                    FROM {EMAG_OFFER_SYNCS_TABLE}
+                )
+                SELECT json_build_object(
+                    'isRunning', EXISTS (
+                        SELECT 1 FROM {EMAG_OFFER_SYNCS_TABLE}
+                        WHERE status = 'running'
+                    ),
+                    'currentAccount', (
+                        SELECT account_type FROM {EMAG_OFFER_SYNCS_TABLE}
+                        WHERE status = 'running'
+                        ORDER BY started_at DESC
+                        LIMIT 1
+                    ),
+                    'processedOffers', COALESCE((
+                        SELECT total_offers_processed FROM {EMAG_OFFER_SYNCS_TABLE}
+                        WHERE status = 'running'
+                        ORDER BY updated_at DESC
+                        LIMIT 1
+                    ), 0),
+                    'currentPage', NULL,
+                    'totalPages', NULL,
+                    'estimatedTimeRemaining', NULL,
+                    'recentRuns', (
+                        SELECT json_agg(
+                            json_build_object(
+                                'syncId', sync_id,
+                                'accountType', account_type,
+                                'status', status,
+                                'offersProcessed', total_offers_processed,
+                                'offersCreated', offers_created,
+                                'offersUpdated', offers_updated,
+                                'offersFailed', offers_failed,
+                                'offersSkipped', offers_skipped,
+                                'errorCount', error_count,
+                                'startedAt', started_at,
+                                'completedAt', completed_at,
+                                'metadata', metadata,
+                                'errors', errors
+                            )
+                        ORDER BY started_at DESC
+                        )
+                        FROM last_sync
+                        WHERE rn <= 10
+                    )
+                ) AS progress
+            """
+            )
+        )
 
-        return {"sync_progress": sync_info, "timestamp": datetime.utcnow().isoformat()}
+        row = result.scalar_one()
+        return {"data": row, "timestamp": datetime.now(timezone.utc).isoformat()}
 
-    except Exception as e:
+    except Exception as exc:  # pragma: no cover - logging
+        logger.exception("Failed to load sync progress")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get sync progress: {e!s}",
+            detail=f"Failed to retrieve sync progress: {exc}",
         )
 
 

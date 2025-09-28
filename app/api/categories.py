@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi_limiter.depends import RateLimiter
+from app.core.rate_limiting import RateLimiter
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session

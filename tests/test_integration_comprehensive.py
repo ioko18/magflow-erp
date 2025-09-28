@@ -412,7 +412,7 @@ async def test_performance_under_load(db_session):
     execution_time = end_time - start_time
 
     # Should handle moderate load reasonably well
-    assert execution_time < 2.0, f"Queries under load took too long: {execution_time".2f"}s"
+    assert execution_time < 2.0, f"Queries under load took too long: {execution_time:.2f}s"
     assert count >= 20, "User count should be at least the number we created"
 
 

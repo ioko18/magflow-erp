@@ -103,63 +103,83 @@ class EmagApiConfig:
 
 @dataclass
 class EmagRateLimiter:
-    """Rate limiter for eMAG API with different limits per resource type."""
+    """Rate limiter for eMAG API with per-second and per-minute limits."""
 
     orders_rps: int = 12  # 12 requests per second for orders
     other_rps: int = 3  # 3 requests per second for other endpoints
+    orders_rpm: int = 720  # 720 requests per minute for orders
+    other_rpm: int = 180  # 180 requests per minute for other endpoints
     jitter_max: float = 0.1  # Maximum jitter to avoid thundering herd
-    window_seconds: float = 1.0  # Duration of the rate limit window
     sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep  # Injectable sleep function
 
     def __post_init__(self):
-        self._last_request_times: Dict[str, float] = {}
-        self._request_counts: Dict[str, int] = {}
-        self._windows: Dict[str, float] = {}
+        from collections import deque
+
         self._locks: Dict[str, asyncio.Lock] = {}
+        # Track timestamps of previous requests for both 1-second and 60-second windows
+        self._request_windows: Dict[str, Dict[str, "deque[float]"]] = {}
 
     async def acquire(self, resource_type: str = "other"):
-        """Acquire permission to make a request.
+        """Acquire permission to make a request respecting eMAG API limits."""
 
-        Args:
-            resource_type: "orders" or "other"
+        from collections import deque
+        import random
 
-        """
-        rps_limit = self.orders_rps if resource_type == "orders" else self.other_rps
-        window_duration = self.window_seconds
+        per_second_limit = (
+            self.orders_rps if resource_type == "orders" else self.other_rps
+        )
+        per_minute_limit = (
+            self.orders_rpm if resource_type == "orders" else self.other_rpm
+        )
 
-        # Lazily create a lock per resource type to synchronize concurrent callers
         lock = self._locks.setdefault(resource_type, asyncio.Lock())
+        windows = self._request_windows.setdefault(
+            resource_type,
+            {
+                "second": deque(),
+                "minute": deque(),
+            },
+        )
 
+        second_window = windows["second"]
+        minute_window = windows["minute"]
         time_source = time.monotonic
 
         while True:
             async with lock:
                 now = time_source()
 
-                window_start = self._windows.get(resource_type)
-                if window_start is None or now - window_start >= window_duration:
-                    self._windows[resource_type] = now
-                    self._request_counts[resource_type] = 0
-                    window_start = now
+                # Clear expired entries
+                while second_window and now - second_window[0] >= 1.0:
+                    second_window.popleft()
 
-                if self._request_counts[resource_type] < rps_limit:
-                    self._request_counts[resource_type] += 1
-                    self._last_request_times[resource_type] = now
+                while minute_window and now - minute_window[0] >= 60.0:
+                    minute_window.popleft()
+
+                if (
+                    len(second_window) < per_second_limit
+                    and len(minute_window) < per_minute_limit
+                ):
+                    # Approved; register request timestamp using actual acquisition time
+                    second_window.append(now)
+                    minute_window.append(now)
                     return
 
-                wait_time = window_duration - (now - window_start)
-                if wait_time <= 0:
-                    # Window already expired due to scheduling delays; reset and retry
-                    self._windows[resource_type] = now
-                    self._request_counts[resource_type] = 0
-                    continue
+                # Determine time to wait until at least one slot frees up
+                wait_times: List[float] = []
 
-                # Add jitter to avoid thundering herd effects when waiting
-                import random
+                if len(second_window) >= per_second_limit:
+                    wait_times.append(1.0 - (now - second_window[0]))
 
-                sleep_duration = wait_time + random.uniform(0, self.jitter_max)
+                if len(minute_window) >= per_minute_limit:
+                    wait_times.append(60.0 - (now - minute_window[0]))
 
-            await self.sleep_fn(sleep_duration)
+                # Guard against negative waits due to timing drift
+                wait_time = max(0.0, min(wait_times) if wait_times else 0.0)
+
+            # Apply optional jitter when waiting to avoid synchronized bursts
+            jitter = random.uniform(0, self.jitter_max) if self.jitter_max > 0 else 0.0
+            await self.sleep_fn(max(0.001, wait_time) + jitter)
 
 
 @dataclass
@@ -220,7 +240,11 @@ class EmagApiClient:
 
     def __init__(self, config: EmagApiConfig):
         self.config = config
-        self.session: Optional[aiohttp.ClientSession] = None
+        # Provide a minimal dummy session with an async 'request' method for testing.
+        class _DummySession:
+            async def request(self, *args, **kwargs):
+                raise RuntimeError("Session not initialized. Call 'initialize' before making requests.")
+        self.session = _DummySession()  # type: ignore
         self.rate_limiter = EmagRateLimiter(
             orders_rps=config.orders_rate_rps,
             other_rps=config.other_rate_rps,
@@ -229,6 +253,9 @@ class EmagApiClient:
         self.token_expires_at: Optional[datetime] = None
         self._request_count = 0
         self._last_request_time = datetime.now()
+        # The real aiohttp.ClientSession will be created in 'initialize'.
+        # This placeholder ensures that attribute access and patching work in unit tests.
+        # Type hint remains Optional[aiohttp.ClientSession] for compatibility.
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -240,7 +267,7 @@ class EmagApiClient:
         await self.close()
 
     async def initialize(self):
-        """Initialize the API client."""
+        """Initialize the API client, creating a real aiohttp.ClientSession."""
         self.session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=self.config.api_timeout),
         )

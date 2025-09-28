@@ -30,6 +30,24 @@ class MockVatService:
         limit=100,
         force_refresh=False,
     ):
+        should_call_client = force_refresh or cursor is not None
+
+        if should_call_client and hasattr(self.emag_client, "get_paginated"):
+            response = await self.emag_client.get_paginated(
+                endpoint="/api/vat",
+                response_model=MockVatResponse,
+                cursor=cursor,
+                limit=limit,
+                params={
+                    "countryCode": country_code,
+                    "includeInactive": "false",
+                    "limit": limit,
+                },
+                force_refresh=force_refresh,
+            )
+            if isinstance(response, MockVatResponse):
+                return response
+
         return MockVatResponse(
             isError=False,
             messages=[],

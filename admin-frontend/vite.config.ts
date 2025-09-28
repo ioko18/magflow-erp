@@ -9,7 +9,8 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8001',
+        // Align with Docker stack, which exposes FastAPI on port 8000.
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {

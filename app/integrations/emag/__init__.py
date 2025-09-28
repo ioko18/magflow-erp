@@ -10,6 +10,7 @@ __version__ = "0.1.0"
 # from .services.http_client.base import EmagClient
 # Initialize logging
 import logging
+import logging.handlers
 from pathlib import Path
 
 from .config import (
@@ -25,15 +26,31 @@ app_root = Path(__file__).resolve().parents[3]
 log_dir = app_root / "logs"
 log_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
 
-# Set up basic logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(log_dir / "emag_integration.log"),
-    ],
+# Set up logging with rotating file handler
+log_file = log_dir / "emag_integration.log"
+
+# Create a custom formatter
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+# Create handlers
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
+# Use RotatingFileHandler to handle log rotation
+file_handler = logging.handlers.RotatingFileHandler(
+    log_file,
+    maxBytes=10 * 1024 * 1024,  # 10MB
+    backupCount=5,
+    encoding='utf-8',
 )
+file_handler.setFormatter(formatter)
+
+# Configure root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.handlers = []  # Clear any existing handlers
+root_logger.addHandler(console_handler)
+root_logger.addHandler(file_handler)
 
 # Suppress noisy loggers
 logging.getLogger("aiohttp").setLevel(logging.WARNING)

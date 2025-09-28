@@ -73,7 +73,7 @@ class TestRateLimiting:
         for path in EXCLUDED_PATHS:
             mock_request.url.path = path
             assert (
-                should_rate_limit(mock_request) is False
+                should_rate_limit(mock_request, rate_limit_health=False) is False
             ), f"Path {path} should be excluded from rate limiting"
 
     def test_health_endpoints_not_rate_limited(self, test_client):

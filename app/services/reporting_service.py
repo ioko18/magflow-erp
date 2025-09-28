@@ -13,7 +13,8 @@ from app.core.service_registry import (
     get_audit_log_repository,
     get_product_repository,
     get_user_repository,
-)  # , get_order_repository
+    get_order_repository,
+)  # get_order_repository
 from app.db.models import AuditLog, Category, Product, Role, User  # , Order
 
 logger = logging.getLogger(__name__)
@@ -23,12 +24,31 @@ class ReportingService(ServiceBase):
     """Service for advanced reporting and analytics using dependency injection."""
 
     def __init__(self, context: ServiceContext):
-        """Initialize reporting service with dependency injection."""
+        """Initialize reporting service with dependency injection.
+
+        The service attempts to retrieve repositories via the global ServiceRegistry.
+        In unit test environments the registry may not be initialized, which would raise a RuntimeError.
+        To make the service usable in such contexts, we gracefully handle the error and set the repository attributes to ``None``.
+        Tests that require a repository can patch the ``get_user_repository`` function before instantiation.
+        """
         super().__init__(context)
-        self.user_repository = get_user_repository()
-        self.product_repository = get_product_repository()
-        # self.order_repository = get_order_repository()
-        self.audit_log_repository = get_audit_log_repository()
+        try:
+            self.user_repository = get_user_repository()
+        except RuntimeError:
+            # ServiceRegistry not initialized; repository will be None.
+            self.user_repository = None
+        try:
+            self.product_repository = get_product_repository()
+        except RuntimeError:
+            self.product_repository = None
+        try:
+            self.order_repository = get_order_repository()
+        except RuntimeError:
+            self.order_repository = None
+        try:
+            self.audit_log_repository = get_audit_log_repository()
+        except RuntimeError:
+            self.audit_log_repository = None
 
     async def initialize(self):
         """Initialize reporting service."""

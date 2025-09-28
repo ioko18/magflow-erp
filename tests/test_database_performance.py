@@ -176,6 +176,8 @@ class DatabasePerformanceBenchmark:
             for op, time_taken in creation_ops.items():
                 print(f"  {op}: {time_taken:.4f}s")
 
+        # Gather query operation results
+        query_ops = {k: v for k, v in self.results.items() if "query" in k}
         if query_ops:
             print("\nQUERY OPERATIONS:")
             for op, time_taken in query_ops.items():
@@ -190,20 +192,17 @@ class DatabasePerformanceBenchmark:
             print("\nDELETE OPERATIONS:")
             for op, time_taken in delete_ops.items():
                 print(f"  {op}: {time_taken:.4f}s")
-
         # Calculate totals
         total_time = sum(self.results.values())
         avg_time = statistics.mean(self.results.values()) if self.results else 0
         max_time = max(self.results.values()) if self.results else 0
 
-        print("
-SUMMARY STATISTICS:")
-        print(f"  Total execution time: {total_time:.4f}s")
-        print(f"  Average operation time: {avg_time:.4f}s")
-        print(f"  Fastest operation: {min_time:.4f}s")
-        print(f"  Slowest operation: {max_time:.4f}s")
+        print("\nSUMMARY STATISTICS:")
+        print(f"  Total execution time: {total_time:.4f} seconds")
+        print(f"  Average operation time: {avg_time:.4f} seconds")
+        print(f"  Fastest operation: {min(self.results.values()):.4f} seconds")
+        print(f"  Slowest operation: {max_time:.4f} seconds")
         print(f"Database performance results: {len(self.results)} operations tested")
-
         print("="*60)
 
 
@@ -320,7 +319,7 @@ async def test_database_mixed_operations_performance(db_session):
     results = benchmark.get_results()
     total_time = sum(results.values())
 
-    assert total_time < 10.0, f"Mixed operations took too long: {total_time".2f"}s"
+    assert total_time < 10.0, f"Mixed operations took too long: {total_time:.2f}s"
 
 
 # Concurrent performance tests
@@ -343,10 +342,10 @@ async def test_concurrent_user_creation(db_session):
     end_time = time.perf_counter()
 
     execution_time = end_time - start_time
-    print(f"✅ Concurrent user creation ({5} batches of {batch_size}): {execution_time".4f"}s")
+    print(f"✅ Concurrent user creation ({5} batches of {batch_size}): {execution_time:.4f}s")
 
     # Should be reasonably fast
-    assert execution_time < 5.0, f"Concurrent user creation took too long: {execution_time".2f"}s"
+    assert execution_time < 5.0, f"Concurrent user creation took too long: {execution_time:.2f}s"
 
 
 @pytest.mark.asyncio
@@ -366,9 +365,9 @@ async def test_database_connection_pool_performance(db_session):
     end_time = time.perf_counter()
 
     execution_time = end_time - start_time
-    print(f"✅ Concurrent queries ({query_count}): {execution_time".4f"}s")
-    print(f"✅ Average query time: {execution_time/query_count".4f"}s")
+    print(f"✅ Concurrent queries ({query_count}): {execution_time:.4f}s")
+    print(f"✅ Average query time: {execution_time/query_count:.4f}s")
 
     # Should handle concurrent queries efficiently
-    assert execution_time < 3.0, f"Concurrent queries took too long: {execution_time".2f"}s"
+    assert execution_time < 3.0, f"Concurrent queries took too long: {execution_time:.2f}s"
     assert all(count >= 0 for count in results), "Query results should be valid"

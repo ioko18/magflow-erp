@@ -7,6 +7,7 @@ returned by the eMAG API endpoints.
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.core.utils.datetime_utils import get_utc_now
 from pydantic import BaseModel, ConfigDict, Field, confloat, field_serializer, field_validator
 
 
@@ -112,8 +113,8 @@ class VatResponse(BaseModel):
         description="List of VAT rates returned by the API",
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Server timestamp when the response was generated",
+        default_factory=get_utc_now,
+        description="Server timestamp when the response was generated, in UTC timezone",
     )
     next_cursor: Optional[str] = Field(
         None,

@@ -154,7 +154,7 @@ class OfferService:
         response = await self._make_request(
             endpoint=endpoint,
             method="POST",
-            data=offer_data.dict(exclude_none=True),
+            data=offer_data.model_dump(exclude_none=True),
             response_model=ProductOfferListResponse,
         )
 
@@ -176,13 +176,12 @@ class OfferService:
 
         Returns:
             The updated product offer.
-
         Raises:
             EmagAPIError: If the update fails.
 
         """
         endpoint = "product_offer/save"
-        data = {"product_id": product_id, **update_data.dict(exclude_none=True)}
+        data = {"product_id": product_id, **update_data.model_dump(exclude_none=True)}
 
         response = await self._make_request(
             endpoint=endpoint,
@@ -246,7 +245,7 @@ class OfferService:
         }
 
         if filters:
-            params.update(filters.dict(exclude_none=True))
+            params.update(filters.model_dump(exclude_none=True))
 
         return await self._make_request(
             endpoint=endpoint,
@@ -269,12 +268,20 @@ class OfferService:
 
         """
         endpoint = "product_offer/save"
+        payload_offers: List[Dict[str, Any]] = []
+
+        for offer in updates.offers:
+            if hasattr(offer, "dict"):
+                payload = offer.dict(exclude_none=True)
+            else:
+                payload = {k: v for k, v in offer.items() if v is not None}
+
+            payload_offers.append(payload)
+
         return await self._make_request(
             endpoint=endpoint,
             method="POST",
-            data={
-                "offers": [offer.dict(exclude_none=True) for offer in updates.offers],
-            },
+            data={"offers": payload_offers},
             response_model=ProductOfferBulkResponse,
         )
 
