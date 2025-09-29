@@ -27,6 +27,7 @@ from fastapi.responses import JSONResponse
 from app.core.problem import Problem
 from app.middleware.correlation_id import get_correlation_id
 from app.core.config import settings
+
 # Paths that should not be rate limited
 EXCLUDED_PATHS = [
     "/health/live",
@@ -38,13 +39,14 @@ EXCLUDED_PATHS = [
 
 # Named rate limits: name -> (limit, window_seconds)
 RATE_LIMITS: Dict[str, Tuple[int, int]] = {
-    "default": (10, 60),  # 10 requests / 60 seconds
-    "auth": (5, 60),  # 5 requests / 60 seconds
-    "read": (20, 60),  # 20 requests / 60 seconds
-    "health": (5, 60),  # Allow fewer health checks when enabled
+    "default": (100, 60),  # 100 requests / 60 seconds - increased for development
+    "auth": (50, 60),  # 50 requests / 60 seconds - increased for development
+    "read": (200, 60),  # 200 requests / 60 seconds - increased for development
+    "health": (100, 60),  # Allow more health checks
+    "emag": (500, 60),  # 500 requests / 60 seconds for eMAG endpoints - much higher for development
     "admin": (
-        getattr(settings, "RATE_LIMIT_ADMIN_LIMIT", settings.RATE_LIMIT_PER_WINDOW),
-        getattr(settings, "RATE_LIMIT_ADMIN_WINDOW", settings.RATE_LIMIT_WINDOW),
+        getattr(settings, "RATE_LIMIT_ADMIN_LIMIT", 1000),
+        getattr(settings, "RATE_LIMIT_ADMIN_WINDOW", 60),
     ),
 }
 
@@ -53,6 +55,7 @@ PATH_RATE_LIMITS: Dict[str, str] = {
     "/api/v1/auth/": "auth",
     "/api/v1/products": "read",
     "/api/v1/health/": "health",
+    "/api/v1/emag/": "emag",  # Higher rate limit for eMAG endpoints
     # Test-specific paths
     "/api/v1/test/auth": "auth",
     "/api/v1/test/read": "read",
@@ -85,7 +88,9 @@ def should_rate_limit(request: Request, *, rate_limit_health: bool) -> bool:
     return True
 
 
-def _get_counter_key(path: str, window_seconds: int, *, method: str | None = None) -> str:
+def _get_counter_key(
+    path: str, window_seconds: int, *, method: str | None = None
+) -> str:
     """Return the counter key for a given request path within a window.
 
     Including both the resolved rate limit name and the concrete request path
@@ -206,6 +211,7 @@ class RateLimiter:
         """Async callable interface used in code; no-op implementation."""
         await self.acquire()
         return None
+
 
 _default_rate_limiter: RateLimiter | None = None
 

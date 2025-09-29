@@ -93,18 +93,18 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Run pip-audit
-      uses: pypa/gh-action-pip-audit@v1
+      uses: pypa/gh-action-pip-audit@v1.0.8
       with:
         requirements: requirements.txt
-        format: json
-        output: pip-audit-report.json
+        format: sarif
+        output: pip-audit-report.sarif
         fail-on: ${{ env.SECURITY_CRITICAL }}
 
     - name: Upload scan results
       if: always()
       uses: github/codeql-action/upload-sarif@v2
       with:
-        sarif_file: pip-audit-report.json
+        sarif_file: pip-audit-report.sarif
         category: dependency-scan
 
   codeql-analyze:
@@ -166,7 +166,7 @@ jobs:
 
   docker-smoke:
     name: Docker Smoke Test
-    needs: [test, security]
+    needs: [test, deps-audit, codeql-analyze, bandit-scan]
     runs-on: ubuntu-latest
 
     steps:

@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-09-28T09:30:11.579529",
+  "summary": {
+    "total_tests": 1,
+    "avg_test_time": 0.10113382339477539,
+    "avg_setup_time": 0.0,
+    "avg_execution_time": 0.10113382339477539,
+    "total_errors": 0,
+    "slowest_test": [
+      "dummy_test",
+      0.10113382339477539
+    ],
+    "fastest_test": [
+      "dummy_test",
+      0.10113382339477539
+    ],
+    "total_runtime": 0.6102969646453857,
+    "performance_score": 94.94330883026123
+  }
+}

@@ -7,23 +7,26 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api import categories
 from app.api import health as complex_health
 from app.api import products
 from app.api import test_sync
-from app.api import test_admin
 
 from ..auth import router as auth_router
 from .endpoints.auth import users_router as auth_users_router
 from ..routes.catalog import router as catalog_router
 from ..tasks import router as tasks_router
 from .endpoints import (
+    admin,
     cancellations,
     database,
     emag_db_offers,
     emag_integration,
     emag_offers,
     emag_sync,
+    enhanced_emag_sync,
     invoices,
+    orders,
     payment_gateways,
     reporting,
     rma,
@@ -40,6 +43,9 @@ api_router.include_router(complex_health.router, prefix="/health")
 # Products endpoints
 api_router.include_router(products.router, tags=["products"])
 
+# Categories endpoints
+api_router.include_router(categories.router, tags=["categories"])
+
 # Auth endpoints mounted at /auth and user info at /users
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(auth_users_router, prefix="/users", tags=["users"])
@@ -47,8 +53,11 @@ api_router.include_router(auth_users_router, prefix="/users", tags=["users"])
 # eMAG marketplace integration endpoints
 api_router.include_router(emag_integration.router, tags=["emag"])
 
-# Admin dashboard endpoints (test version without auth)
-api_router.include_router(test_admin.router, tags=["admin"])
+# Orders endpoints
+api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
+
+# Admin dashboard endpoints
+api_router.include_router(admin.router)
 
 # Test authentication endpoints
 api_router.include_router(test_auth.router, prefix="/test-auth", tags=["test-auth"])
@@ -64,6 +73,9 @@ api_router.include_router(emag_db_offers.router, prefix="/emag/db", tags=["emag-
 
 # eMAG sync endpoints
 api_router.include_router(emag_sync.router, prefix="/emag/sync", tags=["emag-sync"])
+
+# Enhanced eMAG sync endpoints (v4.4.8)
+api_router.include_router(enhanced_emag_sync.router, prefix="/emag/enhanced", tags=["emag-enhanced"])
 
 # Test sync endpoints (without auth for development)
 api_router.include_router(test_sync.router, prefix="/test/sync", tags=["test-sync"])

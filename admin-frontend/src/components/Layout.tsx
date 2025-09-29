@@ -18,6 +18,7 @@ import {
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useNotifications } from '../contexts/NotificationContext'
+import { useAuth } from '../contexts/AuthContext'
 import NotificationPanel from './NotificationPanel'
 
 const { Header, Sider, Content } = AntLayout
@@ -32,6 +33,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation()
   const { isDarkMode, toggleTheme } = useTheme()
   const { unreadCount } = useNotifications()
+  const { logout } = useAuth()
+
+  const handleUserMenuClick = ({ key }: { key: string }) => {
+    if (key === 'logout') {
+      logout()
+    }
+  }
 
   const menuItems = [
     {
@@ -170,7 +178,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               />
             </Tooltip>
 
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight">
               <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Avatar icon={<UserOutlined />} />
                 <span style={{ fontWeight: 500 }}>Admin User</span>

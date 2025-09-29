@@ -12,7 +12,8 @@ from sqlalchemy import and_, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependency_injection import DatabaseService, DatabaseServiceError
-from app.db.models import AuditLog, Base, Order, Product, User
+from app.db.models import AuditLog, Base, Product, User
+from app.models.order import Order
 
 # Type variables for generic repositories
 ModelType = TypeVar("ModelType", bound=Base)
@@ -363,6 +364,84 @@ class OrderRepository(RepositoryBase[Order]):
 
     def __init__(self, db_service: DatabaseService):
         super().__init__(Order, db_service)
+
+    async def get_by_external_id(
+        self,
+        external_id: str,
+        external_source: str,
+    ) -> Optional[Order]:
+        """Get order by external identifier and source."""
+
+        try:
+            session = await self.get_session()
+            stmt = select(Order).where(
+                Order.external_id == external_id,
+                Order.external_source == external_source,
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+        except Exception as e:
+            self.logger.error(
+                "Failed to get order by external_id=%s source=%s: %s",
+                external_id,
+                external_source,
+                e,
+            )
+            raise DatabaseServiceError("Failed to retrieve order by external ID")
+
+    async def upsert_by_external_id(
+        self,
+        external_id: str,
+        external_source: str,
+        create_data: Dict[str, Any],
+        update_data: Optional[Dict[str, Any]] = None,
+    ) -> Order:
+        """Create or update an order identified by external ID."""
+
+        update_payload = update_data or {}
+        update_payload.setdefault("external_id", external_id)
+        update_payload.setdefault("external_source", external_source)
+
+        try:
+            session = await self.get_session()
+            stmt = (
+                select(Order)
+                .where(
+                    Order.external_id == external_id,
+                    Order.external_source == external_source,
+                )
+                .with_for_update()
+            )
+            result = await session.execute(stmt)
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                await session.execute(
+                    update(Order)
+                    .where(Order.id == existing.id)
+                    .values(**update_payload)
+                )
+                await session.commit()
+                await session.refresh(existing)
+                return existing
+
+            create_payload = dict(create_data)
+            create_payload["external_id"] = external_id
+            create_payload["external_source"] = external_source
+            stmt_insert = insert(Order).values(**create_payload).returning(Order)
+            inserted = await session.execute(stmt_insert)
+            await session.commit()
+            return inserted.scalar_one()
+
+        except Exception as e:
+            await session.rollback()
+            self.logger.error(
+                "Failed to upsert order external_id=%s source=%s: %s",
+                external_id,
+                external_source,
+                e,
+            )
+            raise DatabaseServiceError("Failed to upsert order by external ID")
 
     async def get_by_customer_id(
         self,

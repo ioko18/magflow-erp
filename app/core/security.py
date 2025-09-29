@@ -4,15 +4,22 @@ import re
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
+from uuid import uuid4
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import ValidationError
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.core.config import settings
 from app.schemas.auth import TokenPayload
+from app.models.user import User as UserModel
+from app.db.session import get_db
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -42,21 +49,26 @@ def create_access_token(
         Encoded JWT token
 
     """
-    if expires_delta:
-        expire = datetime.now(tz=timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(tz=timezone.utc) + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
-        )
+    now = datetime.now(tz=timezone.utc)
+    expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
 
     to_encode = {
-        "exp": expire,
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "exp": int(expire.timestamp()),
         "sub": str(subject),
-        "iat": datetime.now(tz=timezone.utc),
+        "iat": int(now.timestamp()),
+        "nbf": int(now.timestamp()),
+        "jti": uuid4().hex,
         "type": "access",
+        "scopes": [],
     }
 
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(
+        to_encode,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
 
 
 def create_refresh_token(
@@ -73,21 +85,24 @@ def create_refresh_token(
         Encoded JWT refresh token
 
     """
-    if expires_delta:
-        expire = datetime.now(tz=timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(tz=timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    now = datetime.now(tz=timezone.utc)
+    expire = now + (expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
 
     to_encode = {
-        "exp": expire,
+        "iss": settings.JWT_ISSUER,
+        "aud": settings.JWT_AUDIENCE,
+        "exp": int(expire.timestamp()),
         "sub": str(subject),
-        "iat": datetime.now(tz=timezone.utc),
+        "iat": int(now.timestamp()),
+        "nbf": int(now.timestamp()),
+        "jti": uuid4().hex,
         "type": "refresh",
+        "scopes": [],
     }
 
     return jwt.encode(
         to_encode,
-        settings.REFRESH_SECRET_KEY,
+        settings.refresh_secret_key,
         algorithm=settings.JWT_ALGORITHM,
     )
 
@@ -107,15 +122,15 @@ def verify_token(token: str, *, is_refresh: bool = False) -> TokenPayload:
 
     """
     if is_refresh:
-        secret_key = settings.REFRESH_SECRET_KEY
+        secret_key = settings.refresh_secret_key
     else:
-        secret_key = settings.SECRET_KEY
+        secret_key = settings.JWT_SECRET_KEY
 
     try:
         payload = jwt.decode(
             token,
             secret_key,
-            algorithms=[settings.ALGORITHM],
+            algorithms=[settings.JWT_ALGORITHM],
             options={"verify_aud": False},
         )
         token_data = TokenPayload(**payload)
@@ -234,8 +249,8 @@ def decode_token(token: str) -> dict:
         # First try to decode as access token
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
             options={"verify_aud": False, "verify_exp": False},
         )
 
@@ -243,8 +258,8 @@ def decode_token(token: str) -> dict:
         if payload.get("type") == "refresh":
             payload = jwt.decode(
                 token,
-                settings.REFRESH_SECRET_KEY,
-                algorithms=[settings.ALGORITHM],
+                settings.refresh_secret_key,
+                algorithms=[settings.JWT_ALGORITHM],
                 options={"verify_aud": False, "verify_exp": False},
             )
 
@@ -255,8 +270,8 @@ def decode_token(token: str) -> dict:
         try:
             return jwt.decode(
                 token,
-                settings.REFRESH_SECRET_KEY,
-                algorithms=[settings.ALGORITHM],
+                settings.refresh_secret_key,
+                algorithms=[settings.JWT_ALGORITHM],
                 options={"verify_aud": False, "verify_exp": False},
             )
         except JWTError:
@@ -264,8 +279,62 @@ def decode_token(token: str) -> dict:
             raise
 
 
+# OAuth2 scheme for token authentication
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+
 # Security validation utilities
 logger = logging.getLogger(__name__)
+
+
+async def get_current_user(
+    db: AsyncSession = Depends(get_db), token: str = Depends(oauth2_scheme)
+) -> UserModel:
+    """
+    Get the current user from the JWT token.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"verify_aud": False},
+        )
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenPayload(username=username)
+    except JWTError:
+        raise credentials_exception
+
+    # Get user from database
+    result = await db.execute(
+        select(UserModel).where(UserModel.email == token_data.username)
+    )
+    user = result.scalars().first()
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+
+def get_current_active_user(
+    current_user: UserModel = Depends(get_current_user),
+) -> UserModel:
+    """
+    Get the current active user.
+
+    Raises:
+        HTTPException: If the user is inactive
+    """
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
 
 
 class SecurityValidator:
@@ -292,7 +361,30 @@ class SecurityValidator:
             )
             return False
 
-        # Basic SQL injection patterns
+        # Check for parameterized queries first (these are safe)
+        if re.search(r"\?|\$\d+|:\w+", input_string):
+            # This appears to be a parameterized query, check for actual injection patterns
+            dangerous_patterns = [
+                r"(\bor\s+1\s*=\s*1|\band\s+1\s*=\s*1)",
+                r"(\bunion\s+select|\bunion\s+all\s+select)",
+                r"(\-\-[^\?]|\#[^\?]|\/\*[^\?]|\*\/[^\?])",  # Comments not in parameters
+                r"(\bEXEC\b|\bEXECUTE\b|\bxp_|\bsp_)",
+                r"(\bdrop\s+table|\bdrop\s+database|\btruncate\s+table)",
+                r"(\bSCRIPT\b|\bJAVASCRIPT\b|\bVBSCRIPT\b)",
+                r"(\bALERT\b|\bCONFIRM\b|\bPROMPT\b)",
+            ]
+
+            for pattern in dangerous_patterns:
+                if re.search(pattern, input_string, re.IGNORECASE):
+                    logger.warning(
+                        f"Potential security threat detected in parameterized query: {input_string[:100]}..."
+                    )
+                    return False
+
+            # Parameterized query with no dangerous patterns is safe
+            return True
+
+        # Non-parameterized queries - check for SQL keywords and injection patterns
         sql_patterns = [
             r"(\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bUNION\b)",
             r"(\bEXEC\b|\bEXECUTE\b|\bCAST\b|\bDECLARE\b)",
@@ -313,47 +405,96 @@ class SecurityValidator:
 
     @staticmethod
     def validate_sql_injection_risk(input_string: str, max_length: int = 1000) -> bool:
-        """Alias for validate_sql_injection to maintain backward compatibility.
-        """
+        """Alias for validate_sql_injection to maintain backward compatibility."""
         return SecurityValidator.validate_sql_injection(input_string, max_length)
 
     @staticmethod
-    def validate_password_strength(password: str) -> bool:
+    def validate_password_strength(password: str) -> Dict[str, Any]:
         """Validate password strength.
 
         Checks for minimum length and inclusion of uppercase, lowercase, digits, and special characters.
-        Returns True if the password meets the criteria, False otherwise.
+        Returns a dictionary with score and feedback.
         """
         if not isinstance(password, str):
-            return False
-        if len(password) < 8:
-            return False
-        if not re.search(r"[A-Z]", password):
-            return False
-        if not re.search(r"[a-z]", password):
-            return False
-        if not re.search(r"[0-9]", password):
-            return False
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-            return False
-        return True
+            return {"score": 0, "feedback": "Password must be a string", "valid": False}
+
+        score = 0
+        feedback = []
+
+        if len(password) >= 8:
+            score += 1
+        else:
+            feedback.append("Password must be at least 8 characters long")
+
+        if re.search(r"[A-Z]", password):
+            score += 1
+        else:
+            feedback.append("Password must contain at least one uppercase letter")
+
+        if re.search(r"[a-z]", password):
+            score += 1
+        else:
+            feedback.append("Password must contain at least one lowercase letter")
+
+        if re.search(r"[0-9]", password):
+            score += 1
+        else:
+            feedback.append("Password must contain at least one digit")
+
+        if re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+            score += 1
+        else:
+            feedback.append("Password must contain at least one special character")
+
+        return {"score": score, "feedback": feedback, "valid": score >= 4}
 
     @staticmethod
-    def sanitize_html(html: str, max_length: int = 1000) -> str:
+    def sanitize_html(
+        html: str, allowed_tags: Optional[List[str]] = None, max_length: int = 1000
+    ) -> str:
         """Basic HTML sanitization.
 
         Strips potentially dangerous tags and attributes. For simplicity, this implementation
         removes script/style tags and any event-handler attributes.
+
+        Args:
+            html: The HTML string to sanitize
+            allowed_tags: List of allowed HTML tags (optional)
+            max_length: Maximum length of the cleaned HTML
         """
         if not isinstance(html, str):
             return ""
+
         # Remove script and style tags
-        cleaned = re.sub(r"<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        cleaned = re.sub(
+            r"<\s*(script|style)[^>]*>.*?<\s*/\s*\1\s*>",
+            "",
+            html,
+            flags=re.DOTALL | re.IGNORECASE,
+        )
+
         # Remove on* event attributes
-        cleaned = re.sub(r"\s+on\w+\s*=\s*['\"]?[^'\"]+['\"]?", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(
+            r"\s+on\w+\s*=\s*['\"]?[^'\"]+['\"]?", "", cleaned, flags=re.IGNORECASE
+        )
+
+        # If allowed_tags is specified, remove all other tags
+        if allowed_tags is not None:
+            # Create pattern to match all tags except allowed ones
+            allowed_pattern = "|".join(re.escape(tag) for tag in allowed_tags)
+            if allowed_pattern:
+                # Remove tags that are not in the allowed list
+                cleaned = re.sub(
+                    rf"<(?!/?(?:{allowed_pattern})\b)[^>]*>",
+                    "",
+                    cleaned,
+                    flags=re.IGNORECASE,
+                )
+
         # Optionally truncate
         if len(cleaned) > max_length:
             cleaned = cleaned[:max_length]
+
         return cleaned
 
     @staticmethod

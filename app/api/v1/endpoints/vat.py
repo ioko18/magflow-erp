@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api import deps
+from app.api import dependencies
 from app.integrations.emag.client import EmagAPIClient
 from app.integrations.emag.models.responses.vat import VatRate, VatResponse
 
@@ -38,7 +38,7 @@ async def get_vat_rates(
         max_length=2,
         description="Optional ISO 3166-1 alpha-2 country code filter.",
     ),
-    current_user=Depends(deps.get_current_user),
+    current_user=Depends(dependencies.get_current_user),
 ) -> VatResponse:
     """Fetch VAT rates from the eMAG API with optional pagination."""
     params: dict[str, str] = {"details": details}
@@ -74,7 +74,7 @@ async def get_default_vat_rate(
         max_length=2,
         description="Optional ISO 3166-1 alpha-2 country code filter.",
     ),
-    current_user=Depends(deps.get_current_user),
+    current_user=Depends(dependencies.get_current_user),
 ) -> VatRate:
     """Fetch the default VAT rate from the eMAG API."""
     params: dict[str, str] = {"isDefault": "true"}

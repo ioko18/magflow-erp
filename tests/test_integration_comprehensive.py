@@ -12,8 +12,14 @@ from httpx import AsyncClient
 
 from app.main import app
 from tests.test_data_factory import (
-    create_test_user_data, create_test_product_data, create_test_category_data,
-    UserFactory, ProductFactory, CategoryFactory, RoleFactory, PermissionFactory
+    create_test_user_data,
+    create_test_product_data,
+    create_test_category_data,
+    UserFactory,
+    ProductFactory,
+    CategoryFactory,
+    RoleFactory,
+    PermissionFactory,
 )
 
 
@@ -29,6 +35,7 @@ async def test_user_authentication_integration(db_session):
 
     # Test password hashing
     from app.core.security import verify_password, get_password_hash
+
     hashed_password = get_password_hash("test_password123")
     assert verify_password("test_password123", hashed_password)
 
@@ -83,7 +90,9 @@ async def test_product_category_relationship_integration(db_session):
 async def test_user_role_permission_integration(db_session):
     """Test user-role-permission integration."""
     # Create permission
-    permission = PermissionFactory(name="read_products", resource="products", action="read")
+    permission = PermissionFactory(
+        name="read_products", resource="products", action="read"
+    )
     db_session.add(permission)
 
     # Create role with permission
@@ -128,7 +137,7 @@ async def test_audit_logging_integration(db_session):
         resource="test_resource",
         resource_id="test:123",
         details={"test": True},
-        success=True
+        success=True,
     )
     db_session.add(audit_log)
     await db_session.commit()
@@ -142,8 +151,7 @@ async def test_audit_logging_integration(db_session):
 
     # Query audit logs
     result = await db_session.execute(
-        "SELECT COUNT(*) FROM audit_logs WHERE user_id = :user_id",
-        {"user_id": user.id}
+        "SELECT COUNT(*) FROM audit_logs WHERE user_id = :user_id", {"user_id": user.id}
     )
     count = result.scalar()
     assert count == 1
@@ -170,8 +178,7 @@ async def test_database_transaction_isolation(db_session):
 
     # Test user retrieval
     result = await db_session.execute(
-        "SELECT email FROM users WHERE email = :email",
-        {"email": "user1@example.com"}
+        "SELECT email FROM users WHERE email = :email", {"email": "user1@example.com"}
     )
     db_user1 = result.fetchone()
     assert db_user1 is not None
@@ -203,8 +210,7 @@ async def test_cascade_operations_integration(db_session):
 
     # Role should still exist
     result = await db_session.execute(
-        "SELECT COUNT(*) FROM roles WHERE id = :role_id",
-        {"role_id": role.id}
+        "SELECT COUNT(*) FROM roles WHERE id = :role_id", {"role_id": role.id}
     )
     role_count = result.scalar()
     assert role_count == 1
@@ -218,7 +224,7 @@ async def test_json_field_operations_integration(db_session):
     characteristics = {
         "color": ["red", "blue"],
         "size": ["S", "M", "L"],
-        "features": ["waterproof", "durable"]
+        "features": ["waterproof", "durable"],
     }
 
     product = ProductFactory()
@@ -230,7 +236,7 @@ async def test_json_field_operations_integration(db_session):
     # Retrieve and verify JSON data
     result = await db_session.execute(
         "SELECT characteristics FROM products WHERE id = :product_id",
-        {"product_id": product.id}
+        {"product_id": product.id},
     )
     stored_data = result.scalar()
 
@@ -309,8 +315,7 @@ async def test_service_layer_integration(db_session):
 
     # Verify update
     result = await db_session.execute(
-        "SELECT price FROM products WHERE id = :product_id",
-        {"product_id": product.id}
+        "SELECT price FROM products WHERE id = :product_id", {"product_id": product.id}
     )
     updated_price = result.scalar()
     assert updated_price == 199.99
@@ -361,13 +366,16 @@ async def test_data_consistency_integration(db_session):
     await db_session.commit()
 
     # Verify consistency
-    result = await db_session.execute("""
+    result = await db_session.execute(
+        """
         SELECT p.name, c.name as category_name
         FROM products p
         JOIN product_categories pc ON p.id = pc.product_id
         JOIN categories c ON pc.category_id = c.id
         WHERE p.id = :product_id
-    """, {"product_id": product.id})
+    """,
+        {"product_id": product.id},
+    )
 
     rows = result.fetchall()
     assert len(rows) == 1
@@ -401,18 +409,22 @@ async def test_performance_under_load(db_session):
 
     # Run several complex queries
     for _ in range(10):
-        result = await db_session.execute("""
+        result = await db_session.execute(
+            """
             SELECT COUNT(*) FROM users u
             LEFT JOIN user_roles ur ON u.id = ur.user_id
             LEFT JOIN roles r ON ur.role_id = r.id
-        """)
+        """
+        )
         count = result.scalar()
 
     end_time = time.perf_counter()
     execution_time = end_time - start_time
 
     # Should handle moderate load reasonably well
-    assert execution_time < 2.0, f"Queries under load took too long: {execution_time:.2f}s"
+    assert (
+        execution_time < 2.0
+    ), f"Queries under load took too long: {execution_time:.2f}s"
     assert count >= 20, "User count should be at least the number we created"
 
 
@@ -421,7 +433,9 @@ async def test_performance_under_load(db_session):
 async def test_memory_usage_integration(db_session):
     """Test memory usage patterns in integrated operations."""
     # This is a basic test - in real scenarios you'd use memory profiling
-    initial_object_count = len(db_session.new) + len(db_session.dirty) + len(db_session.deleted)
+    initial_object_count = (
+        len(db_session.new) + len(db_session.dirty) + len(db_session.deleted)
+    )
 
     # Create some objects
     for _ in range(10):
@@ -433,11 +447,17 @@ async def test_memory_usage_integration(db_session):
     # Commit changes
     await db_session.commit()
 
-    after_commit_count = len(db_session.new) + len(db_session.dirty) + len(db_session.deleted)
+    after_commit_count = (
+        len(db_session.new) + len(db_session.dirty) + len(db_session.deleted)
+    )
 
     # Memory should be managed properly
-    assert after_commit_count < after_creation_count, "Session should be cleaner after commit"
-    assert after_commit_count <= initial_object_count + 1, "Should not have excessive objects in session"
+    assert (
+        after_commit_count < after_creation_count
+    ), "Session should be cleaner after commit"
+    assert (
+        after_commit_count <= initial_object_count + 1
+    ), "Should not have excessive objects in session"
 
 
 @pytest.mark.asyncio
@@ -467,15 +487,14 @@ async def test_cross_service_data_flow(db_session):
 
     # Verify cross-component relationships
     user_result = await db_session.execute(
-        "SELECT COUNT(*) FROM user_roles WHERE user_id = :user_id",
-        {"user_id": user.id}
+        "SELECT COUNT(*) FROM user_roles WHERE user_id = :user_id", {"user_id": user.id}
     )
     user_role_count = user_result.scalar()
     assert user_role_count == 1
 
     product_result = await db_session.execute(
         "SELECT COUNT(*) FROM product_categories WHERE product_id = :product_id",
-        {"product_id": product.id}
+        {"product_id": product.id},
     )
     product_category_count = product_result.scalar()
     assert product_category_count == 1

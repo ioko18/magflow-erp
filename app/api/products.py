@@ -13,20 +13,20 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from ..models.product import Product
 from ..services.redis import CacheManager
 from ..core.config import settings
 from ..db import get_db
 from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse
-from ..models.product import Product as ProductModel
-
-# Set up logging
+from ..security.jwt import get_current_active_user
+from ..schemas.auth import UserInDB
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/products", tags=["products"])
 
 # Rate limit configuration
 rate_limit = RateLimiter(
-    times=int(settings.RATE_LIMIT_DEFAULT.split('/')[0]),
+    times=int(settings.RATE_LIMIT_DEFAULT.split("/")[0]),
     seconds=60,  # Default to 1 minute window
 )
 
@@ -54,6 +54,8 @@ def decode_cursor(cursor: str) -> Dict[str, Any]:
         }
     except (json.JSONDecodeError, UnicodeDecodeError, KeyError, ValueError):
         raise HTTPException(status_code=400, detail="Invalid cursor format")
+
+
 def _normalize_categories(raw: Any) -> List[Dict[str, Any]]:
     if not raw:
         return []
@@ -76,9 +78,9 @@ def _normalize_categories(raw: Any) -> List[Dict[str, Any]]:
 async def get_product_with_categories(db: AsyncSession, product_id: int):
     """Get product with associated categories"""
     result = await db.execute(
-        select(ProductModel)
-        .options(selectinload(ProductModel.categories))
-        .where(ProductModel.id == product_id)
+        select(Product)
+        .options(selectinload(Product.categories))
+        .where(Product.id == product_id)
     )
     product = result.scalar_one_or_none()
     if product is None:
@@ -93,7 +95,9 @@ async def get_product_with_categories(db: AsyncSession, product_id: int):
         "id": product.id,
         "name": product.name,
         "sku": product.sku,
-        "base_price": float(product.base_price) if product.base_price is not None else None,
+        "base_price": (
+            float(product.base_price) if product.base_price is not None else None
+        ),
         "description": product.description,
         "is_active": product.is_active,
         "currency": getattr(product, "currency", None),
@@ -250,6 +254,7 @@ async def get_products_with_cursor(
 @router.get("/", response_model=CursorPagination)
 async def list_products(
     request: Request,
+    current_user: UserInDB = Depends(get_current_active_user),
     limit: int = Query(
         10,
         ge=1,
@@ -258,7 +263,9 @@ async def list_products(
     ),
     after: Optional[str] = Query(None, description="Cursor for forward pagination"),
     before: Optional[str] = Query(None, description="Cursor for backward pagination"),
-    search_query: Optional[str] = Query(None, description="Search term for product name"),
+    search_query: Optional[str] = Query(
+        None, description="Search term for product name"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """List products with cursor-based pagination.
@@ -279,7 +286,7 @@ async def list_products(
             count_params = {"search_pattern": f"%{search_query}%"}
         else:
             count_params = {}
-            
+
         count_result = await db.execute(text(count_query), count_params)
         total = count_result.scalar()
 
@@ -289,7 +296,7 @@ async def list_products(
             "next_cursor": next_cursor,
             "prev_cursor": prev_cursor,
             "has_more": has_more,
-            "total": total
+            "total": total,
         }
 
         return response
@@ -308,6 +315,7 @@ async def list_products(
 async def get_product(
     request: Request,
     product_id: int,
+    current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     # Apply rate limiting
@@ -339,12 +347,11 @@ async def get_product(
     return response
 
 
-
-
 @router.post("/", response_model=ProductResponse, status_code=201)
 async def create_product(
     request: Request,
     product: ProductCreate,
+    current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new product."""
@@ -356,12 +363,21 @@ async def create_product(
         raise
 
     # Check for duplicate name
-    existing = await db.execute(text("SELECT id FROM app.products WHERE name = :name"), {"name": product.name})
+    existing = await db.execute(
+        text("SELECT id FROM app.products WHERE name = :name"), {"name": product.name}
+    )
     if existing.fetchone():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A product with this name already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A product with this name already exists",
+        )
 
     # Prepare product data
-    price_value = product.base_price if getattr(product, "base_price", None) is not None else getattr(product, "price", None)
+    price_value = (
+        product.base_price
+        if getattr(product, "base_price", None) is not None
+        else getattr(product, "price", None)
+    )
     if price_value is None:
         price_value = 0.0
 
@@ -394,13 +410,20 @@ async def create_product(
     )
     result = result.mappings().first()
     if not result:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve inserted product data")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve inserted product data",
+        )
     result_dict = dict(result)
     # Convert Decimal/base_price to float for JSON serialization
     if "base_price" in result_dict and result_dict["base_price"] is not None:
         result_dict["base_price"] = float(result_dict["base_price"])
     # Handle categories if any
-    category_ids = getattr(product, "category_ids", None) or getattr(product, "categories", None) or []
+    category_ids = (
+        getattr(product, "category_ids", None)
+        or getattr(product, "categories", None)
+        or []
+    )
     logger.info(f"Processing categories for product: {category_ids}")
     if category_ids:
         categories_result = await db.execute(
@@ -410,7 +433,8 @@ async def create_product(
         categories = categories_result.fetchall()
         if categories:
             category_associations = [
-                {"product_id": result_dict["id"], "category_id": cat.id} for cat in categories
+                {"product_id": result_dict["id"], "category_id": cat.id}
+                for cat in categories
             ]
             await db.execute(
                 text(
@@ -421,7 +445,9 @@ async def create_product(
                 ),
                 category_associations,
             )
-            result_dict["categories"] = [{"id": cat.id, "name": cat.name} for cat in categories]
+            result_dict["categories"] = [
+                {"id": cat.id, "name": cat.name} for cat in categories
+            ]
     await db.commit()
     await CacheManager.invalidate_prefix("products:list")
     detail_cache_key = f"products:detail:{result_dict['id']}"
@@ -429,15 +455,22 @@ async def create_product(
 
     product_detail = await get_product_with_categories(db, result_dict["id"])
     if not product_detail:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve product")
-    logger.debug("Create product response payload", extra={"product_detail": product_detail})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve product",
+        )
+    logger.debug(
+        "Create product response payload", extra={"product_detail": product_detail}
+    )
     return ProductResponse(**product_detail)
+
 
 @router.put("/{product_id}", response_model=ProductResponse)
 async def update_product(
     request: Request,
     product_id: int,
     product: ProductUpdate,
+    current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Update an existing product."""
@@ -449,9 +482,13 @@ async def update_product(
         raise
 
     # Fetch existing product
-    existing = await db.execute(text("SELECT id FROM app.products WHERE id = :id"), {"id": product_id})
+    existing = await db.execute(
+        text("SELECT id FROM app.products WHERE id = :id"), {"id": product_id}
+    )
     if not existing.fetchone():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
 
     # Prepare update data
     update_data: Dict[str, Any] = {}
@@ -459,7 +496,11 @@ async def update_product(
         update_data["name"] = product.name
     if getattr(product, "sku", None) is not None:
         update_data["sku"] = product.sku
-    price_value = product.base_price if getattr(product, "base_price", None) is not None else getattr(product, "price", None)
+    price_value = (
+        product.base_price
+        if getattr(product, "base_price", None) is not None
+        else getattr(product, "price", None)
+    )
     if price_value is not None:
         update_data["base_price"] = price_value
     if getattr(product, "description", None) is not None:
@@ -470,7 +511,9 @@ async def update_product(
         update_data["currency"] = product.currency
 
     if not update_data:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
+        )
 
     set_clause = ", ".join([f"{key} = :{key}" for key in update_data.keys()])
     sql = f"""
@@ -480,15 +523,23 @@ async def update_product(
     result = await db.execute(text(sql), params)
     updated = result.mappings().first()
     if not updated:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update product")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update product",
+        )
     await db.commit()
     await CacheManager.invalidate_prefix("products:list")
     await CacheManager.delete(f"products:detail:{product_id}")
 
     product_detail = await get_product_with_categories(db, product_id)
     if not product_detail:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load updated product")
-    logger.debug("Update product response payload", extra={"product_detail": product_detail})
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load updated product",
+        )
+    logger.debug(
+        "Update product response payload", extra={"product_detail": product_detail}
+    )
     return ProductResponse(**product_detail)
 
 
@@ -496,6 +547,7 @@ async def update_product(
 async def delete_product(
     request: Request,
     product_id: int,
+    current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete an existing product."""
@@ -508,7 +560,9 @@ async def delete_product(
     exists_query = text("SELECT id FROM app.products WHERE id = :id")
     existing = await db.execute(exists_query, {"id": product_id})
     if not existing.fetchone():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+        )
 
     await db.execute(
         text("DELETE FROM app.product_categories WHERE product_id = :product_id"),

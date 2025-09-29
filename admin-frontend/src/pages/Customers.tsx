@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Typography, Space, Button, message, Statistic, Select } from 'antd';
+import { 
+  Card, Table, Tag, Typography, Space, Button, message, Statistic, Select,
+  Row, Col, Badge, Divider
+} from 'antd';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
-import { ReloadOutlined, TeamOutlined, TrophyOutlined, DownloadOutlined } from '@ant-design/icons';
+import { 
+  ReloadOutlined, TeamOutlined, DownloadOutlined,
+  UserOutlined, ShoppingOutlined, CalendarOutlined, DollarOutlined,
+  CrownOutlined, StarOutlined, HeartOutlined, DatabaseOutlined
+} from '@ant-design/icons';
 import api from '../services/api';
 
 type CustomerTier = 'bronze' | 'silver' | 'gold';
@@ -22,12 +29,49 @@ interface CustomerRecord {
   lastOrderAt: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  // eMAG specific fields
+  emagCustomerId?: string;
+  emagOrdersCount?: number;
+  emagTotalSpent?: number;
+  preferredChannel?: 'main' | 'fbe' | 'mixed';
+  averageOrderValue?: number;
+  lastEmagOrderAt?: string | null;
+  loyaltyScore?: number;
+  riskLevel?: 'low' | 'medium' | 'high';
+  address?: {
+    street?: string;
+    city?: string;
+    county?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  preferences?: {
+    deliveryMethod?: string;
+    paymentMethod?: string;
+    communicationChannel?: string;
+  };
 }
 
 interface CustomerStats {
   totalActive: number;
   totalInactive: number;
   totalSpent: number;
+  emagCustomers: {
+    total: number;
+    active: number;
+    vip: number;
+    newThisMonth: number;
+  };
+  channelDistribution: {
+    main: number;
+    fbe: number;
+    mixed: number;
+  };
+  loyaltyDistribution: {
+    bronze: number;
+    silver: number;
+    gold: number;
+  };
 }
 
 const { Title, Text } = Typography;
@@ -42,6 +86,22 @@ const defaultStats: CustomerStats = {
   totalActive: 0,
   totalInactive: 0,
   totalSpent: 0,
+  emagCustomers: {
+    total: 0,
+    active: 0,
+    vip: 0,
+    newThisMonth: 0,
+  },
+  channelDistribution: {
+    main: 0,
+    fbe: 0,
+    mixed: 0,
+  },
+  loyaltyDistribution: {
+    bronze: 0,
+    silver: 0,
+    gold: 0,
+  },
 };
 
 const tierColorMap: Record<CustomerTier, string> = {
@@ -152,6 +212,22 @@ export default function CustomersPage() {
             totalActive: summaryData.total_active ?? summaryData.totalActive ?? 0,
             totalInactive: summaryData.total_inactive ?? summaryData.totalInactive ?? 0,
             totalSpent: parseNumber(summaryData.total_spent ?? summaryData.totalSpent ?? 0),
+            emagCustomers: summaryData.emag_customers ?? {
+              total: 0,
+              active: 0,
+              vip: 0,
+              newThisMonth: 0,
+            },
+            channelDistribution: summaryData.channel_distribution ?? {
+              main: 0,
+              fbe: 0,
+              mixed: 0,
+            },
+            loyaltyDistribution: summaryData.loyalty_distribution ?? {
+              bronze: 0,
+              silver: 0,
+              gold: 0,
+            },
           });
 
           if (showFeedback) {
@@ -389,13 +465,21 @@ export default function CustomersPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <Title level={2} style={{ marginBottom: 0 }}>
-              Clienți eMAG
+              <Space>
+                <TeamOutlined style={{ color: '#1890ff' }} />
+                Clienți eMAG
+              </Space>
             </Title>
             <Text type="secondary">
-              Monitorizează clienții și nivelul lor de fidelitate pentru marketplace.
+              Gestionare avansată clienți eMAG cu analiză comportamentală și segmentare
             </Text>
           </div>
           <Space>
+            <Badge
+              count={stats.emagCustomers.vip}
+              style={{ backgroundColor: '#faad14' }}
+              title="Clienți VIP"
+            />
             <Button icon={<DownloadOutlined />} onClick={handleExportCsv} disabled={loading || customers.length === 0}>
               Exportă CSV
             </Button>
@@ -405,7 +489,107 @@ export default function CustomersPage() {
           </Space>
         </div>
 
+        {/* Enhanced eMAG Customer Analytics Dashboard */}
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Total Clienți eMAG"
+                value={stats.emagCustomers.total}
+                prefix={<DatabaseOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Clienți Activi"
+                value={stats.emagCustomers.active}
+                prefix={<UserOutlined />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Clienți VIP"
+                value={stats.emagCustomers.vip}
+                prefix={<CrownOutlined />}
+                valueStyle={{ color: '#faad14' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card size="small">
+              <Statistic
+                title="Noi Luna Aceasta"
+                value={stats.emagCustomers.newThisMonth}
+                prefix={<CalendarOutlined />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Customer Segmentation and Channel Analysis */}
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={8}>
+            <Card size="small" title={<><StarOutlined /> Distribuție Loialitate</>}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Bronze:</span>
+                  <Badge count={stats.loyaltyDistribution.bronze} style={{ backgroundColor: '#d4380d' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Silver:</span>
+                  <Badge count={stats.loyaltyDistribution.silver} style={{ backgroundColor: '#722ed1' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Gold:</span>
+                  <Badge count={stats.loyaltyDistribution.gold} style={{ backgroundColor: '#faad14' }} />
+                </div>
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card size="small" title={<><ShoppingOutlined /> Canale Preferate</>}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>eMAG MAIN:</span>
+                  <Badge count={stats.channelDistribution.main} style={{ backgroundColor: '#1890ff' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>eMAG FBE:</span>
+                  <Badge count={stats.channelDistribution.fbe} style={{ backgroundColor: '#52c41a' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Mixt:</span>
+                  <Badge count={stats.channelDistribution.mixed} style={{ backgroundColor: '#fa8c16' }} />
+                </div>
+              </Space>
+            </Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card size="small" title={<><HeartOutlined /> Valoare Cumulată</>}>
+              <Statistic
+                value={stats.totalSpent}
+                precision={2}
+                suffix="RON"
+                prefix={<DollarOutlined />}
+                valueStyle={{ color: '#52c41a', fontSize: '20px' }}
+              />
+              <Divider style={{ margin: '12px 0' }} />
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                Valoare medie per client: {stats.emagCustomers.total > 0 ? (stats.totalSpent / stats.emagCustomers.total).toFixed(2) : '0.00'} RON
+              </div>
+            </Card>
+          </Col>
+        </Row>
+
         <Card
+          title="Lista Clienți eMAG"
           extra={
             <Select<'all' | 'active' | 'inactive'>
               value={statusFilter}
@@ -421,28 +605,6 @@ export default function CustomersPage() {
             </Select>
           }
         >
-          <Space size="large" wrap>
-            <Statistic
-              title="Clienți activi"
-              value={stats.totalActive}
-              prefix={<TeamOutlined />}
-            />
-            <Statistic
-              title="Clienți inactivi"
-              value={stats.totalInactive}
-              prefix={<TeamOutlined />}
-            />
-            <Statistic
-              title="Valoare cumulată"
-              value={stats.totalSpent}
-              precision={2}
-              suffix="RON"
-              prefix={<TrophyOutlined />}
-            />
-          </Space>
-        </Card>
-
-        <Card title="Top clienți eMAG">
           <Table<CustomerRecord>
             rowKey="id"
             columns={columns}

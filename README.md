@@ -223,19 +223,12 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env with your settings
 
-# 5. Setup database
-python scripts/init_db.py
+### Getting Started
 
-# 6. Run migrations
-alembic upgrade head
-
-# 7. Start application
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Option 2: Docker Development
-
-```bash
+1. Install dependencies: `pip install -r requirements.txt`
+2. Run database migrations: `alembic upgrade head`
+3. (Optional) Seed sample orders for local testing: `make seed-orders`
+4. Start the development server: `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # 1. Clone repository
 git clone <repository-url>
 cd magflow-erp

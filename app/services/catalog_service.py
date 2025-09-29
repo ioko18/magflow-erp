@@ -162,35 +162,38 @@ class CatalogService:
 
             return result
 
+        # except httpx.RequestError as e:
+        except json.JSONDecodeError as e:
+            logger.error(
+                "Response decode error",
+                extra={
+                    "endpoint": endpoint,
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid response from upstream service",
+            ) from e
+
         # except httpx.HTTPStatusError as e:
         except Exception as e:
+            response = getattr(e, "response", None)
+            status_code = getattr(response, "status_code", status.HTTP_502_BAD_GATEWAY)
+
             logger.error(
                 "HTTP error",
                 extra={
                     "endpoint": endpoint,
-                    "status_code": e.response.status_code,
+                    "status_code": status_code,
                     "error": str(e),
                 },
                 exc_info=True,
             )
             raise HTTPException(
-                status_code=e.response.status_code,
+                status_code=status_code,
                 detail=f"HTTP error: {e!s}",
-            ) from e
-
-        # except (httpx.RequestError, json.JSONDecodeError) as e:
-        except (Exception, json.JSONDecodeError) as e:
-            logger.error(
-                "Request error",
-                extra={
-                    "endpoint": endpoint,
-                    "error": str(e),
-                },
-                exc_info=True,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Service unavailable: {e!s}",
             ) from e
 
     def _encode_cursor(self, cursor_data: Dict[str, Any]) -> str:

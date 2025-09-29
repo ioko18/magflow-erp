@@ -1,9 +1,11 @@
 """
 A simple test file to verify the test setup is working correctly.
 """
+
 import pytest
 from fastapi import status
 from httpx import AsyncClient
+
 
 @pytest.mark.asyncio
 async def test_health_check(async_client: AsyncClient):

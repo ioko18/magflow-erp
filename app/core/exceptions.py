@@ -40,6 +40,10 @@ class DatabaseServiceError(DatabaseError):
     """Database service-specific errors."""
 
 
+class ServiceError(MagFlowBaseException):
+    """General service layer errors."""
+
+
 class ValidationError(MagFlowBaseException):
     """Data validation errors."""
 

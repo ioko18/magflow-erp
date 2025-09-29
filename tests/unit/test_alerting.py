@@ -35,7 +35,9 @@ def test_disk_usage():
     disk_usage = psutil.disk_usage("/")
     usage_percent = disk_usage.percent
     logging.info(f"Disk Usage: {usage_percent}%")
-    assert 0 <= usage_percent <= 100, "Disk usage percentage should be between 0 and 100"
+    assert (
+        0 <= usage_percent <= 100
+    ), "Disk usage percentage should be between 0 and 100"
 
 
 def test_memory_usage():
@@ -43,7 +45,9 @@ def test_memory_usage():
     memory = psutil.virtual_memory()
     usage_percent = memory.percent
     logging.info(f"Memory Usage: {usage_percent}%")
-    assert 0 <= usage_percent <= 100, "Memory usage percentage should be between 0 and 100"
+    assert (
+        0 <= usage_percent <= 100
+    ), "Memory usage percentage should be between 0 and 100"
 
 
 if __name__ == "__main__":

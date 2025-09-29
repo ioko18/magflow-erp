@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Any
 from contextlib import asynccontextmanager
 
 import asyncio
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 
@@ -94,6 +95,15 @@ class SimplePerformanceMonitor:
         self._engine: Optional[AsyncEngine] = None
         self._schema_ready = False
         self._loop_id: Optional[int] = None
+        self._test_data_cache = {}
+        self._pool_settings = {
+            "pool_size": 10,  # Increased pool size for parallel test execution
+            "max_overflow": 20,  # Allow more connections during peak
+            "pool_timeout": 30,  # Wait up to 30s for a connection
+            "pool_recycle": 3600,  # Recycle connections after 1 hour
+            "pool_pre_ping": True,  # Check connection health
+            "echo": False,  # Disable SQL echo for performance
+        }
 
     async def get_engine(self) -> AsyncEngine:
         """Get database engine."""
@@ -107,52 +117,87 @@ class SimplePerformanceMonitor:
                     await self._engine.dispose()
                 except Exception:
                     pass
+            # Create engine with optimized settings for testing
             self._engine = create_async_engine(
                 self.database_url,
-                echo=False,
-                pool_pre_ping=True,
-                pool_recycle=3600,
-                pool_size=5,
-                max_overflow=10,
+                **self._pool_settings,
+                # Use server-side cursors for better memory efficiency
+                execution_options={
+                    "isolation_level": "READ COMMITTED",
+                    "compiled_cache": None,  # Disable SQL compilation cache
+                },
             )
             self._loop_id = current_loop_id
         return self._engine
 
     async def ensure_schema(self):
-        """Ensure database schema exists."""
+        """Ensure database schema exists with optimized table creation."""
         if not self._schema_ready:
             try:
                 from app.db.base_class import Base
+                from sqlalchemy.schema import CreateSchema
 
                 engine = await self.get_engine()
 
                 async with engine.begin() as conn:
-                    await conn.run_sync(Base.metadata.drop_all)
-                    await conn.run_sync(Base.metadata.create_all)
+                    # Create schema if not exists
+                    await conn.execute(CreateSchema("public", if_not_exists=True))
+
+                    # Only drop and create tables if they don't match expected schema
+                    inspector = await conn.run_sync(
+                        lambda sync_conn: inspect(sync_conn.engine)
+                    )
+                    existing_tables = set(inspector.get_table_names())
+                    expected_tables = set(Base.metadata.tables.keys())
+
+                    if existing_tables != expected_tables:
+                        await conn.run_sync(Base.metadata.drop_all)
+                        await conn.run_sync(Base.metadata.create_all)
+                    else:
+                        # Just clear data without dropping tables
+                        for table in reversed(Base.metadata.sorted_tables):
+                            await conn.execute(table.delete())
+
+                    await conn.commit()
 
                 self._schema_ready = True
-                print("✅ Database schema initialized")
+                print("✅ Database schema verified and ready")
             except Exception as e:
                 print(f"❌ Schema initialization failed: {e}")
                 raise
 
     @asynccontextmanager
     async def get_session(self):
-        """Get database session with proper cleanup."""
+        """Get database session with optimized connection handling."""
         engine = await self.get_engine()
         await self.ensure_schema()
 
         connection = None
         session = None
+        transaction = None
 
         try:
+            # Get connection from pool
             connection = await engine.connect()
-            session = AsyncSession(bind=connection, expire_on_commit=False)
+
+            # Start a transaction
+            transaction = await connection.begin()
+
+            # Create session with optimized settings
+            session = AsyncSession(
+                bind=connection,
+                expire_on_commit=False,
+                autoflush=False,
+                future=True,
+                enable_baked_queries=True,
+            )
 
             try:
                 yield session
                 await session.commit()
+                await transaction.commit()
             except Exception as exc:
+                await transaction.rollback()
                 await session.rollback()
                 print(f"⚠️  Error in session: {str(exc)}")
                 raise exc
@@ -161,12 +206,22 @@ class SimplePerformanceMonitor:
 
         except Exception as exc:
             print(f"⚠️  Error establishing connection: {str(exc)}")
-            if connection:
-                await connection.close()
+            if transaction and not transaction.is_active:
+                try:
+                    await transaction.rollback()
+                except Exception:
+                    pass
             raise exc
         finally:
             if connection and not connection.closed:
+                # Return connection to pool instead of closing it
                 await connection.close()
+
+    async def get_cached_test_data(self, key: str, factory, *args, **kwargs):
+        """Get or create test data with caching."""
+        if key not in self._test_data_cache:
+            self._test_data_cache[key] = await factory(*args, **kwargs)
+        return self._test_data_cache[key]
 
     def start_test(self, test_name: str) -> Dict[str, Any]:
         """Start monitoring a test."""
@@ -243,20 +298,38 @@ class SimplePerformanceMonitor:
 
     async def cleanup(self):
         """Cleanup resources."""
+        # Wait for any pending tasks to complete
+        pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        if pending:
+            await asyncio.wait(pending, timeout=1.0)
+
+        # Cancel any remaining tasks
+        for task in pending:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+        # Dispose of the engine
         if self._engine:
-            await self._engine.dispose()
+            try:
+                await self._engine.dispose()
+            except Exception as e:
+                print(f"Error disposing engine: {e}")
             self._engine = None
-            self._schema_ready = False
+
+        # Reset state
+        self._schema_ready = False
 
 
-# Global monitor instance
-_monitor: Optional[SimplePerformanceMonitor] = None
+_monitor: Optional["SimplePerformanceMonitor"] = None
 
 
-def get_simple_monitor(database_url: str) -> SimplePerformanceMonitor:
+def get_simple_monitor(database_url: str) -> "SimplePerformanceMonitor":
     """Get or create the global performance monitor."""
     global _monitor
-
     if _monitor is None:
         _monitor = SimplePerformanceMonitor(database_url)
 

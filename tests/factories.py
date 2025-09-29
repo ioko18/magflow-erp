@@ -1,4 +1,5 @@
 """Test data factories for MagFlow ERP tests."""
+
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 import random
@@ -8,7 +9,7 @@ import string
 def random_string(length: int = 10) -> str:
     """Generate a random string of fixed length."""
     letters = string.ascii_letters + string.digits
-    return ''.join(random.choice(letters) for _ in range(length))
+    return "".join(random.choice(letters) for _ in range(length))
 
 
 def create_product_data(
@@ -16,7 +17,7 @@ def create_product_data(
     description: Optional[str] = None,
     price: Optional[float] = None,
     quantity: Optional[int] = None,
-    **kwargs
+    **kwargs,
 ) -> Dict[str, Any]:
     """Create test product data with sensible defaults."""
     return {
@@ -25,7 +26,7 @@ def create_product_data(
         "price": price or round(random.uniform(1.0, 1000.0), 2),
         "quantity": quantity or random.randint(1, 1000),
         "created_at": datetime.now(timezone.utc),
-        **kwargs
+        **kwargs,
     }
 
 

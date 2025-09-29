@@ -1,4 +1,5 @@
 """Test utilities for MagFlow ERP."""
+
 import os
 import random
 import string
@@ -9,7 +10,7 @@ from datetime import datetime, timezone
 def random_string(length: int = 10) -> str:
     """Generate a random string of fixed length."""
     letters = string.ascii_letters + string.digits
-    return ''.join(random.choice(letters) for _ in range(length))
+    return "".join(random.choice(letters) for _ in range(length))
 
 
 def random_email() -> str:
@@ -32,7 +33,9 @@ def create_test_user_data(overrides: Optional[Dict[str, Any]] = None) -> Dict[st
     return data
 
 
-def create_test_product_data(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def create_test_product_data(
+    overrides: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Create test product data with sensible defaults."""
     data = {
         "name": f"Test Product {random_string(5)}",
@@ -49,8 +52,7 @@ def create_test_product_data(overrides: Optional[Dict[str, Any]] = None) -> Dict
 def get_test_db_url() -> str:
     """Get the test database URL from environment or use default."""
     return os.getenv(
-        "TEST_DATABASE_URL",
-        "postgresql://app:app_password@localhost:5432/magflow_test"
+        "TEST_DATABASE_URL", "postgresql://app:app_password@localhost:5432/magflow_test"
     )
 
 

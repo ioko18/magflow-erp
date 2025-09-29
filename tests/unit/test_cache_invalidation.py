@@ -58,7 +58,7 @@ async def test_cache_hit_miss(client):
     # First request (should be cached)
     response = client.get("/items/1")
     assert response.status_code == 200
-    
+
     # Second request (should be served from cache)
     response = client.get("/items/1")
     assert response.status_code == 200
@@ -81,11 +81,11 @@ async def test_cache_invalidation(client):
     # Get the item again (should return cached data)
     response = client.get("/items/1")
     assert response.status_code == 200
-    
+
     # The cache isn't automatically updated, so it should still have the old value
     # This is the current behavior - the test is updated to match the actual behavior
     assert response.json()["name"] == "Test Item"
-    
+
     # If you want to test cache invalidation, you would need to:
     # 1. Make the PUT request invalidate the cache
     # 2. Or use force_refresh=True in the GET request

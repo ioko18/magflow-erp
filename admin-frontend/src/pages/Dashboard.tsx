@@ -1292,7 +1292,7 @@ const Dashboard: React.FC = () => {
                     type="dashboard"
                     percent={operationsScore.score}
                     strokeColor={operationsScore.color === 'green' ? '#52c41a' : operationsScore.color === 'blue' ? '#1890ff' : '#ff4d4f'}
-                    width={180}
+                    size={180}
                   />
                 </Col>
                 <Col xs={24} md={18}>

@@ -25,9 +25,19 @@ class TokenPayload(BaseModel):
     sub: str = Field(..., description="Subject (user ID)")
     exp: int = Field(..., description="Expiration time (UNIX timestamp)")
     iat: int = Field(..., description="Issued at time (UNIX timestamp)")
-    jti: str = Field(..., description="JWT ID")
+    jti: str | None = Field(None, description="JWT ID")
     scopes: list[str] = Field(default_factory=list, description="List of scopes")
-    type: str = Field(..., description="Token type (access/refresh)")
+    type: str = Field("access", description="Token type (access/refresh)")
+
+    @field_validator("type")
+    @classmethod
+    def validate_type(cls, value: str) -> str:
+        """Normalize token type to one of the supported values."""
+
+        normalized = (value or "access").strip().lower()
+        if normalized not in {"access", "refresh"}:
+            raise ValueError("Invalid token type")
+        return normalized
 
 
 class UserBase(BaseModel):

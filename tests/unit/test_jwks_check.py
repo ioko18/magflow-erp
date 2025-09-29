@@ -31,10 +31,10 @@ async def test_check_jwks_health_no_url():
     """Test JWKS health check with no URL configured."""
     # Remove the JWKS_URL environment variable
     os.environ.pop("JWKS_URL", None)
-    
+
     # Call the function under test
     result = await check_jwks_health()
-    
+
     # Should still return OK with default URL
     assert result.ok is True
     assert result.url == "http://localhost/.well-known/jwks.json"

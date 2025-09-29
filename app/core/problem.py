@@ -14,6 +14,7 @@ from http import HTTPStatus
 
 T = TypeVar("T", bound="Problem")
 
+
 class ProblemType(str, Enum):
     """Standard problem types as defined by RFC 9457."""
 
@@ -39,6 +40,7 @@ PROBLEM_TYPE_MAP: Dict[int, str] = {
     status.HTTP_500_INTERNAL_SERVER_ERROR: ProblemType.INTERNAL_SERVER_ERROR.value,
     status.HTTP_503_SERVICE_UNAVAILABLE: ProblemType.SERVICE_UNAVAILABLE.value,
 }
+
 
 class ErrorDetail(BaseModel):
     """Detailed error information for a specific field or context."""

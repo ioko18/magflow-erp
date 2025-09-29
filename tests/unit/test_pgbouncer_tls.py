@@ -10,34 +10,36 @@ import psycopg
 # Skip these tests by default since they require a running PgBouncer with TLS
 pytestmark = pytest.mark.skipif(
     os.getenv("TEST_PGBOUNCER") != "true",
-    reason="PgBouncer tests require TEST_PGBOUNCER=true environment variable"
+    reason="PgBouncer tests require TEST_PGBOUNCER=true environment variable",
 )
+
 
 @pytest.fixture(scope="module")
 def pgbouncer_dsn() -> str:
     """Get PgBouncer DSN from environment or use default."""
     return os.getenv(
-        "TEST_PGBOUNCER_DSN",
-        "postgresql://postgres:postgres@localhost:6432/postgres"
+        "TEST_PGBOUNCER_DSN", "postgresql://postgres:postgres@localhost:6432/postgres"
     )
+
 
 @pytest.fixture(scope="module")
 def ssl_context() -> ssl.SSLContext:
     """Create SSL context for PgBouncer connection."""
     ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-    
+
     # Optional: Configure client certificates if available
     ca_cert = os.getenv("PGBOUNCER_CA_CERT")
     client_cert = os.getenv("PGBOUNCER_CLIENT_CERT")
     client_key = os.getenv("PGBOUNCER_CLIENT_KEY")
-    
+
     if ca_cert:
         ssl_context.load_verify_locations(cafile=ca_cert)
-    
+
     if client_cert and client_key:
         ssl_context.load_cert_chain(certfile=client_cert, keyfile=client_key)
-    
+
     return ssl_context
+
 
 def test_tls_connection(pgbouncer_dsn: str, ssl_context: ssl.SSLContext) -> None:
     """Test TLS connection to PgBouncer."""
@@ -62,12 +64,16 @@ def test_tls_connection(pgbouncer_dsn: str, ssl_context: ssl.SSLContext) -> None
             # Check prepared statements configuration
             cur.execute("SHOW config")
             config = dict(row for row in cur.fetchall())
-            
-            assert config.get("pool_mode") == "transaction"  # or "session" based on your config
+
+            assert (
+                config.get("pool_mode") == "transaction"
+            )  # or "session" based on your config
             assert int(config.get("default_pool_size", 0)) > 0
-            
+
             query_time = (time.time() - start_time) * 1000
             print(f"\nPgBouncer TLS test completed in {query_time:.2f}ms")
+
+
 @pytest.mark.parametrize("num_queries", [5])  # Reduced from 10 to 5 for faster tests
 def test_prepared_statements(
     pgbouncer_dsn: str,
@@ -77,7 +83,7 @@ def test_prepared_statements(
     """Test prepared statements with PgBouncer."""
     results = []
     query = "SELECT $1::text as test, now() as ts"
-    
+
     with psycopg.connect(pgbouncer_dsn, sslcontext=ssl_context) as conn:
         for i in range(num_queries):
             start_time = time.time()
@@ -96,15 +102,17 @@ def test_prepared_statements(
 
                 # Record timing
                 query_time = (time.time() - start_time) * 1000
-                results.append({
-                    "iteration": i,
-                    "query_time_ms": query_time,
-                    "result": result[0],
-                })
+                results.append(
+                    {
+                        "iteration": i,
+                        "query_time_ms": query_time,
+                        "result": result[0],
+                    }
+                )
 
     # Verify results
     assert len(results) == num_queries
-    
+
     # Log performance metrics
     times = [r["query_time_ms"] for r in results]
     avg_time = sum(times) / len(times)

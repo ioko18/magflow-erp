@@ -25,9 +25,7 @@ class Settings(BaseSettings):
     SERVICE_NAME: str = (
         "magflow-service"  # Used for logging, metrics, and service identification
     )
-    PROJECT_NAME: str = (
-        "MagFlow ERP"  # Used for OpenAPI documentation and other places where the project name is needed
-    )
+    PROJECT_NAME: str = "MagFlow ERP"  # Used for OpenAPI documentation and other places where the project name is needed
     APP_PORT: int = 8000
     APP_DEBUG: bool = True
     DEBUG: bool = True  # Alias for APP_DEBUG for compatibility
@@ -295,6 +293,13 @@ class Settings(BaseSettings):
     EMAG_BASE_URL: str = "https://marketplace-api.emag.ro/api-3"
     EMAG_ACCOUNT_TYPE: str = "main"
     EMAG_ENVIRONMENT: str = "development"
+    EMAG_USERNAME_FBE: str = ""
+    EMAG_PASSWORD_FBE: str = ""
+    EMAG_FBE_USERNAME: str = ""
+    EMAG_FBE_PASSWORD: str = ""
+    EMAG_FBE_API_USERNAME: str = ""
+    EMAG_FBE_API_PASSWORD: str = ""
+    EMAG_WAREHOUSE_ID_FBE: Optional[str] = None
 
     # eMAG Rate Limiting
     EMAG_RATE_LIMIT_ORDERS: int = 12
@@ -335,22 +340,10 @@ class Settings(BaseSettings):
     REQUEST_ID_HEADER: str = "X-Request-ID"
     GENERATE_REQUEST_ID_IF_NOT_IN_HEADER: bool = True
 
-    # JWT Authentication (lowercase aliases expected by tests)
-    jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
-    refresh_token_expire_days: int = 7
-    secret_key: str = "your-super-secure-secret-key-change-this-in-production-2025"
-    jwt_issuer: str = "magflow-service"
-    jwt_audience: str = "magflow-api"
-    jwt_supported_algorithms: List[str] = ["HS256", "RS256", "EDDSA"]
-    jwt_keyset_dir: str = "jwt-keys"
-    jwt_rotate_days: float = 7.0
-    jwt_key_expire_days: float = 30.0
-
     # JWT Authentication settings (uppercase for compatibility)
-    JWT_ALGORITHM: str = "RS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 7
-    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    JWT_ALGORITHM: str = "HS256"  # Using HS256 for simplicity in development
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours for development
+    JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for development
     JWT_SECRET_KEY: str = "your-super-secure-secret-key-change-this-in-production-2025"
     JWT_ISSUER: str = "magflow-service"
     JWT_AUDIENCE: str = "magflow-api"
@@ -362,10 +355,23 @@ class Settings(BaseSettings):
     AUDIT_LOG_FILE: str = "logs/audit.log"
     AUDIT_LOG_LEVEL: str = "INFO"
 
+    # Development defaults for admin provisioning
+    AUTO_PROVISION_DEV_ADMIN: bool = True
+    DEFAULT_ADMIN_EMAIL: str = "admin@magflow.local"
+    DEFAULT_ADMIN_PASSWORD: str = "secret"
+
     # JWKS / OIDC settings (safe defaults to avoid AttributeError in health checks)
     JWKS_URL: str = "http://localhost/.well-known/jwks.json"
     JWKS_TIMEOUT: float = 2.0
     JWKS_MIN_KEYS: int = 1
+
+    @computed_field
+    @property
+    def refresh_secret_key(self) -> str:
+        value = self.REFRESH_SECRET_KEY
+        if not value or value in {"your-secret-key-here", "change_me_secure"}:
+            return self.SECRET_KEY
+        return value
 
     def validate_configuration(self) -> None:
         """Validate configuration settings at startup."""
@@ -378,7 +384,6 @@ class Settings(BaseSettings):
             "DB_USER": self.DB_USER,
         }
         # DB_HOST is optional; validation does not enforce it.
-
 
         for setting_name, setting_value in required_settings.items():
             if not setting_value or setting_value in [

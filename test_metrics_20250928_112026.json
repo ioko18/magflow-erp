@@ -1,0 +1,78 @@
+{
+  "timestamp": "2025-09-28T11:20:26.271068",
+  "summary": {
+    "total_tests": 7,
+    "avg_test_time": 0.10491510799952916,
+    "avg_setup_time": 0.04887468474251883,
+    "avg_execution_time": 0.05604042325701032,
+    "avg_memory_usage": 0.05357142857142857,
+    "avg_cpu_usage": 81.08571428571429,
+    "total_errors": 2,
+    "total_warnings": 1,
+    "slowest_test": [
+      "test_advanced_create_product",
+      0.3408639430999756
+    ],
+    "fastest_test": [
+      "advanced_delete_product",
+      0.001844167709350586
+    ],
+    "performance_score": 85.2227749143328,
+    "recommendations": [
+      "Fix 2 test errors to improve reliability"
+    ]
+  },
+  "dashboard": {
+    "timestamp": "2025-09-28T11:20:26.267718",
+    "uptime": 16.613514184951782,
+    "summary": {
+      "total_tests": 7,
+      "avg_test_time": 0.10491510799952916,
+      "avg_setup_time": 0.04887468474251883,
+      "avg_execution_time": 0.05604042325701032,
+      "avg_memory_usage": 0.05357142857142857,
+      "avg_cpu_usage": 81.08571428571429,
+      "total_errors": 2,
+      "total_warnings": 1,
+      "slowest_test": [
+        "test_advanced_create_product",
+        0.3408639430999756
+      ],
+      "fastest_test": [
+        "advanced_delete_product",
+        0.001844167709350586
+      ],
+      "performance_score": 85.2227749143328,
+      "recommendations": [
+        "Fix 2 test errors to improve reliability"
+      ]
+    },
+    "recent_tests": [
+      [
+        "stress_database_connections",
+        0.02151799201965332
+      ],
+      [
+        "advanced_update_product",
+        0.013601064682006836
+      ],
+      [
+        "test_advanced_update_product",
+        0.013929367065429688
+      ],
+      [
+        "advanced_delete_product",
+        0.001844167709350586
+      ],
+      [
+        "test_advanced_delete_product",
+        0.0021669864654541016
+      ]
+    ],
+    "system_info": {
+      "memory_mb": 275.078125,
+      "cpu_percent": 99.9,
+      "db_connections": 0
+    }
+  }
+}

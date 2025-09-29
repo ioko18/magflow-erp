@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Typography, Space, Button, message, Statistic, Select, DatePicker } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import { 
+  Card, Table, Tag, Typography, Space, Button, message, Statistic, Select, 
+  DatePicker, Input, Descriptions, Segmented, Row, Col, Badge, Divider
+} from 'antd';
+import { 
+  ReloadOutlined, UndoOutlined, ShoppingCartOutlined, DatabaseOutlined,
+  SyncOutlined, CheckCircleOutlined, ClockCircleOutlined,
+  DollarOutlined, CalendarOutlined, TagOutlined
+} from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import api from '../services/api';
@@ -13,6 +20,9 @@ interface OrderRecord {
   id: number;
   orderNumber: string;
   customerName: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  customerCity?: string | null;
   channel: FulfillmentChannel;
   status: OrderStatus;
   totalAmount: number;
@@ -21,16 +31,53 @@ interface OrderRecord {
   createdAt?: string | null;
   updatedAt?: string | null;
   itemsCount: number;
+  notes?: string | null;
+  // eMAG specific fields
+  emagOrderId?: string;
+  emagStatus?: string;
+  paymentMethod?: string;
+  deliveryMethod?: string;
+  trackingNumber?: string;
+  emagSyncStatus?: 'synced' | 'pending' | 'failed' | 'never_synced';
+  lastSyncAt?: string | null;
+  syncError?: string | null;
+  customerAddress?: {
+    street?: string;
+    city?: string;
+    county?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  orderItems?: {
+    id: string;
+    sku: string;
+    name: string;
+    quantity: number;
+    price: number;
+    total: number;
+  }[];
 }
 
 interface OrdersSummary {
   totalValue: number;
   statusBreakdown: Record<string, number>;
   channelBreakdown: Record<string, number>;
+  emagSyncStats: {
+    synced: number;
+    pending: number;
+    failed: number;
+    never_synced: number;
+  };
+  recentActivity: {
+    newOrders24h: number;
+    syncedToday: number;
+    pendingSync: number;
+  };
 }
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+const { Search } = Input;
 
 const statusColorMap: Record<string, string> = {
   pending: 'warning',
@@ -72,6 +119,17 @@ const defaultSummary: OrdersSummary = {
   totalValue: 0,
   statusBreakdown: {},
   channelBreakdown: {},
+  emagSyncStats: {
+    synced: 0,
+    pending: 0,
+    failed: 0,
+    never_synced: 0,
+  },
+  recentActivity: {
+    newOrders24h: 0,
+    syncedToday: 0,
+    pendingSync: 0,
+  },
 };
 
 const parseNumber = (value: unknown): number => {
@@ -95,9 +153,20 @@ export default function OrdersPage() {
     showSizeChanger: true,
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [channelFilter, setChannelFilter] = useState<FulfillmentChannel | 'all'>('all');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [summary, setSummary] = useState<OrdersSummary>(defaultSummary);
   const [messageApi, contextHolder] = message.useMessage();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const hasActiveFilters = useMemo(
+    () =>
+      statusFilter !== 'all' ||
+      channelFilter !== 'all' ||
+      Boolean(dateRange?.[0] || dateRange?.[1]) ||
+      Boolean(searchTerm.trim()),
+    [channelFilter, dateRange, searchTerm, statusFilter]
+  );
 
   const fetchOrders = useCallback(
     async (page: number, pageSize: number, showFeedback = false) => {
@@ -108,6 +177,7 @@ export default function OrdersPage() {
             skip: (page - 1) * pageSize,
             limit: pageSize,
             status: statusFilter !== 'all' ? statusFilter : undefined,
+            channel: channelFilter !== 'all' ? channelFilter : undefined,
             start_date: dateRange?.[0]?.toISOString(),
             end_date: dateRange?.[1]?.toISOString(),
           },
@@ -131,6 +201,9 @@ export default function OrdersPage() {
                   id: Number(order?.id ?? 0),
                   orderNumber: order?.order_number ?? `EM-${order?.id ?? 'N/A'}`,
                   customerName: order?.customer?.name ?? '—',
+                  customerEmail: order?.customer?.email ?? null,
+                  customerPhone: order?.customer?.phone ?? null,
+                  customerCity: order?.customer?.city ?? null,
                   channel: normalizedChannel,
                   status: statusValue,
                   totalAmount: parseNumber(order?.total_amount ?? order?.line_total_sum),
@@ -139,6 +212,7 @@ export default function OrdersPage() {
                   createdAt: order?.created_at ?? null,
                   updatedAt: order?.updated_at ?? null,
                   itemsCount: Number(order?.items_count ?? order?.items?.length ?? 0),
+                  notes: order?.notes ?? null,
                 };
               })
             : [];
@@ -158,6 +232,17 @@ export default function OrdersPage() {
             totalValue: parseNumber(summaryData.total_value ?? summaryData.totalValue ?? 0),
             statusBreakdown: summaryData.status_breakdown ?? summaryData.statusBreakdown ?? {},
             channelBreakdown: summaryData.channel_breakdown ?? summaryData.channelBreakdown ?? {},
+            emagSyncStats: summaryData.emag_sync_stats ?? {
+              synced: 0,
+              pending: 0,
+              failed: 0,
+              never_synced: 0,
+            },
+            recentActivity: summaryData.recent_activity ?? {
+              newOrders24h: 0,
+              syncedToday: 0,
+              pendingSync: 0,
+            },
           });
 
           if (showFeedback) {
@@ -176,7 +261,7 @@ export default function OrdersPage() {
         setLoading(false);
       }
     },
-    [messageApi, statusFilter, dateRange]
+    [messageApi, statusFilter, channelFilter, dateRange]
   );
 
   useEffect(() => {
@@ -210,6 +295,14 @@ export default function OrdersPage() {
     }));
   };
 
+  const handleChannelChange = (value: FulfillmentChannel | 'all') => {
+    setChannelFilter(value);
+    setPagination((prev) => ({
+      ...prev,
+      current: 1,
+    }));
+  };
+
   const handleDateRangeChange = (value: [Dayjs | null, Dayjs | null] | null) => {
     setDateRange(value);
     setPagination((prev) => ({
@@ -217,6 +310,36 @@ export default function OrdersPage() {
       current: 1,
     }));
   };
+
+  const handleResetFilters = () => {
+    setStatusFilter('all');
+    setChannelFilter('all');
+    setDateRange(null);
+    setSearchTerm('');
+    setPagination((prev) => ({
+      ...prev,
+      current: 1,
+    }));
+  };
+
+  const filteredOrders = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return orders;
+    }
+
+    return orders.filter((order) => {
+      const searchFields: string[] = [
+        order.orderNumber,
+        order.customerName,
+        order.customerEmail ?? '',
+        order.customerPhone ?? '',
+      ];
+
+      return searchFields.some((field) => field.toLowerCase().includes(normalizedSearch));
+    });
+  }, [orders, searchTerm]);
 
   const columns: ColumnsType<OrderRecord> = useMemo(
     () => [
@@ -299,6 +422,51 @@ export default function OrdersPage() {
     []
   );
 
+  const expandedRowRender = useCallback((record: OrderRecord) => {
+    const formatDateTime = (value?: string | null) =>
+      value ? new Date(value).toLocaleString('ro-RO') : '—';
+
+    return (
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" title="Detalii client">
+          <Descriptions.Item label="Email">
+            {record.customerEmail ?? '—'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Telefon">
+            {record.customerPhone ?? '—'}
+          </Descriptions.Item>
+          <Descriptions.Item label="Oraș">
+            {record.customerCity ?? '—'}
+          </Descriptions.Item>
+        </Descriptions>
+
+        <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" title="Metadate comandă">
+          <Descriptions.Item label="Data comandă">
+            {formatDateTime(record.orderDate)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Creat la">
+            {formatDateTime(record.createdAt)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Actualizat la">
+            {formatDateTime(record.updatedAt)}
+          </Descriptions.Item>
+          <Descriptions.Item label="Produse">
+            {record.itemsCount}
+          </Descriptions.Item>
+          <Descriptions.Item label="Total">
+            {`${record.totalAmount.toLocaleString('ro-RO', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} ${record.currency ?? 'RON'}`}
+          </Descriptions.Item>
+          <Descriptions.Item label="Notă">
+            {record.notes?.trim() ? record.notes : '—'}
+          </Descriptions.Item>
+        </Descriptions>
+      </Space>
+    );
+  }, []);
+
   const renderBreakdown = (
     breakdown: Record<string, number>,
     labels: Record<string, string>,
@@ -328,21 +496,42 @@ export default function OrdersPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <Title level={2} style={{ marginBottom: 0 }}>
-              Comenzi eMAG
+              <Space>
+                <ShoppingCartOutlined style={{ color: '#1890ff' }} />
+                Comenzi eMAG
+              </Space>
             </Title>
             <Text type="secondary">
-              Vizualizează comenzile sincronizate din marketplace și statusul lor curent.
+              Gestionare avansată comenzi eMAG cu sincronizare în timp real
             </Text>
           </div>
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
-            Reîmprospătează
-          </Button>
+          <Space>
+            <Badge
+              status={summary.emagSyncStats.failed > 0 ? 'error' : summary.emagSyncStats.pending > 0 ? 'warning' : 'success'}
+              text={`Sync Status: ${summary.emagSyncStats.synced} synced, ${summary.emagSyncStats.pending} pending`}
+            />
+            <Button icon={<SyncOutlined />} type="primary" onClick={handleRefresh} loading={loading}>
+              Sincronizare eMAG
+            </Button>
+            <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
+              Reîmprospătează
+            </Button>
+          </Space>
         </div>
 
         <Card
           title="Ultimele comenzi eMAG"
           extra={
             <Space size="middle" wrap>
+              <Search
+                allowClear
+                placeholder="Caută după număr, client sau contact"
+                style={{ width: 260 }}
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                onSearch={(value) => setSearchTerm(value)}
+                disabled={loading && !orders.length}
+              />
               <Select
                 value={statusFilter}
                 style={{ minWidth: 200 }}
@@ -356,43 +545,128 @@ export default function OrdersPage() {
                   </Select.Option>
                 ))}
               </Select>
+              <Segmented
+                value={channelFilter}
+                onChange={(value) => handleChannelChange(value as FulfillmentChannel | 'all')}
+                options={[
+                  { label: 'Toate canalele', value: 'all' },
+                  { label: channelLabelMap.main, value: 'main' },
+                  { label: channelLabelMap.fbe, value: 'fbe' },
+                  { label: channelLabelMap.other, value: 'other' },
+                ]}
+                disabled={loading}
+              />
               <RangePicker
                 allowClear
-                value={dateRange ?? undefined}
+                allowEmpty={[true, true]}
+                value={dateRange}
                 onChange={handleDateRangeChange}
                 disabled={loading}
                 placeholder={["Data început", "Data sfârșit"]}
+                style={{ minWidth: '250px' }}
               />
+              <Button
+                icon={<UndoOutlined />}
+                onClick={handleResetFilters}
+                disabled={!hasActiveFilters || loading}
+              >
+                Resetează filtrele
+              </Button>
             </Space>
           }
         >
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <Space size="large" wrap>
-              <Statistic
-                title="Valoare totală"
-                value={summary.totalValue}
-                precision={2}
-                suffix="RON"
-              />
-              <div>
-                <Typography.Text strong>Statusuri</Typography.Text>
-                <div style={{ marginTop: 8 }}>
-                  {renderBreakdown(summary.statusBreakdown, statusLabelMap)}
-                </div>
-              </div>
-              <div>
-                <Typography.Text strong>Canale</Typography.Text>
-                <div style={{ marginTop: 8 }}>
-                  {renderBreakdown(summary.channelBreakdown, channelLabelMap, channelColorMap)}
-                </div>
-              </div>
-            </Space>
+            {/* Enhanced eMAG Statistics Dashboard */}
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12} md={6}>
+                <Card size="small">
+                  <Statistic
+                    title="Valoare Totală"
+                    value={summary.totalValue}
+                    precision={2}
+                    suffix="RON"
+                    prefix={<DollarOutlined />}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <Card size="small">
+                  <Statistic
+                    title="Comenzi Noi (24h)"
+                    value={summary.recentActivity.newOrders24h}
+                    prefix={<CalendarOutlined />}
+                    valueStyle={{ color: '#3f8600' }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <Card size="small">
+                  <Statistic
+                    title="Sincronizate Azi"
+                    value={summary.recentActivity.syncedToday}
+                    prefix={<CheckCircleOutlined />}
+                    valueStyle={{ color: '#1890ff' }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} md={6}>
+                <Card size="small">
+                  <Statistic
+                    title="În Așteptare Sync"
+                    value={summary.recentActivity.pendingSync}
+                    prefix={<ClockCircleOutlined />}
+                    valueStyle={{ color: summary.recentActivity.pendingSync > 0 ? '#faad14' : '#52c41a' }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Sync Status Overview */}
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Card size="small" title={<><DatabaseOutlined /> Status Sincronizare eMAG</>}>
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Sincronizate:</span>
+                      <Badge count={summary.emagSyncStats.synced} style={{ backgroundColor: '#52c41a' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>În așteptare:</span>
+                      <Badge count={summary.emagSyncStats.pending} style={{ backgroundColor: '#faad14' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Eșuate:</span>
+                      <Badge count={summary.emagSyncStats.failed} style={{ backgroundColor: '#ff4d4f' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Niciodată sincronizate:</span>
+                      <Badge count={summary.emagSyncStats.never_synced} style={{ backgroundColor: '#d9d9d9' }} />
+                    </div>
+                  </Space>
+                </Card>
+              </Col>
+              <Col xs={24} md={12}>
+                <Card size="small" title={<><TagOutlined /> Distribuție Statusuri</>}>
+                  <div style={{ marginTop: 8 }}>
+                    {renderBreakdown(summary.statusBreakdown, statusLabelMap)}
+                  </div>
+                  <Divider style={{ margin: '12px 0' }} />
+                  <div>
+                    <Typography.Text strong>Canale de Vânzare</Typography.Text>
+                    <div style={{ marginTop: 8 }}>
+                      {renderBreakdown(summary.channelBreakdown, channelLabelMap, channelColorMap)}
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+            </Row>
 
             <Table<OrderRecord>
               rowKey="id"
               columns={columns}
-              dataSource={orders}
+              dataSource={filteredOrders}
               loading={loading}
+              expandable={{ expandedRowRender }}
               pagination={{
                 ...pagination,
                 showTotal: (total, range) => `${range[0]}-${range[1]} din ${total} comenzi`,

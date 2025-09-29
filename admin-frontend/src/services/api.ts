@@ -11,7 +11,7 @@ interface RetryConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
 }
 
-const API_BASE_URL = (import.meta as ImportMeta).env?.VITE_API_BASE_URL?.trim() || '/api/v1';
+const API_BASE_URL = (import.meta as ImportMeta).env?.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
 const REFRESH_ENDPOINT = '/auth/refresh-token';
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
@@ -44,15 +44,34 @@ const clearAuth = () => {
 };
 
 const refreshAccessToken = async (refreshToken: string): Promise<string | null> => {
-  const response = await axios.post(
-    `${API_BASE_URL}${REFRESH_ENDPOINT}`,
-    { refresh_token: refreshToken },
-    {
-      withCredentials: true,
-    }
-  );
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}${REFRESH_ENDPOINT}`,
+      null,
+      {
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${refreshToken}`,
+        },
+      }
+    );
 
-  return response.data?.access_token ?? null;
+    const newAccessToken = response.data?.access_token ?? null;
+    const newRefreshToken = response.data?.refresh_token;
+
+    if (newRefreshToken && typeof newRefreshToken === 'string') {
+      localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+    }
+
+    return newAccessToken;
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    if (axiosError.response?.status === 404) {
+      // Refresh endpoint unavailable; allow caller to handle as unauthenticated
+      return null;
+    }
+    throw error;
+  }
 };
 
 // Helper function to get auth token
@@ -87,11 +106,24 @@ api.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle 401 errors
+// Add a response interceptor to handle 401 errors and rate limiting
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as RetryConfig | undefined;
+
+    // Handle rate limiting (429)
+    if (error.response?.status === 429 && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true;
+      // Wait for the retry-after header or default to 2 seconds
+      const retryAfter = error.response.headers['retry-after'] || '2';
+      const delay = parseInt(retryAfter) * 1000;
+      
+      console.log(`Rate limited. Retrying after ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      return api(originalRequest);
+    }
 
     if (error.response?.status !== 401 || !originalRequest) {
       return Promise.reject(error);
@@ -105,7 +137,12 @@ api.interceptors.response.use(
 
     const refreshToken = getRefreshToken();
 
+    const isEmagRequest = typeof originalRequest.url === 'string' && originalRequest.url.includes('/emag/');
+
     if (!refreshToken) {
+      if (isEmagRequest) {
+        return Promise.reject(error);
+      }
       clearAuth();
       window.location.href = '/login';
       return Promise.reject(error);
@@ -147,8 +184,10 @@ api.interceptors.response.use(
     } catch (refreshError) {
       console.error('Token refresh failed:', refreshError);
       processQueue(null);
-      clearAuth();
-      window.location.href = '/login';
+      if (!isEmagRequest) {
+        clearAuth();
+        window.location.href = '/login';
+      }
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

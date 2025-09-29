@@ -554,7 +554,9 @@ class VatService:
         if not rates:
             return None
 
-        effective_date = self._ensure_timezone(effective_date or datetime.now(timezone.utc))
+        effective_date = self._ensure_timezone(
+            effective_date or datetime.now(timezone.utc)
+        )
 
         active_defaults = [
             rate
@@ -577,7 +579,9 @@ class VatService:
         if not rate:
             return False
 
-        effective_date = self._ensure_timezone(effective_date or datetime.now(timezone.utc))
+        effective_date = self._ensure_timezone(
+            effective_date or datetime.now(timezone.utc)
+        )
         valid_from = self._ensure_timezone(rate.valid_from) or datetime.min.replace(
             tzinfo=timezone.utc,
         )

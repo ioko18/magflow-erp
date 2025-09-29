@@ -12,8 +12,11 @@ from typing import List
 import statistics
 
 from tests.test_data_factory import (
-    UserFactory, ProductFactory, AuditLogFactory,
-    create_bulk_users, create_bulk_products
+    UserFactory,
+    ProductFactory,
+    AuditLogFactory,
+    create_bulk_users,
+    create_bulk_products,
 )
 
 
@@ -41,28 +44,29 @@ class DatabasePerformanceBenchmark:
 
     async def benchmark_user_creation(self, count: int = 100):
         """Benchmark user creation performance."""
+
         def create_users():
             return create_bulk_users(self.db_session, count)
 
         _, execution_time = await self.measure_time(
-            f"user_creation_{count}",
-            create_users
+            f"user_creation_{count}", create_users
         )
         return execution_time
 
     async def benchmark_product_creation(self, count: int = 200):
         """Benchmark product creation performance."""
+
         def create_products():
             return create_bulk_products(self.db_session, count)
 
         _, execution_time = await self.measure_time(
-            f"product_creation_{count}",
-            create_products
+            f"product_creation_{count}", create_products
         )
         return execution_time
 
     async def benchmark_bulk_audit_logs(self, count: int = 500):
         """Benchmark bulk audit log creation."""
+
         def create_audit_logs():
             audit_logs = []
             for _ in range(count):
@@ -72,22 +76,21 @@ class DatabasePerformanceBenchmark:
             return audit_logs
 
         _, execution_time = await self.measure_time(
-            f"audit_log_creation_{count}",
-            create_audit_logs
+            f"audit_log_creation_{count}", create_audit_logs
         )
         return execution_time
 
     async def benchmark_query_performance(self):
         """Benchmark various query operations."""
+
         # Simple user query
         def simple_query():
-            return self.db_session.execute(
-                "SELECT COUNT(*) FROM users"
-            )
+            return self.db_session.execute("SELECT COUNT(*) FROM users")
 
         # Complex query with joins
         def complex_query():
-            return self.db_session.execute("""
+            return self.db_session.execute(
+                """
                 SELECT u.email, r.name as role_name, COUNT(al.id) as audit_count
                 FROM users u
                 LEFT JOIN user_roles ur ON u.id = ur.user_id
@@ -95,17 +98,20 @@ class DatabasePerformanceBenchmark:
                 LEFT JOIN audit_logs al ON u.id = al.user_id
                 GROUP BY u.id, r.name
                 LIMIT 100
-            """)
+            """
+            )
 
         # Query with filtering
         def filtered_query():
-            return self.db_session.execute("""
+            return self.db_session.execute(
+                """
                 SELECT * FROM users
                 WHERE is_active = true
                 AND created_at >= NOW() - INTERVAL '30 days'
                 ORDER BY created_at DESC
                 LIMIT 50
-            """)
+            """
+            )
 
         await self.measure_time("simple_query", simple_query)
         await self.measure_time("complex_query", complex_query)
@@ -114,19 +120,20 @@ class DatabasePerformanceBenchmark:
     async def benchmark_update_operations(self, count: int = 50):
         """Benchmark update operations."""
         # Get some users to update
-        result = await self.db_session.execute("SELECT id FROM users LIMIT :count", {"count": count})
+        result = await self.db_session.execute(
+            "SELECT id FROM users LIMIT :count", {"count": count}
+        )
         user_ids = [row[0] for row in result]
 
         def update_users():
             for user_id in user_ids:
                 self.db_session.execute(
                     "UPDATE users SET updated_at = NOW() WHERE id = :user_id",
-                    {"user_id": user_id}
+                    {"user_id": user_id},
                 )
 
         _, execution_time = await self.measure_time(
-            f"user_update_{count}",
-            update_users
+            f"user_update_{count}", update_users
         )
         return execution_time
 
@@ -135,7 +142,7 @@ class DatabasePerformanceBenchmark:
         # Get some audit logs to delete (safest to delete)
         result = await self.db_session.execute(
             "SELECT id FROM audit_logs ORDER BY created_at ASC LIMIT :count",
-            {"count": count}
+            {"count": count},
         )
         audit_ids = [row[0] for row in result]
 
@@ -143,12 +150,11 @@ class DatabasePerformanceBenchmark:
             for audit_id in audit_ids:
                 self.db_session.execute(
                     "DELETE FROM audit_logs WHERE id = :audit_id",
-                    {"audit_id": audit_id}
+                    {"audit_id": audit_id},
                 )
 
         _, execution_time = await self.measure_time(
-            f"audit_delete_{count}",
-            delete_audit_logs
+            f"audit_delete_{count}", delete_audit_logs
         )
         return execution_time
 
@@ -158,9 +164,9 @@ class DatabasePerformanceBenchmark:
 
     def print_summary(self):
         """Print a summary of benchmark results."""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("DATABASE PERFORMANCE BENCHMARK RESULTS")
-        print("="*60)
+        print("=" * 60)
 
         if not self.results:
             print("No benchmark results available.")
@@ -203,7 +209,7 @@ class DatabasePerformanceBenchmark:
         print(f"  Fastest operation: {min(self.results.values()):.4f} seconds")
         print(f"  Slowest operation: {max_time:.4f} seconds")
         print(f"Database performance results: {len(self.results)} operations tested")
-        print("="*60)
+        print("=" * 60)
 
 
 @pytest.mark.asyncio
@@ -327,6 +333,7 @@ async def test_database_mixed_operations_performance(db_session):
 @pytest.mark.benchmark
 async def test_concurrent_user_creation(db_session):
     """Test concurrent user creation performance."""
+
     async def create_user_batch(batch_size: int):
         for _ in range(batch_size):
             user = UserFactory()
@@ -342,18 +349,25 @@ async def test_concurrent_user_creation(db_session):
     end_time = time.perf_counter()
 
     execution_time = end_time - start_time
-    print(f"✅ Concurrent user creation ({5} batches of {batch_size}): {execution_time:.4f}s")
+    print(
+        f"✅ Concurrent user creation ({5} batches of {batch_size}): {execution_time:.4f}s"
+    )
 
     # Should be reasonably fast
-    assert execution_time < 5.0, f"Concurrent user creation took too long: {execution_time:.2f}s"
+    assert (
+        execution_time < 5.0
+    ), f"Concurrent user creation took too long: {execution_time:.2f}s"
 
 
 @pytest.mark.asyncio
 @pytest.mark.benchmark
 async def test_database_connection_pool_performance(db_session):
     """Test database connection pool performance under load."""
+
     async def perform_query(query_id: int):
-        result = await db_session.execute("SELECT COUNT(*) FROM users WHERE id > :id", {"id": query_id})
+        result = await db_session.execute(
+            "SELECT COUNT(*) FROM users WHERE id > :id", {"id": query_id}
+        )
         return result.scalar()
 
     # Run multiple queries concurrently
@@ -369,5 +383,7 @@ async def test_database_connection_pool_performance(db_session):
     print(f"✅ Average query time: {execution_time/query_count:.4f}s")
 
     # Should handle concurrent queries efficiently
-    assert execution_time < 3.0, f"Concurrent queries took too long: {execution_time:.2f}s"
+    assert (
+        execution_time < 3.0
+    ), f"Concurrent queries took too long: {execution_time:.2f}s"
     assert all(count >= 0 for count in results), "Query results should be valid"

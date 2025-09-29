@@ -19,7 +19,7 @@ TEST_CATEGORIES = {
         {"id": 2, "name": "Telefoane mobile", "parentId": 1, "isLeaf": True},
         {"id": 3, "name": "Laptopuri", "parentId": 1, "isLeaf": True},
         {"id": 4, "name": "Fashion", "parentId": None, "isLeaf": False},
-    ]
+    ],
 }
 
 TEST_CHARACTERISTICS = {
@@ -52,7 +52,7 @@ TEST_CHARACTERISTICS = {
                 {"id": 1004, "value": "Alb", "isDefault": False},
             ],
         },
-    ]
+    ],
 }
 
 TEST_VAT_RATES = {
@@ -61,7 +61,7 @@ TEST_VAT_RATES = {
     "results": [
         {"id": 1, "name": "Standard", "value": 19.0, "isDefault": True},
         {"id": 2, "name": "Redus", "value": 9.0, "isDefault": False},
-    ]
+    ],
 }
 
 TEST_HANDLING_TIMES = {
@@ -72,11 +72,12 @@ TEST_HANDLING_TIMES = {
     "minHandlingTime": 1,
 }
 
+
 @pytest.fixture
 def mock_http_client():
     """Create a mock HTTP client with test data."""
     client = AsyncMock()
-    
+
     # Configure the get method to return appropriate test data
     async def mock_get(endpoint, params=None, response_model=None):
         data = None
@@ -85,9 +86,9 @@ def mock_http_client():
                 parent_id = params["parent_id"]
                 results = [cat for cat in TEST_CATEGORIES["results"]]
                 data = {
-                    "isError": False, 
-                    "messages": [], 
-                    "results": [r for r in results if r.get("parentId") == parent_id]
+                    "isError": False,
+                    "messages": [],
+                    "results": [r for r in results if r.get("parentId") == parent_id],
                 }
             else:
                 data = TEST_CATEGORIES
@@ -97,25 +98,33 @@ def mock_http_client():
             data = TEST_VAT_RATES
         elif endpoint == "handling_time/read":
             data = TEST_HANDLING_TIMES
-            
+
         if response_model and data:
             return response_model(**data)
         return data
-    
+
     client.get.side_effect = mock_get
     return client
+
 
 @pytest.fixture
 def catalog_service(mock_http_client):
     """Create a catalog service with a mocked HTTP client."""
     return CatalogService(mock_http_client)
 
+
 @pytest.mark.asyncio
 async def test_get_categories(catalog_service):
     """Test getting all categories."""
     categories = await catalog_service.get_categories()
     assert len(categories) == 4  # Should return all categories
-    assert {c.name for c in categories} == {"Electronice", "Telefoane mobile", "Laptopuri", "Fashion"}
+    assert {c.name for c in categories} == {
+        "Electronice",
+        "Telefoane mobile",
+        "Laptopuri",
+        "Fashion",
+    }
+
 
 @pytest.mark.asyncio
 async def test_get_category_characteristics(catalog_service):
@@ -123,7 +132,8 @@ async def test_get_category_characteristics(catalog_service):
     characteristics = await catalog_service.get_category_characteristics(1)
     assert len(characteristics) == 2
     assert {c.name for c in characteristics} == {"Brand", "Culoare"}
-    assert all(hasattr(c, 'values') for c in characteristics)
+    assert all(hasattr(c, "values") for c in characteristics)
+
 
 @pytest.mark.asyncio
 async def test_get_vat_rates(catalog_service):
@@ -136,6 +146,7 @@ async def test_get_vat_rates(catalog_service):
     assert 0.19 in vat_rates.values()
     assert 0.09 in vat_rates.values()
 
+
 @pytest.mark.asyncio
 async def test_get_handling_times(catalog_service):
     """Test getting handling times."""
@@ -144,19 +155,23 @@ async def test_get_handling_times(catalog_service):
     assert handling_times["min_handling_time"] == 1
     assert handling_times["max_handling_time"] == 5
 
+
 @pytest.mark.asyncio
 async def test_get_category_tree(catalog_service):
     """Test getting the full category tree."""
     category_tree = await catalog_service.get_category_tree()
     # Should have 2 top-level categories
     assert len(category_tree) == 2
-    
+
     # Find Electronics and check its children
     electronics = next((c for c in category_tree if c["id"] == 1), None)
     assert electronics is not None
     assert len(electronics["children"]) == 2
-    assert {c["name"] for c in electronics["children"]} == {"Telefoane mobile", "Laptopuri"}
-    
+    assert {c["name"] for c in electronics["children"]} == {
+        "Telefoane mobile",
+        "Laptopuri",
+    }
+
     # Check Fashion has no children
     fashion = next((c for c in category_tree if c["id"] == 4), None)
     assert fashion is not None

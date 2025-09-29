@@ -108,11 +108,11 @@ def test_validate_mapping_config_missing_required_field():
 
     # Remove a required field
     config_dict["field_mappings"][0].pop("emag_field")
-    
+
     # Should raise a validation error when creating the config
     with pytest.raises(ValidationError) as excinfo:
         ProductMappingConfig(**config_dict)
-    
+
     # Check that the error message contains the expected field
     error_messages = [str(e) for e in excinfo.value.errors()]
     assert any("emag_field" in msg for msg in error_messages)
@@ -147,7 +147,9 @@ def test_validate_mapping_config_duplicate_category():
     with pytest.raises(MappingConfigError) as excinfo:
         validate_mapping_config(config)
 
-    assert "Duplicate category mapping 'internal_id 'electronics''" in str(excinfo.value)
+    assert "Duplicate category mapping 'internal_id 'electronics''" in str(
+        excinfo.value
+    )
 
 
 def test_validate_mapping_config_duplicate_brand():

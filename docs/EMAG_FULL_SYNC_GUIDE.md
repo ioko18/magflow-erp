@@ -16,21 +16,21 @@ Funcționalitatea **eMAG Full Product Sync** permite preluarea tuturor produselo
 
 Pentru a evita confuzii între endpoint-uri API și scripturile standalone, reține că fluxul complet este împărțit în două straturi complementare:
 
-| Componentă | Locație | Rol principal | Când o folosești |
-| --- | --- | --- | --- |
-| Backend REST API | `app/api/v1/endpoints/emag_integration.py` | Expune endpoint-uri HTTP (`/api/v1/emag/...`) folosite de frontend și de automatizări din MagFlow. Inițiază task-uri async și rulează verificări de configurare. | Când declanșezi sync din UI (`Admin Dashboard`), din integrarea cu alte servicii sau prin apel programatic HTTP. |
-| Script sync standalone | `sync_emag_sync_improved.py` | Rulează sincronizări complete în linie de comandă, cu batching, retry și logging detaliat. Poate fi pornit direct sau prin API (ca background task). | Când ai nevoie de o rulare full/offline (cron job, depanare masivă) sau când rulezi manual din terminal. |
+| Componentă             | Locație                                    | Rol principal                                                                                                                                                    | Când o folosești                                                                                                 |
+| ---------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Backend REST API       | `app/api/v1/endpoints/emag_integration.py` | Expune endpoint-uri HTTP (`/api/v1/emag/...`) folosite de frontend și de automatizări din MagFlow. Inițiază task-uri async și rulează verificări de configurare. | Când declanșezi sync din UI (`Admin Dashboard`), din integrarea cu alte servicii sau prin apel programatic HTTP. |
+| Script sync standalone | `sync_emag_sync_improved.py`               | Rulează sincronizări complete în linie de comandă, cu batching, retry și logging detaliat. Poate fi pornit direct sau prin API (ca background task).             | Când ai nevoie de o rulare full/offline (cron job, depanare masivă) sau când rulezi manual din terminal.         |
 
 Cele două componente împart aceeași bază de date și configurare `.env`. API-ul poate lansa scriptul ca proces de background (vezi funcția `enhanced_emag_sync()`), iar logurile generate sunt agregate în aceleași tabele (`emag_products`, `emag_product_offers`, `emag_offer_syncs`).
 
 ### ✅ Quick Start în 6 pași
 
 1. **Verifică variabilele de mediu** din `.env` (`EMAG_MAIN_USERNAME`, `EMAG_MAIN_PASSWORD`, etc.).
-2. **Rulare migrații**: `alembic upgrade head` (asigură-te că `alembic.ini` indică portul/Postgres corect).
-3. **Pornește backend-ul**: `make start` → confirmă că `/api/v1/emag/status` returnează `200`.
-4. **Pornește frontend-ul** (opțional): `npm run dev` din `admin-frontend/` pentru a testa dashboard-ul.
-5. **Testează API-ul**: `POST /api/v1/emag/sync` sau `GET /api/v1/admin/emag-products` pentru a verifica autorizarea și răspunsurile.
-6. **Rulare CLI (dacă este nevoie)**: `python3 sync_emag_sync_improved.py --mode both --max-pages 50` pentru un sync manual; monitorizează log-urile corespunzătoare din `logs/`.
+1. **Rulare migrații**: `alembic upgrade head` (asigură-te că `alembic.ini` indică portul/Postgres corect).
+1. **Pornește backend-ul**: `make start` → confirmă că `/api/v1/emag/status` returnează `200`.
+1. **Pornește frontend-ul** (opțional): `npm run dev` din `admin-frontend/` pentru a testa dashboard-ul.
+1. **Testează API-ul**: `POST /api/v1/emag/sync` sau `GET /api/v1/admin/emag-products` pentru a verifica autorizarea și răspunsurile.
+1. **Rulare CLI (dacă este nevoie)**: `python3 sync_emag_sync_improved.py --mode both --max-pages 50` pentru un sync manual; monitorizează log-urile corespunzătoare din `logs/`.
 
 > 🔁 Recomandare: menține aceeași versiune de configurare/OAuth tokens între API și script pentru a evita desincronizarea fluxurilor.
 
@@ -485,6 +485,129 @@ alerts = {
 }
 ```
 
+## 5. Detalii Sincronizare Comenzi
+
+### 5.1 Structura câmpurilor de comandă
+
+#### 5.1.0 Resurse și acțiuni suportate
+
+- **Resursă**: `order`
+- **Acțiuni**: `read`, `save`, `count`, `acknowledge`
+
+#### 5.1.1 Product fields in order details
+
+| **Cheie (Nivel 1 → Nivel 2)** | **Descriere**                                                                                             | **Constrângeri**                                                                                                                                                                                                                            | **Exemplu**                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **`id`**                      | Identificator intern eMAG pentru linia de produs din comandă. Este folosit la orice update asupra liniei. | **Obligatoriu.** Integer `1..9,999,999`.                                                                                                                                                                                                    | `id=243409`                                              |
+| **`product_id`**              | Identificatorul intern al seller-ului pentru produs (PK-ul ofertei în MagFlow).                           | Opțional. Integer.                                                                                                                                                                                                                          | `product_id=3331`                                        |
+| **`cancellation_reason`**     | Cod numeric care indică motivul anulării liniei de produs.                                                | Opțional. Integer (`1..39`). Enumerarea completă este documentată în secțiunea `5.1.6 Motive de anulare`.                                                                                                                                   | `cancellation_reason=31`                                 |
+| **`product_voucher_split`**   | Listă de obiecte cu detaliile discount-urilor aplicate la nivel de produs.                                | Opțional. Array de obiecte. Fiecare obiect poate conține: `<br>• **`voucher_id`** — Integer `1..9,999,999`<br>• **`value`** — Discount fără TVA (valoare negativă)<br>• **`vat_value`** — Componenta TVA a discountului (valoare negativă)` | `[{"voucher_id": 123, "value": -200, "vat_value": -38}]` |
+| **`status`**                  | Starea liniei de produs. `0` = anulată, `1` = activă.                                                     | **Obligatoriu.** Integer (`0` sau `1`).                                                                                                                                                                                                     | `status=1`                                               |
+| **`part_number`**             | Identificatorul unic al producătorului. eMAG elimină automat spațiile, `,` și `;` la salvare.             | Opțional. String `1..25` caractere.                                                                                                                                                                                                         | `part_number="682133frs"`                                |
+| **`created`**                 | Timpul la care linia de produs a fost creată în comandă.                                                  | Opțional. Format text `"YYYY-mm-dd HH:ii:ss"`.                                                                                                                                                                                              | `created="2014-07-24 12:16:50"`                          |
+| **`modified`**                | Timpul ultimei actualizări pentru linia de produs.                                                        | Opțional. Format text `"YYYY-mm-dd HH:ii:ss"`.                                                                                                                                                                                              | `modified="2014-07-24 12:18:53"`                         |
+| **`currency`**                | Moneda utilizată pentru prețul produsului.                                                                | Opțional. String (ex. `"RON"`).                                                                                                                                                                                                             | `currency="RON"`                                         |
+| **`quantity`**                | Cantitatea comandată pentru produs.                                                                       | **Obligatoriu.** Integer > `0`.                                                                                                                                                                                                             | `quantity=2`                                             |
+| **`sale_price`**              | Prețul de vânzare fără TVA pentru linia de produs.                                                        | **Obligatoriu.** Numeric (presupune până la 4 zecimale).                                                                                                                                                                                    | `sale_price=12.1234`                                     |
+| **`details`**                 | Notițe suplimentare pentru linia de produs.                                                               | Opțional. Text.                                                                                                                                                                                                                             | `details="text"`                                         |
+
+#### 5.1.2 Nivel 1 – proprietăți generale comandă
+
+- **`id`** — identificator unic al comenzii. Integer (`1..4294967295`). **Obligatoriu**.
+- **`status`** — starea procesării. Integer. **Obligatoriu**.
+  - `0` = canceled
+  - `1` = new
+  - `2` = in progress
+  - `3` = prepared
+  - `4` = finalized
+  - `5` = returned
+- **`is_complete`** — indică dacă detaliile comenzii sunt complete. Integer (`0`/`1`). **Opțional**.
+  - `0` = incomplete
+  - `1` = complete
+- **`type`** — tipul de fulfilment. Integer. **Opțional**.
+  - `2` = Fulfilled by eMAG (`FBE`)
+  - `3` = Fulfilled by Seller (`FBS`)
+- **`payment_mode_id`** — metoda de plată. Integer. **Obligatoriu**.
+  - `1` = numerar la livrare (`COD`)
+  - `2` = transfer bancar
+  - `3` = plată cu cardul online
+- **`detailed_payment_method`** — etichetă detaliată pentru metoda de plată (de ex. `"eCREDIT"`). String. **Opțional**.
+- **`delivery_mode`** — metoda de livrare. String. **Opțional**.
+  - `"courier"` = livrare la domiciliu
+  - `"pickup"` = ridicare din locker/punct de colectare
+- **`details`** — informații suplimentare livrare. **Opțional**.
+  - **`locker_id`** — identificator locker/punct ridicare (string)
+  - **`locker_name`** — denumire locker/punct ridicare (string)
+- **`date`** — timestamp-ul plasării coșului. Format `"YYYY-mm-dd HH:ii:ss"`. **Opțional**.
+
+#### 5.1.3 Câmpuri specifice plăților online
+
+- **`payment_status`** — statusul plății. Integer. **Obligatoriu** doar pentru comenzi cu plată online.
+  - `0` = nu a fost plătit
+  - `1` = plătit (interpretați împreună cu `payment_mode_id` pentru plățile cu card)
+- **`cashed_co`** — sumă achitată prin card online. Integer/Decimal. **Opțional**.
+- **`cashed_cod`** — sumă achitată prin ramburs (`COD`). Integer/Decimal. **Opțional**.
+
+#### 5.1.4 Taxe de transport
+
+- **`shipping_tax`** — cost transport. Decimal (ex. `"19.99"`). **Opțional**.
+- **`shipping_tax_voucher_split`** — împărțire discount-uri la nivel de transport. Array de obiecte. **Opțional**.
+  - **`voucher_id`** — ID voucher. Integer (`1..9,999,999`).
+  - **`value`** — valoare discount fără TVA (număr negativ).
+  - **`vat_value`** — componenta TVA din discount (număr negativ).
+
+#### 5.1.5 Sub-obiecte structurate
+
+- **`customer`** — identitatea clientului + adrese facturare/livrare. Obiect. **Opțional**. (Vezi secțiunea dedicată `Customer fields in order details` din documentația oficială eMAG pentru schema completă.)
+- **`products`** — liniile de comandă. Array. **Obligatoriu** pentru actualizări linie cu linie (schema completă în `5.1.1 Product fields in order details`).
+- **`attachments`** — atașamente (ex. facturi). Array. **Opțional**. (Structura este descrisă în `5.1.3 Order invoices`.)
+- **`vouchers`** — reduceri la nivel de comandă. Array. **Opțional**.
+  - **`voucher_id`** — Integer (`1..9,999,999`).
+  - **`modified`** — datetime `"YYYY-mm-dd HH:ii:ss"`.
+  - **`created`** — datetime `"YYYY-mm-dd HH:ii:ss"`.
+  - **`status`** — Integer.
+  - **`sale_price_vat`** — componenta TVA a discountului (valoare negativă).
+  - **`sale_price`** — discount fără TVA (valoare negativă).
+  - **`voucher_name`** — denumire voucher.
+  - **`vat`** — cotă TVA (decimal).
+  - **`issue_date`** — dată `"YYYY-mm-dd"`.
+- **`is_storno`** — flag pentru storno parțial al comenzilor finalizate. Boolean. **Opțional**.
+
+#### 5.1.6 Motive de anulare (`cancellation_reason`)
+
+`cancellation_reason` este un cod numeric opțional care indică motivul anulării:
+
+- `1` — Lipsă stoc
+- `2` — Anulat de client
+- `3` — Clientul nu poate fi contactat
+- `15` — Termen livrare curier prea mare
+- `16` — Taxă transport prea mare
+- `17` — Termen livrare prea mare până la intrarea produsului în stoc
+- `18` — Ofertă mai bună în alt magazin
+- `19` — Plata nu a fost efectuată
+- `20` — Comandă nelivrată (motive curier)
+- `21` — Alte motive
+- `22` — Comandă incompletă – anulare automată
+- `23` — Clientul s-a răzgândit
+- `24` — La solicitarea clientului
+- `25` — Livrare eșuată
+- `26` — Expediere întârziată
+- `27` — Comandă irelevantă
+- `28` — Anulat de SuperAdmin la cererea sellerului
+- `29` — Client în lista neagră
+- `30` — Lipsă factură cu TVA
+- `31` — Partener Marketplace eMAG a cerut anularea
+- `32` — Timp estimat de livrare prea lung
+- `33` — Produsul nu mai este disponibil în stocul partenerului
+- `34` — Alte motive (generic)
+- `35` — Livrarea este prea scumpă
+- `36` — Clientul a găsit preț mai bun în altă parte
+- `37` — Clientul a plasat o comandă similară în eMAG
+- `38` — Clientul s-a răzgândit, nu mai dorește produsul
+- `39` — Client eligibil doar pentru achiziție în rate
+
+> ℹ️ Pentru definiții complete ale sub-structurilor (`products`, `customer`, `attachments`) consultați secțiunile dedicate în documentația oficială eMAG sau anexele `5.1.x` referențiate mai sus.
+
 #### **4. Backup și Recovery:**
 
 ```python
@@ -693,6 +816,7 @@ Documentația completă eMAG Marketplace API v4.4.8 oferă toate informațiile n
 ### 1. Variabile de Mediu
 
 Adăugați în fișierul `.env`:
+
 ```bash
 # eMAG API Configuration
 EMAG_API_BASE_URL=https://api.emag.ro
@@ -705,14 +829,14 @@ EMAG_SYNC_INTERVAL_MINUTES=60
 
 #### Descriere variabile
 
-| Variabilă                    | Descriere                                                                 | Exemplu                      |
-| ---------------------------- | ------------------------------------------------------------------------- | ---------------------------- |
-| `EMAG_API_BASE_URL`          | Endpoint-ul de bază pentru toate request-urile către eMAG Marketplace API | `https://marketplace-api.emag.ro/api-3` |
-| `EMAG_REQUESTS_PER_MINUTE`   | Limita maximă de request-uri trimise pe minut                             | `60`                         |
-| `EMAG_DELAY_BETWEEN_REQUESTS`| Pauza în secunde dintre două request-uri consecutive                      | `1.0`                        |
-| `EMAG_MAX_PAGES_PER_SYNC`    | Numărul maxim de pagini procesate în cadrul unui sync complet             | `100`                        |
-| `EMAG_ENABLE_AUTO_SYNC`      | Activează (`true`) sau dezactivează (`false`) job-ul de sync programat    | `false`                      |
-| `EMAG_SYNC_INTERVAL_MINUTES` | Intervalul (în minute) dintre execuțiile automate ale sync-ului          | `60`                         |
+| Variabilă                     | Descriere                                                                 | Exemplu                                 |
+| ----------------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
+| `EMAG_API_BASE_URL`           | Endpoint-ul de bază pentru toate request-urile către eMAG Marketplace API | `https://marketplace-api.emag.ro/api-3` |
+| `EMAG_REQUESTS_PER_MINUTE`    | Limita maximă de request-uri trimise pe minut                             | `60`                                    |
+| `EMAG_DELAY_BETWEEN_REQUESTS` | Pauza în secunde dintre două request-uri consecutive                      | `1.0`                                   |
+| `EMAG_MAX_PAGES_PER_SYNC`     | Numărul maxim de pagini procesate în cadrul unui sync complet             | `100`                                   |
+| `EMAG_ENABLE_AUTO_SYNC`       | Activează (`true`) sau dezactivează (`false`) job-ul de sync programat    | `false`                                 |
+| `EMAG_SYNC_INTERVAL_MINUTES`  | Intervalul (în minute) dintre execuțiile automate ale sync-ului           | `60`                                    |
 
 ### 2. Configurare în Cod
 
@@ -1118,28 +1242,28 @@ PRODUCTION_CONFIG = EmagSyncConfig(
    - Deduplicare automată după SKU
    - Rate limiting și error recovery
 
-2. **🔧 API Endpoint-uri Complete:**
+1. **🔧 API Endpoint-uri Complete:**
 
    - 9 endpoint-uri noi pentru sync complet
    - Monitorizare progres în timp real
    - Export și backup date
    - Configurare sync programat
 
-3. **📊 Specificații eMAG API v4.4.8:**
+1. **📊 Specificații eMAG API v4.4.8:**
 
    - Autentificare Basic Auth + IP Whitelist
    - Rate limiting respectat (60 req/min)
    - Toate resursele și acțiunile suportate
    - Format JSON standardizat
 
-4. **🚀 Performance și Scalabilitate:**
+1. **🚀 Performance și Scalabilitate:**
 
    - Procesare async/non-blocking
    - Memory management eficient
    - Error handling robust
    - Monitoring și metrics
 
-5. **📚 Documentație Comprehensivă:**
+1. **📚 Documentație Comprehensivă:**
 
    - Specificații complete API v4.4.8
    - Exemple practice și curl commands

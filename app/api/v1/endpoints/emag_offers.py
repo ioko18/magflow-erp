@@ -26,6 +26,96 @@ class EmagAccountType(str, Enum):
 router = APIRouter(prefix="/emag/offers", tags=["emag-offers"])
 
 
+@router.get("/all")
+async def get_all_offers(
+    status: Optional[str] = Query(None, description="Offer status filter"),
+    category_id: Optional[str] = Query(None, description="Category ID filter"),
+    brand: Optional[str] = Query(None, description="Brand filter"),
+    page: int = Query(1, description="Page number", ge=1),
+    limit: int = Query(50, description="Items per page", ge=1, le=100),
+    current_user: UserModel = Depends(get_current_active_user),
+) -> Dict[str, Any]:
+    """Get product offers from all eMAG accounts (MAIN + FBE).
+
+    - **status**: Filter by offer status (active, inactive, pending, etc.)
+    - **category_id**: Filter by category ID
+    - **brand**: Filter by brand name
+    - **page**: Page number for pagination
+    - **limit**: Number of items per page
+
+    Returns combined offers from both MAIN and FBE accounts.
+    """
+    try:
+        # Get offers from both accounts
+        main_service = await get_emag_service_for_account(EmagAccountType.MAIN)
+        fbe_service = await get_emag_service_for_account(EmagAccountType.FBE)
+
+        # Get offers from MAIN account
+        main_offers_data = await main_service.get_product_offers(
+            account_type="main",
+            status=status,
+            category_id=category_id,
+            brand=brand,
+            page=page,
+            limit=limit,
+        )
+
+        # Get offers from FBE account
+        fbe_offers_data = await fbe_service.get_product_offers(
+            account_type="fbe",
+            status=status,
+            category_id=category_id,
+            brand=brand,
+            page=page,
+            limit=limit,
+        )
+
+        # Combine results
+        main_offers = main_offers_data.get("offers", [])
+        fbe_offers = fbe_offers_data.get("offers", [])
+
+        # Add account type to each offer for identification
+        for offer in main_offers:
+            offer["_account_type"] = "main"
+        for offer in fbe_offers:
+            offer["_account_type"] = "fbe"
+
+        combined_offers = main_offers + fbe_offers
+
+        # Sort by account type and name
+        combined_offers.sort(key=lambda x: (x.get("_account_type", ""), x.get("name", "").lower()))
+
+        return {
+            "account_type": "all",
+            "offers": combined_offers,
+            "total_count": len(combined_offers),
+            "page": page,
+            "limit": limit,
+            "total_pages": (len(combined_offers) + limit - 1) // limit,
+            "account_breakdown": {
+                "main": len(main_offers),
+                "fbe": len(fbe_offers),
+            },
+            "filters_applied": {
+                "status": status,
+                "category_id": category_id,
+                "brand": brand,
+            },
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except ConfigurationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"eMAG integration not configured: {e!s}",
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get eMAG offers from all accounts: {e!s}",
+        )
+
+
 # Dependency provider for eMAG service with account type support
 async def get_emag_service_for_account(
     account_type: EmagAccountType = EmagAccountType.MAIN,
@@ -39,7 +129,7 @@ async def get_emag_service_for_account(
 
         # Initialize with a mock session for now
         db_session = None
-        initialize_service_registry(db_session)
+        await initialize_service_registry(db_session)
 
     # For now, create a new instance
     # In production, this should come from the service registry
@@ -48,10 +138,7 @@ async def get_emag_service_for_account(
 
     settings = get_settings()
     context = ServiceContext(settings=settings)
-    service = EmagIntegrationService(context)
-
-    # Configure for specific account type
-    service.account_type = account_type.value
+    service = EmagIntegrationService(context, account_type=account_type.value)
     await service.initialize()
     return service
 

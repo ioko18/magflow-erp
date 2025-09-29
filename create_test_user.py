@@ -47,7 +47,7 @@ try:
                     email_verified = EXCLUDED.email_verified
                 RETURNING id
             """), {
-                "email": "admin@magflow.local",
+                "email": "admin@magflow.com",
                 "password": hashed_password,
                 "name": "Test Admin User",
                 "is_superuser": True,
@@ -95,13 +95,13 @@ try:
                 LEFT JOIN app.user_role ur ON u.id = ur.user_id
                 LEFT JOIN app.roles r ON ur.role_id = r.id
                 WHERE u.email = :email
-            """), {"email": "admin@magflow.local"})
+            """), {"email": "admin@magflow.com"})
 
             user_info = result.fetchone()
 
             if user_info:
                 print("✅ Test user created successfully!")
-                print("   Email: admin@magflow.local")
+                print("   Email: admin@magflow.com")
                 print("   Password: secret")
                 print("   Is Superuser: {}".format(user_info.is_superuser))
                 print("   Role: {}".format(user_info.role_name or "None"))

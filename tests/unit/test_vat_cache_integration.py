@@ -61,7 +61,9 @@ class MockVatCache:
         return await self.set(key, rate, ttl)
 
 
-def create_vat_rate(id_: int, name: str, value: float, is_default: bool, country_code: str = "RO") -> VatRate:
+def create_vat_rate(
+    id_: int, name: str, value: float, is_default: bool, country_code: str = "RO"
+) -> VatRate:
     """Create a VatRate instance for testing."""
     return VatRate(
         id=id_,
@@ -101,13 +103,13 @@ def vat_service(mock_emag_client: MagicMock, monkeypatch) -> VatService:
     """Fixture that provides a VatService instance with a mocked cache."""
     # Create a mock cache
     mock_cache = MockVatCache()
-    
+
     # Create the service with the mock client
     service = VatService(emag_client=mock_emag_client)
-    
+
     # Replace the service's _cache with our mock
     service._cache = mock_cache
-    
+
     return service
 
 
@@ -132,18 +134,22 @@ async def test_get_vat_rates_cache_hit(
     # Set the cache directly with the expected VatResponse object
     cache_key = "vat_rates:RO"
     await vat_service._cache.set(cache_key, expected_response)
-    
+
     # Call the method under test
-    result = await vat_service.get_vat_rates('RO')
-    
+    result = await vat_service.get_vat_rates("RO")
+
     # Assertions
     assert result is not None, "Result should not be None"
-    assert hasattr(result, 'results'), "Result should have 'results' attribute"
-    assert len(result.results) == 3, f"Expected 3 results, got {len(result.results) if result.results else 0}"
+    assert hasattr(result, "results"), "Result should have 'results' attribute"
+    assert (
+        len(result.results) == 3
+    ), f"Expected 3 results, got {len(result.results) if result.results else 0}"
     assert result.total_count == 3, f"Total count should be 3, got {result.total_count}"
     assert result.is_error is False, f"is_error should be False, got {result.is_error}"
-    assert isinstance(result.messages, list), f"messages should be a list, got {type(result.messages).__name__}"
-    
+    assert isinstance(
+        result.messages, list
+    ), f"messages should be a list, got {type(result.messages).__name__}"
+
     # Verify API was not called
     vat_service.emag_client.get_paginated.assert_not_called()
 
@@ -163,19 +169,21 @@ async def test_get_vat_rates_cache_miss(
         messages=[],
     )
     mock_emag_client.get_paginated.return_value = mock_response
-    
+
     # Call the method under test
-    result = await vat_service.get_vat_rates('RO')
-    
+    result = await vat_service.get_vat_rates("RO")
+
     # Verify the result
     assert result is not None
     assert result.total_count == 3
     assert len(result.results) == 3
-    
+
     # Verify the API was called
     mock_emag_client.get_paginated.assert_called_once()
-    
+
     # Verify the result was cached
     cached_result = await vat_service._cache.get("vat_rates:RO")
     assert cached_result is not None, "Result was not cached"
-    assert cached_result.total_count == 3, f"Expected cached total_count to be 3, got {cached_result.total_count}"
+    assert (
+        cached_result.total_count == 3
+    ), f"Expected cached total_count to be 3, got {cached_result.total_count}"

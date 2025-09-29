@@ -15,7 +15,9 @@ class CategorySummary(BaseModel):
 
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Product name")
-    sku: str = Field(..., min_length=1, max_length=100, description="Stock Keeping Unit")
+    sku: str = Field(
+        ..., min_length=1, max_length=100, description="Stock Keeping Unit"
+    )
     description: Optional[str] = Field(None, description="Product description")
     base_price: Optional[Decimal] = Field(
         default=None,

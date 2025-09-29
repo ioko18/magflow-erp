@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
-import { Form, Input, Button, Card, Typography, Space, Alert } from 'antd'
-import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Button, Card, Typography, Space, Alert, Spin } from 'antd';
+import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const { Title } = Typography
 
@@ -11,47 +12,44 @@ interface LoginForm {
 }
 
 const Login: React.FC = () => {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const navigate = useNavigate()
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated, isLoading, login } = useAuth();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from = (location.state as any)?.from?.pathname || '/';
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
 
   const onFinish = async (values: LoginForm) => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError('');
 
     try {
-      // Call the login endpoint
-      const api = (await import('../services/api')).default
-      
-      const response = await api.post('/auth/simple-login', {
-        username: values.username,
-        password: values.password
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      const { access_token, refresh_token } = response.data
-      
-      // Store the tokens
-      localStorage.setItem('access_token', access_token)
-      localStorage.setItem('refresh_token', refresh_token)
-      localStorage.setItem('user', JSON.stringify({
-        username: values.username,
-        role: 'admin'
-      }))
-      
-      // Set the default Authorization header for API calls
-      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
-      
-      // Redirect to dashboard
-      navigate('/dashboard')
-    } catch (err) {
-      setError('Login failed. Please try again.')
+      await login(values.username, values.password);
+    } catch (error) {
+      setError('Login failed. Please check your credentials and try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
@@ -101,11 +99,11 @@ const Login: React.FC = () => {
         >
           <Form.Item
             name="username"
-            rules={[{ required: true, message: 'Please input your username!' }]}
+            rules={[{ required: true, message: 'Please input your email!' }]}
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="Username"
+              placeholder="admin@magflow.com"
               autoComplete="username"
             />
           </Form.Item>
@@ -141,7 +139,7 @@ const Login: React.FC = () => {
               Demo Credentials:
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
-              Username: <strong>admin@magflow.local</strong>
+              Email: <strong>admin@magflow.com</strong>
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
               Password: <strong>secret</strong>

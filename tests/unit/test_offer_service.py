@@ -151,7 +151,9 @@ class MockHttpClient:
             currency=existing_price.get("currency", "RON"),
         )
 
-    def _apply_offer_updates(self, product_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    def _apply_offer_updates(
+        self, product_id: str, updates: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Apply update payload to an existing offer."""
 
         offer = self.offers[product_id]
@@ -190,7 +192,9 @@ class MockHttpClient:
         self.next_id += 1
 
         created_at = data.get("created_at", datetime.now(timezone.utc).isoformat())
-        updated_at = data.get("updated_at", created_at) or datetime.now(timezone.utc).isoformat()
+        updated_at = (
+            data.get("updated_at", created_at) or datetime.now(timezone.utc).isoformat()
+        )
         vat_rate = data.get("vat_rate", 0.0)
         sale_price = data.get("sale_price")
         stock_qty = data.get("stock", 0)
@@ -447,7 +451,10 @@ async def test_offer_service():
     rate_limiter = MockRateLimiter()
 
     # Create the service with patched rate limiter to avoid sleeps in tests
-    with patch('app.integrations.emag.services.offer_service.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+    with patch(
+        "app.integrations.emag.services.offer_service.asyncio.sleep",
+        new_callable=AsyncMock,
+    ) as mock_sleep:
         service = OfferService(http_client, rate_limiter)
         mock_sleep.return_value = None  # Skip sleeps in the actual service
 

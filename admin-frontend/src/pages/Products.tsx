@@ -72,35 +72,91 @@ import dayjs, { Dayjs } from 'dayjs';
 const { Title } = Typography;
 
 interface Product {
+  // Basic identification
   id: number;
-  name: string;
-  price?: number | null;
-  sale_price?: number | null;
-  effective_price?: number | null;
-  recommended_price?: number | null;
-  min_sale_price?: number | null;
-  max_sale_price?: number | null;
-  offer_status?: number | null;
-  stock: number;
-  status: 'active' | 'inactive';
   emag_id?: string;
+  name: string;
   part_number?: string;
   part_number_key?: string;
-  created_at?: string;
-  updated_at?: string;
-  currency?: string;
+  account_type?: string;
+  
+  // Product information
+  description?: string | null;
   brand?: string;
+  manufacturer?: string;
+  
+  // Pricing information
+  price?: number | null;
+  sale_price?: number | null;
+  original_price?: number | null;
+  min_sale_price?: number | null;
+  max_sale_price?: number | null;
+  recommended_price?: number | null;
+  effective_price?: number | null;
+  currency?: string;
+  
+  // Stock information
+  stock: number;
+  reserved_stock?: number;
+  available_stock?: number;
+  
+  // Status information
+  status: 'active' | 'inactive';
+  offer_status?: number | null;
+  marketplace_status?: string;
+  visibility?: string;
+  is_available?: boolean;
+  
+  // Category information
   category?: string;
   category_id?: number | null;
-  description?: string | null;
-  vat_id?: number | null;
+  emag_category_id?: string;
+  
+  // eMAG specific fields
+  green_tax?: number | null;
+  supply_lead_time?: number | null;
+  handling_time?: number | null;
+  shipping_weight?: number | null;
+  shipping_size?: any;
+  
+  // Safety and compliance
+  safety_information?: string;
+  manufacturer_info?: any;
+  eu_representative?: any;
+  
+  // Product attributes
   ean?: string[] | string | null;
+  attributes?: any;
+  emag_characteristics?: any;
+  specifications?: any;
+  vat_id?: number | null;
   warranty?: number | null;
-  is_available?: boolean;
-  account_type?: string;
+  
+  // Media
+  images?: any;
+  images_overwrite?: boolean;
+  
+  // Sync information
+  sync_status?: string;
+  last_synced_at?: string;
+  sync_error?: string;
+  sync_attempts?: number;
+  
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
+  emag_created_at?: string;
+  emag_modified_at?: string;
+  offer_created_at?: string;
+  offer_updated_at?: string;
+  
+  // Raw data for debugging
+  raw_emag_data?: any;
+  offer_raw_data?: any;
 }
 
-type ProductType = 'emag_main' | 'emag_fbe';
+type ProductType = 'all' | 'emag_main' | 'emag_fbe' | 'local';
+type SyncStatus = 'synced' | 'pending' | 'failed' | 'never_synced';
 
 interface TopBrandSummary {
   brand: string;
@@ -139,6 +195,8 @@ interface ProductFilterState {
   quickFilters: QuickFilterState;
   productType: ProductType;
   searchValue: string;
+  syncStatus: SyncStatus | 'all';
+  emagAccountType: 'all' | 'main' | 'fbe';
 }
 
 interface FilterPreset {
@@ -162,7 +220,9 @@ const columnKeyList = [
   'id',
   'emag_id',
   'name',
+  'description',
   'brand',
+  'manufacturer',
   'part_number',
   'part_number_key',
   'account_type',
@@ -171,6 +231,12 @@ const columnKeyList = [
   'stock',
   'status',
   'category',
+  'ean',
+  'attributes',
+  'sync_info',
+  'images',
+  'shipping',
+  'safety',
   'created_at',
   'actions',
 ] as const;
@@ -226,7 +292,9 @@ const columnLabels: Record<ColumnKey, string> = {
   id: 'ID',
   emag_id: 'eMAG ID',
   name: 'Nume produs',
+  description: 'Descriere',
   brand: 'Brand',
+  manufacturer: 'Producător',
   part_number: 'Part Number',
   part_number_key: 'Part Number Key',
   account_type: 'Cont',
@@ -235,6 +303,12 @@ const columnLabels: Record<ColumnKey, string> = {
   stock: 'Stoc',
   status: 'Status',
   category: 'Categorie',
+  ean: 'Coduri EAN',
+  attributes: 'Atribute',
+  sync_info: 'Info Sincronizare',
+  images: 'Imagini',
+  shipping: 'Transport',
+  safety: 'Siguranță',
   created_at: 'Creat la',
   actions: 'Acțiuni',
 };
@@ -369,11 +443,13 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [productType, setProductType] = useState<ProductType>('emag_main');
+  const [productType, setProductType] = useState<ProductType>('all');
   const [tablePagination, setTablePagination] = useState({ current: 1, pageSize: 50, total: 0 });
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
   const [priceRange, setPriceRange] = useState<[number | undefined, number | undefined]>([undefined, undefined]);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | 'all'>('all');
+  const [emagAccountType, setEmagAccountType] = useState<'all' | 'main' | 'fbe'>('all');
   
   // Enhanced filtering states
   const [filterDrawerVisible, setFilterDrawerVisible] = useState(false);
@@ -530,6 +606,8 @@ export default function ProductsPage() {
     quickFilters: { ...quickFilters },
     productType,
     searchValue,
+    syncStatus,
+    emagAccountType,
   });
 
   const applyFilterState = (state: ProductFilterState) => {
@@ -543,6 +621,8 @@ export default function ProductsPage() {
     setQuickFilters({ ...state.quickFilters });
     setProductType(state.productType);
     setSearchValue(state.searchValue);
+    setSyncStatus(state.syncStatus);
+    setEmagAccountType(state.emagAccountType);
     setSearchTerm(state.searchValue);
     setTablePagination((prev) => ({ ...prev, current: 1 }));
   };
@@ -1537,6 +1617,172 @@ export default function ProductsPage() {
       render: (category: string) => category || '-',
     },
     {
+      title: 'Descriere',
+      dataIndex: 'description',
+      key: 'description',
+      width: 200,
+      render: (description: string) => description ? (
+        <Tooltip title={description}>
+          <div style={{ 
+            maxWidth: '180px', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap' 
+          }}>
+            {description}
+          </div>
+        </Tooltip>
+      ) : '-',
+    },
+    {
+      title: 'Producător',
+      dataIndex: 'manufacturer',
+      key: 'manufacturer',
+      width: 120,
+      render: (manufacturer: string) => manufacturer || '-',
+    },
+    {
+      title: 'Coduri EAN',
+      dataIndex: 'ean',
+      key: 'ean',
+      width: 150,
+      render: (ean: string[] | string | null) => {
+        if (!ean) return '-';
+        const eanArray = Array.isArray(ean) ? ean : [ean];
+        return (
+          <Space direction="vertical" size={2}>
+            {eanArray.slice(0, 2).map((code, index) => (
+              <Tag key={index} color="blue" style={{ fontSize: '11px' }}>
+                {code}
+              </Tag>
+            ))}
+            {eanArray.length > 2 && (
+              <Tooltip title={eanArray.slice(2).join(', ')}>
+                <Tag color="default" style={{ fontSize: '10px' }}>
+                  +{eanArray.length - 2} mai multe
+                </Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Atribute',
+      dataIndex: 'attributes',
+      key: 'attributes',
+      width: 120,
+      render: (attributes: any) => {
+        if (!attributes || typeof attributes !== 'object') return '-';
+        const keys = Object.keys(attributes);
+        return (
+          <Tooltip title={
+            <div>
+              {keys.slice(0, 5).map(key => (
+                <div key={key}><strong>{key}:</strong> {String(attributes[key])}</div>
+              ))}
+              {keys.length > 5 && <div>... și {keys.length - 5} mai multe</div>}
+            </div>
+          }>
+            <Tag color="purple">
+              {keys.length} atribute
+            </Tag>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: 'Info Sincronizare',
+      key: 'sync_info',
+      width: 150,
+      render: (_value, record) => (
+        <Space direction="vertical" size={2}>
+          <Tag color={
+            record.sync_status === 'completed' ? 'green' :
+            record.sync_status === 'failed' ? 'red' :
+            record.sync_status === 'running' ? 'blue' : 'default'
+          }>
+            {record.sync_status || 'necunoscut'}
+          </Tag>
+          {record.last_synced_at && (
+            <Typography.Text type="secondary" style={{ fontSize: '11px' }}>
+              {new Date(record.last_synced_at).toLocaleString('ro-RO')}
+            </Typography.Text>
+          )}
+          {record.sync_error && (
+            <Tooltip title={record.sync_error}>
+              <Tag color="red" style={{ fontSize: '10px' }}>
+                Eroare
+              </Tag>
+            </Tooltip>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Imagini',
+      dataIndex: 'images',
+      key: 'images',
+      width: 100,
+      render: (images: any) => {
+        if (!images || !Array.isArray(images) || images.length === 0) {
+          return <Tag color="default">Fără imagini</Tag>;
+        }
+        return (
+          <Tooltip title={`${images.length} imagini disponibile`}>
+            <Tag color="green">
+              {images.length} imagini
+            </Tag>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: 'Transport',
+      key: 'shipping',
+      width: 120,
+      render: (_value, record) => (
+        <Space direction="vertical" size={2}>
+          {record.shipping_weight && (
+            <Tag color="blue" style={{ fontSize: '11px' }}>
+              {record.shipping_weight} kg
+            </Tag>
+          )}
+          {record.handling_time && (
+            <Tag color="orange" style={{ fontSize: '11px' }}>
+              {record.handling_time} zile
+            </Tag>
+          )}
+          {record.supply_lead_time && (
+            <Tag color="purple" style={{ fontSize: '11px' }}>
+              Lead: {record.supply_lead_time} zile
+            </Tag>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: 'Siguranță',
+      key: 'safety',
+      width: 100,
+      render: (_value, record) => {
+        const hasInfo = record.safety_information || record.manufacturer_info || record.eu_representative;
+        if (!hasInfo) return <Tag color="default">N/A</Tag>;
+        
+        return (
+          <Tooltip title={
+            <div>
+              {record.safety_information && <div>Info siguranță: Da</div>}
+              {record.manufacturer_info && <div>Info producător: Da</div>}
+              {record.eu_representative && <div>Reprezentant UE: Da</div>}
+            </div>
+          }>
+            <Tag color="green">GPSR</Tag>
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: 'Creat la',
       dataIndex: 'created_at',
       key: 'created_at',
@@ -1952,7 +2198,7 @@ export default function ProductsPage() {
                   label: preset.name,
                   value: preset.id,
                 }))}
-                dropdownRender={(menu) => (
+                popupRender={(menu) => (
                   <div>
                     {menu}
                     <Divider style={{ margin: '4px 0' }} />
@@ -2009,8 +2255,17 @@ export default function ProductsPage() {
                   {
                     label: (
                       <div style={{ padding: '4px 8px' }}>
+                        <AppstoreOutlined style={{ marginRight: '8px' }} />
+                        <span>Toate</span>
+                      </div>
+                    ),
+                    value: 'all',
+                  },
+                  {
+                    label: (
+                      <div style={{ padding: '4px 8px' }}>
                         <DatabaseOutlined style={{ marginRight: '8px' }} />
-                        <span>Cont MAIN</span>
+                        <span>eMAG MAIN</span>
                       </div>
                     ),
                     value: 'emag_main',
@@ -2019,10 +2274,19 @@ export default function ProductsPage() {
                     label: (
                       <div style={{ padding: '4px 8px' }}>
                         <LinkOutlined style={{ marginRight: '8px' }} />
-                        <span>Cont FBE</span>
+                        <span>eMAG FBE</span>
                       </div>
                     ),
                     value: 'emag_fbe',
+                  },
+                  {
+                    label: (
+                      <div style={{ padding: '4px 8px' }}>
+                        <ShopOutlined style={{ marginRight: '8px' }} />
+                        <span>Local</span>
+                      </div>
+                    ),
+                    value: 'local',
                   },
                 ]}
                 block
@@ -2370,7 +2634,7 @@ export default function ProductsPage() {
         >
           <Row gutter={[16, 16]}>
             <Col xs={24} md={8}>
-              <Card size="small" bordered={false} style={{ background: '#fafafa' }}>
+              <Card size="small" variant="borderless" style={{ background: '#fafafa' }}>
                 <Statistic
                   title="Oferte valide (fără erori)"
                   value={pageSummaryMetrics.productCount - pageSummaryMetrics.invalidOfferCount}
@@ -2383,7 +2647,7 @@ export default function ProductsPage() {
               </Card>
             </Col>
             <Col xs={24} md={8}>
-              <Card size="small" bordered={false} style={{ background: '#fafafa' }}>
+              <Card size="small" variant="borderless" style={{ background: '#fafafa' }}>
                 <Statistic
                   title="Oferte cu avertizări"
                   value={pageSummaryMetrics.warningOfferCount}
@@ -2395,7 +2659,7 @@ export default function ProductsPage() {
               </Card>
             </Col>
             <Col xs={24} md={8}>
-              <Card size="small" bordered={false} style={{ background: '#fafafa' }}>
+              <Card size="small" variant="borderless" style={{ background: '#fafafa' }}>
                 <Statistic
                   title="Oferte cu erori critice"
                   value={pageSummaryMetrics.invalidOfferCount}
@@ -2544,7 +2808,7 @@ export default function ProductsPage() {
               </Tag>
             </Space>
 
-            <Card size="small" bordered={false} style={{ background: '#fafafa' }}>
+            <Card size="small" variant="borderless" style={{ background: '#fafafa' }}>
               <Row gutter={16}>
                 <Col span={12}>
                   <Statistic
@@ -2598,7 +2862,7 @@ export default function ProductsPage() {
               </Descriptions.Item>
             </Descriptions>
 
-            <Card size="small" title="Cronologie" bordered>
+            <Card size="small" title="Cronologie" variant="outlined">
               <Timeline
                 items={[
                   {

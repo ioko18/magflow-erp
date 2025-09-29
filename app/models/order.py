@@ -1,9 +1,9 @@
 """Order model."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -15,7 +15,14 @@ if TYPE_CHECKING:
 
 class Order(Base):
     __tablename__ = "orders"
-    __table_args__ = {"schema": "app", "extend_existing": True}
+    __table_args__ = (
+        UniqueConstraint(
+            "external_id",
+            "external_source",
+            name="uq_orders_external_source",
+        ),
+        {"schema": "app", "extend_existing": True},
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     customer_id: Mapped[int] = mapped_column(
@@ -26,6 +33,12 @@ class Order(Base):
     order_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     status: Mapped[str] = mapped_column(String(50), default="pending")
     total_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    external_id: Mapped[Optional[str]] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+    external_source: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     customer: Mapped["User"] = relationship("User", back_populates="orders")
     order_lines: Mapped[List["OrderLine"]] = relationship(

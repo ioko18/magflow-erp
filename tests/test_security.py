@@ -20,11 +20,14 @@ class TestSecurity:
         for malicious_path in malicious_inputs:
             response = await client.get(malicious_path)
             # Should return 404 (not found) or 400 (bad request), not 500 (server error)
-            assert response.status_code in [
-                404,
-                400,
-                422,
-            ], f"Potential SQL injection vulnerability detected for path: {malicious_path}"
+            assert (
+                response.status_code
+                in [
+                    404,
+                    400,
+                    422,
+                ]
+            ), f"Potential SQL injection vulnerability detected for path: {malicious_path}"
 
     @pytest.mark.asyncio
     async def test_xss_protection(self, client):
@@ -45,7 +48,6 @@ class TestSecurity:
                 response.status_code == 200
             ), "Server should handle XSS attempts gracefully"
 
-
     @pytest.mark.asyncio
     async def test_path_traversal_protection(self, client):
         """Test path traversal protection."""
@@ -61,8 +63,9 @@ class TestSecurity:
             try:
                 response = await client.get(traversal_path)
                 # Should return 4xx status code for invalid paths
-                assert response.status_code >= 400 and response.status_code < 500, \
-                    f"Potential path traversal vulnerability detected for path: {traversal_path}"
+                assert (
+                    response.status_code >= 400 and response.status_code < 500
+                ), f"Potential path traversal vulnerability detected for path: {traversal_path}"
             except Exception:  # noqa: BLE001
                 # If the request fails completely, that's also a pass
                 pass
@@ -82,8 +85,9 @@ class TestSecurity:
             try:
                 response = await client.get(injection_path)
                 # Should return 4xx status code for injection attempts
-                assert response.status_code >= 400 and response.status_code < 500, \
-                    f"Potential command injection vulnerability detected for path: {injection_path}"
+                assert (
+                    response.status_code >= 400 and response.status_code < 500
+                ), f"Potential command injection vulnerability detected for path: {injection_path}"
             except Exception:  # noqa: BLE001
                 # If the request fails completely, that's also a pass
                 pass
@@ -146,13 +150,14 @@ class TestSecurity:
             "/health",  # Using health endpoint as it's guaranteed to exist
             json={"test": "test"},
         )
-        
+
         # The endpoint might return different status codes:
         # - 200: If the endpoint accepts POST requests without CSRF
         # - 405: If the endpoint doesn't accept POST requests
         # - 4xx: For various client errors
-        assert response.status_code < 500, \
-            f"Server error (500) when testing CSRF protection: {response.text}"
+        assert (
+            response.status_code < 500
+        ), f"Server error (500) when testing CSRF protection: {response.text}"
 
     @pytest.mark.asyncio
     async def test_input_validation(self, client):
@@ -190,15 +195,15 @@ class TestSecurityHeaders:
 
         for header in security_headers:
             assert header.lower() in response.headers, f"Missing header: {header}"
-            assert (
-                response.headers.get(header.lower())
+            assert response.headers.get(
+                header.lower()
             ), f"Empty header value for: {header}"
 
     @pytest.mark.asyncio
     async def test_content_security_policy(self, client):
         """Test Content Security Policy."""
         response = await client.get("/health")
-        
+
         if "Content-Security-Policy" in response.headers:
             csp = response.headers["Content-Security-Policy"]
             # CSP should be restrictive but allow necessary resources
@@ -211,23 +216,26 @@ class TestSecurityHeaders:
         """Test CORS configuration."""
         # Test OPTIONS request (preflight)
         response = await client.options("/health")
-        
+
         # Check that we got a 200 OK or 405 Method Not Allowed response
-        assert response.status_code in [200, 405], \
-            f"Expected 200 or 405, got {response.status_code}"
-            
+        assert response.status_code in [
+            200,
+            405,
+        ], f"Expected 200 or 405, got {response.status_code}"
+
         # For GET request, check CORS headers
         response = await client.get("/health")
-        
+
         # Test CORS headers - these are the actual headers we expect
         expected_headers = {
             "content-type": "application/json",
             "x-correlation-id": response.headers.get("x-correlation-id"),
         }
-        
+
         # Check that all expected headers are present and have values
         for header, expected_value in expected_headers.items():
             assert header in response.headers, f"Missing header: {header}"
             if expected_value is not None:  # Only check value if it was specified
-                assert response.headers[header] == expected_value, \
-                    f"Unexpected value for {header}"
+                assert (
+                    response.headers[header] == expected_value
+                ), f"Unexpected value for {header}"

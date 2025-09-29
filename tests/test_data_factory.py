@@ -25,6 +25,7 @@ try:
     from app.models.sales import Customer
     from app.models.inventory import Warehouse
     from app.models.audit_log import AuditLog
+
     DATABASE_MODELS_AVAILABLE = True
 except ImportError:
     DATABASE_MODELS_AVAILABLE = False
@@ -123,14 +124,12 @@ if DATABASE_MODELS_AVAILABLE:
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
 
-
     class AdminUserFactory(UserFactory):
         """Factory for creating admin User database instances."""
 
         is_superuser = True
         email = factory.Sequence(lambda n: f"admin{n}@example.com")
         full_name = factory.Faker("name")
-
 
     class RoleFactory(BaseFactory):
         """Factory for creating Role database instances."""
@@ -144,7 +143,6 @@ if DATABASE_MODELS_AVAILABLE:
         is_system_role = False
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
-
 
     class PermissionFactory(BaseFactory):
         """Factory for creating Permission database instances."""
@@ -160,7 +158,6 @@ if DATABASE_MODELS_AVAILABLE:
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
 
-
     class CategoryFactory(BaseFactory):
         """Factory for creating Category database instances."""
 
@@ -172,7 +169,6 @@ if DATABASE_MODELS_AVAILABLE:
         description = factory.Faker("sentence", nb_words=10)
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
-
 
     class ProductFactory(BaseFactory):
         """Factory for creating Product database instances."""
@@ -190,7 +186,6 @@ if DATABASE_MODELS_AVAILABLE:
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
 
-
     class CustomerFactory(BaseFactory):
         """Factory for creating Customer database instances."""
 
@@ -204,7 +199,6 @@ if DATABASE_MODELS_AVAILABLE:
         address = factory.Faker("address")
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
-
 
     class WarehouseFactory(BaseFactory):
         """Factory for creating Warehouse database instances."""
@@ -220,7 +214,6 @@ if DATABASE_MODELS_AVAILABLE:
         country = factory.Faker("country")
         is_active = True
 
-
     class AuditLogFactory(BaseFactory):
         """Factory for creating AuditLog database instances."""
 
@@ -229,25 +222,45 @@ if DATABASE_MODELS_AVAILABLE:
 
         id = factory.Sequence(lambda n: n)
         user_id = FuzzyInteger(1, 100)
-        action = FuzzyChoice([
-            "login_success", "login_attempt", "create", "update", "delete",
-            "view", "export", "import", "login_failed", "logout"
-        ])
-        resource = FuzzyChoice([
-            "users", "products", "orders", "reports", "inventory",
-            "settings", "auth", "dashboard", "api"
-        ])
+        action = FuzzyChoice(
+            [
+                "login_success",
+                "login_attempt",
+                "create",
+                "update",
+                "delete",
+                "view",
+                "export",
+                "import",
+                "login_failed",
+                "logout",
+            ]
+        )
+        resource = FuzzyChoice(
+            [
+                "users",
+                "products",
+                "orders",
+                "reports",
+                "inventory",
+                "settings",
+                "auth",
+                "dashboard",
+                "api",
+            ]
+        )
         resource_id = factory.LazyAttribute(
             lambda obj: f"{obj.resource}:{factory.Faker('uuid4')}"
         )
-        details = factory.LazyFunction(lambda: {
-            "ip_address": factory.Faker("ipv4").generate({}),
-            "user_agent": factory.Faker("user_agent").generate({}),
-            "metadata": {"test": True, "factory_generated": True},
-        })
+        details = factory.LazyFunction(
+            lambda: {
+                "ip_address": factory.Faker("ipv4").generate({}),
+                "user_agent": factory.Faker("user_agent").generate({}),
+                "metadata": {"test": True, "factory_generated": True},
+            }
+        )
         success = FuzzyChoice([True, False])
         timestamp = factory.Faker("past_datetime", start_date="-30d")
-
 
     class OrderFactory(BaseFactory):
         """Factory for creating Order database instances."""
@@ -259,10 +272,11 @@ if DATABASE_MODELS_AVAILABLE:
         customer_id = FuzzyInteger(1, 100)
         order_date = factory.Faker("past_datetime", start_date="-30d")
         total_amount = FuzzyFloat(50.0, 5000.0, precision=2)
-        status = FuzzyChoice(["pending", "processing", "shipped", "delivered", "cancelled"])
+        status = FuzzyChoice(
+            ["pending", "processing", "shipped", "delivered", "cancelled"]
+        )
         created_at = factory.Faker("past_datetime", start_date="-30d")
         updated_at = factory.Faker("past_datetime", start_date="-1d")
-
 
     class OrderLineFactory(BaseFactory):
         """Factory for creating OrderLine database instances."""
@@ -276,7 +290,6 @@ if DATABASE_MODELS_AVAILABLE:
         quantity = FuzzyInteger(1, 10)
         unit_price = FuzzyFloat(10.0, 100.0, precision=2)
         total_price = factory.LazyAttribute(lambda obj: obj.quantity * obj.unit_price)
-
 
     class SupplierFactory(BaseFactory):
         """Factory for creating Supplier database instances."""
@@ -332,7 +345,7 @@ def sample_audit_log():
         "resource_id": "auth:123",
         "details": {"ip_address": "127.0.0.1", "user_agent": "test"},
         "success": True,
-        "timestamp": datetime.now()
+        "timestamp": datetime.now(),
     }
 
 
@@ -350,7 +363,7 @@ def sample_audit_logs():
             "resource_id": f"auth:{i}",
             "details": {"ip_address": "127.0.0.1", "user_agent": "test"},
             "success": True,
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
         }
         for i in range(10)
     ]
@@ -440,7 +453,6 @@ if DATABASE_MODELS_AVAILABLE:
         await db_session.refresh(user)
         return user
 
-
     @pytest.fixture
     async def db_admin_user(db_session):
         """Create a test admin user in the database."""
@@ -449,7 +461,6 @@ if DATABASE_MODELS_AVAILABLE:
         await db_session.commit()
         await db_session.refresh(user)
         return user
-
 
     @pytest.fixture
     async def db_product(db_session):
@@ -460,7 +471,6 @@ if DATABASE_MODELS_AVAILABLE:
         await db_session.refresh(product)
         return product
 
-
     @pytest.fixture
     async def db_category(db_session):
         """Create a test category in the database."""
@@ -469,7 +479,6 @@ if DATABASE_MODELS_AVAILABLE:
         await db_session.commit()
         await db_session.refresh(category)
         return category
-
 
     @pytest.fixture
     async def db_role(db_session):
@@ -480,7 +489,6 @@ if DATABASE_MODELS_AVAILABLE:
         await db_session.refresh(role)
         return role
 
-
     @pytest.fixture
     async def db_permission(db_session):
         """Create a test permission in the database."""
@@ -489,7 +497,6 @@ if DATABASE_MODELS_AVAILABLE:
         await db_session.commit()
         await db_session.refresh(permission)
         return permission
-
 
     @pytest.fixture
     async def db_audit_log(db_session):
@@ -527,7 +534,7 @@ def create_product_with_categories(db_session, category_count: int = 2):
     if not DATABASE_MODELS_AVAILABLE:
         return {
             "name": "Test Product",
-            "categories": [f"Category {i}" for i in range(category_count)]
+            "categories": [f"Category {i}" for i in range(category_count)],
         }
 
     # Create categories if they don't exist
@@ -559,7 +566,7 @@ def create_test_user_data():
         "email": "test@example.com",
         "password": "test_password123",
         "full_name": "Test User",
-        "is_active": True
+        "is_active": True,
     }
 
 
@@ -571,7 +578,7 @@ def create_test_product_data():
         "price": 99.99,
         "sku": "TEST-001",
         "stock_quantity": 100,
-        "is_active": True
+        "is_active": True,
     }
 
 
@@ -579,7 +586,7 @@ def create_test_category_data():
     """Create sample category data for API testing."""
     return {
         "name": "Test Category",
-        "description": "This is a test category for API testing"
+        "description": "This is a test category for API testing",
     }
 
 

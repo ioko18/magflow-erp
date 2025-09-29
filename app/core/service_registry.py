@@ -41,18 +41,25 @@ class ServiceRegistry:
     _instance: Optional["ServiceRegistry"] = None
     _initialized = False
 
+    # Internal flag to ensure singleton construction logic only runs once
+    _constructed = False
+
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
-        if not self._initialized:
-            self._services: Dict[str, ServiceBase] = {}
-            self._repository_factory: Optional[RepositoryFactory] = None
-            self._initialized = True
+        if self._constructed:
+            return
 
-    def initialize(self, context: ServiceContext):
+        # Lazily populated during `initialize()`
+        self._services: Dict[str, ServiceBase] = {}
+        self._repository_factory: Optional[RepositoryFactory] = None
+        self._initialized = False
+        self._constructed = True
+
+    async def initialize(self, context: ServiceContext):
         """Initialize all services."""
         if self._initialized:
             logger.warning("Service registry already initialized")
@@ -76,9 +83,11 @@ class ServiceRegistry:
             # Create repository factory
             self._repository_factory = RepositoryFactory(db_service)
 
-            # Initialize all services
+            # Initialize all services (await async initializers if needed)
             for name, service in self._services.items():
-                service.initialize()
+                initializer = service.initialize()
+                if inspect.isawaitable(initializer):
+                    await initializer
 
             logger.info(
                 "Service registry initialized with %d services",
@@ -175,7 +184,7 @@ def get_service_registry() -> ServiceRegistry:
     return _service_registry
 
 
-def initialize_service_registry(db_session=None):
+async def initialize_service_registry(db_session=None):
     """Initialize the global service registry."""
     from app.core.config import get_settings
 
@@ -188,7 +197,7 @@ def initialize_service_registry(db_session=None):
     context = ServiceContext(settings=settings, db_session=db_session)
 
     # Initialize service registry
-    _service_registry.initialize(context)
+    await _service_registry.initialize(context)
 
     # Register services with dependency container
     register_services()
@@ -275,8 +284,12 @@ class _InMemoryOrderRepository:  # pragma: no cover - simple fallback
         orders = list(self._orders.values())
         return orders[skip : skip + limit]
 
-    async def get_by_customer_id(self, customer_id: Any, skip: int = 0, limit: int = 100):
-        filtered = [o for o in self._orders.values() if o.get("customer_id") == customer_id]
+    async def get_by_customer_id(
+        self, customer_id: Any, skip: int = 0, limit: int = 100
+    ):
+        filtered = [
+            o for o in self._orders.values() if o.get("customer_id") == customer_id
+        ]
         return filtered[skip : skip + limit]
 
     async def get_by_status(self, status: str, skip: int = 0, limit: int = 100):

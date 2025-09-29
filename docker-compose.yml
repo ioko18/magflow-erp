@@ -71,6 +71,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      - DATABASE_URL=postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow
       - CELERY_BROKER_URL=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
     command: ["celery", "-A", "app.worker:celery_app", "worker", "--loglevel=info", "--concurrency=2"]
@@ -96,6 +97,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
+      - DATABASE_URL=postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow
       - CELERY_BROKER_URL=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
       - CELERY_HEARTBEAT_INTERVAL=60

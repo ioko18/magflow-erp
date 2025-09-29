@@ -13,9 +13,13 @@ from ..core.config import settings
 from ..core.database import get_async_session
 from ..db.models import User as UserModel
 from ..middleware.correlation_id import get_correlation_id
-from ..schemas.auth import LoginRequest, Token, User, UserInDB
+from ..schemas.auth import LoginRequest, Token, TokenPayload, User, UserInDB
 from ..services.cache_service import CacheManager, get_cache_service
 from ..services.rbac_service import AuditService
+from ..core.security import (
+    create_access_token as core_create_access_token,
+    create_refresh_token as core_create_refresh_token,
+)
 
 router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -42,25 +46,8 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token."""
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(
-            minutes=settings.access_token_expire_minutes,
-        )
 
-    to_encode = {
-        "exp": expire,
-        "sub": str(subject),
-        "iat": datetime.utcnow(),
-        "type": "access",
-        "email": str(subject),
-        "full_name": "Test User",
-        "role": "admin",
-        "roles": ["admin"],
-    }
-
-    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.ALGORITHM)
+    return core_create_access_token(subject=subject, expires_delta=expires_delta)
 
 
 def create_refresh_token(
@@ -68,23 +55,7 @@ def create_refresh_token(
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """Create a JWT refresh token."""
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
-
-    to_encode = {
-        "exp": expire,
-        "sub": str(subject),
-        "iat": datetime.utcnow(),
-        "type": "refresh",
-    }
-
-    return jwt.encode(
-        to_encode,
-        settings.REFRESH_SECRET_KEY,
-        algorithm=settings.ALGORITHM,
-    )
+    return core_create_refresh_token(subject=subject, expires_delta=expires_delta)
 
 
 def decode_token(token: str) -> Dict[str, Any]:
@@ -453,68 +424,61 @@ async def test_database(
         return {"status": "error", "error": str(e)}
 
 
-@router.post("/refresh", response_model=Token)
-async def refresh_access_token(
+@router.post("/refresh-token", response_model=Token)
+async def refresh_token_endpoint(
     request: Request,
-    refresh_token: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Refresh an access token using a refresh token.
+    """Issue new access/refresh tokens using the provided refresh token."""
 
-    - **refresh_token**: The refresh token received during login
+    auth_header = request.headers.get("Authorization", "")
+    token: Optional[str] = None
 
-    Returns:
-    - **access_token**: New JWT access token
-    - **refresh_token**: New refresh token (optional, if rotating refresh tokens is enabled)
-    - **token_type**: Always "bearer"
-    - **expires_in**: Token expiration in seconds
+    if auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
 
-    """
-    if not refresh_token:
+    if not token:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token is required",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     try:
-        # Verify the refresh token
-        payload = decode_token(refresh_token)
-
-        # Ensure this is a refresh token
-        if payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid token type",
-            )
-
-        # In a real app, you would validate the user still exists and is active
-        username = payload.get("sub")
-
-        # Create new access token
-        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
-        access_token = create_access_token(
-            subject=username,
-            expires_delta=access_token_expires,
-            additional_claims={
-                "type": "access",
-            },
-        )
-
-        # Optionally rotate refresh tokens (uncomment if you want to rotate refresh tokens)
-        # new_refresh_token = create_refresh_token(
-        #     subject=username,
-        return {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "expires_in": int(access_token_expires.total_seconds()),
-        }
-
-    except Exception as e:
+        payload = decode_token(token)
+        token_payload = TokenPayload(**payload)
+    except HTTPException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate refresh token",
             headers={"WWW-Authenticate": "Bearer"},
-        ) from e
+        ) from exc
+
+    if token_payload.type != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid token type",
+        )
+
+    username = token_payload.sub
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+
+    access_token = create_access_token(
+        subject=username,
+        expires_delta=access_token_expires,
+    )
+    new_refresh_token = create_refresh_token(
+        subject=username,
+        expires_delta=timedelta(days=settings.refresh_token_expire_days),
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+        "expires_in": int(access_token_expires.total_seconds()),
+    }
 
 
 @router.get("/me", response_model=User)

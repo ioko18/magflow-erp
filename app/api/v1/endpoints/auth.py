@@ -20,6 +20,7 @@ from app.core.security import (
     create_refresh_token,
     get_password_hash,
     verify_password,
+    verify_token,
 )
 from app.models import User
 from app.schemas.auth import LoginRequest, Token, User as UserSchema
@@ -50,8 +51,8 @@ async def _get_current_user(
     try:
         payload = jwt.decode(
             token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
             options={"verify_aud": False},
         )
     except JWTError as exc:  # pragma: no cover - defensive branch
@@ -115,6 +116,8 @@ async def login(
     payload: LoginRequest | None = Body(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> Token:
+    """Authenticate a user and issue access and refresh tokens."""
+
     username, password = await _extract_login_credentials(request, payload)
 
     if not username or not password:
@@ -129,6 +132,12 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user",
         )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -164,38 +173,31 @@ async def refresh_token(
         )
 
     try:
-        payload = jwt.decode(
-            refresh_token,
-            settings.REFRESH_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
-            options={"verify_aud": False},
-        )
-    except JWTError as exc:
+        token_payload = verify_token(refresh_token, is_refresh=True)
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
-    if payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid token type",
-        )
-
-    subject = payload.get("sub")
-    if not subject:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid refresh token",
-        )
+    subject = token_payload.sub
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(subject=subject, expires_delta=access_token_expires)
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+    new_access_token = create_access_token(
+        subject=subject,
+        expires_delta=access_token_expires,
+    )
+    new_refresh_token = create_refresh_token(
+        subject=subject,
+        expires_delta=refresh_token_expires,
+    )
 
     return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
+        access_token=new_access_token,
+        refresh_token=new_refresh_token,
         token_type="bearer",
         expires_in=int(access_token_expires.total_seconds()),
     )

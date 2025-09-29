@@ -135,8 +135,8 @@ class CircuitBreakerStatus(BaseModel):
 class FullHealthCheckResponse(BaseModel):
     status: str = "ok"
     timestamp: str = Field(
-            default_factory=lambda: datetime.now(timezone.utc).isoformat() + "Z"
-        )
+        default_factory=lambda: datetime.now(timezone.utc).isoformat() + "Z"
+    )
     db: DatabaseHealthCheck
     jwks: JWKSHealthCheck
     circuit_breakers: Dict[str, CircuitBreakerStatus]
@@ -263,7 +263,11 @@ async def health() -> Dict[str, str]:
     This is a lightweight check that only verifies the API is running.
     For a full system health check, use /health/full
     """
-    return {"status": "ok"}
+    now = datetime.now(timezone.utc)
+    return {
+        "status": "ok",
+        "timestamp": _format_dt(now),
+    }
 
 
 @router.get("/health")
@@ -358,59 +362,52 @@ async def startup_probe() -> Dict[str, Any]:
     required = _get_warmup_period()
     remaining = max(required - elapsed, 0.0)
 
-    def _format_dt(dt: datetime) -> str:
-        formatted = dt.astimezone(timezone.utc).isoformat()
-        return formatted.replace("+00:00", "Z")
-
-    def _serialize_ready_state(state: Dict[str, Any]) -> Dict[str, Any]:
-        serialized: Dict[str, Any] = {}
-        for key, value in state.items():
-            if isinstance(value, datetime):
-                serialized[key] = _format_dt(value)
-            else:
-                serialized[key] = value
-        return serialized
-
-    # Pull in v1 helpers so monkeypatching in tests can provide richer data.
-    readiness_details: Optional[Dict[str, Any]] = None
-    try:
-        from app.api.v1.endpoints import health as v1_health  # type: ignore
-    except Exception:  # pragma: no cover - defensive fallback
-        v1_health = None
-
     ready_state = _get_ready_state()
 
-    services: Dict[str, Any]
-    if v1_health and isinstance(readiness_details, dict):
-        services = _normalize_services(
-            readiness_details.get("services", {}) or {}
-        )
-    else:
-        services = {
+    readiness_details: Optional[Dict[str, Any]] = None
+    raw_services: Dict[str, Any] = {}
+
+    if v1_health and hasattr(v1_health, "readiness_probe"):
+        try:
+            details = v1_health.readiness_probe()
+            if isinstance(details, dict):
+                readiness_details = details
+                raw_services = details.get("services", {}) or {}
+        except Exception:  # pragma: no cover - defensive fallback
+            readiness_details = None
+
+    if not raw_services:
+        raw_services = {
             "database": "ready" if ready_state.get("db_ready", True) else "starting",
             "jwks": "ready" if ready_state.get("jwks_ready", True) else "starting",
         }
         if "otel_ready" in ready_state:
-            services["opentelemetry"] = (
+            raw_services["opentelemetry"] = (
                 "ready" if ready_state.get("otel_ready", True) else "starting"
             )
 
-    if v1_health:
-        try:
-            if not readiness_details:
-                readiness_details = v1_health.readiness_probe()
-        except Exception:  # pragma: no cover - ignore helper failures
-            readiness_details = readiness_details or None
+    fallback_details: Optional[Dict[str, Any]] = None
+    try:
+        fallback_details = await readiness_probe()
+    except Exception:  # pragma: no cover - ignore probe failures
+        fallback_details = None
 
+    if isinstance(fallback_details, dict):
+        fallback_services = fallback_details.get("services", {}) or {}
+        if fallback_services:
+            raw_services = fallback_services
+        if readiness_details is None:
+            readiness_details = fallback_details
+        else:
+            readiness_details.setdefault("services", fallback_services)
+
+    services = _normalize_services(raw_services)
+
+    if v1_health and hasattr(v1_health, "update_health_metrics"):
         try:
-            if hasattr(v1_health, "update_health_metrics"):
-                v1_health.update_health_metrics({"probe": "startup", "elapsed": elapsed})
+            v1_health.update_health_metrics({"probe": "startup", "elapsed": elapsed})
         except Exception:  # pragma: no cover - ignore metrics failures
             pass
-
-    if isinstance(readiness_details, dict):
-        services = readiness_details.get("services", services) or services
-        services = _normalize_services(services)
 
     services_ready = all(
         str(status).lower() in {"ready", "ok", "healthy"}
@@ -431,6 +428,7 @@ async def startup_probe() -> Dict[str, Any]:
         "details": {
             "warmup_remaining_seconds": remaining,
             "ready_state": _serialize_ready_state(ready_state),
+            "raw_services": raw_services,
         },
         "timestamp": _format_dt(now),
     }
@@ -464,16 +462,18 @@ async def database_health() -> Dict[str, Any]:
 
 def get_circuit_breakers_status() -> Dict[str, Dict[str, Any]]:
     """Get the status of all circuit breakers.
-    
+
     Returns:
         Dict containing the status of all circuit breakers
     """
     try:
         # Import the global circuit breaker instance and CircuitState
         from app.core.circuit_breaker import DATABASE_CIRCUIT_BREAKER, CircuitState
-        
-        logger.debug(f"[CIRCUIT_BREAKER] Getting circuit breaker status for database (instance id: {id(DATABASE_CIRCUIT_BREAKER)})")
-        
+
+        logger.debug(
+            f"[CIRCUIT_BREAKER] Getting circuit breaker status for database (instance id: {id(DATABASE_CIRCUIT_BREAKER)})"
+        )
+
         # Get the current state and other attributes with the lock held
         with DATABASE_CIRCUIT_BREAKER._lock:
             # Manually check the state based on internal attributes
@@ -483,38 +483,51 @@ def get_circuit_breakers_status() -> Dict[str, Dict[str, Any]]:
                 current_state = "half_open"
             else:
                 current_state = "closed"
-            
+
             # Get other circuit breaker attributes
             failure_count = DATABASE_CIRCUIT_BREAKER._failure_count
             failure_threshold = DATABASE_CIRCUIT_BREAKER.failure_threshold
             opened_at = DATABASE_CIRCUIT_BREAKER._opened_at
-            
-            logger.debug(f"[CIRCUIT_BREAKER] Current state: {current_state} (raw state: {DATABASE_CIRCUIT_BREAKER._state})")
-            logger.debug(f"[CIRCUIT_BREAKER] Failure count: {failure_count}/{failure_threshold}")
+
+            logger.debug(
+                f"[CIRCUIT_BREAKER] Current state: {current_state} (raw state: {DATABASE_CIRCUIT_BREAKER._state})"
+            )
+            logger.debug(
+                f"[CIRCUIT_BREAKER] Failure count: {failure_count}/{failure_threshold}"
+            )
             logger.debug(f"[CIRCUIT_BREAKER] Opened at: {opened_at}")
-            
+
             cb_status = {
                 "state": current_state,
                 "failure_count": failure_count,
                 "failure_threshold": failure_threshold,
             }
-            
+
             if opened_at is not None:
-                cb_status["opened_at"] = datetime.fromtimestamp(opened_at).isoformat() + "Z"
-                
+                cb_status["opened_at"] = (
+                    datetime.fromtimestamp(opened_at).isoformat() + "Z"
+                )
+
                 # Calculate time until retry if circuit is open
-                if current_state == "open" and hasattr(DATABASE_CIRCUIT_BREAKER, 'recovery_timeout'):
+                if current_state == "open" and hasattr(
+                    DATABASE_CIRCUIT_BREAKER, "recovery_timeout"
+                ):
                     time_elapsed = time.time() - opened_at
-                    time_until_retry = max(0, DATABASE_CIRCUIT_BREAKER.recovery_timeout - time_elapsed)
+                    time_until_retry = max(
+                        0, DATABASE_CIRCUIT_BREAKER.recovery_timeout - time_elapsed
+                    )
                     cb_status["time_until_retry"] = time_until_retry
-                    logger.debug(f"[CIRCUIT_BREAKER] Time until retry: {time_until_retry:.2f}s")
-            
+                    logger.debug(
+                        f"[CIRCUIT_BREAKER] Time until retry: {time_until_retry:.2f}s"
+                    )
+
             logger.debug(f"[CIRCUIT_BREAKER] Final status: {cb_status}")
-            
+
             return {"database": cb_status}
     except Exception as e:
         logger.error(f"Error in get_circuit_breakers_status: {e}", exc_info=True)
         return {}
+
 
 @router.get("/full", response_model=FullHealthCheckResponse)
 async def full_health_check() -> Dict[str, Any]:
@@ -539,17 +552,17 @@ async def full_health_check() -> Dict[str, Any]:
     try:
         logger.debug("Getting circuit breakers status...")
         from app.core.circuit_breaker import DATABASE_CIRCUIT_BREAKER, CircuitState
-        
+
         # Get the current state directly from the circuit breaker
         with DATABASE_CIRCUIT_BREAKER._lock:
             current_state = DATABASE_CIRCUIT_BREAKER._state
             failure_count = DATABASE_CIRCUIT_BREAKER._failure_count
             failure_threshold = DATABASE_CIRCUIT_BREAKER.failure_threshold
             opened_at = DATABASE_CIRCUIT_BREAKER._opened_at
-            
+
             logger.debug(f"Direct circuit breaker state: {current_state}")
             logger.debug(f"Direct failure count: {failure_count}/{failure_threshold}")
-            
+
             # Manually create the circuit breaker status
             circuit_breakers = {
                 "database": {
@@ -558,21 +571,30 @@ async def full_health_check() -> Dict[str, Any]:
                     "failure_threshold": failure_threshold,
                 }
             }
-            
+
             if opened_at is not None:
-                circuit_breakers["database"]["opened_at"] = datetime.fromtimestamp(opened_at).isoformat() + "Z"
-                
+                circuit_breakers["database"]["opened_at"] = (
+                    datetime.fromtimestamp(opened_at).isoformat() + "Z"
+                )
+
                 # Calculate time until retry if circuit is open
-                if current_state == CircuitState.OPEN and hasattr(DATABASE_CIRCUIT_BREAKER, 'recovery_timeout'):
+                if current_state == CircuitState.OPEN and hasattr(
+                    DATABASE_CIRCUIT_BREAKER, "recovery_timeout"
+                ):
                     time_elapsed = time.time() - opened_at
-                    time_until_retry = max(0, DATABASE_CIRCUIT_BREAKER.recovery_timeout - time_elapsed)
+                    time_until_retry = max(
+                        0, DATABASE_CIRCUIT_BREAKER.recovery_timeout - time_elapsed
+                    )
                     circuit_breakers["database"]["time_until_retry"] = time_until_retry
-        
+
         logger.debug(f"Circuit breakers status: {circuit_breakers}")
-        
+
         # Check if any circuit breaker is open
         has_open_circuits = False
-        if "database" in circuit_breakers and circuit_breakers["database"].get("state") == "open":
+        if (
+            "database" in circuit_breakers
+            and circuit_breakers["database"].get("state") == "open"
+        ):
             has_open_circuits = True
             cb_status = circuit_breakers["database"]
             logger.warning(
@@ -591,7 +613,7 @@ async def full_health_check() -> Dict[str, Any]:
         jwks_check = await check_jwks_health()
     except Exception as _e:  # pragma: no cover - defensive fallback
         jwks_check = JWKSHealthCheck(ok=True, keys_count=1, url="auto")
-    
+
     db_health: Dict[str, Any] = (
         _db_health_model.model_dump()
         if hasattr(_db_health_model, "model_dump")
@@ -612,7 +634,7 @@ async def full_health_check() -> Dict[str, Any]:
             status=db_health["status"],
             dsn_host=db_health["dsn_host"],
             resolved_ips=db_health["resolved_ips"],
-            error=db_health.get("error")
+            error=db_health.get("error"),
         ),
         "jwks": jwks_check,
         "circuit_breakers": circuit_breakers,
@@ -625,11 +647,13 @@ async def full_health_check() -> Dict[str, Any]:
     health_check_time = current_time
 
     # Update metrics
-    update_health_metrics({
-        "status": overall_status, 
-        "duration_ms": (time.time() - current_time) * 1000,
-        "circuit_breakers": circuit_breakers
-    })
+    update_health_metrics(
+        {
+            "status": overall_status,
+            "duration_ms": (time.time() - current_time) * 1000,
+            "circuit_breakers": circuit_breakers,
+        }
+    )
     update_database_metrics(db_health)
 
     return response

@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3001,
+    port: 5173,
     strictPort: true,
     proxy: {
       '/api': {
@@ -13,14 +13,14 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
+        configure: (proxy, options) => { // cast to any for event listeners
+          (proxy as any).on('error', (err, req, res) => {
             console.log('proxy error', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+          (proxy as any).on('proxyReq', (proxyReq, req, res) => {
             console.log('Sending Request to the Target:', req.method, req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, res) => {
+          (proxy as any).on('proxyRes', (proxyRes, req, res) => {
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
           });
         },

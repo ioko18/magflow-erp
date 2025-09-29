@@ -1,0 +1,78 @@
+{
+  "timestamp": "2025-09-28T07:08:56.821016",
+  "summary": {
+    "total_tests": 7,
+    "avg_test_time": 0.16763969830104283,
+    "avg_setup_time": 0.07663345336914062,
+    "avg_execution_time": 0.09100624493190221,
+    "avg_memory_usage": 2.3794642857142856,
+    "avg_cpu_usage": 78.9,
+    "total_errors": 4,
+    "total_warnings": 0,
+    "slowest_test": [
+      "test_advanced_query_products",
+      0.557448148727417
+    ],
+    "fastest_test": [
+      "advanced_create_product",
+      0.0016262531280517578
+    ],
+    "performance_score": 64.66460159846714,
+    "recommendations": [
+      "Fix 4 test errors to improve reliability"
+    ]
+  },
+  "dashboard": {
+    "timestamp": "2025-09-28T07:08:56.551691",
+    "uptime": 0.9909648895263672,
+    "summary": {
+      "total_tests": 7,
+      "avg_test_time": 0.16763969830104283,
+      "avg_setup_time": 0.07663345336914062,
+      "avg_execution_time": 0.09100624493190221,
+      "avg_memory_usage": 2.3794642857142856,
+      "avg_cpu_usage": 78.9,
+      "total_errors": 4,
+      "total_warnings": 0,
+      "slowest_test": [
+        "test_advanced_query_products",
+        0.557448148727417
+      ],
+      "fastest_test": [
+        "advanced_create_product",
+        0.0016262531280517578
+      ],
+      "performance_score": 64.66460159846714,
+      "recommendations": [
+        "Fix 4 test errors to improve reliability"
+      ]
+    },
+    "recent_tests": [
+      [
+        "advanced_delete_product",
+        0.0055811405181884766
+      ],
+      [
+        "test_advanced_delete_product",
+        0.0058879852294921875
+      ],
+      [
+        "stress_database_connections",
+        0.044164180755615234
+      ],
+      [
+        "advanced_create_product",
+        0.0016262531280517578
+      ],
+      [
+        "test_advanced_create_product",
+        0.001966238021850586
+      ]
+    ],
+    "system_info": {
+      "memory_mb": 180.484375,
+      "cpu_percent": 100.0,
+      "db_connections": 0
+    }
+  }
+}

@@ -41,7 +41,7 @@ async def get_payment_service() -> PaymentService:
 
         # Initialize with a mock session for now
         db_session = None
-        initialize_service_registry(db_session)
+        await initialize_service_registry(db_session)
 
     # For now, create a new instance
     # In production, this should come from the service registry

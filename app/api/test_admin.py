@@ -106,38 +106,44 @@ async def get_dashboard_data(
                     {"name": "iPad Air", "value": 20, "sales": 8750},
                     {"name": "AirPods Pro", "value": 20, "sales": 3240},
                 ],
-                "recentSyncs": [
-                    {
-                        "sync_id": sync.sync_id,
-                        "status": sync.status,
-                        "offers_processed": sync.total_offers_processed,
-                        "started_at": (
-                            sync.started_at.isoformat() if sync.started_at else None
-                        ),
-                        "completed_at": (
-                            sync.completed_at.isoformat() if sync.completed_at else None
-                        ),
-                        "duration_seconds": sync.duration_seconds,
-                    }
-                    for sync in syncs
-                ] if syncs else [
-                    {
-                        "sync_id": "test-sync-001",
-                        "status": "completed",
-                        "offers_processed": 150,
-                        "started_at": "2024-01-15T10:00:00",
-                        "completed_at": "2024-01-15T10:05:30",
-                        "duration_seconds": 330,
-                    },
-                    {
-                        "sync_id": "test-sync-002",
-                        "status": "completed",
-                        "offers_processed": 200,
-                        "started_at": "2024-01-14T15:30:00",
-                        "completed_at": "2024-01-14T15:37:45",
-                        "duration_seconds": 465,
-                    },
-                ],
+                "recentSyncs": (
+                    [
+                        {
+                            "sync_id": sync.sync_id,
+                            "status": sync.status,
+                            "offers_processed": sync.total_offers_processed,
+                            "started_at": (
+                                sync.started_at.isoformat() if sync.started_at else None
+                            ),
+                            "completed_at": (
+                                sync.completed_at.isoformat()
+                                if sync.completed_at
+                                else None
+                            ),
+                            "duration_seconds": sync.duration_seconds,
+                        }
+                        for sync in syncs
+                    ]
+                    if syncs
+                    else [
+                        {
+                            "sync_id": "test-sync-001",
+                            "status": "completed",
+                            "offers_processed": 150,
+                            "started_at": "2024-01-15T10:00:00",
+                            "completed_at": "2024-01-15T10:05:30",
+                            "duration_seconds": 330,
+                        },
+                        {
+                            "sync_id": "test-sync-002",
+                            "status": "completed",
+                            "offers_processed": 200,
+                            "started_at": "2024-01-14T15:30:00",
+                            "completed_at": "2024-01-14T15:37:45",
+                            "duration_seconds": 465,
+                        },
+                    ]
+                ),
             },
         }
 
@@ -224,7 +230,7 @@ async def get_emag_products(
             products_result = await db.execute(
                 text(
                     """
-                SELECT p.id, p.emag_id, p.name, p.part_number, p.part_number_key, p.is_active, 
+                SELECT p.id, p.emag_id, p.name, p.part_number, p.part_number_key, p.is_active,
                        p.created_at, p.updated_at, p.emag_brand_name, p.emag_category_name,
                        o.price as price,
                        o.sale_price as sale_price,
@@ -241,13 +247,13 @@ async def get_emag_products(
                 {"limit": limit, "skip": skip},
             )
             products = products_result.fetchall()
-            
+
             # Get total count
             count_result = await db.execute(
                 text("SELECT COUNT(*) FROM app.emag_products WHERE is_active = true"),
             )
             total_count = count_result.scalar() or 0
-            
+
             return {
                 "status": "success",
                 "data": {
@@ -257,13 +263,15 @@ async def get_emag_products(
                             "emag_id": product.emag_id,
                             "name": product.name,
                             "part_number": product.part_number or "",
-                            "part_number_key": getattr(product, 'part_number_key', '') or '',
+                            "part_number_key": getattr(product, "part_number_key", "")
+                            or "",
                             "price": (
                                 float(product.price)
                                 if getattr(product, "price", None) not in (None, 0)
                                 else (
                                     float(product.sale_price)
-                                    if getattr(product, "sale_price", None) not in (None, 0)
+                                    if getattr(product, "sale_price", None)
+                                    not in (None, 0)
                                     else None
                                 )
                             ),
@@ -274,12 +282,21 @@ async def get_emag_products(
                             ),
                             "stock": int(product.stock) if product.stock else 0,
                             "status": "active" if product.is_active else "inactive",
-                            "currency": getattr(product, 'currency', 'RON') or 'RON',
-                            "brand": getattr(product, 'emag_brand_name', '') or '',
-                            "category": getattr(product, 'emag_category_name', '') or '',
-                            "is_available": getattr(product, 'is_available', True),
-                            "created_at": product.created_at.isoformat() if product.created_at else None,
-                            "updated_at": product.updated_at.isoformat() if product.updated_at else None,
+                            "currency": getattr(product, "currency", "RON") or "RON",
+                            "brand": getattr(product, "emag_brand_name", "") or "",
+                            "category": getattr(product, "emag_category_name", "")
+                            or "",
+                            "is_available": getattr(product, "is_available", True),
+                            "created_at": (
+                                product.created_at.isoformat()
+                                if product.created_at
+                                else None
+                            ),
+                            "updated_at": (
+                                product.updated_at.isoformat()
+                                if product.updated_at
+                                else None
+                            ),
                         }
                         for product in products
                     ],
@@ -356,11 +373,11 @@ async def get_emag_products(
                     "updated_at": "2024-01-15T10:20:00Z",
                 },
             ]
-            
+
             return {
                 "status": "success",
                 "data": {
-                    "products": mock_emag_products[skip:skip+limit],
+                    "products": mock_emag_products[skip : skip + limit],
                     "pagination": {
                         "skip": skip,
                         "limit": limit,
@@ -375,7 +392,10 @@ async def get_emag_products(
         return {
             "status": "error",
             "message": f"Failed to fetch eMAG products: {str(e)}",
-            "data": {"products": [], "pagination": {"skip": skip, "limit": limit, "total": 0}},
+            "data": {
+                "products": [],
+                "pagination": {"skip": skip, "limit": limit, "total": 0},
+            },
         }
 
 
@@ -384,8 +404,16 @@ async def get_emag_orders(
     skip: int = 0,
     limit: int = 50,
     status: Optional[str] = Query(None, description="Filter by order status"),
-    start_date: Optional[str] = Query(None, description="Filter orders created after this ISO timestamp"),
-    end_date: Optional[str] = Query(None, description="Filter orders created before this ISO timestamp"),
+    channel: Optional[str] = Query(
+        None,
+        description="Filter by derived fulfillment channel (main/fbe/other)",
+    ),
+    start_date: Optional[str] = Query(
+        None, description="Filter orders created after this ISO timestamp"
+    ),
+    end_date: Optional[str] = Query(
+        None, description="Filter orders created before this ISO timestamp"
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """Get eMAG orders from database (test version without auth)."""
@@ -393,6 +421,24 @@ async def get_emag_orders(
         try:
             filters: List[str] = []
             query_params: Dict[str, Any] = {"limit": limit, "skip": skip}
+
+            channel_expression = (
+                "CASE "
+                "WHEN so.external_source ILIKE 'emag_fbe%' THEN 'fbe' "
+                "WHEN so.external_source ILIKE 'emag_main%' THEN 'main' "
+                "WHEN so.external_source ILIKE '%fbe%' THEN 'fbe' "
+                "WHEN so.external_source ILIKE '%main%' THEN 'main' "
+                "ELSE 'other' "
+                "END"
+            )
+
+            normalized_channel: Optional[str] = None
+            if channel:
+                normalized_channel = channel.lower()
+                if normalized_channel not in {"main", "fbe", "other"}:
+                    raise ValueError("channel must be one of: main, fbe, other")
+                filters.append(f"{channel_expression} = :channel")
+                query_params["channel"] = normalized_channel
 
             if status:
                 filters.append("so.status = :status")
@@ -402,7 +448,9 @@ async def get_emag_orders(
                 try:
                     start_dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
                 except ValueError as exc:
-                    raise ValueError(f"Invalid start_date format: {start_date}") from exc
+                    raise ValueError(
+                        f"Invalid start_date format: {start_date}"
+                    ) from exc
                 filters.append("so.order_date >= :start_date")
                 query_params["start_date"] = start_dt
 
@@ -422,25 +470,36 @@ async def get_emag_orders(
                 f"""
                 SELECT
                     so.id,
-                    so.order_number,
+                    so.external_id,
+                    so.external_source,
                     so.status,
                     so.total_amount,
-                    so.currency,
                     so.order_date,
                     so.created_at,
                     so.updated_at,
-                    so.notes,
-                    c.name AS customer_name,
-                    c.email AS customer_email,
-                    c.phone AS customer_phone,
-                    c.city AS customer_city,
+                    u.full_name AS customer_name,
+                    u.email AS customer_email,
+                    NULL::text AS customer_phone,
+                    NULL::text AS customer_city,
                     COUNT(sol.id) AS items_count,
-                    COALESCE(SUM(sol.line_total), 0) AS line_total_sum
-                FROM app.sales_orders so
-                LEFT JOIN app.customers c ON so.customer_id = c.id
-                LEFT JOIN app.sales_order_lines sol ON sol.sales_order_id = so.id
+                    COALESCE(SUM(sol.quantity * sol.unit_price), 0) AS line_total_sum,
+                    {channel_expression} AS derived_channel
+                FROM app.orders so
+                LEFT JOIN app.order_lines sol ON sol.order_id = so.id
+                LEFT JOIN app.users u ON so.customer_id = u.id
                 {where_clause}
-                GROUP BY so.id, c.name, c.email, c.phone, c.city
+                GROUP BY
+                    so.id,
+                    so.external_id,
+                    so.external_source,
+                    so.status,
+                    so.total_amount,
+                    so.order_date,
+                    so.created_at,
+                    so.updated_at,
+                    u.full_name,
+                    u.email,
+                    derived_channel
                 ORDER BY so.order_date DESC NULLS LAST, so.created_at DESC NULLS LAST
                 LIMIT :limit OFFSET :skip
                 """
@@ -449,60 +508,69 @@ async def get_emag_orders(
             orders_result = await db.execute(orders_query, query_params)
             orders = orders_result.fetchall()
 
-            count_params = {key: value for key, value in query_params.items() if key not in {"limit", "skip"}}
+            count_params = {
+                key: value
+                for key, value in query_params.items()
+                if key not in {"limit", "skip"}
+            }
             count_query = text(
                 f"""
                 SELECT COUNT(*)
-                FROM app.sales_orders so
+                FROM app.orders so
+                LEFT JOIN app.order_lines sol ON sol.order_id = so.id
                 {where_clause}
                 """
             )
             total_result = await db.execute(count_query, count_params)
             total_count = total_result.scalar() or 0
 
-            def _derive_channel(notes: Optional[str]) -> str:
-                if not notes:
-                    return "main"
-                upper_notes = notes.upper()
-                if "FBE" in upper_notes:
-                    return "fbe"
-                if "MAIN" in upper_notes:
-                    return "main"
-                return "main"
-
             def _to_float(value: Any) -> float:
                 if isinstance(value, Decimal):
                     return float(value)
                 return float(value or 0)
 
-            mapped_orders: List[Dict[str, Any]] = [
-                {
-                    "id": order.id,
-                    "order_number": order.order_number,
-                    "status": order.status,
-                    "channel": _derive_channel(getattr(order, "notes", None)),
-                    "total_amount": _to_float(order.total_amount),
-                    "currency": order.currency or "RON",
-                    "order_date": order.order_date.isoformat()
-                    if getattr(order, "order_date", None)
-                    else None,
-                    "created_at": order.created_at.isoformat()
-                    if getattr(order, "created_at", None)
-                    else None,
-                    "updated_at": order.updated_at.isoformat()
-                    if getattr(order, "updated_at", None)
-                    else None,
-                    "items_count": int(order.items_count or 0),
-                    "customer": {
-                        "name": order.customer_name,
-                        "email": order.customer_email,
-                        "phone": order.customer_phone,
-                        "city": order.customer_city,
-                    },
-                    "line_total_sum": _to_float(order.line_total_sum),
-                }
-                for order in orders
-            ]
+            mapped_orders: List[Dict[str, Any]] = []
+            for order in orders:
+                order_number = order.external_id or f"EM-{order.id}"
+                derived_channel = getattr(order, "derived_channel", None) or "other"
+
+                total_amount_value = order.total_amount
+                if total_amount_value in {None, 0}:
+                    total_amount_value = order.line_total_sum
+
+                mapped_orders.append(
+                    {
+                        "id": order.id,
+                        "order_number": order_number,
+                        "status": order.status,
+                        "channel": derived_channel,
+                        "total_amount": _to_float(total_amount_value),
+                        "currency": "RON",
+                        "order_date": (
+                            order.order_date.isoformat()
+                            if getattr(order, "order_date", None)
+                            else None
+                        ),
+                        "created_at": (
+                            order.created_at.isoformat()
+                            if getattr(order, "created_at", None)
+                            else None
+                        ),
+                        "updated_at": (
+                            order.updated_at.isoformat()
+                            if getattr(order, "updated_at", None)
+                            else None
+                        ),
+                        "items_count": int(order.items_count or 0),
+                        "customer": {
+                            "name": order.customer_name,
+                            "email": order.customer_email,
+                            "phone": order.customer_phone,
+                            "city": order.customer_city,
+                        },
+                        "line_total_sum": _to_float(order.line_total_sum),
+                    }
+                )
 
             status_breakdown: Dict[str, int] = {}
             channel_breakdown: Dict[str, int] = {}
@@ -513,7 +581,9 @@ async def get_emag_orders(
                 status_breakdown[status_key] = status_breakdown.get(status_key, 0) + 1
 
                 channel_key = order.get("channel") or "main"
-                channel_breakdown[channel_key] = channel_breakdown.get(channel_key, 0) + 1
+                channel_breakdown[channel_key] = (
+                    channel_breakdown.get(channel_key, 0) + 1
+                )
 
                 total_value += order.get("total_amount", 0.0)
 
@@ -596,6 +666,32 @@ async def get_emag_orders(
                 },
             ]
 
+            if channel:
+                normalized_channel = channel.lower()
+                mock_orders = [
+                    order
+                    for order in mock_orders
+                    if order.get("channel") == normalized_channel
+                ]
+
+            mock_summary_orders = mock_orders
+            mock_total_value = sum(
+                order.get("total_amount", 0.0) for order in mock_summary_orders
+            )
+            mock_status_breakdown: Dict[str, int] = {}
+            mock_channel_breakdown: Dict[str, int] = {}
+
+            for order in mock_summary_orders:
+                mock_status = order.get("status") or "unknown"
+                mock_status_breakdown[mock_status] = (
+                    mock_status_breakdown.get(mock_status, 0) + 1
+                )
+
+                mock_channel = order.get("channel") or "main"
+                mock_channel_breakdown[mock_channel] = (
+                    mock_channel_breakdown.get(mock_channel, 0) + 1
+                )
+
             return {
                 "status": "success",
                 "data": {
@@ -605,7 +701,12 @@ async def get_emag_orders(
                         "limit": limit,
                         "total": len(mock_orders),
                     },
-                    "note": "Showing mock eMAG orders - database table not available",
+                    "summary": {
+                        "total_value": mock_total_value,
+                        "status_breakdown": mock_status_breakdown,
+                        "channel_breakdown": mock_channel_breakdown,
+                    },
+                    "note": "Showing mock eMAG orders because the ERP database is unavailable or returned no rows",
                 },
             }
 
@@ -623,190 +724,197 @@ async def get_emag_orders(
 
 @router.get("/emag-customers", response_model=Dict[str, Any])
 async def get_emag_customers(
-    skip: int = 0,
-    limit: int = 50,
-    status: Optional[str] = Query(None, description="Filter by customer status (active/inactive)"),
+    skip: int = Query(0, ge=0, description="Number of customers to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum customers to return"),
+    status: Optional[str] = Query(
+        None,
+        description="Optional status filter (active/inactive/blocked)",
+    ),
     db: AsyncSession = Depends(get_db),
-):
-    """Get eMAG customers from database (test version without auth)."""
+) -> Dict[str, Any]:
+    """Return aggregated customer insights (test version without auth)."""
 
-    def _determine_tier(total_spent: float) -> str:
-        if total_spent >= 5000:
+    def _calculate_tier(total_spent: float) -> str:
+        if total_spent >= 10_000:
             return "gold"
-        if total_spent >= 1500:
+        if total_spent >= 3_000:
             return "silver"
         return "bronze"
 
+    def _derive_status(is_active: bool, failed_attempts: Optional[int]) -> str:
+        if (failed_attempts or 0) >= 5:
+            return "blocked"
+        return "active" if is_active else "inactive"
+
+    query = text(
+        """
+        SELECT
+            u.id,
+            u.full_name,
+            u.email,
+            u.is_active,
+            u.failed_login_attempts,
+            u.created_at,
+            u.updated_at,
+            COUNT(DISTINCT o.id) AS total_orders,
+            COALESCE(SUM(ol.quantity * ol.unit_price), 0) AS total_spent,
+            MAX(o.order_date) AS last_order_at
+        FROM app.users u
+        LEFT JOIN app.orders o ON o.customer_id = u.id AND (o.external_source ILIKE 'emag%')
+        LEFT JOIN app.order_lines ol ON ol.order_id = o.id
+        GROUP BY u.id
+        ORDER BY COUNT(DISTINCT o.id) DESC
+        """
+    )
+
     try:
-        try:
-            filters: List[str] = []
-            query_params: Dict[str, Any] = {"limit": limit, "skip": skip}
+        result = await db.execute(query)
+        rows = result.fetchall()
+    except Exception as db_error:
+        logger.warning("Failed to fetch eMAG customers from database: %s", db_error)
 
-            if status:
-                normalized_status = status.lower()
-                if normalized_status not in {"active", "inactive"}:
-                    raise ValueError("status must be 'active' or 'inactive'")
-                filters.append("c.is_active = :is_active")
-                query_params["is_active"] = normalized_status == "active"
+        mock_customers = [
+            {
+                "id": 1,
+                "code": "CUST-00001",
+                "name": "Alice Popescu",
+                "email": "alice@example.com",
+                "phone": "+40 722 111 222",
+                "city": "București",
+                "tier": "gold",
+                "status": "active",
+                "total_orders": 24,
+                "total_spent": 18540.75,
+                "last_order_at": "2024-09-10T12:45:00",
+                "created_at": "2023-02-15T09:30:00",
+                "updated_at": "2024-09-10T12:45:00",
+            },
+            {
+                "id": 2,
+                "code": "CUST-00002",
+                "name": "Bogdan Ionescu",
+                "email": "bogdan@example.com",
+                "phone": "+40 723 333 444",
+                "city": "Cluj-Napoca",
+                "tier": "silver",
+                "status": "active",
+                "total_orders": 12,
+                "total_spent": 6240.15,
+                "last_order_at": "2024-08-22T08:15:00",
+                "created_at": "2022-11-03T10:00:00",
+                "updated_at": "2024-08-22T08:15:00",
+            },
+            {
+                "id": 3,
+                "code": "CUST-00003",
+                "name": "Carmen Dima",
+                "email": "carmen@example.com",
+                "phone": "+40 721 555 666",
+                "city": "Iași",
+                "tier": "bronze",
+                "status": "inactive",
+                "total_orders": 4,
+                "total_spent": 980.0,
+                "last_order_at": "2024-05-10T19:30:00",
+                "created_at": "2021-07-19T14:25:00",
+                "updated_at": "2024-05-10T19:30:00",
+            },
+        ]
 
-            where_clause = ""
-            if filters:
-                where_clause = "WHERE " + " AND ".join(filters) + "\n"
+        filtered_mock = [
+            item for item in mock_customers if not status or item["status"] == status
+        ]
+        total_records = len(filtered_mock)
 
-            customers_query = text(
-                f"""
-                SELECT
-                    c.id,
-                    c.code,
-                    c.name,
-                    c.email,
-                    c.phone,
-                    c.city,
-                    c.is_active,
-                    c.created_at,
-                    c.updated_at,
-                    COALESCE(COUNT(so.id), 0) AS total_orders,
-                    COALESCE(SUM(so.total_amount), 0) AS total_spent,
-                    MAX(so.order_date) AS last_order_date
-                FROM app.customers c
-                LEFT JOIN app.sales_orders so ON so.customer_id = c.id
-                {where_clause}
-                GROUP BY c.id
-                ORDER BY last_order_date DESC NULLS LAST, c.updated_at DESC NULLS LAST
-                LIMIT :limit OFFSET :skip
-                """
-            )
-
-            customers_result = await db.execute(customers_query, query_params)
-            customers = customers_result.fetchall()
-
-            count_params = {key: value for key, value in query_params.items() if key not in {"limit", "skip"}}
-            count_query = text(
-                f"""
-                SELECT COUNT(*)
-                FROM app.customers c
-                {where_clause}
-                """
-            )
-            total_result = await db.execute(count_query, count_params)
-            total_count = total_result.scalar() or 0
-
-            def _to_float(value: Any) -> float:
-                if isinstance(value, Decimal):
-                    return float(value)
-                return float(value or 0)
-
-            mapped_customers: List[Dict[str, Any]] = [
-                {
-                    "id": customer.id,
-                    "code": customer.code,
-                    "name": customer.name,
-                    "email": customer.email,
-                    "phone": customer.phone,
-                    "city": customer.city,
-                    "status": "active" if customer.is_active else "inactive",
-                    "tier": _determine_tier(_to_float(customer.total_spent)),
-                    "total_orders": int(customer.total_orders or 0),
-                    "total_spent": _to_float(customer.total_spent),
-                    "last_order_at": customer.last_order_date.isoformat()
-                    if getattr(customer, "last_order_date", None)
-                    else None,
-                    "created_at": customer.created_at.isoformat()
-                    if getattr(customer, "created_at", None)
-                    else None,
-                    "updated_at": customer.updated_at.isoformat()
-                    if getattr(customer, "updated_at", None)
-                    else None,
-                }
-                for customer in customers
-            ]
-
-            summary = {
-                "total_active": sum(1 for customer in mapped_customers if customer["status"] == "active"),
-                "total_inactive": sum(1 for customer in mapped_customers if customer["status"] != "active"),
-                "total_spent": sum(customer["total_spent"] for customer in mapped_customers),
-            }
-
-            return {
-                "status": "success",
-                "data": {
-                    "customers": mapped_customers,
-                    "pagination": {
-                        "skip": skip,
-                        "limit": limit,
-                        "total": total_count,
-                    },
-                    "summary": summary,
-                    "note": "Customer metrics are derived from ERP sales orders when available.",
-                },
-            }
-        except Exception as exc:
-            logger.warning("Failed to fetch customers from database: %s", exc)
-            mock_customers = [
-                {
-                    "id": 1,
-                    "code": "CUST-001",
-                    "name": "Andreea Ionescu",
-                    "email": "andreea.ionescu@example.com",
-                    "phone": "+40 745 123 456",
-                    "city": "București",
-                    "status": "active",
-                    "tier": "gold",
-                    "total_orders": 24,
-                    "total_spent": 7420.75,
-                    "last_order_at": "2025-09-24T15:25:00Z",
-                },
-                {
-                    "id": 2,
-                    "code": "CUST-002",
-                    "name": "Radu Iftimie",
-                    "email": "radu.iftimie@example.com",
-                    "phone": "+40 724 987 654",
-                    "city": "Cluj-Napoca",
-                    "status": "inactive",
-                    "tier": "silver",
-                    "total_orders": 12,
-                    "total_spent": 2189.30,
-                    "last_order_at": "2025-09-20T11:12:00Z",
-                },
-                {
-                    "id": 3,
-                    "code": "CUST-003",
-                    "name": "Simona Barbu",
-                    "email": "simona.barbu@example.com",
-                    "phone": "+40 723 321 789",
-                    "city": "Iași",
-                    "status": "active",
-                    "tier": "bronze",
-                    "total_orders": 3,
-                    "total_spent": 280.00,
-                    "last_order_at": None,
-                },
-            ]
-
-            return {
-                "status": "success",
-                "data": {
-                    "customers": mock_customers[skip : skip + limit],
-                    "pagination": {
-                        "skip": skip,
-                        "limit": limit,
-                        "total": len(mock_customers),
-                    },
-                    "note": "Showing mock eMAG customers - database table not available",
-                },
-            }
-
-    except Exception as exc:
-        logger.error("Unexpected error while fetching eMAG customers: %s", exc)
         return {
-            "status": "error",
-            "message": f"Failed to fetch eMAG customers: {exc}",
+            "status": "success",
             "data": {
-                "customers": [],
-                "pagination": {"skip": skip, "limit": limit, "total": 0},
+                "customers": filtered_mock[skip : skip + limit],
+                "pagination": {
+                    "skip": skip,
+                    "limit": limit,
+                    "total": total_records,
+                },
+                "summary": {
+                    "total_active": sum(
+                        1 for item in filtered_mock if item["status"] == "active"
+                    ),
+                    "total_inactive": sum(
+                        1 for item in filtered_mock if item["status"] == "inactive"
+                    ),
+                    "total_spent": round(
+                        sum(item["total_spent"] for item in filtered_mock), 2
+                    ),
+                },
             },
         }
+
+    status_filter = status.lower() if isinstance(status, str) else None
+
+    customers: List[Dict[str, Any]] = []
+    total_active = 0
+    total_inactive = 0
+    total_spent_all = 0.0
+
+    for row in rows:
+        total_spent = float(row.total_spent or 0)
+        derived_status = _derive_status(row.is_active, row.failed_login_attempts)
+
+        if status_filter and derived_status != status_filter:
+            continue
+
+        if derived_status == "active":
+            total_active += 1
+        elif derived_status == "inactive":
+            total_inactive += 1
+
+        total_spent_all += total_spent
+
+        customers.append(
+            {
+                "id": row.id,
+                "code": f"CUST-{row.id:05d}",
+                "name": row.full_name or (row.email or "—"),
+                "email": row.email,
+                "phone": None,
+                "city": None,
+                "tier": _calculate_tier(total_spent),
+                "status": derived_status,
+                "total_orders": int(row.total_orders or 0),
+                "total_spent": total_spent,
+                "last_order_at": (
+                    row.last_order_at.isoformat() if row.last_order_at else None
+                ),
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+            }
+        )
+
+    sorted_customers = sorted(
+        customers,
+        key=lambda item: (item["total_spent"], item["total_orders"]),
+        reverse=True,
+    )
+
+    total_records = len(sorted_customers)
+    page_slice = sorted_customers[skip : skip + limit]
+
+    return {
+        "status": "success",
+        "data": {
+            "customers": page_slice,
+            "pagination": {
+                "skip": skip,
+                "limit": limit,
+                "total": total_records,
+            },
+            "summary": {
+                "total_active": total_active,
+                "total_inactive": total_inactive,
+                "total_spent": round(total_spent_all, 2),
+            },
+        },
+    }
 
 
 @router.get("/system-status", response_model=Dict[str, Any])
@@ -891,8 +999,8 @@ async def get_sync_progress():
             "currentPage": 0,
             "totalPages": 0,
             "processedOffers": 0,
-            "estimatedTimeRemaining": None
-        }
+            "estimatedTimeRemaining": None,
+        },
     }
 
 
@@ -900,7 +1008,7 @@ async def get_sync_progress():
 async def export_sync_data(sync_id: str):
     """Export sync data as JSON (mock implementation for demo)."""
     from datetime import datetime
-    
+
     # This would normally fetch actual sync data from database
     mock_data = {
         "sync_id": sync_id,
@@ -914,27 +1022,27 @@ async def export_sync_data(sync_id: str):
                 "emag_id": "1001",
                 "name": "Sample Product 1",
                 "price": 99.99,
-                "stock": 10
+                "stock": 10,
             },
             {
-                "emag_id": "1002", 
+                "emag_id": "1002",
                 "name": "Sample Product 2",
                 "price": 149.99,
-                "stock": 5
-            }
+                "stock": 5,
+            },
         ],
         "sync_statistics": {
             "pages_processed": 13,
             "api_calls_made": 13,
             "errors_encountered": 0,
-            "average_response_time": 3.2
-        }
+            "average_response_time": 3.2,
+        },
     }
-    
+
     return {
         "status": "success",
         "data": mock_data,
-        "message": f"Sync data for {sync_id} exported successfully"
+        "message": f"Sync data for {sync_id} exported successfully",
     }
 
 
@@ -943,12 +1051,21 @@ async def get_emag_products_by_account(
     account_type: str = Query(..., description="Account type: main or fbe"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Number of records to return"),
-    search: Optional[str] = Query(None, description="Search by name, part number or eMAG ID"),
-    status: str = Query("active", description="Filter by product status: active, inactive or all"),
-    availability: Optional[bool] = Query(None, description="Filter by availability status"),
+    search: Optional[str] = Query(
+        None, description="Search by name, part number or eMAG ID"
+    ),
+    status: str = Query(
+        "active", description="Filter by product status: active, inactive or all"
+    ),
+    availability: Optional[bool] = Query(
+        None, description="Filter by availability status"
+    ),
     min_price: Optional[float] = Query(None, ge=0, description="Minimum price filter"),
     max_price: Optional[float] = Query(None, ge=0, description="Maximum price filter"),
-    sort_by: Optional[str] = Query(None, description="Sort field: effective_price, price, sale_price, created_at, updated_at, name"),
+    sort_by: Optional[str] = Query(
+        None,
+        description="Sort field: effective_price, price, sale_price, created_at, updated_at, name",
+    ),
     sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
 ):
     """Get eMAG products filtered by account type with pagination and summaries."""
@@ -963,7 +1080,9 @@ async def get_emag_products_by_account(
 
         async with AsyncSessionLocal() as session:
             try:
-                await session.execute(text(f"SET search_path TO {settings.search_path}"))
+                await session.execute(
+                    text(f"SET search_path TO {settings.search_path}")
+                )
             except Exception:
                 pass
 
@@ -983,7 +1102,9 @@ async def get_emag_products_by_account(
                     for index, term in enumerate(search_terms):
                         param_name = f"search_term_{index}"
                         filters.append(
-                            "(p.name ILIKE :{param} OR p.part_number ILIKE :{param} OR p.emag_id ILIKE :{param})".format(param=param_name)
+                            "(p.name ILIKE :{param} OR p.part_number ILIKE :{param} OR p.emag_id ILIKE :{param})".format(
+                                param=param_name
+                            )
                         )
                         params[param_name] = f"%{term}%"
 
@@ -991,7 +1112,9 @@ async def get_emag_products_by_account(
                 filters.append("COALESCE(o.is_available, false) = :availability")
                 params["availability"] = availability
 
-            price_expression = "COALESCE(NULLIF(o.price, 0), NULLIF(o.sale_price, 0), 0)"
+            price_expression = (
+                "COALESCE(NULLIF(o.price, 0), NULLIF(o.sale_price, 0), 0)"
+            )
 
             sort_column_map = {
                 "effective_price": price_expression,
@@ -999,12 +1122,14 @@ async def get_emag_products_by_account(
                 "sale_price": "COALESCE(o.sale_price, 0)",
                 "created_at": "p.created_at",
                 "updated_at": "p.updated_at",
-                "name": "p.name"
+                "name": "p.name",
             }
 
             sort_key = (sort_by or "effective_price").lower()
             sort_column = sort_column_map.get(sort_key, price_expression)
-            sort_direction = "ASC" if (sort_order or "desc").lower() == "asc" else "DESC"
+            sort_direction = (
+                "ASC" if (sort_order or "desc").lower() == "asc" else "DESC"
+            )
 
             if min_price is not None:
                 filters.append(f"{price_expression} >= :min_price")
@@ -1131,7 +1256,9 @@ async def get_emag_products_by_account(
                 "active_products": int(summary_row.get("active_products") or 0),
                 "inactive_products": int(summary_row.get("inactive_products") or 0),
                 "available_products": int(summary_row.get("available_products") or 0),
-                "unavailable_products": int(summary_row.get("unavailable_products") or 0),
+                "unavailable_products": int(
+                    summary_row.get("unavailable_products") or 0
+                ),
                 "zero_price_products": int(summary_row.get("zero_price_products") or 0),
                 "avg_price": float(summary_row.get("avg_price") or 0),
                 "min_price": float(summary_row.get("min_price") or 0),
@@ -1167,10 +1294,10 @@ async def get_emag_products_by_account(
 
     except Exception as e:
         logger.warning("Failed to fetch real %s products: %s", account_type, e)
-        
+
         # Fallback to mock data
         mock_products = []
-        if account_type == 'main':
+        if account_type == "main":
             mock_products = [
                 {
                     "id": 2001,
@@ -1278,13 +1405,16 @@ async def get_emag_products_by_account(
                     "updated_at": "2024-01-15T11:10:00Z",
                 },
             ]
-        
+
         def matches_filters(product: Dict[str, Any]) -> bool:
             if normalized_status == "inactive" and product.get("status") != "inactive":
                 return False
             if normalized_status == "active" and product.get("status") != "active":
                 return False
-            if availability is not None and product.get("is_available") is not availability:
+            if (
+                availability is not None
+                and product.get("is_available") is not availability
+            ):
                 return False
             product_price = float(product.get("price") or 0)
             if min_price is not None and product_price < min_price:
@@ -1304,10 +1434,14 @@ async def get_emag_products_by_account(
 
         filtered_mock_products = [p for p in mock_products if matches_filters(p)]
         total_count = len(filtered_mock_products)
-        paginated_products = filtered_mock_products[skip:skip + limit]
+        paginated_products = filtered_mock_products[skip : skip + limit]
 
-        available_count = sum(1 for p in filtered_mock_products if p.get("is_available"))
-        zero_price_count = sum(1 for p in filtered_mock_products if float(p.get("price") or 0) == 0)
+        available_count = sum(
+            1 for p in filtered_mock_products if p.get("is_available")
+        )
+        zero_price_count = sum(
+            1 for p in filtered_mock_products if float(p.get("price") or 0) == 0
+        )
         prices = [float(p.get("price") or 0) for p in filtered_mock_products]
         brand_counts: Dict[str, int] = {}
         for product in filtered_mock_products:
@@ -1316,13 +1450,19 @@ async def get_emag_products_by_account(
 
         top_brands = [
             {"brand": brand, "count": count}
-            for brand, count in sorted(brand_counts.items(), key=lambda item: item[1], reverse=True)[:5]
+            for brand, count in sorted(
+                brand_counts.items(), key=lambda item: item[1], reverse=True
+            )[:5]
         ]
 
         summary = {
             "total_products": total_count,
-            "active_products": sum(1 for p in filtered_mock_products if p.get("status") == "active"),
-            "inactive_products": sum(1 for p in filtered_mock_products if p.get("status") == "inactive"),
+            "active_products": sum(
+                1 for p in filtered_mock_products if p.get("status") == "active"
+            ),
+            "inactive_products": sum(
+                1 for p in filtered_mock_products if p.get("status") == "inactive"
+            ),
             "available_products": available_count,
             "unavailable_products": total_count - available_count,
             "zero_price_products": zero_price_count,

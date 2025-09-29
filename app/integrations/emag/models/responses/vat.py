@@ -8,7 +8,14 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from app.core.utils.datetime_utils import get_utc_now
-from pydantic import BaseModel, ConfigDict, Field, confloat, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    confloat,
+    field_serializer,
+    field_validator,
+)
 
 
 class VatRate(BaseModel):

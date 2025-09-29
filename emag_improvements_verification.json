@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-09-29T16:19:30.836319",
+  "tests": {
+    "Configuration": {
+      "passed": false,
+      "timestamp": "2025-09-29T16:19:31.164628"
+    },
+    "Model Imports": {
+      "passed": false,
+      "timestamp": "2025-09-29T16:19:31.165208"
+    },
+    "Service Imports": {
+      "passed": false,
+      "timestamp": "2025-09-29T16:19:31.165646"
+    },
+    "Error Handling": {
+      "passed": false,
+      "timestamp": "2025-09-29T16:19:31.166245"
+    }
+  },
+  "summary": {
+    "total_tests": 4,
+    "passed": 0,
+    "failed": 4
+  }
+}

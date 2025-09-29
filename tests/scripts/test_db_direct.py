@@ -1,4 +1,5 @@
 """Test database connection directly using psycopg2."""
+
 import logging
 import os
 import subprocess
@@ -17,12 +18,12 @@ from tests.config import test_config as cfg
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-def _prepare_alembic_env()->dict[str, str]:
+
+def _prepare_alembic_env() -> dict[str, str]:
     """Prepare environment variables for Alembic matching test DB settings."""
     overrides = {
         "DB_HOST": cfg.TEST_DB_HOST,
@@ -38,13 +39,11 @@ def _prepare_alembic_env()->dict[str, str]:
     env["DATABASE_URL"] = settings.DB_URI
     env["DB_URI"] = settings.alembic_url
     if "ALEMBIC_CONFIG" not in env:
-        env["ALEMBIC_CONFIG"] = str(
-            Path(__file__).resolve().parents[2] / "alembic.ini"
-        )
+        env["ALEMBIC_CONFIG"] = str(Path(__file__).resolve().parents[2] / "alembic.ini")
     return env
 
 
-def _run_migrations()->None:
+def _run_migrations() -> None:
     """Run Alembic migrations to ensure schema exists."""
     project_root = Path(__file__).resolve().parents[2]
     logger.info("⚙️  No tables detected in target schema; running migrations...")
@@ -69,7 +68,7 @@ def _run_migrations()->None:
         raise
 
 
-def _list_tables(conn: PGConnection)->list[str]:
+def _list_tables(conn: PGConnection) -> list[str]:
     """Return all table names in the configured schema."""
     with conn.cursor() as cur:
         cur.execute(
@@ -84,12 +83,12 @@ def _list_tables(conn: PGConnection)->list[str]:
         return [row[0] for row in cur.fetchall()]
 
 
-def _has_only_alembic_table(tables: list[str])->bool:
+def _has_only_alembic_table(tables: list[str]) -> bool:
     """Check whether the schema is populated only with the Alembic version table."""
     return bool(tables) and all(table.lower() == "alembic_version" for table in tables)
 
 
-def _create_tables_fallback()->None:
+def _create_tables_fallback() -> None:
     """Run metadata-based table creation as a fallback when migrations yield no results."""
     project_root = Path(__file__).resolve().parents[2]
     logger.warning("⚠️  Running fallback metadata creation via create_tables.py...")
@@ -116,21 +115,21 @@ def test_connection():
     try:
         # Connection parameters - connecting directly to PostgreSQL
         db_params = {
-            'host': cfg.TEST_DB_HOST,
-            'port': cfg.TEST_DB_PORT,
-            'database': cfg.TEST_DB_NAME,
-            'user': cfg.TEST_DB_USER,
-            'password': cfg.TEST_DB_PASSWORD or None,
-            'application_name': 'magflow-db-test',
-            'connect_timeout': 5,  # 5 second connection timeout
+            "host": cfg.TEST_DB_HOST,
+            "port": cfg.TEST_DB_PORT,
+            "database": cfg.TEST_DB_NAME,
+            "user": cfg.TEST_DB_USER,
+            "password": cfg.TEST_DB_PASSWORD or None,
+            "application_name": "magflow-db-test",
+            "connect_timeout": 5,  # 5 second connection timeout
         }
 
         logger.info(
             "Connecting to the PostgreSQL database %s@%s:%s/%s...",
-            db_params['user'],
-            db_params['host'],
-            db_params['port'],
-            db_params['database'],
+            db_params["user"],
+            db_params["host"],
+            db_params["port"],
+            db_params["database"],
         )
         conn = psycopg2.connect(**db_params, cursor_factory=DictCursor)
 
@@ -224,17 +223,17 @@ def test_connection():
             if admin_user:
                 logger.info(
                     "🔑 Admin user: %s (Superuser: %s, Role: %s)",
-                    admin_user['email'],
-                    admin_user['is_superuser'],
-                    admin_user['role'] or 'None',
+                    admin_user["email"],
+                    admin_user["is_superuser"],
+                    admin_user["role"] or "None",
                 )
 
                 # Get the admin password hash
                 cur.execute(
                     "SELECT hashed_password FROM app.users WHERE email = %s",
-                    ('admin@example.com',),
+                    ("admin@example.com",),
                 )
-                hashed_pw = cur.fetchone()['hashed_password']
+                hashed_pw = cur.fetchone()["hashed_password"]
                 logger.info(f"🔒 Admin password hash: {hashed_pw[:15]}...")
             else:
                 logger.warning("❌ Admin user not found")
@@ -251,7 +250,10 @@ def test_connection():
                     """,
                     (table,),
                 )
-                columns = [f"{row['column_name']} ({row['data_type']})" for row in cur.fetchall()]
+                columns = [
+                    f"{row['column_name']} ({row['data_type']})"
+                    for row in cur.fetchall()
+                ]
                 logger.info(f"  {table}: {', '.join(columns) or 'No columns found'}")
 
         return True
@@ -269,10 +271,11 @@ def test_connection():
             conn.close()
             logger.info("Database connection closed.")
 
+
 if __name__ == "__main__":
     logger.info("🚀 Starting database connection tests...\n")
     success = test_connection()
-    
+
     if success:
         logger.info("\n✅ All database tests completed successfully!")
         sys.exit(0)

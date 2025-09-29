@@ -22,11 +22,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 MOCK_USER = UserInDB(
     id=1,
     username="admin",
-    email="admin@example.com",
+    email="admin@magflow.com",
     full_name="Admin User",
     is_active=True,
     is_superuser=True,
-    hashed_password="$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW"  # password = "secret"
+    hashed_password="$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"  # password = "secret"
 )
 
 # OAuth2 scheme for token authentication
@@ -263,82 +263,90 @@ def get_user(db, username: str):
 
 
 async def get_current_user(
-    request: Request,
-    token: Optional[str] = Depends(oauth2_scheme),
-) -> UserInDB:
-    # For development, accept mock token
-    if token == "mock-jwt-token" and settings.environment == "development":
-        return MOCK_USER
-    """Dependency to get the current user from a JWT token.
+        request: Request,
+        token: Optional[str] = Depends(oauth2_scheme),
+    ) -> UserInDB:
+        """Dependency to get the current user from a JWT token.
 
-    Args:
-        request: The FastAPI request object
-        token: The JWT token from the Authorization header
+        Args:
+            request: The FastAPI request object
+            token: The JWT token from the Authorization header
 
-    Returns:
-        UserInDB: The authenticated user
+        Returns:
+            UserInDB: The authenticated user
 
-    Raises:
-        HTTPException: If authentication fails
+        Raises:
+            HTTPException: If authentication fails
 
-    """
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        """
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    try:
-        # Decode and verify the token
-        payload = decode_token(token)
+        try:
+            # Decode and verify the JWT token
+            payload = decode_token(token)
+            username: str = payload.get("sub")
+            if username is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token: missing subject",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
-        # Get the user ID from the token
-        username: str = payload.get("sub")
-        if not username:
-            raise JWTError("Token missing subject")
+            # For development, return mock user if username is "admin"
+            if username == "admin":
+                return MOCK_USER
 
-        # Get the user from the database
-        # In a real app, you would get the user from your database here
-        # For now, we'll use a simple in-memory user
-        from ..db import get_sync_db
-        from ..crud import user as user_crud
+            # Look up user in database
+            from app.db.session import AsyncSessionLocal
+            from app.models.user import User as UserModel
+            from sqlalchemy import select
 
-        db = next(get_sync_db())
-        user = user_crud.get_user_by_username(db, username=username)
-        if not user:
-            raise JWTError("User not found")
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(
+                    select(UserModel).where(UserModel.email == username)
+                )
+                db_user = result.scalar_one_or_none()
 
-        user_dict = {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "full_name": user.full_name,
-            "hashed_password": user.hashed_password,
-            "is_active": user.is_active,
-            "role": user.role,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at,
-        }
+                if not db_user:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User not found",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
 
-        # Check if the token has been revoked (optional)
-        # if await is_token_revoked(payload["jti"]):
-        #     raise JWTError("Token has been revoked")
+                # Create UserInDB object from database user
+                user_data = UserInDB(
+                    id=db_user.id,
+                    email=db_user.email,
+                    full_name=db_user.full_name,
+                    is_active=db_user.is_active,
+                    is_superuser=db_user.is_superuser,
+                    hashed_password=db_user.hashed_password,
+                    created_at=db_user.created_at,
+                    updated_at=db_user.updated_at,
+                    last_login=db_user.last_login,
+                    failed_login_attempts=db_user.failed_login_attempts,
+                    avatar_url=db_user.avatar_url,
+                )
 
-        # Create a UserInDB object with the user data
-        user = UserInDB(**user_dict)
+                return user_data
 
-        # Add the token payload to the request state for use in route handlers
-        request.state.token_payload = payload
-
-        return user
-
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
+        except JWTError as e:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Invalid token: {str(e)}",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication error",
+            )
 
 
 async def get_current_active_user(

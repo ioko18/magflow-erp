@@ -6,7 +6,7 @@ with the service registry system for clean API endpoint implementation.
 
 from typing import AsyncGenerator
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -14,6 +14,7 @@ from app.core.database_resilience import DatabaseHealthChecker
 from app.core.dependency_injection import ServiceContext
 from app.core.service_registry import get_service_registry, initialize_service_registry
 from app.db.models import User
+from app.security.jwt import oauth2_scheme
 
 
 async def get_database_session() -> AsyncGenerator[AsyncSession, None]:
@@ -56,7 +57,7 @@ async def get_service_context(
     """FastAPI dependency for service context."""
     # Initialize service registry if not already done
     if not get_service_registry().is_initialized:
-        initialize_service_registry(db_session)
+        await initialize_service_registry(db_session)
 
     # Get context from service registry
     context = get_service_registry()._context
@@ -158,20 +159,13 @@ async def get_database_health_checker(
 
 # Authentication and authorization dependencies
 async def get_current_user(
-    db_session: AsyncSession = Depends(get_database_session),
+    request: Request,
+    token: str = Depends(oauth2_scheme),
 ) -> User:
-    """Get current authenticated user - placeholder for actual auth."""
-    # TODO: Implement proper authentication
-    # For now, return a mock user
-    from app.db.models import User
+    """Get current authenticated user from JWT token."""
+    from app.security.jwt import get_current_user as jwt_get_current_user
 
-    return User(
-        id=1,
-        email="current@example.com",
-        full_name="Current User",
-        is_active=True,
-        is_superuser=False,
-    )
+    return await jwt_get_current_user(request=request, token=token)
 
 
 async def get_current_active_user(

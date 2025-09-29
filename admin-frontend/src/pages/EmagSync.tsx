@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { 
+import {
   Row, Col, Card, Button, Table, Typography, Space, Progress, Tag, notification,
-  Switch, Tooltip, Modal, InputNumber, Alert, Statistic,
-  Divider, Badge, Timeline, Descriptions
+  Switch, Tooltip, Modal, InputNumber, Alert, Statistic, Radio,
+  Divider, Badge, Descriptions, Steps, Timeline, Drawer, Tabs
 } from 'antd'
 import {
   SyncOutlined,
@@ -16,11 +16,16 @@ import {
   PlayCircleOutlined,
   ReloadOutlined,
   InfoCircleOutlined,
-  ThunderboltOutlined,
   CloudSyncOutlined,
   DatabaseOutlined,
   WarningOutlined,
-  ShoppingCartOutlined
+  ShoppingCartOutlined,
+  ApiOutlined,
+  MonitorOutlined,
+  ThunderboltOutlined,
+  BulbOutlined,
+  RocketOutlined,
+  HeartOutlined
 } from '@ant-design/icons'
 import api from '../services/api'
 import type { AxiosError } from 'axios'
@@ -48,8 +53,7 @@ interface EmagData {
 
 interface SyncOptions {
   maxPages: number
-  batchSize: number
-  progressInterval: number
+  delayBetweenRequests: number
 }
 
 interface SyncProgress {
@@ -59,9 +63,32 @@ interface SyncProgress {
   totalPages?: number
   processedOffers: number
   estimatedTimeRemaining?: number
+  syncType?: 'products' | 'offers' | 'orders'
+  startTime?: string
+  throughput?: number
+  errors?: number
+  warnings?: number
 }
 
-const AUTO_REFRESH_INTERVAL_MS = 60 * 60 * 1000 // 1 hour
+interface ProductRecord {
+  id: string
+  sku: string
+  name: string
+  account_type: string
+  price?: number
+  currency?: string
+  stock_quantity?: number
+  status?: string
+  is_active?: boolean
+  last_synced_at?: string | null
+  sync_status?: string
+  brand?: string | null
+  category_name?: string | null
+}
+
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes for better real-time updates
+const SYNC_PROGRESS_INTERVAL_MS = 2000 // 2 seconds
+const HEALTH_CHECK_INTERVAL_MS = 30 * 1000 // 30 seconds
 
 const EmagSync: React.FC = () => {
   const [notificationApi, contextHolder] = notification.useNotification()
@@ -73,11 +100,11 @@ const EmagSync: React.FC = () => {
     recent_syncs: []
   })
   const [loading, setLoading] = useState(false)
-  const [syncing, setSyncing] = useState(false)
+  const [syncingProducts, setSyncingProducts] = useState(false)
+  const [syncingOffers, setSyncingOffers] = useState(false)
   const [syncOptions, setSyncOptions] = useState<SyncOptions>({
     maxPages: 100,
-    batchSize: 50,
-    progressInterval: 10
+    delayBetweenRequests: 1.0
   })
   const [syncProgress, setSyncProgress] = useState<SyncProgress>({
     isRunning: false,
@@ -87,62 +114,180 @@ const EmagSync: React.FC = () => {
   const [syncDetailsModal, setSyncDetailsModal] = useState<{ visible: boolean; record?: SyncRecord }>({ visible: false })
   const progressInterval = useRef<number | null>(null)
   const [ordersSyncLoading, setOrdersSyncLoading] = useState(false)
+  const [products, setProducts] = useState<ProductRecord[]>([])
+  const [productsLoading, setProductsLoading] = useState(false)
+  const [productAccountFilter, setProductAccountFilter] = useState<'both' | 'main' | 'fbe'>('both')
+  const [healthStatus, setHealthStatus] = useState<{ status: 'healthy' | 'warning' | 'error', message?: string }>({ status: 'healthy' })
+  const [realTimeUpdates, setRealTimeUpdates] = useState(true)
+  const [syncDrawerVisible, setSyncDrawerVisible] = useState(false)
+  const healthCheckInterval = useRef<number | null>(null)
 
   useEffect(() => {
     fetchEmagData()
-    
+
     // Auto-refresh data every 60 minutes
     const refreshInterval = setInterval(() => {
-      if (!syncing && !syncProgress.isRunning) {
+      if (!syncingProducts && !syncingOffers && !syncProgress.isRunning) {
         fetchEmagData()
       }
     }, AUTO_REFRESH_INTERVAL_MS)
-    
+
     return () => clearInterval(refreshInterval)
-  }, [syncing, syncProgress.isRunning])
+  }, [syncingProducts, syncingOffers, syncProgress.isRunning])
 
   const fetchEmagData = async () => {
     try {
       setLoading(true)
-      // Fetch sync status from the admin dashboard endpoint (no auth required)
-      const response = await api.get('/admin/dashboard')
-      const syncData = response.data.data
-      
-      // Fetch account-specific data
-      const [mainResponse, fbeResponse] = await Promise.allSettled([
-        api.get('/admin/emag-products?account_type=main&limit=1'),
-        api.get('/admin/emag-products?account_type=fbe&limit=1')
-      ])
+      setProductsLoading(true)
 
-      const mainCount = mainResponse.status === 'fulfilled' ? 
-        mainResponse.value.data.data?.pagination?.total || 0 : 0
-      const fbeCount = fbeResponse.status === 'fulfilled' ? 
-        fbeResponse.value.data.data?.pagination?.total || 0 : 0
+      // Debug: Check if user is authenticated
+      const token = localStorage.getItem('access_token')
+      console.log('🔐 Auth token present:', !!token)
+      console.log('🔐 Token length:', token?.length || 0)
+
+      let productList: ProductRecord[] = []
+      let mainProductsCount = 0
+      let fbeProductsCount = 0
+      let offersCount = 0
+
+      try {
+        const productsResponse = await api.get('/emag/enhanced/products/all', {
+          params: {
+            account_type: 'both',
+            max_pages_per_account: 5,
+            include_inactive: false
+          }
+        })
+        const responseProducts = productsResponse?.data?.products
+        if (Array.isArray(responseProducts)) {
+          productList = responseProducts
+          mainProductsCount = productList.filter(product => product.account_type === 'main').length
+          fbeProductsCount = productList.filter(product => product.account_type === 'fbe').length
+        }
+      } catch (error) {
+        console.warn('Failed to fetch combined product list:', error)
+      }
+
+      if (!productList.length) {
+        try {
+          const mainProductsResponse = await api.get('/emag/enhanced/products/all', {
+            params: {
+              account_type: 'main',
+              max_pages_per_account: 5,
+              include_inactive: false
+            }
+          })
+          const mainProducts = Array.isArray(mainProductsResponse?.data?.products) ? mainProductsResponse.data.products : []
+          productList = [...productList, ...mainProducts]
+          mainProductsCount = mainProductsResponse?.data?.total_count || mainProducts.length || mainProductsCount
+        } catch (error) {
+          console.warn('Failed to fetch main products:', error)
+        }
+
+        try {
+          const fbeProductsResponse = await api.get('/emag/enhanced/products/all', {
+            params: {
+              account_type: 'fbe',
+              max_pages_per_account: 5,
+              include_inactive: false
+            }
+          })
+          const fbeProducts = Array.isArray(fbeProductsResponse?.data?.products) ? fbeProductsResponse.data.products : []
+          productList = [...productList, ...fbeProducts]
+          fbeProductsCount = fbeProductsResponse?.data?.total_count || fbeProducts.length || fbeProductsCount
+        } catch (error) {
+          console.warn('Failed to fetch FBE products:', error)
+        }
+      }
+
+      try {
+        const offersResponse = await api.get('/emag/enhanced/offers/all?account_type=both&max_pages_per_account=1')
+        offersCount = offersResponse?.data?.total_count || 0
+      } catch (error) {
+        console.warn('Failed to fetch offers:', error)
+      }
+
+      // Get sync progress (but don't return early if no active sync)
+      let syncProgressData: any = { status: 'no_data' }
+      try {
+        const syncProgressResponse = await api.get('/emag/enhanced/products/sync-progress')
+        syncProgressData = syncProgressResponse.data
+      } catch (error) {
+        console.warn('Failed to fetch sync progress:', error)
+      }
+
+      if (syncProgressData.status === 'no_data') {
+        if (syncProgressData.detail) {
+          notificationApi.info({
+            message: 'eMAG sync încă neinițiat',
+            description: syncProgressData.detail,
+            placement: 'topRight',
+          })
+        }
+      }
+
+      // Always get sync history for the table display (but use mock data if API fails)
+      let syncHistoryData: any = { sync_records: [] }
+      try {
+        const syncHistoryResponse = await api.get('/emag/enhanced/status?account_type=main')
+        if (syncHistoryResponse.data.latest_sync) {
+          syncHistoryData = { sync_records: [syncHistoryResponse.data.latest_sync] }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch sync history:', error)
+      }
+
+      const uniqueProductsMap = new Map<string, ProductRecord>()
+      for (const product of productList) {
+        const key = `${product?.id ?? ''}-${product?.sku ?? ''}-${product?.account_type ?? ''}`
+        if (key.trim()) {
+          uniqueProductsMap.set(key, product)
+        }
+      }
+
+      const uniqueProducts = Array.from(uniqueProductsMap.values())
+      const uniqueMainCount = uniqueProducts.filter(product => product.account_type === 'main').length
+      const uniqueFbeCount = uniqueProducts.filter(product => product.account_type === 'fbe').length
+
+      console.log('✅ Fetched eMAG products', {
+        total: productList.length,
+        unique: uniqueProducts.length,
+        main: uniqueMainCount,
+        fbe: uniqueFbeCount,
+        sample: uniqueProducts.slice(0, 3)
+      })
+
+      setProducts(uniqueProducts)
 
       setData({
-        total_products: syncData.emagProducts || 0,
-        total_offers: syncData.emagProducts || 0,
-        main_products: mainCount,
-        fbe_products: fbeCount,
-        recent_syncs: syncData.recentSyncs ? syncData.recentSyncs.map((sync: any) => ({
-          sync_id: sync.sync_id,
-          account_type: sync.account_type || 'main',
-          status: sync.status,
-          total_offers_processed: sync.offers_processed || 0,
-          started_at: sync.started_at,
-          completed_at: sync.completed_at,
-          duration_seconds: parseFloat(sync.duration_seconds) || null,
-          error_message: sync.error_message
-        })) : []
+        total_products: uniqueProducts.length || (mainProductsCount || 0) + (fbeProductsCount || 0),
+        total_offers: offersCount || 0,
+        main_products: uniqueMainCount || mainProductsCount || 0,
+        fbe_products: uniqueFbeCount || fbeProductsCount || 0,
+        recent_syncs: Array.isArray(syncHistoryData.sync_records) ? syncHistoryData.sync_records : []
       })
+
     } catch (error) {
       console.error('Error fetching eMAG data:', error)
       const axiosError = error as AxiosError<{ detail?: string }>
+      const backendDetail = axiosError.response?.data?.detail
+      const isRateLimit = axiosError.response?.status === 429
+      const isCorsError = axiosError.message?.includes('CORS') || axiosError.code === 'ERR_NETWORK'
+
+      let errorMessage = 'eMAG status indisponibil'
+      let errorDescription = backendDetail ?? 'Nu s-a putut obține statusul de la backend. Se vor afișa date demonstrative până când serviciul API este disponibil.'
+
+      if (isRateLimit) {
+        errorMessage = 'Prea multe cereri'
+        errorDescription = 'Sistemul a detectat prea multe cereri. Vă rugăm să așteptați câteva secunde și să încercați din nou.'
+      } else if (isCorsError) {
+        errorMessage = 'Eroare de conectivitate'
+        errorDescription = 'Nu s-a putut conecta la server. Verificați dacă serverul backend rulează pe portul corect.'
+      }
+
       notificationApi.warning({
-        message: 'eMAG status indisponibil',
-        description:
-          axiosError.response?.data?.detail ??
-          'Nu s-a putut obține statusul de la backend. Se vor afișa date demonstrative până când serviciul API este disponibil.',
+        message: errorMessage,
+        description: errorDescription,
       })
 
       setData({
@@ -168,38 +313,42 @@ const EmagSync: React.FC = () => {
             started_at: new Date(Date.now() - 3600 * 1000).toISOString(),
             completed_at: null,
             duration_seconds: null,
-            error_message: 'Connection timeout'
+            error_message: backendDetail ?? 'Connection timeout'
           },
         ],
       })
+      setProducts([])
     } finally {
       setLoading(false)
+      setProductsLoading(false)
     }
   }
-  const handleSync = async () => {
+
+  const handleSyncProducts = async () => {
     try {
-      setSyncing(true)
+      setSyncingProducts(true)
       setSyncProgress({ isRunning: true, processedOffers: 0 })
+
+      // Debug: Check authentication
+      const token = localStorage.getItem('access_token')
+      console.log('🔐 Sync Products - Auth token present:', !!token)
 
       // Start progress tracking
       startProgressTracking()
 
-      const syncPayload = {
-        mode: 'both',
-        maxPages: syncOptions.maxPages,
-        batchSize: syncOptions.batchSize,
-        progressInterval: syncOptions.progressInterval
-      }
-
-      await api.post('/emag/sync', syncPayload)
+      await api.post('/emag/enhanced/sync/all-products', {
+        max_pages_per_account: syncOptions.maxPages,
+        delay_between_requests: syncOptions.delayBetweenRequests,
+        include_inactive: false
+      })
 
       notificationApi.success({
-        message: '🚀 Sincronizare Inițiată',
+        message: '🚀 Sincronizare Produse Inițiată',
         description: (
           <div>
-            <p><strong>Multi-Account Sync (MAIN + FBE)</strong></p>
-            <p>📊 Max Pages: {syncOptions.maxPages} | Batch Size: {syncOptions.batchSize}</p>
-            <p>⏱️ Progress updates every {syncOptions.progressInterval} batches</p>
+            <p><strong>Sync Complete Products (MAIN + FBE)</strong></p>
+            <p>📊 Max Pages: {syncOptions.maxPages} | Delay: {syncOptions.delayBetweenRequests}s</p>
+            <p>⏱️ Se sincronizează toate produsele din ambele conturi</p>
           </div>
         ),
         duration: 6,
@@ -212,18 +361,69 @@ const EmagSync: React.FC = () => {
       }, 2000)
 
     } catch (error) {
-      console.error('Error starting eMAG sync:', error)
+      console.error('Error starting products sync:', error)
       const axiosError = error as AxiosError<{ detail?: string }>
       notificationApi.error({
-        message: 'Eroare Sincronizare',
+        message: 'Eroare Sincronizare Produse',
         description:
           axiosError.response?.data?.detail ??
-          'Nu s-a putut porni sincronizarea. Verifică serviciul API și încearcă din nou.',
+          'Nu s-a putut porni sincronizarea produselor. Verifică conexiunea și încearcă din nou.',
         duration: 6
       })
       setSyncProgress({ isRunning: false, processedOffers: 0 })
     } finally {
-      setSyncing(false)
+      setSyncingProducts(false)
+    }
+  }
+
+  const handleSyncOffers = async () => {
+    try {
+      setSyncingOffers(true)
+      setSyncProgress({ isRunning: true, processedOffers: 0 })
+
+      // Debug: Check authentication
+      const token = localStorage.getItem('access_token')
+      console.log('🔐 Sync Offers - Auth token present:', !!token)
+
+      // Start progress tracking
+      startProgressTracking()
+
+      await api.post('/emag/enhanced/sync/all-offers', {
+        max_pages_per_account: syncOptions.maxPages,
+        delay_between_requests: syncOptions.delayBetweenRequests
+      })
+
+      notificationApi.success({
+        message: '🚀 Sincronizare Oferte Inițiată',
+        description: (
+          <div>
+            <p><strong>Sync Complete Offers (MAIN + FBE)</strong></p>
+            <p>📊 Max Pages: {syncOptions.maxPages} | Delay: {syncOptions.delayBetweenRequests}s</p>
+            <p>⏱️ Se sincronizează toate ofertele din ambele conturi</p>
+          </div>
+        ),
+        duration: 6,
+        placement: 'topRight'
+      })
+
+      // Refresh data after a short delay
+      setTimeout(() => {
+        fetchEmagData()
+      }, 2000)
+
+    } catch (error) {
+      console.error('Error starting offers sync:', error)
+      const axiosError = error as AxiosError<{ detail?: string }>
+      notificationApi.error({
+        message: 'Eroare Sincronizare Oferte',
+        description:
+          axiosError.response?.data?.detail ??
+          'Nu s-a putut porni sincronizarea ofertelor. Verifică conexiunea și încearcă din nou.',
+        duration: 6
+      })
+      setSyncProgress({ isRunning: false, processedOffers: 0 })
+    } finally {
+      setSyncingOffers(false)
     }
   }
 
@@ -231,13 +431,13 @@ const EmagSync: React.FC = () => {
     if (progressInterval.current) {
       clearInterval(progressInterval.current)
     }
-    
+
     progressInterval.current = window.setInterval(async () => {
       try {
         // Fetch current sync progress
-        const response = await api.get('/admin/sync-progress')
-        const progress = response.data.data
-        
+        const response = await api.get('/emag/enhanced/products/sync-progress')
+        const progress = response.data
+
         setSyncProgress(prev => ({
           ...prev,
           currentAccount: progress.currentAccount,
@@ -246,7 +446,7 @@ const EmagSync: React.FC = () => {
           processedOffers: progress.processedOffers,
           estimatedTimeRemaining: progress.estimatedTimeRemaining
         }))
-        
+
         // Stop tracking if sync is complete
         if (!progress.isRunning) {
           stopProgressTracking()
@@ -256,7 +456,7 @@ const EmagSync: React.FC = () => {
       } catch (error) {
         console.error('Error fetching sync progress:', error)
       }
-    }, 2000) // Update every 2 seconds
+    }, SYNC_PROGRESS_INTERVAL_MS) // Update every 2 seconds
   }
 
   const stopProgressTracking = () => {
@@ -269,7 +469,7 @@ const EmagSync: React.FC = () => {
   const handleOrderSync = async () => {
     try {
       setOrdersSyncLoading(true)
-      await api.post('/emag/sync/orders')
+      await api.post('/emag/enhanced/sync/orders')
       notificationApi.success({
         message: 'Sincronizare Comenzi',
         description: 'Sincronizarea comenzilor eMAG a fost inițiată cu succes.',
@@ -282,7 +482,7 @@ const EmagSync: React.FC = () => {
         message: 'Eroare Sincronizare Comenzi',
         description:
           axiosError.response?.data?.detail ??
-          'Nu s-a putut porni sincronizarea comenzilor. Verifică serviciul API și încearcă din nou.',
+          'Nu s-a putut porni sincronizarea comenzilor. Verifică conexiunea și încearcă din nou.',
         placement: 'topRight'
       })
     } finally {
@@ -296,10 +496,10 @@ const EmagSync: React.FC = () => {
 
   const handleExportSyncData = async (record: SyncRecord) => {
     try {
-      const response = await api.get(`/admin/sync-export/${record.sync_id}`, {
+      const response = await api.get(`/emag/enhanced/sync/export?include_products=true&include_offers=true&account_type=both&format=json`, {
         responseType: 'blob'
       })
-      
+
       const blob = new Blob([response.data], { type: 'application/json' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -309,7 +509,7 @@ const EmagSync: React.FC = () => {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-      
+
       notificationApi.success({
         message: 'Export Reușit',
         description: 'Datele de sincronizare au fost exportate cu succes.'
@@ -323,10 +523,36 @@ const EmagSync: React.FC = () => {
     }
   }
 
-  // Cleanup interval on unmount
+  // Health check monitoring
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        await api.get('/health')
+        setHealthStatus({ status: 'healthy', message: 'All systems operational' })
+      } catch (error) {
+        setHealthStatus({ status: 'error', message: 'Backend connection failed' })
+      }
+    }
+
+    if (realTimeUpdates) {
+      checkHealth() // Initial check
+      healthCheckInterval.current = window.setInterval(checkHealth, HEALTH_CHECK_INTERVAL_MS)
+    }
+
+    return () => {
+      if (healthCheckInterval.current) {
+        clearInterval(healthCheckInterval.current)
+      }
+    }
+  }, [realTimeUpdates])
+
+  // Cleanup intervals on unmount
   useEffect(() => {
     return () => {
       stopProgressTracking()
+      if (healthCheckInterval.current) {
+        clearInterval(healthCheckInterval.current)
+      }
     }
   }, [])
 
@@ -361,66 +587,85 @@ const EmagSync: React.FC = () => {
       title: 'Sync ID',
       dataIndex: 'sync_id',
       key: 'sync_id',
-      render: (sync_id: string) => (
-        <Tooltip title={sync_id}>
-          <code style={{ fontSize: '12px' }}>
-            {sync_id.substring(0, 12)}...
-          </code>
-        </Tooltip>
-      ),
+      render: (sync_id: string) => {
+        if (!sync_id) return '-'
+        return (
+          <Tooltip title={sync_id}>
+            <code style={{ fontSize: '12px' }}>
+              {sync_id.substring(0, 12)}...
+            </code>
+          </Tooltip>
+        )
+      },
     },
     {
       title: 'Account',
       dataIndex: 'account_type',
       key: 'account_type',
-      render: (account_type: string) => (
-        <Badge 
-          color={account_type === 'main' ? 'blue' : 'green'} 
-          text={account_type.toUpperCase()}
-        />
-      ),
+      render: (account_type: string) => {
+        if (!account_type) return '-'
+        return (
+          <Badge
+            color={account_type === 'main' ? 'blue' : 'green'}
+            text={account_type.toUpperCase()}
+          />
+        )
+      },
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string, record: SyncRecord) => (
-        <Space>
-          {getStatusIcon(status)}
-          <Tag color={getStatusColor(status)}>
-            {status.toUpperCase()}
-          </Tag>
-          {record.error_message && (
-            <Tooltip title={record.error_message}>
-              <WarningOutlined style={{ color: '#ff4d4f' }} />
-            </Tooltip>
-          )}
-        </Space>
-      ),
+      render: (status: string, record: SyncRecord) => {
+        if (!status) return '-'
+        return (
+          <Space>
+            {getStatusIcon(status)}
+            <Tag color={getStatusColor(status)}>
+              {status.toUpperCase()}
+            </Tag>
+            {record?.error_message && (
+              <Tooltip title={record.error_message}>
+                <WarningOutlined style={{ color: '#ff4d4f' }} />
+              </Tooltip>
+            )}
+          </Space>
+        )
+      },
     },
     {
       title: 'Offers Processed',
       dataIndex: 'total_offers_processed',
       key: 'total_offers_processed',
-      render: (count: number) => (
-        <Statistic 
-          value={count} 
-          valueStyle={{ fontSize: '14px' }}
-        />
-      ),
+      render: (count: number) => {
+        const safeCount = count || 0
+        return (
+          <Statistic
+            value={safeCount}
+            valueStyle={{ fontSize: '14px' }}
+          />
+        )
+      },
     },
     {
       title: 'Started',
       dataIndex: 'started_at',
       key: 'started_at',
-      render: (date: string) => new Date(date).toLocaleString('ro-RO'),
+      render: (date: string) => {
+        if (!date) return '-'
+        try {
+          return new Date(date).toLocaleString('ro-RO')
+        } catch (error) {
+          return '-'
+        }
+      },
     },
     {
       title: 'Duration',
       dataIndex: 'duration_seconds',
       key: 'duration_seconds',
       render: (seconds: number | null) => {
-        if (!seconds) return '-'
+        if (!seconds || seconds <= 0) return '-'
         const minutes = Math.floor(seconds / 60)
         const remainingSeconds = Math.round(seconds % 60)
         return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${remainingSeconds}s`
@@ -429,32 +674,119 @@ const EmagSync: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: unknown, record: SyncRecord) => (
-        <Space>
-          <Tooltip title="View Details">
-            <Button 
-              icon={<EyeOutlined />} 
-              size="small"
-              onClick={() => handleViewSyncDetails(record)}
-            >
-              View
-            </Button>
-          </Tooltip>
-          <Tooltip title="Export Data">
-            <Button 
-              icon={<DownloadOutlined />} 
-              size="small"
-              onClick={() => handleExportSyncData(record)}
-            >
-              Export
-            </Button>
-          </Tooltip>
-        </Space>
-      ),
+      render: (_: unknown, record: SyncRecord) => {
+        if (!record) return null
+        return (
+          <Space>
+            <Tooltip title="View Details">
+              <Button
+                icon={<EyeOutlined />}
+                size="small"
+                onClick={() => handleViewSyncDetails(record)}
+              >
+                View
+              </Button>
+            </Tooltip>
+            <Tooltip title="Export Data">
+              <Button
+                icon={<DownloadOutlined />}
+                size="small"
+                onClick={() => handleExportSyncData(record)}
+              >
+                Export
+              </Button>
+            </Tooltip>
+          </Space>
+        )
+      },
     },
   ]
 
-  // Note: Authentication check removed since we're using endpoints that don't require auth
+  const productColumns = [
+    {
+      title: 'SKU',
+      dataIndex: 'sku',
+      key: 'sku',
+      render: (sku: string) => sku || '-'
+    },
+    {
+      title: 'Produs',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name: string) => name || '-'
+    },
+    {
+      title: 'Cont',
+      dataIndex: 'account_type',
+      key: 'account_type',
+      render: (account_type: string) => (
+        <Badge
+          color={account_type === 'main' ? 'blue' : 'green'}
+          text={(account_type || '-').toUpperCase()}
+        />
+      )
+    },
+    {
+      title: 'Brand',
+      dataIndex: 'brand',
+      key: 'brand',
+      render: (brand: string | null) => brand || '-'
+    },
+    {
+      title: 'Categorie',
+      dataIndex: 'category_name',
+      key: 'category_name',
+      render: (category_name: string | null | undefined) => category_name || '-'
+    },
+    {
+      title: 'Preț',
+      key: 'price',
+      render: (_: unknown, record: ProductRecord) => {
+        if (typeof record.price !== 'number') {
+          return '-'
+        }
+        try {
+          return new Intl.NumberFormat('ro-RO', {
+            style: 'currency',
+            currency: record.currency || 'RON'
+          }).format(record.price)
+        } catch (error) {
+          return record.price.toFixed(2)
+        }
+      }
+    },
+    {
+      title: 'Stoc',
+      dataIndex: 'stock_quantity',
+      key: 'stock_quantity',
+      render: (stock_quantity: number | undefined) => (typeof stock_quantity === 'number' ? stock_quantity : '-')
+    },
+    {
+      title: 'Status',
+      dataIndex: 'sync_status',
+      key: 'sync_status',
+      render: (sync_status: string | undefined) => (
+        sync_status ? <Tag color={sync_status === 'synced' ? 'green' : 'orange'}>{sync_status.toUpperCase()}</Tag> : '-' 
+      )
+    },
+    {
+      title: 'Ultima sincronizare',
+      dataIndex: 'last_synced_at',
+      key: 'last_synced_at',
+      render: (last_synced_at: string | null | undefined) => {
+        if (!last_synced_at) return '-'
+        try {
+          return new Date(last_synced_at).toLocaleString('ro-RO')
+        } catch (error) {
+          return last_synced_at
+        }
+      }
+    }
+  ]
+
+  const filteredProducts = productAccountFilter === 'both'
+    ? products
+    : products.filter(product => product.account_type === productAccountFilter)
 
   return (
     <div className="emag-sync">
@@ -462,18 +794,29 @@ const EmagSync: React.FC = () => {
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <Title level={2}>eMAG Integration</Title>
+            <Title level={2}>
+              <Space>
+                <RocketOutlined style={{ color: '#1890ff' }} />
+                eMAG Integration v2.0
+              </Space>
+            </Title>
             <p style={{ color: '#666', margin: 0 }}>
-              Manage eMAG marketplace integration and synchronization
+              Advanced eMAG marketplace integration with real-time monitoring
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>
-              🔄 Auto-refresh: 60m
-            </div>
-            <div style={{ fontSize: '11px', color: '#ccc' }}>
-              Last updated: {new Date().toLocaleTimeString('ro-RO')}
-            </div>
+            <Space direction="vertical" size="small" style={{ alignItems: 'flex-end' }}>
+              <Badge
+                status={healthStatus.status === 'healthy' ? 'success' : healthStatus.status === 'warning' ? 'warning' : 'error'}
+                text={`System ${healthStatus.status === 'healthy' ? 'Healthy' : healthStatus.status === 'warning' ? 'Warning' : 'Error'}`}
+              />
+              <div style={{ fontSize: '12px', color: '#999' }}>
+                🔄 Auto-refresh: {realTimeUpdates ? '5m' : 'Off'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#ccc' }}>
+                Last updated: {new Date().toLocaleTimeString('ro-RO')}
+              </div>
+            </Space>
           </div>
         </div>
       </div>
@@ -504,8 +847,8 @@ const EmagSync: React.FC = () => {
               </div>
               <div style={{ color: '#666' }}>Synced Offers</div>
               {syncProgress.isRunning && (
-                <Progress 
-                  percent={syncProgress.currentPage && syncProgress.totalPages ? 
+                <Progress
+                  percent={syncProgress.currentPage && syncProgress.totalPages ?
                     Math.round((syncProgress.currentPage / syncProgress.totalPages) * 100) : 0}
                   size="small"
                   status="active"
@@ -569,6 +912,23 @@ const EmagSync: React.FC = () => {
                 Options
               </Button>
             </Tooltip>
+            <Tooltip title="Real-time Updates">
+              <Switch
+                checked={realTimeUpdates}
+                onChange={setRealTimeUpdates}
+                checkedChildren={<MonitorOutlined />}
+                unCheckedChildren={<MonitorOutlined />}
+              />
+            </Tooltip>
+            <Tooltip title="Advanced Metrics">
+              <Button
+                icon={<ThunderboltOutlined />}
+                onClick={() => setSyncDrawerVisible(true)}
+                type={'default'}
+              >
+                Metrics
+              </Button>
+            </Tooltip>
             <Button
               icon={<ReloadOutlined />}
               onClick={fetchEmagData}
@@ -579,24 +939,6 @@ const EmagSync: React.FC = () => {
           </Space>
         }
       >
-        {/* Sync Mode Selection */}
-        <div style={{ marginBottom: '24px' }}>
-          <h4 style={{ marginBottom: '12px' }}>
-            <ThunderboltOutlined style={{ marginRight: '8px' }} />
-            Combined Sync (MAIN + FBE)
-          </h4>
-          <Button
-            type="primary"
-            size="large"
-            icon={<SyncOutlined spin={syncing} />}
-            onClick={handleSync}
-            loading={syncing}
-            disabled={syncProgress.isRunning}
-          >
-            {syncing ? 'Synchronizing...' : 'Start Combined Sync'}
-          </Button>
-        </div>
-
         {/* Advanced Options */}
         {showAdvancedOptions && (
           <div style={{ padding: '16px', background: '#f8f9fa', borderRadius: '8px', marginBottom: '24px' }}>
@@ -605,44 +947,31 @@ const EmagSync: React.FC = () => {
               Advanced Sync Options
             </h4>
             <Row gutter={[16, 16]}>
-              <Col xs={24} sm={8}>
+              <Col xs={24} sm={12}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                    Max Pages:
+                    Max Pages per Account:
                   </label>
                   <InputNumber
                     min={1}
-                    max={1000}
+                    max={500}
                     value={syncOptions.maxPages}
                     onChange={(value) => setSyncOptions(prev => ({ ...prev, maxPages: value || 100 }))}
                     style={{ width: '100%' }}
                   />
                 </div>
               </Col>
-              <Col xs={24} sm={8}>
+              <Col xs={24} sm={12}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                    Batch Size:
+                    Delay Between Requests (seconds):
                   </label>
                   <InputNumber
-                    min={10}
-                    max={200}
-                    value={syncOptions.batchSize}
-                    onChange={(value) => setSyncOptions(prev => ({ ...prev, batchSize: value || 50 }))}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </Col>
-              <Col xs={24} sm={8}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                    Progress Interval:
-                  </label>
-                  <InputNumber
-                    min={1}
-                    max={100}
-                    value={syncOptions.progressInterval}
-                    onChange={(value) => setSyncOptions(prev => ({ ...prev, progressInterval: value || 10 }))}
+                    min={0.1}
+                    max={10.0}
+                    step={0.1}
+                    value={syncOptions.delayBetweenRequests}
+                    onChange={(value) => setSyncOptions(prev => ({ ...prev, delayBetweenRequests: value || 1.0 }))}
                     style={{ width: '100%' }}
                   />
                 </div>
@@ -662,12 +991,21 @@ const EmagSync: React.FC = () => {
                 <Button
                   type="primary"
                   icon={<CloudSyncOutlined />}
-                  onClick={handleSync}
-                  loading={syncing}
+                  onClick={handleSyncProducts}
+                  loading={syncingProducts}
                   block
                   disabled={syncProgress.isRunning}
                 >
-                  Sync MAIN + FBE
+                  Sync All Products (MAIN + FBE)
+                </Button>
+                <Button
+                  icon={<ShoppingCartOutlined />}
+                  onClick={handleSyncOffers}
+                  loading={syncingOffers}
+                  block
+                  disabled={syncProgress.isRunning}
+                >
+                  Sync All Offers (MAIN + FBE)
                 </Button>
                 <Button
                   icon={<ShoppingCartOutlined />}
@@ -692,7 +1030,7 @@ const EmagSync: React.FC = () => {
                   <div style={{ marginBottom: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span>Current Account:</span>
-                      <Badge 
+                      <Badge
                         color={syncProgress.currentAccount === 'main' ? 'blue' : 'green'}
                         text={syncProgress.currentAccount?.toUpperCase() || 'Unknown'}
                       />
@@ -702,7 +1040,7 @@ const EmagSync: React.FC = () => {
                       <span>{syncProgress.currentPage || 0} / {syncProgress.totalPages || '?'}</span>
                     </div>
                     <Progress
-                      percent={syncProgress.currentPage && syncProgress.totalPages ? 
+                      percent={syncProgress.currentPage && syncProgress.totalPages ?
                         Math.round((syncProgress.currentPage / syncProgress.totalPages) * 100) : 0}
                       size="small"
                       status="active"
@@ -741,50 +1079,43 @@ const EmagSync: React.FC = () => {
               )}
             </div>
           </Col>
-          <Col xs={24} md={8}>
-            <div style={{ padding: '16px', background: '#fff7e6', borderRadius: '8px' }}>
-              <h4>
-                <InfoCircleOutlined style={{ marginRight: '8px' }} />
-                Sync Information
-              </h4>
-              <Timeline
-                items={[
-                  {
-                    color: 'blue',
-                    children: (
-                      <div style={{ fontSize: '12px' }}>
-                        <strong>Multi-Account Support</strong><br />
-                        Sync from both MAIN and FBE accounts simultaneously
-                      </div>
-                    )
-                  },
-                  {
-                    color: 'green',
-                    children: (
-                      <div style={{ fontSize: '12px' }}>
-                        <strong>Real-time Progress</strong><br />
-                        Track sync progress with live updates
-                      </div>
-                    )
-                  },
-                  {
-                    color: 'orange',
-                    children: (
-                      <div style={{ fontSize: '12px' }}>
-                        <strong>Advanced Options</strong><br />
-                        Configure batch size, page limits, and intervals
-                      </div>
-                    )
-                  }
-                ]}
-              />
-            </div>
-          </Col>
         </Row>
       </Card>
 
+      <Card
+        title={
+          <Space>
+            <DatabaseOutlined />
+            <span>Produse sincronizate</span>
+          </Space>
+        }
+        style={{ marginBottom: 24 }}
+        extra={
+          <Radio.Group
+            optionType="button"
+            buttonStyle="solid"
+            value={productAccountFilter}
+            onChange={(event) => setProductAccountFilter(event.target.value)}
+          >
+            <Radio.Button value="both">Toate</Radio.Button>
+            <Radio.Button value="main">MAIN</Radio.Button>
+            <Radio.Button value="fbe">FBE</Radio.Button>
+          </Radio.Group>
+        }
+      >
+        <Table
+          rowKey={(record) => record?.id || `${record?.sku}-${record?.account_type}`}
+          dataSource={filteredProducts}
+          columns={productColumns}
+          loading={loading || productsLoading}
+          pagination={{ pageSize: 20, showSizeChanger: false }}
+          scroll={{ x: 800 }}
+          locale={{ emptyText: 'Nu există produse sincronizate disponibile.' }}
+        />
+      </Card>
+
       {/* Enhanced Sync History */}
-      <Card 
+      <Card
         title={
           <Space>
             <DatabaseOutlined />
@@ -794,8 +1125,8 @@ const EmagSync: React.FC = () => {
         extra={
           <Space>
             <Tooltip title="Show only successful syncs">
-              <Switch 
-                checkedChildren="Success Only" 
+              <Switch
+                checkedChildren="Success Only"
                 unCheckedChildren="All Syncs"
                 onChange={() => {
                   // Filter logic can be added here
@@ -811,20 +1142,20 @@ const EmagSync: React.FC = () => {
             description={
               <div>
                 <span>
-                  Last 24h: {data.recent_syncs.filter(s => 
+                  Last 24h: {data.recent_syncs.filter(s =>
                     new Date(s.started_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-                  ).length} syncs | 
+                  ).length} syncs |
                 </span>
                 <span style={{ marginLeft: '8px' }}>
                   Success Rate: {Math.round(
                     (data.recent_syncs.filter(s => s.status === 'completed').length / data.recent_syncs.length) * 100
-                  )}% | 
+                  )}% |
                 </span>
                 <span style={{ marginLeft: '8px' }}>
                   Avg Duration: {Math.round(
                     data.recent_syncs
                       .filter(s => s.duration_seconds)
-                      .reduce((acc, s) => acc + (s.duration_seconds || 0), 0) / 
+                      .reduce((acc, s) => acc + (s.duration_seconds || 0), 0) /
                     data.recent_syncs.filter(s => s.duration_seconds).length || 0
                   )}s
                 </span>
@@ -835,17 +1166,17 @@ const EmagSync: React.FC = () => {
             style={{ marginBottom: '16px' }}
           />
         )}
-        
+
         <Table
-          rowKey="sync_id"
-          dataSource={data.recent_syncs}
+          rowKey={(record) => record?.sync_id || Math.random().toString()}
+          dataSource={Array.isArray(data.recent_syncs) ? data.recent_syncs : []}
           columns={columns}
           loading={loading}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => 
+            showTotal: (total, range) =>
               `${range[0]}-${range[1]} of ${total} sync records`,
           }}
           size="small"
@@ -859,7 +1190,7 @@ const EmagSync: React.FC = () => {
             <EyeOutlined />
             <span>Sync Details</span>
             {syncDetailsModal.record && (
-              <Badge 
+              <Badge
                 color={syncDetailsModal.record.account_type === 'main' ? 'blue' : 'green'}
                 text={syncDetailsModal.record.account_type.toUpperCase()}
               />
@@ -873,9 +1204,9 @@ const EmagSync: React.FC = () => {
             Close
           </Button>,
           syncDetailsModal.record && (
-            <Button 
-              key="export" 
-              type="primary" 
+            <Button
+              key="export"
+              type="primary"
               icon={<DownloadOutlined />}
               onClick={() => handleExportSyncData(syncDetailsModal.record!)}
             >
@@ -891,7 +1222,7 @@ const EmagSync: React.FC = () => {
               <code>{syncDetailsModal.record.sync_id}</code>
             </Descriptions.Item>
             <Descriptions.Item label="Account Type">
-              <Badge 
+              <Badge
                 color={syncDetailsModal.record.account_type === 'main' ? 'blue' : 'green'}
                 text={syncDetailsModal.record.account_type.toUpperCase()}
               />
@@ -905,8 +1236,8 @@ const EmagSync: React.FC = () => {
               </Space>
             </Descriptions.Item>
             <Descriptions.Item label="Offers Processed">
-              <Statistic 
-                value={syncDetailsModal.record.total_offers_processed} 
+              <Statistic
+                value={syncDetailsModal.record.total_offers_processed}
                 valueStyle={{ fontSize: '16px' }}
               />
             </Descriptions.Item>
@@ -939,6 +1270,132 @@ const EmagSync: React.FC = () => {
           </Descriptions>
         )}
       </Modal>
+
+      {/* Advanced Metrics Drawer */}
+      <Drawer
+        title={
+          <Space>
+            <ThunderboltOutlined />
+            <span>Advanced Sync Metrics & Analytics</span>
+          </Space>
+        }
+        placement="right"
+        size="large"
+        onClose={() => setSyncDrawerVisible(false)}
+        open={syncDrawerVisible}
+      >
+        <Tabs
+          defaultActiveKey="performance"
+          items={[
+            {
+              key: 'performance',
+              label: (
+                <span>
+                  <MonitorOutlined />
+                  Performance
+                </span>
+              ),
+              children: (
+                <div>
+                  <Alert
+                    message="Real-time Performance Metrics"
+                    description="Monitor sync performance, throughput, and system health in real-time."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  
+                  <Row gutter={[16, 16]}>
+                    <Col span={12}>
+                      <Card size="small">
+                        <Statistic
+                          title="Sync Throughput"
+                          value={syncProgress.throughput || 0}
+                          suffix="items/min"
+                          prefix={<ApiOutlined />}
+                        />
+                      </Card>
+                    </Col>
+                    <Col span={12}>
+                      <Card size="small">
+                        <Statistic
+                          title="Error Rate"
+                          value={syncProgress.errors || 0}
+                          suffix="%"
+                          prefix={<WarningOutlined />}
+                          valueStyle={{ color: syncProgress.errors && syncProgress.errors > 5 ? '#cf1322' : '#3f8600' }}
+                        />
+                      </Card>
+                    </Col>
+                    <Col span={24}>
+                      <Card size="small" title="Sync Timeline">
+                        <Timeline
+                          items={[
+                            {
+                              dot: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+                              children: 'System initialized and ready',
+                            },
+                            {
+                              dot: syncProgress.isRunning ? <SyncOutlined spin style={{ color: '#1890ff' }} /> : <ClockCircleOutlined style={{ color: '#fa8c16' }} />,
+                              children: syncProgress.isRunning ? `Syncing ${syncProgress.currentAccount?.toUpperCase()} account` : 'Waiting for sync operation',
+                            },
+                            {
+                              dot: <BulbOutlined style={{ color: '#722ed1' }} />,
+                              children: 'Advanced analytics available',
+                            },
+                          ]}
+                        />
+                      </Card>
+                    </Col>
+                  </Row>
+                </div>
+              ),
+            },
+            {
+              key: 'health',
+              label: (
+                <span>
+                  <HeartOutlined />
+                  System Health
+                </span>
+              ),
+              children: (
+                <div>
+                  <Alert
+                    message={`System Status: ${healthStatus.status.toUpperCase()}`}
+                    description={healthStatus.message}
+                    type={healthStatus.status === 'healthy' ? 'success' : healthStatus.status === 'warning' ? 'warning' : 'error'}
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                  />
+                  
+                  <Steps
+                    direction="vertical"
+                    current={healthStatus.status === 'healthy' ? 2 : healthStatus.status === 'warning' ? 1 : 0}
+                    items={[
+                      {
+                        title: 'Backend Connection',
+                        description: 'FastAPI server connectivity',
+                        status: healthStatus.status === 'error' ? 'error' : 'finish',
+                      },
+                      {
+                        title: 'eMAG API Integration',
+                        description: 'eMAG marketplace API status',
+                        status: healthStatus.status === 'warning' ? 'error' : 'finish',
+                      },
+                      {
+                        title: 'Database Operations',
+                        description: 'PostgreSQL database health',
+                        status: healthStatus.status === 'healthy' ? 'finish' : 'wait',
+                      },
+                    ]}
+                  />
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Drawer>
     </div>
   )
 }

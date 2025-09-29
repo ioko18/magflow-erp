@@ -1,3 +1,8 @@
+test-emag-client:
+	docker compose exec app python test_emag_client.py
+seed-orders:
+	@echo "Seeding sample orders into local database..."
+	@python3 scripts/seed_sample_orders.py
 .PHONY: help install test test-unit test-integration test-e2e test-cov lint format type-check check pre-commit-install pre-commit-run pre-commit-update clean start
 .PHONY: up up-proxy up-monitoring up-ops down logs prod prod-proxy prod-monitoring prod-otel prod-certs ci ci-down
 .PHONY: up-simple down-simple logs-simple ps-simple restart-simple clean-orphans migrate-compose downgrade-compose app-shell db-shell redis-cli compose-lint logs-worker logs-flower health
@@ -25,7 +30,7 @@ help:
 	@echo ""
 	@echo "📖 Pentru documentație completă: http://localhost:8080/docs"
 	@echo ""
-	@echo "🐳 Docker Compose:" 
+	@echo "🐳 Docker Compose:"
 	@echo "  make up              - docker compose up (dev core)"
 	@echo "  make up-simple       - docker compose up using docker-compose.simple.yml"
 	@echo "  make up-proxy        - dev with proxy profile"
@@ -298,6 +303,23 @@ local-smoke:
 	@PYTHONPATH=. python3 tests/scripts/test_db_direct.py
 	@PYTHONPATH=. python3 tests/scripts/test_app_db.py
 	@pytest tests/unit -q
+
+# Optimized performance testing
+local-smoke-optimized:
+	@echo "🚀 Simple and reliable performance tests with monitoring"
+	@PYTHONPATH=. python3 tests/scripts/test_db_direct.py
+	@PYTHONPATH=. python3 tests/scripts/test_app_db.py
+	@python3 -m pytest tests/test_simple_performance.py -v --tb=short --disable-warnings --asyncio-mode=auto
+
+# Run performance benchmarks
+performance-benchmark:
+	@echo "📊 Running comprehensive performance benchmarks"
+	@python3 run_performance_tests.py --benchmark tests/test_optimized_products_api.py
+
+# Run optimized tests with parallel execution
+test-optimized:
+	@echo "⚡ Running optimized tests with performance monitoring"
+	@python3 run_performance_tests.py --parallel tests/unit
 
 manage-logs:
 	@echo "🗂️  Archiving și curățare loguri locale"

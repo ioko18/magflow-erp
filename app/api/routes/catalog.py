@@ -2,14 +2,14 @@
 
 Provides product, brand, and characteristic endpoints used by integration tests.
 """
-
-from __future__ import annotations
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from app.security.jwt import get_current_active_user
 
+from app.schemas.auth import UserInDB
 from app.schemas.catalog import (
     Brand,
     BrandListResponse,
@@ -31,6 +31,7 @@ def get_service() -> CatalogService:
 
 @router.get("/products", response_model=ProductListResponse)
 async def list_products(
+    current_user: UserInDB = Depends(get_current_active_user),
     q: Optional[str] = None,
     category_id: Optional[int] = None,
     brand_id: Optional[int] = None,

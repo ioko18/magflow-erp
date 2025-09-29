@@ -29,12 +29,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_enum') THEN
         CREATE TYPE user_role_enum AS ENUM ('admin', 'manager', 'user', 'viewer');
     END IF;
-    
+
     -- Order status
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status_enum') THEN
         CREATE TYPE order_status_enum AS ENUM ('draft', 'pending', 'processing', 'shipped', 'delivered', 'cancelled');
     END IF;
-    
+
     -- Product status
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_status_enum') THEN
         CREATE TYPE product_status_enum AS ENUM ('active', 'inactive', 'discontinued');
@@ -85,10 +85,10 @@ CREATE TABLE IF NOT EXISTS categories (
 );
 
 -- Add foreign key constraint after categories table is created
-ALTER TABLE products 
-ADD CONSTRAINT fk_products_category 
-FOREIGN KEY (category_id) 
-REFERENCES categories(id) 
+ALTER TABLE products
+ADD CONSTRAINT fk_products_category
+FOREIGN KEY (category_id)
+REFERENCES categories(id)
 ON DELETE SET NULL;
 
 -- Create other tables as needed...

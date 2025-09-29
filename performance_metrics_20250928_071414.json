@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-09-28T07:14:14.982720",
+  "summary": {
+    "total_tests": 2,
+    "avg_test_time": 0.2823605537414551,
+    "avg_setup_time": 0.2761880159378052,
+    "avg_execution_time": 0.006172537803649902,
+    "total_errors": 1,
+    "slowest_test": [
+      "simple_delete_product",
+      0.5585970878601074
+    ],
+    "fastest_test": [
+      "simple_query_products",
+      0.006124019622802734
+    ],
+    "total_runtime": 0.9358680248260498,
+    "performance_score": 70.88197231292725
+  }
+}

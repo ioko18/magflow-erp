@@ -5,6 +5,7 @@ synchronous and asynchronous session factories, as well as a dependency
 for FastAPI to get a database session.
 """
 
+import os
 from typing import AsyncGenerator, Generator
 
 from sqlalchemy import create_engine
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -32,25 +34,56 @@ def _get_async_database_uri() -> str:
         return async_uri
     return settings.SQLALCHEMY_DATABASE_URI
 
-# Create synchronous engine for legacy code
-engine = create_engine(
-    settings.SQLALCHEMY_DATABASE_URI,
-    pool_pre_ping=True,
-    pool_recycle=3600,  # Recycle connections after 1 hour
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    connect_args={"options": "-c timezone=utc"},
-)
+# Determine whether PgBouncer is fronting the database connections
+_pgbouncer_enabled = os.getenv("PGBOUNCER_ENABLED", "true").lower() == "true"
 
-# Create async engine
-async_engine = create_async_engine(
-    _get_async_database_uri(),
-    pool_pre_ping=True,
-    pool_recycle=3600,  # Recycle connections after 1 hour
-    pool_size=settings.DB_POOL_SIZE,
-    max_overflow=settings.DB_MAX_OVERFLOW,
-    connect_args={"server_settings": {"timezone": "utc"}},
-)
+
+def _build_sync_engine():
+    engine_kwargs: dict = {
+        "connect_args": {"options": "-c timezone=utc"},
+    }
+
+    if _pgbouncer_enabled:
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        engine_kwargs.update(
+            {
+                "pool_pre_ping": True,
+                "pool_recycle": settings.DB_POOL_RECYCLE,
+                "pool_size": settings.DB_POOL_SIZE,
+                "max_overflow": settings.DB_MAX_OVERFLOW,
+                "pool_timeout": settings.DB_POOL_TIMEOUT,
+            }
+        )
+
+    return create_engine(settings.SQLALCHEMY_DATABASE_URI, **engine_kwargs)
+
+
+def _build_async_engine():
+    engine_kwargs: dict = {
+        "connect_args": {"server_settings": {"timezone": "utc"}},
+        "future": True,
+    }
+
+    if _pgbouncer_enabled:
+        engine_kwargs["poolclass"] = NullPool
+    else:
+        engine_kwargs.update(
+            {
+                "pool_pre_ping": settings.DB_POOL_PRE_PING,
+                "pool_recycle": settings.DB_POOL_RECYCLE,
+                "pool_size": settings.DB_POOL_SIZE,
+                "max_overflow": settings.DB_MAX_OVERFLOW,
+                "pool_timeout": settings.DB_POOL_TIMEOUT,
+            }
+        )
+
+    return create_async_engine(_get_async_database_uri(), **engine_kwargs)
+
+
+# Create synchronous and asynchronous engines
+engine = _build_sync_engine()
+async_engine = _build_async_engine()
 
 # Create session factories
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

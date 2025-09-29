@@ -1,6 +1,7 @@
 """
 Test configuration for MagFlow ERP tests.
 """
+
 import os
 import sys
 from pathlib import Path
@@ -72,7 +73,11 @@ for d in [TEST_DATA_DIR, TEST_FIXTURES_DIR, TEST_REPORTS_DIR]:
 
 # Test data cleanup
 TEST_TABLES_TO_CLEAN = [
-    "users", "roles", "user_roles", "permissions",
-    "role_permissions", "sessions"
+    "users",
+    "roles",
+    "user_roles",
+    "permissions",
+    "role_permissions",
+    "sessions",
 ]
 TEST_FIXTURES_DIR.mkdir(exist_ok=True)

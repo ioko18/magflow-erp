@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 
-from ...deps import get_current_user
+from ...dependencies import get_current_user
 
 router = APIRouter()
 
@@ -134,6 +134,107 @@ async def get_emag_products(
                 ],
                 "pagination": {"skip": skip, "limit": limit},
             },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/progress", response_model=Dict[str, Any])
+async def get_emag_sync_progress(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Get current eMAG synchronization progress."""
+    try:
+        # Get currently running sync
+        result = await db.execute(
+            text(
+                """
+            SELECT sync_id, account_type, status, total_offers_processed,
+                   started_at, completed_at, duration_seconds, error_count, errors
+            FROM app.emag_offer_syncs
+            WHERE status IN ('running', 'pending')
+            ORDER BY started_at DESC
+            LIMIT 1
+        """,
+            ),
+        )
+
+        current_sync = result.fetchone()
+
+        if current_sync:
+            # Calculate progress percentage if we have total expected offers
+            # For now, we'll estimate based on the pattern from the frontend
+            progress_data = {
+                "sync_id": current_sync.sync_id,
+                "account_type": current_sync.account_type,
+                "status": current_sync.status,
+                "total_offers_processed": current_sync.total_offers_processed,
+                "started_at": current_sync.started_at,
+                "completed_at": current_sync.completed_at,
+                "duration_seconds": current_sync.duration_seconds,
+                "error_count": current_sync.error_count,
+                "errors": current_sync.errors,
+                "is_running": current_sync.status == "running",
+                "current_page": None,  # Would be populated by sync script
+                "total_pages": None,   # Would be populated by sync script
+                "estimated_time_remaining": None,  # Would be calculated based on progress
+            }
+        else:
+            # No active sync, return no_data status like frontend expects
+            progress_data = {
+                "status": "no_data",
+                "detail": "No active synchronization in progress",
+                "is_running": False,
+            }
+
+        # Return progress data directly (not wrapped in "data" field)
+        return progress_data
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+async def get_emag_sync_history(
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Get synchronization history."""
+    try:
+        # Get recent sync history
+        result = await db.execute(
+            text(
+                """
+            SELECT sync_id, account_type, status, total_offers_processed,
+                   started_at, completed_at, duration_seconds, error_count, errors
+            FROM app.emag_offer_syncs
+            ORDER BY started_at DESC
+            LIMIT :limit
+        """,
+            ),
+            {"limit": limit},
+        )
+
+        syncs = result.fetchall()
+
+        sync_records = [
+            {
+                "sync_id": sync.sync_id,
+                "account_type": sync.account_type,
+                "status": sync.status,
+                "total_offers_processed": sync.total_offers_processed,
+                "started_at": sync.started_at,
+                "completed_at": sync.completed_at,
+                "duration_seconds": sync.duration_seconds,
+                "error_count": sync.error_count,
+                "errors": sync.errors,
+            }
+            for sync in syncs
+        ]
+
+        return {
+            "sync_records": sync_records,
+            "total_count": len(sync_records),
         }
 
     except Exception as e:

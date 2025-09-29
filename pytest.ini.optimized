@@ -1,0 +1,38 @@
+[tool:pytest]
+# Optimized pytest configuration for MagFlow ERP
+minversion = 6.0
+addopts =
+    -v
+    --strict-markers
+    --strict-config
+    --tb=short
+    --durations=10
+    --asyncio-mode=auto
+    --disable-warnings
+    --no-cov
+    -p no:warnings
+    --maxfail=5
+    --tb=line
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+markers =
+    unit: Unit tests
+    integration: Integration tests
+    e2e: End-to-end tests
+    slow: Slow running tests
+    fast: Fast running tests
+    asyncio: Async tests
+    performance: Performance tests
+filterwarnings =
+    ignore::DeprecationWarning
+    ignore::PendingDeprecationWarning
+    ignore::UserWarning
+    ignore::pytest.PytestUnraisableExceptionWarning
+asyncio_mode = auto
+asyncio_default_fixture_loop_scope = session
+log_cli = false
+log_cli_level = ERROR
+log_cli_format = %(asctime)s [%(levelname)8s] %(name)s: %(message)s
+log_cli_date_format = %Y-%m-%d %H:%M:%S

@@ -253,9 +253,13 @@ class TestEmagCompleteWorkflows:
             price=99.99,
         )
 
-        # The API client should handle retries internally
-        # This test verifies the workflow completes despite errors
-        result = await service.api_client.create_product(product)
+        # The service should handle retries internally via helper method
+        # Use zero initial delay to keep tests fast
+        result = await service.create_product_with_retry(
+            product,
+            max_attempts=3,
+            initial_delay=0,
+        )
 
         assert result["data"]["id"] == product_id
         assert service.api_client.create_product.call_count == 3  # All attempts made

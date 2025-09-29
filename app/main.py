@@ -27,6 +27,12 @@ from app.middleware.compression import CompressionMiddleware
 from app.middleware.correlation_id import CorrelationIdMiddleware
 from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.logging_middleware import setup_logging_middleware
+from app.core.security import get_password_hash
+from app.db.session import AsyncSessionLocal
+from app.models.role import Role
+from app.models.user import User
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 # Initialize logging
 configure_logging()
@@ -34,17 +40,88 @@ logger = get_logger(__name__)
 
 # Initialize Sentry (if configured)
 try:
-    if hasattr(settings, 'SENTRY_DSN') and settings.SENTRY_DSN:
+    if hasattr(settings, "SENTRY_DSN") and settings.SENTRY_DSN:
         from app.core.sentry import init_sentry
+
         init_sentry()
 except Exception as e:
     logger.warning(f"Failed to initialize Sentry: {e}")
+
+
+async def _ensure_dev_admin_user() -> None:
+    """Provision a default admin user for development if configured."""
+
+    if not settings.AUTO_PROVISION_DEV_ADMIN:
+        return
+
+    email = (settings.DEFAULT_ADMIN_EMAIL or "").strip()
+    password = settings.DEFAULT_ADMIN_PASSWORD or ""
+
+    if not email or not password:
+        logger.debug("Skipping dev admin provisioning due to missing credentials")
+        return
+
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+            created = False
+
+            hashed_password = get_password_hash(password)
+
+            if user is None:
+                user = User(
+                    email=email,
+                    hashed_password=hashed_password,
+                    full_name="Development Admin",
+                    is_active=True,
+                    is_superuser=True,
+                    email_verified=True,
+                )
+                session.add(user)
+                created = True
+            else:
+                user.hashed_password = hashed_password
+                user.is_active = True
+                user.is_superuser = True
+                user.email_verified = True
+
+            result_role = await session.execute(select(Role).where(Role.name == "admin"))
+            role = result_role.scalar_one_or_none()
+            if role is None:
+                role = Role(
+                    name="admin",
+                    description="Administrator role",
+                    is_system_role=True,
+                )
+                session.add(role)
+
+            if role not in user.roles:
+                user.roles.append(role)
+
+            await session.commit()
+            logger.info(
+                "Development admin user ensured",
+                extra={"email": email, "dev_admin_created": created},
+            )
+        except SQLAlchemyError as exc:
+            await session.rollback()
+            logger.warning(
+                "Failed to auto-provision development admin user", exc_info=exc
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            await session.rollback()
+            logger.warning(
+                "Unexpected error provisioning development admin user: %s", exc
+            )
+
 
 # Global Redis client
 redis_client: Optional[Redis] = None
 
 async def setup_redis() -> Redis:
     """Initialize Redis connection for rate limiting."""
+
     global redis_client
     logger = get_logger(__name__)
     max_retries = 5
@@ -52,9 +129,12 @@ async def setup_redis() -> Redis:
 
     for attempt in range(max_retries):
         try:
-            logger.info(f"Connecting to Redis (attempt {attempt + 1}/{max_retries})...")
-            
-            # Create a new Redis client
+            logger.info(
+                "Connecting to Redis (attempt %s/%s)...",
+                attempt + 1,
+                max_retries,
+            )
+
             client = Redis(
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
@@ -68,16 +148,24 @@ async def setup_redis() -> Redis:
                 socket_timeout=5,
                 health_check_interval=30,
             )
-            
-            # Test the connection
+
             await client.ping()
             logger.info("Successfully connected to Redis")
             return client
-        except (ConnectionError, RedisError) as e:
+        except (ConnectionError, RedisError) as exc:
             if attempt == max_retries - 1:
-                logger.error(f"Failed to connect to Redis after {max_retries} attempts: {e}")
+                logger.error(
+                    "Failed to connect to Redis after %s attempts: %s",
+                    max_retries,
+                    exc,
+                )
                 raise
-            logger.warning(f"Redis connection attempt {attempt + 1} failed: {e}. Retrying in {retry_delay}s...")
+            logger.warning(
+                "Redis connection attempt %s failed: %s. Retrying in %ss...",
+                attempt + 1,
+                exc,
+                retry_delay,
+            )
             await asyncio.sleep(retry_delay)
 
 def setup_opentelemetry(app: FastAPI, enable_sqlalchemy_instrumentation: bool = True) -> None:
@@ -111,6 +199,8 @@ async def lifespan(app: FastAPI):
             "version": settings.VERSION,
         },
     )
+
+    await _ensure_dev_admin_user()
 
     yield
 
@@ -153,12 +243,31 @@ app = FastAPI(
 )
 
 # Add middleware
+cors_options = {
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+
+if settings.DEBUG:
+    cors_options["allow_origin_regex"] = r"http://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
+    cors_options["allow_origins"] = list({
+        *settings.backend_cors_origins_list,
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",  # Common dev ports
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",  # Additional dev ports
+        "http://127.0.0.1:8080",
+        "http://localhost:4173",  # Vite preview
+        "http://127.0.0.1:4173",
+    })
+else:
+    cors_options["allow_origins"] = settings.backend_cors_origins_list
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    **cors_options,
 )
 app.add_middleware(CompressionMiddleware)
 app.add_middleware(CorrelationIdMiddleware)

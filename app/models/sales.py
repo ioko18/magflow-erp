@@ -63,6 +63,7 @@ class SalesOrder(Base, TimestampMixin):
     discount_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     shipping_cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
     currency: Mapped[str] = mapped_column(String(3), default="RON")
+    fulfillment_channel: Mapped[str] = mapped_column(String(20), default="main")
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     approved_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

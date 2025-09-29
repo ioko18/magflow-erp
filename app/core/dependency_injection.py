@@ -6,6 +6,7 @@ better separation of concerns, testability, and maintainability across the appli
 
 import inspect
 import logging
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import wraps
@@ -34,15 +35,26 @@ class ServiceContext:
     db_session: Optional[AsyncSession] = None
     cache_service: Optional[Any] = None
     health_checker: Optional[DatabaseHealthChecker] = None
+    environment: Optional[Dict[str, str]] = None
 
     def __post_init__(self):
-        """Validate context configuration."""
+        """Validate context configuration and initialize environment."""
         if not self.settings:
             raise ConfigurationError("Settings are required for service context")
 
+        # Initialize environment variables if not provided
+        if self.environment is None:
+            self.environment = {}
+
+        # Add environment variables from settings if they exist
+        for key, value in os.environ.items():
+            if key.startswith(("EMAG_", "DB_")):
+                self.environment[key] = value
+
         logger.debug(
-            "ServiceContext initialized with settings: %s",
+            "ServiceContext initialized with settings: %s and %d environment variables",
             self.settings.APP_ENV,
+            len(self.environment),
         )
 
 
