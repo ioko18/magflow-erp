@@ -173,3 +173,6 @@ monitoring/grafana/provisioning/
 
 # Nginx configs (keep in repo)
 nginx/
+
+# Scripts needed for Docker
+!scripts/docker-entrypoint.sh

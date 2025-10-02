@@ -1,5 +1,5 @@
 # ===== DEVELOPMENT STAGE =====
-FROM python:3.11-slim as development
+FROM python:3.11-slim AS development
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -22,12 +22,12 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project
-COPY . .
-
-# Copy and set permissions for entrypoint script
+# Copy and set permissions for entrypoint script (before copying everything)
 COPY scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Copy project
+COPY . .
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app \
@@ -48,7 +48,7 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "info"]
 
 # ===== PRODUCTION STAGE =====
-FROM development as production
+FROM development AS production
 
 # Set production environment
 ENV APP_ENV=production
