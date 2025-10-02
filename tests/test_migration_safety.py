@@ -1,7 +1,6 @@
 """Migration testing framework for safe database migrations."""
 
 
-from typing import Dict, List
 
 import pytest
 from alembic.config import Config

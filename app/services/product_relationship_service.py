@@ -9,7 +9,7 @@ Handles complex product relationships including:
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Dict, Any
 from uuid import UUID, uuid4
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +21,6 @@ from app.models.product_relationships import (
     ProductGenealogy,
 )
 from app.models.emag_models import EmagProductV2
-from app.models.product import Product
 
 
 class ProductRelationshipService:

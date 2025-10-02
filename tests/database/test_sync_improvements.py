@@ -8,7 +8,7 @@ import asyncio
 import os
 import sys
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import patch
 
 # Add the project root to Python path
@@ -73,12 +73,11 @@ class TestSyncImprovements:
         assert not check_sync_timeout()
 
         # Test with recent start time
-        import sync_emag_sync_improved
-        sync_emag_sync_improved.# sync_start_time = datetime.utcnow()
+        # sync_start_time = datetime.utcnow()
         assert not check_sync_timeout()
 
         # Test with old start time (simulate timeout)
-        sync_emag_sync_improved.# sync_start_time = datetime.utcnow() - timedelta(hours=3)
+        # sync_start_time = datetime.utcnow() - timedelta(hours=3)
         assert check_sync_timeout()
         logger.info("✅ Sync timeout check test passed")
 

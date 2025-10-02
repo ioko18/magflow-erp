@@ -15,7 +15,6 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import uuid4
 
 from app.db import get_db
 from app.security.jwt import get_current_user
@@ -99,7 +98,7 @@ async def get_republish_recommendation(
     offers_main = current_situation.get("offers_main", 1)
     offers_fbe = current_situation.get("offers_fbe", 1)
     stock_main = current_situation.get("stock_main", 0)
-    stock_fbe = current_situation.get("stock_fbe", 0)
+    current_situation.get("stock_fbe", 0)
     
     # Decision logic
     if has_competition_main and offers_main >= 3:
@@ -257,7 +256,7 @@ async def create_republished_variant(
             supersede_reason=request.reason,
             product_type="emag_main" if request.account_type == "main" else "emag_fbe"
         )
-    except Exception as e:
+    except Exception:
         # Genealogy is optional, continue even if it fails
         pass
     
@@ -364,7 +363,7 @@ async def get_product_republish_history(
         try:
             analysis = await stock_service.analyze_stock_distribution(variant["sku"])
             variant_analyses.append(analysis)
-        except:
+        except Exception:
             pass
     
     return {
@@ -400,7 +399,7 @@ async def mark_variant_as_superseded(
     
     This doesn't delete anything, just marks lifecycle stage.
     """
-    relationship_service = ProductRelationshipService(db)
+    ProductRelationshipService(db)
     
     # This is handled automatically by add_product_to_family
     # But we can provide a dedicated endpoint for clarity

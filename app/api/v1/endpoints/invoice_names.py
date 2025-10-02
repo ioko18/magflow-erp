@@ -14,7 +14,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
+from sqlalchemy import select
 
 from app.db import get_db
 from app.security.jwt import get_current_user
@@ -106,7 +106,7 @@ async def list_products_with_invoice_names(
     - has_invoice_names=false: Only products without custom invoice names
     - has_invoice_names=null: All products
     """
-    query = select(Product).where(Product.is_active == True)
+    query = select(Product).where(Product.is_active)
     
     if has_invoice_names is True:
         query = query.where(

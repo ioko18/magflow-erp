@@ -348,19 +348,19 @@ class PerformanceOptimizer:
             report += f"  {i}. {test_name}: {setup_time:.3f}s\n"
 
         if regressions:
-            report += f"\n⚠️ Performance Regressions Detected:\n"
+            report += "\n⚠️ Performance Regressions Detected:\n"
             for regression in regressions:
                 report += f"  • {regression}\n"
 
-        report += f"\n💡 Recommendations:\n"
+        report += "\n💡 Recommendations:\n"
         if avg_setup > 0.1:
-            report += f"  • Consider using session-scoped fixtures for heavy setup\n"
-            report += f"  • Enable parallel test execution with pytest-xdist\n"
+            report += "  • Consider using session-scoped fixtures for heavy setup\n"
+            report += "  • Enable parallel test execution with pytest-xdist\n"
         if avg_setup > 0.05:
-            report += f"  • Review database connection pooling settings\n"
+            report += "  • Review database connection pooling settings\n"
 
-        report += f"  • Use 'pytest -n auto' for parallel execution\n"
-        report += f"  • Monitor performance trends with baseline comparison\n"
+        report += "  • Use 'pytest -n auto' for parallel execution\n"
+        report += "  • Monitor performance trends with baseline comparison\n"
 
         report += f"\n{'='*60}"
 

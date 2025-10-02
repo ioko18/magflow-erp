@@ -18,19 +18,19 @@ class OrderRepository(BaseRepository):
 
     async def get_by_emag_id(self, emag_id: str) -> Optional[Order]:
         """Get an order by eMAG ID."""
-        await self.db.execute(select(Order).where(Order.emag_id == emag_id))
+        result = await self.db.execute(select(Order).where(Order.emag_id == emag_id))
         return result.scalars().first()
 
     async def get_with_items(self, order_id: int) -> Optional[Order]:
         """Get an order with its items."""
-        await self.db.execute(
+        result = await self.db.execute(
             select(Order).where(Order.id == order_id).options(selectinload(Order.items))
         )
         return result.scalars().first()
 
     async def get_by_status(self, status: str) -> List[Order]:
         """Get orders by status."""
-        await self.db.execute(
+        result = await self.db.execute(
             select(Order)
             .where(Order.status == status)
             .order_by(Order.created_at.desc())
@@ -41,7 +41,7 @@ class OrderRepository(BaseRepository):
         self, customer_id: int, limit: int = 100, offset: int = 0
     ) -> List[Order]:
         """Get orders by customer ID with pagination."""
-        await self.db.execute(
+        result = await self.db.execute(
             select(Order)
             .where(Order.customer_id == customer_id)
             .order_by(Order.created_at.desc())
@@ -65,6 +65,7 @@ class OrderRepository(BaseRepository):
             .returning(Order)
         )
         await self.db.commit()
+        result = await self.db.execute(select(Order).where(Order.id == order_id))
         return result.scalars().first()
 
     async def bulk_upsert_orders(

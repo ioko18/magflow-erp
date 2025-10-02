@@ -8,7 +8,7 @@ real-time marketplace connectivity with proper rate limiting and error handling.
 import asyncio
 import time
 import os
-from collections import OrderedDict, deque
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -25,12 +25,8 @@ from app.services.emag_api_client import EmagApiClient, EmagApiError
 from app.services.service_context import ServiceContext
 from app.repositories.product_repository import get_product_repository
 from app.repositories.order_repository import get_order_repository
-from app.config.emag_config import (
-    EmagApiConfig,
-)
-from app.models.emag_models import (
-    EmagOrder,
-)
+    
+    
 
 logger = setup_logger(__name__)
 
@@ -1234,24 +1230,6 @@ class EmagIntegrationService(BaseService):
             logger.error("Failed to load eMAG configuration: %s", e)
             raise ConfigurationError(f"eMAG integration not properly configured: {e}")
 
-# DUPLICATE -     async def initialize(self):
-        """Initialize eMAG integration service."""
-        try:
-            # Initialize the API client with username and password from config
-            self.api_client = EmagApiClient(
-                username=self.config.api_username,
-                password=self.config.api_password,
-                base_url=self.config.base_url,
-                timeout=self.config.api_timeout,
-                max_retries=self.config.max_retries,
-            )
-            # Set the account type for the client
-            self.api_client.account_type = self.account_type
-            logger.info("eMAG integration service initialized")
-        except Exception as e:
-            logger.error("Failed to initialize eMAG integration service: %s", e)
-            raise
-
     async def cleanup(self):
         """Cleanup eMAG integration service."""
         if self.api_client:
@@ -1296,142 +1274,6 @@ class EmagIntegrationService(BaseService):
         )
 
     @performance_monitor("EmagIntegrationService.sync_products")
-# DUPLICATE -     async def sync_products(self, full_sync: bool = False) -> Dict[str, Any]:
-        """Sync products between ERP and eMAG."""
-        try:
-            if not self.api_client:
-                raise EmagApiError("eMAG API client not initialized")
-
-            # Get products from eMAG
-            emag_products = await self._get_emag_products()
-
-            # Get products from ERP
-            erp_products = await self._get_erp_products()
-
-            # Build SKU lookup map once to avoid repeated linear scans when
-            # reconciling products. This dramatically reduces the complexity of
-            # the sync from O(n^2) to O(n) for large catalogs.
-            erp_products_by_sku = {}
-            duplicate_erp_skus = set()
-
-            for product in erp_products:
-                if not product.sku:
-                    continue
-
-                if product.sku in erp_products_by_sku:
-                    duplicate_erp_skus.add(product.sku)
-                    continue
-
-                erp_products_by_sku[product.sku] = product
-
-            if duplicate_erp_skus:
-                logger.warning(
-                    "Duplicate SKU entries detected in ERP during sync: %s",
-                    sorted(duplicate_erp_skus),
-                )
-
-            # Compare and sync
-            sync_results = {"created": [], "updated": [], "deleted": [], "errors": []}
-
-            # Process products
-            for emag_product in emag_products:
-                try:
-                    erp_product = erp_products_by_sku.get(emag_product.sku)
-
-                    if not erp_product:
-                        # Create new product in ERP
-                        await self._create_erp_product(emag_product)
-                        sync_results["created"].append(emag_product.sku)
-                    else:
-                        # Update existing product
-                        await self._update_erp_product(erp_product, emag_product)
-                        sync_results["updated"].append(emag_product.sku)
-
-                except Exception as e:
-                    sync_results["errors"].append(
-                        {"sku": emag_product.sku, "error": str(e)},
-                    )
-
-            # Handle products that exist in ERP but not in eMAG
-            if full_sync:
-                erp_skus = {p.sku for p in erp_products}
-                emag_skus = {p.sku for p in emag_products}
-
-                for sku in erp_skus - emag_skus:
-                    try:
-                        await self._handle_missing_emag_product(sku)
-                        sync_results["deleted"].append(sku)
-                    except Exception as e:
-                        sync_results["errors"].append({"sku": sku, "error": str(e)})
-
-            return sync_results
-
-        except Exception as e:
-            logger.error("Product sync failed: %s", e)
-            raise EmagApiError(f"Product sync failed: {e}")
-
-    @performance_monitor("EmagIntegrationService.sync_orders")
-# DUPLICATE -     async def sync_orders(self) -> Dict[str, Any]:
-        """Sync orders between ERP and eMAG for the current account type."""
-        try:
-            if not self.api_client:
-                raise EmagApiError("eMAG API client not initialized")
-
-            logger.info(
-                "Starting order sync for account: %s", self.account_type.upper()
-            )
-            emag_orders = await self._get_emag_orders()
-            sync_results = {
-                "account_type": self.account_type,
-                "created": [],
-                "updated": [],
-                "errors": [],
-                "total_orders": len(emag_orders),
-            }
-
-            for emag_order in emag_orders:
-                external_id = emag_order.emag_order_id or emag_order.id
-                try:
-                    mapped_data = await self._map_order_payload(emag_order)
-                    is_update = mapped_data["is_update"]
-
-                    # Add account type to order data
-                    mapped_data["create"]["fulfillment_channel"] = self.account_type
-                    if "update" in mapped_data:
-                        mapped_data["update"]["fulfillment_channel"] = self.account_type
-
-                    await self.order_repository.upsert_by_external_id(
-                        external_id=external_id,
-                        external_source=f"emag:{self.account_type}",
-                        create_data=mapped_data["create"],
-                        update_data=mapped_data["update"],
-                    )
-
-                    if is_update:
-                        sync_results["updated"].append(external_id)
-                    else:
-                        sync_results["created"].append(external_id)
-
-                except Exception as exc:
-                    logger.exception("Failed to sync order %s", external_id)
-                    sync_results["errors"].append(
-                        {
-                            "order_id": external_id,
-                            "error": str(exc),
-                        }
-                    )
-
-            logger.info(
-                "Completed order sync for account %s: %s",
-                self.account_type.upper(),
-                {k: v for k, v in sync_results.items() if k != "account_type"},
-            )
-            return sync_results
-
-        except Exception as exc:
-            logger.error("Order sync failed: %s", exc)
-            raise EmagApiError(f"Order sync failed: {exc}")
-
     async def update_inventory(self, sku: str, quantity: int) -> bool:
         """Update inventory for a specific product."""
         try:
@@ -1507,76 +1349,6 @@ class EmagIntegrationService(BaseService):
 
         # This line should not be reached, but keeps type checkers happy
         raise EmagApiError("Unable to create product after retries")
-
-# DUPLICATE -     async def bulk_update_inventory(
-        self,
-        inventory_updates: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
-        """Bulk update inventory for multiple products."""
-        try:
-            if not self.api_client:
-                raise EmagApiError("eMAG API client not initialized")
-
-            # Validate and filter inventory updates
-            validated_updates: List[Dict[str, Any]] = []
-            for update in inventory_updates:
-                if (
-                    not isinstance(update, dict)
-                    or "sku" not in update
-                    or "quantity" not in update
-                ):
-                    logger.warning(f"Invalid inventory update format: {update}")
-                    continue
-                validated_updates.append(
-                    {
-                        "sku": str(update["sku"]),
-                        "quantity": update["quantity"],
-                    }
-                )
-
-            deduped_updates: OrderedDict[str, Dict[str, Any]] = OrderedDict()
-            duplicate_skus: Set[str] = set()
-
-            for inventory_update in validated_updates:
-                sku = inventory_update["sku"]
-
-                if sku in deduped_updates:
-                    duplicate_skus.add(sku)
-                    deduped_updates[sku] = inventory_update
-                    deduped_updates.move_to_end(sku)
-                else:
-                    deduped_updates[sku] = inventory_update
-
-            deduped_list = list(deduped_updates.values())
-            duplicates_filtered = len(validated_updates) - len(deduped_list)
-
-            if duplicate_skus:
-                logger.info(
-                    "Collapsed %d duplicate inventory updates for SKUs: %s",
-                    duplicates_filtered,
-                    sorted(duplicate_skus),
-                )
-
-            # Use generic bulk operation executor
-            async def process_chunk(chunk: List[Dict[str, Any]]) -> Dict[str, Any]:
-                return await self.api_client.bulk_update_inventory(chunk)
-
-            result = await self._execute_bulk_operation(
-                deduped_list,
-                process_chunk,
-                "inventory",
-            )
-
-            result["duplicate_skus_filtered"] = sorted(duplicate_skus)
-            result["total_duplicates_filtered"] = duplicates_filtered
-            result["items_before_dedup"] = len(validated_updates)
-            result["items_after_dedup"] = len(deduped_list)
-
-            return result
-
-        except Exception as e:
-            logger.error("Bulk inventory update failed: %s", e)
-            raise EmagApiError(f"Bulk inventory update failed: {e}")
 
     async def _execute_bulk_operation(
         self,

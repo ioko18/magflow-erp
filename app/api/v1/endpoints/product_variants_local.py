@@ -209,7 +209,7 @@ async def list_local_variants(
     relationship_service = ProductRelationshipService(db)
     
     # Get all products
-    query = select(Product).where(Product.is_active == True)
+    query = select(Product).where(Product.is_active)
     result = await db.execute(query)
     products = result.scalars().all()
     

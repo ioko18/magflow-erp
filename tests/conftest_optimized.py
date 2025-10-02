@@ -28,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_limiter import FastAPILimiter
- as redis
 
 # Import performance optimization system
 from .performance_optimizer import (
