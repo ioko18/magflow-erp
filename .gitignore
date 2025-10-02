@@ -44,10 +44,13 @@ libexec/
 share/
 etc/
 conda-meta/
-Scripts/
+# Scripts/ - commented out to allow scripts directory
 man/
 ssl/
 shims/
+
+# Ignore only Python virtual env Scripts directory (Windows)
+/Scripts/
 
 # IDE
 .vscode/

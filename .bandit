@@ -2,18 +2,7 @@
 # Bandit configuration for MagFlow ERP security scanning
 
 # Exclude paths that don't need security scanning
-exclude_dirs = [
-    "tests",
-    "migrations",
-    "alembic",
-    ".git",
-    ".venv",
-    "venv",
-    "__pycache__",
-    "node_modules",
-    ".pytest_cache",
-    ".mypy_cache"
-]
+exclude_dirs = /tests,/migrations,/alembic,/.git,/.venv,/venv,/__pycache__,/node_modules,/.pytest_cache,/.mypy_cache
 
 # Skip specific test IDs that are false positives or acceptable risks
 skips = [
