@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import factory
 import pytest
 from factory.fuzzy import FuzzyChoice, FuzzyDate, FuzzyInteger, FuzzyFloat
-import json
+
 
 # Import actual models for database factories
 try:

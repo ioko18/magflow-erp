@@ -5,12 +5,11 @@ This module provides comprehensive performance monitoring and optimization
 for the test suite, addressing slow test durations and resource management.
 """
 
-import asyncio
+
 import logging
 import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
 
 import psutil
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession

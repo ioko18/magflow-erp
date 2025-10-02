@@ -24,7 +24,7 @@ import asyncio
 import logging
 import os
 import time
-from pathlib import Path
+
 from typing import AsyncGenerator, Dict, Any
 from uuid import uuid4
 
@@ -32,7 +32,7 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+
 from sqlalchemy.pool import StaticPool
 import redis.asyncio as redis
 from fastapi import FastAPI

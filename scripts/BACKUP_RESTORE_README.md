@@ -7,32 +7,35 @@ Complete backup and restore solution for the MagFlow ERP system, including datab
 ## Table of Contents
 
 1. [Features](#features)
-2. [Prerequisites](#prerequisites)
-3. [Backup Script](#backup-script)
-4. [Restore Script](#restore-script)
-5. [Backup Structure](#backup-structure)
-6. [Usage Examples](#usage-examples)
-7. [Scheduling Automated Backups](#scheduling-automated-backups)
-8. [Best Practices](#best-practices)
-9. [Troubleshooting](#troubleshooting)
+1. [Prerequisites](#prerequisites)
+1. [Backup Script](#backup-script)
+1. [Restore Script](#restore-script)
+1. [Backup Structure](#backup-structure)
+1. [Usage Examples](#usage-examples)
+1. [Scheduling Automated Backups](#scheduling-automated-backups)
+1. [Best Practices](#best-practices)
+1. [Troubleshooting](#troubleshooting)
 
 ## Features
 
 ### Backup Script (`backup_complete.sh`)
 
 - ✅ **PostgreSQL Database Backup**
+
   - SQL format (compressed with gzip)
   - Custom format (for pg_restore)
   - Schema-only backup
   - Database statistics
 
 - ✅ **Project Files Backup**
+
   - Complete project directory
   - Excludes temporary files (node_modules, __pycache__, etc.)
   - Compressed tar.gz archive
   - File listing included
 
 - ✅ **Configuration Backup**
+
   - Environment files (.env)
   - JWT keys
   - SSL certificates
@@ -40,11 +43,13 @@ Complete backup and restore solution for the MagFlow ERP system, including datab
   - nginx configuration
 
 - ✅ **Verification & Integrity**
+
   - SHA-256 checksums for all files
   - Archive integrity testing
   - Backup manifest with metadata
 
 - ✅ **Additional Features**
+
   - Detailed logging with timestamps
   - Automatic cleanup of old backups (30-day retention)
   - Pre-flight checks
@@ -54,17 +59,20 @@ Complete backup and restore solution for the MagFlow ERP system, including datab
 ### Restore Script (`restore_complete.sh`)
 
 - ✅ **Interactive Restore**
+
   - List available backups
   - Select specific backup
   - Choose what to restore (database, files, config, or all)
 
 - ✅ **Safety Features**
+
   - Pre-restore validation
   - Safety backups before restore
   - Confirmation prompts
   - Post-restore verification
 
 - ✅ **Flexible Options**
+
   - Database only
   - Files only
   - Configuration only
@@ -136,19 +144,22 @@ cd /Users/macos/anaconda3/envs/MagFlow/scripts
 ### What Gets Backed Up
 
 #### Database
+
 - Full database dump (SQL + Custom format)
 - Schema-only backup
 - Database statistics
 - Table sizes and row counts
 
 #### Project Files
+
 - All source code
 - Documentation
 - Scripts
 - Configuration templates
-- **Excludes**: node_modules, __pycache__, .git, *.log, test-reports, etc.
+- **Excludes**: node_modules, __pycache__, .git, \*.log, test-reports, etc.
 
 #### Configuration
+
 - `.env` files
 - `jwt-keys/` directory
 - `certs/` directory
@@ -200,30 +211,36 @@ cd /Users/macos/anaconda3/envs/MagFlow/scripts
 ### Restore Process
 
 1. **Select Backup**
+
    - Script lists all available backups
    - Shows date, time, size, and verification status
    - Select backup by number
 
-2. **Choose Restore Options**
+1. **Choose Restore Options**
+
    - Database only
    - Files only
    - Configuration only
    - Database + Configuration
    - Everything (full restore)
 
-3. **Confirmation**
+1. **Confirmation**
+
    - Review what will be restored
    - Confirm to proceed
 
-4. **Safety Backup**
+1. **Safety Backup**
+
    - Script creates safety backup of current state
    - Allows rollback if restore fails
 
-5. **Restore Execution**
+1. **Restore Execution**
+
    - Restores selected components
    - Shows progress and logs
 
-6. **Verification**
+1. **Verification**
+
    - Verifies restored components
    - Reports any issues
 
@@ -531,13 +548,14 @@ python3 -m json.tool < BACKUP_MANIFEST.json
 For issues or questions:
 
 1. Check the logs in `/Users/macos/Dropbox/MagFlow_backup/TIMESTAMP/logs/`
-2. Review the BACKUP_MANIFEST.json for backup details
-3. Consult the MagFlow ERP documentation
-4. Contact the development team
+1. Review the BACKUP_MANIFEST.json for backup details
+1. Consult the MagFlow ERP documentation
+1. Contact the development team
 
 ## Version History
 
 - **v2.0.0** (2025-10-02): Complete rewrite with enhanced features
+
   - Added comprehensive backup verification
   - Improved error handling
   - Added restore script
@@ -545,6 +563,7 @@ For issues or questions:
   - Added backup manifest
 
 - **v1.0.0**: Initial backup script
+
   - Basic database and volume backup
 
 ## License

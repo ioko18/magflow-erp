@@ -6,6 +6,8 @@ For tests, we attach a few generic handlers mapping exceptions to JSON responses
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -14,6 +16,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.problem import Problem
 from app.middleware.correlation_id import get_correlation_id
+
+logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -73,6 +77,14 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def generic_exception_handler(request: Request, exc: Exception):
         correlation_id = get_correlation_id()
+
+        # Log the full exception with traceback
+        logger.error(
+            f"Unhandled exception in {request.method} {request.url.path}: {exc}",
+            exc_info=True,
+            extra={"correlation_id": correlation_id}
+        )
+
         problem = Problem.from_exception(
             exc,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

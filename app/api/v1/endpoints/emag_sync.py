@@ -178,7 +178,7 @@ async def get_emag_sync_progress(
                 "errors": current_sync.errors,
                 "is_running": current_sync.status == "running",
                 "current_page": None,  # Would be populated by sync script
-                "total_pages": None,   # Would be populated by sync script
+                "total_pages": None,  # Would be populated by sync script
                 "estimated_time_remaining": None,  # Would be calculated based on progress
             }
         else:
@@ -194,6 +194,8 @@ async def get_emag_sync_progress(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
 async def get_emag_sync_history(
     limit: int = 50,
     db: AsyncSession = Depends(get_db),

@@ -8,17 +8,14 @@ real-time marketplace connectivity with proper rate limiting and error handling.
 import asyncio
 import time
 import os
-import uuid
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from enum import Enum
 from functools import wraps
-from typing import Any, Dict, List, Optional, Callable, Awaitable, Set, Union
+from typing import Any, Dict, List, Optional, Callable, Awaitable, Set
 
 import aiohttp
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
 
 from app.core.config import settings
 from app.core.exceptions import ServiceError, ConfigurationError
@@ -29,18 +26,18 @@ from app.services.service_context import ServiceContext
 from app.repositories.product_repository import get_product_repository
 from app.repositories.order_repository import get_order_repository
 from app.config.emag_config import (
-    get_emag_config, EmagApiConfig, EmagAccountType, EmagRateLimitConfig
+    EmagApiConfig,
 )
 from app.models.emag_models import (
-    EmagProductV2, EmagProductOfferV2, EmagOrder, EmagSyncLog, EmagSyncProgress
+    EmagOrder,
 )
-from app.db.session import get_db
 
 logger = setup_logger(__name__)
 
 
 def performance_monitor(func_name: str):
     """Decorator to monitor performance of async functions"""
+
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -118,7 +115,6 @@ class EmagRateLimiter:
     )  # Injectable sleep function
 
     def __post_init__(self):
-        from collections import deque
 
         self._locks: Dict[str, asyncio.Lock] = {}
         # Track timestamps of previous requests for both 1-second and 60-second windows
@@ -127,7 +123,6 @@ class EmagRateLimiter:
     async def acquire(self, resource_type: str = "other"):
         """Acquire permission to make a request respecting eMAG API limits."""
 
-        from collections import deque
         import random
 
         per_second_limit = (
@@ -242,14 +237,14 @@ class EmagOrder:
 
 class EmagIntegrationService(BaseService):
     """Service for managing eMAG marketplace integration.
-    
+
     This service provides a high-level interface for interacting with the eMAG API,
     handling authentication, rate limiting, and error handling.
     """
-    
+
     def __init__(self, context: ServiceContext, account_type: str = "main"):
         """Initialize the eMAG integration service.
-        
+
         Args:
             context: Service context with dependencies
             account_type: Type of eMAG account ('main' or 'fbe')
@@ -261,7 +256,7 @@ class EmagIntegrationService(BaseService):
         self.product_repository = get_product_repository()
         self.order_repository = get_order_repository()
         self._sync_tasks: Dict[str, asyncio.Task] = {}
-    
+
     def _load_config(self) -> EmagApiConfig:
         """Load eMAG API configuration from settings."""
         prefix = f"EMAG_{self.account_type.upper()}_"
@@ -270,7 +265,7 @@ class EmagIntegrationService(BaseService):
             if settings.ENVIRONMENT == "production"
             else EmagApiEnvironment.SANDBOX
         )
-        
+
         return EmagApiConfig(
             environment=env,
             api_username=os.getenv(f"{prefix}USERNAME", ""),
@@ -283,7 +278,7 @@ class EmagIntegrationService(BaseService):
             other_rate_rps=int(os.getenv(f"{prefix}OTHER_RPS", "3")),
             bulk_max_entities=int(os.getenv(f"{prefix}BULK_MAX", "50")),
         )
-    
+
     async def initialize(self):
         """Initialize the eMAG API client."""
         if not self.client:
@@ -300,77 +295,81 @@ class EmagIntegrationService(BaseService):
                 self.account_type,
                 self.config.environment.value,
             )
-    
+
     async def close(self):
         """Close the eMAG API client and clean up resources."""
         if self.client:
             await self.client.close()
             self.client = None
         logger.info("Closed eMAG API client for %s account", self.account_type)
-    
+
     async def __aenter__(self):
         """Async context manager entry."""
         await self.initialize()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
         await self.close()
-    
+
     @performance_monitor("sync_products")
     async def sync_products(self, full_sync: bool = False) -> Dict[str, Any]:
         """Synchronize products between eMAG and the local database.
-        
+
         Args:
             full_sync: If True, perform a full synchronization
-            
+
         Returns:
             Dict with synchronization results
         """
         if not self.client:
             await self.initialize()
-        
+
         try:
             # Get products from eMAG
             logger.info("Fetching products from eMAG...")
             emag_products = await self._get_emag_products()
-            
+
             # Get products from local database
             logger.info("Fetching products from local database...")
             local_products = await self._get_local_products()
-            
+
             # Synchronize products
-            return await self._synchronize_products(emag_products, local_products, full_sync)
-            
+            return await self._synchronize_products(
+                emag_products, local_products, full_sync
+            )
+
         except Exception as e:
             logger.error("Failed to sync products: %s", str(e), exc_info=True)
             raise ServiceError(f"Failed to sync products: {str(e)}") from e
-    
+
     async def _get_emag_products(self) -> List[Dict[str, Any]]:
         """Get products from eMAG API."""
         if not self.client:
             raise ServiceError("eMAG API client not initialized")
-        
+
         try:
             products = []
             page = 1
             has_more = True
-            
+
             while has_more:
                 response = await self.client.get_products(page=page, items_per_page=100)
                 if not response or "results" not in response:
                     break
-                    
+
                 products.extend(response["results"])
-                has_more = response.get("current_page", 0) < response.get("total_pages", 0)
+                has_more = response.get("current_page", 0) < response.get(
+                    "total_pages", 0
+                )
                 page += 1
-                
+
             return products
-            
+
         except EmagApiError as e:
             logger.error("eMAG API error: %s", str(e))
             raise ServiceError(f"eMAG API error: {str(e)}") from e
-    
+
     async def _get_local_products(self) -> List[Dict[str, Any]]:
         """Get products from local database."""
         try:
@@ -379,7 +378,7 @@ class EmagIntegrationService(BaseService):
         except Exception as e:
             logger.error("Failed to get local products: %s", str(e))
             raise ServiceError(f"Failed to get local products: {str(e)}") from e
-    
+
     async def _synchronize_products(
         self,
         emag_products: List[Dict[str, Any]],
@@ -396,63 +395,65 @@ class EmagIntegrationService(BaseService):
             "deactivated": 0,
             "errors": [],
         }
-        
+
         # Create a map of SKU to local product for faster lookup
         local_products_map = {p["sku"]: p for p in local_products if "sku" in p}
-        
+
         # Process each eMAG product
         for emag_product in emag_products:
             try:
                 sku = emag_product.get("part_number") or emag_product.get("sku")
                 if not sku:
                     continue
-                
+
                 if sku in local_products_map:
                     # Update existing product
                     stats["updated"] += 1
                 else:
                     # Create new product
                     stats["created"] += 1
-                    
+
             except Exception as e:
                 stats["errors"].append(f"Error processing product {sku}: {str(e)}")
-                logger.error("Error processing product %s: %s", sku, str(e), exc_info=True)
-        
+                logger.error(
+                    "Error processing product %s: %s", sku, str(e), exc_info=True
+                )
+
         return stats
-    
+
     @performance_monitor("sync_orders")
     async def sync_orders(self) -> Dict[str, Any]:
         """Synchronize orders from eMAG to local database."""
         if not self.client:
             await self.initialize()
-        
+
         try:
             # Get orders from eMAG
             logger.info("Fetching orders from eMAG...")
             emag_orders = await self._get_emag_orders()
-            
+
             # Process orders
             return await self._process_orders(emag_orders)
-            
+
         except Exception as e:
             logger.error("Failed to sync orders: %s", str(e), exc_info=True)
             raise ServiceError(f"Failed to sync orders: {str(e)}") from e
-    
+
     async def _get_emag_orders(self) -> List[Dict[str, Any]]:
         """Get orders from eMAG API."""
         if not self.client:
             raise ServiceError("eMAG API client not initialized")
-        
+
         try:
             # This is a simplified implementation
             # In a real implementation, you would handle pagination, filtering, etc.
-            response = await self.client.get_orders(status='new')
+            response = await self.client.get_orders(status="new")
             return response.get("results", [])
-            
+
         except EmagApiError as e:
             logger.error("eMAG API error: %s", str(e))
             raise ServiceError(f"eMAG API error: {str(e)}") from e
-    
+
     async def _process_orders(self, orders: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Process orders from eMAG."""
         stats = {
@@ -460,18 +461,20 @@ class EmagIntegrationService(BaseService):
             "processed": 0,
             "errors": [],
         }
-        
+
         for order in orders:
             try:
                 # Process order (create or update in local database)
                 # This is a placeholder - implement actual order processing
                 stats["processed"] += 1
-                
+
             except Exception as e:
                 order_id = order.get("id", "unknown")
                 stats["errors"].append(f"Error processing order {order_id}: {str(e)}")
-                logger.error("Error processing order %s: %s", order_id, str(e), exc_info=True)
-        
+                logger.error(
+                    "Error processing order %s: %s", order_id, str(e), exc_info=True
+                )
+
         return stats
 
         # Test the connection
@@ -572,7 +575,9 @@ class EmagIntegrationService(BaseService):
                             body_text = await response.text()
                             headers_snapshot = dict(response.headers)
                             lower_body = body_text.lower()
-                            captcha_detected = "captcha" in lower_body or status_code == 511
+                            captcha_detected = (
+                                "captcha" in lower_body or status_code == 511
+                            )
                             logger.error(
                                 "eMAG API returned non-JSON response (status=%s, content_type=%s). "
                                 "Body snippet: %r | Headers: %s",
@@ -595,7 +600,11 @@ class EmagIntegrationService(BaseService):
                             if captcha_detected:
                                 self.captcha_blocked = True
                             raise EmagApiError(
-                                "Captcha challenge encountered" if captcha_detected else "Invalid API response: expected JSON body",
+                                (
+                                    "Captcha challenge encountered"
+                                    if captcha_detected
+                                    else "Invalid API response: expected JSON body"
+                                ),
                                 status_code,
                                 {
                                     "content_type": content_type,
@@ -643,7 +652,11 @@ class EmagIntegrationService(BaseService):
                         if captcha_detected:
                             self.captcha_blocked = True
                         raise EmagApiError(
-                            "Captcha challenge encountered" if captcha_detected else "Invalid API response: expected JSON body",
+                            (
+                                "Captcha challenge encountered"
+                                if captcha_detected
+                                else "Invalid API response: expected JSON body"
+                            ),
                             status_code,
                             {
                                 "content_type": content_type,
@@ -710,23 +723,27 @@ class EmagIntegrationService(BaseService):
 
                     # Extract more detailed error information
                     error_messages = response_data.get("messages", ["Unknown error"])
-                    error_text = error_messages[0] if error_messages else "Unknown error"
-                    
+                    error_text = (
+                        error_messages[0] if error_messages else "Unknown error"
+                    )
+
                     # Log detailed error for debugging
                     logger.error(
                         f"eMAG API HTTP error {status_code}: {error_text}. "
                         f"URL: {url}, Method: {method}, Full response: {response_data}"
                     )
-                    
+
                     # Provide more context in the error message
                     detailed_error = f"HTTP {status_code} - {error_text}"
                     if len(error_messages) > 1:
-                        detailed_error += f" (Additional messages: {', '.join(error_messages[1:])})"
-                    
+                        detailed_error += (
+                            f" (Additional messages: {', '.join(error_messages[1:])})"
+                        )
+
                     raise EmagApiError(
                         message=f"API request failed: {detailed_error}",
                         status_code=status_code,
-                        details={"response_data": response_data}
+                        details={"response_data": response_data},
                     )
 
                 return response_data
@@ -767,7 +784,7 @@ class EmagIntegrationService(BaseService):
                     await asyncio.sleep(wait_time)
                     retry_count += 1
                     continue
-                
+
                 # Log detailed error information
                 logger.error(
                     f"eMAG API request failed permanently after {max_retries + 1} attempts. "
@@ -776,9 +793,9 @@ class EmagIntegrationService(BaseService):
                 raise EmagApiError(
                     message=f"Request failed after {max_retries + 1} attempts: {type(e).__name__}: {e}",
                     status_code=0,
-                    details={"error_type": type(e).__name__, "error_message": str(e)}
+                    details={"error_type": type(e).__name__, "error_message": str(e)},
                 )
-            
+
             except Exception as e:
                 logger.error(
                     f"Unexpected error in eMAG API request. "
@@ -786,23 +803,27 @@ class EmagIntegrationService(BaseService):
                 )
                 if retry_count < max_retries:
                     wait_time = self.config.retry_delay * (2**retry_count)
-                    logger.warning(f"Retrying in {wait_time:.2f}s due to unexpected error")
+                    logger.warning(
+                        f"Retrying in {wait_time:.2f}s due to unexpected error"
+                    )
                     await asyncio.sleep(wait_time)
                     retry_count += 1
                     continue
-                
+
                 raise EmagApiError(
                     message=f"Unexpected error after {max_retries + 1} attempts: {type(e).__name__}: {e}",
                     status_code=0,
-                    details={"error_type": type(e).__name__, "error_message": str(e)}
+                    details={"error_type": type(e).__name__, "error_message": str(e)},
                 )
 
         # This should never be reached, but just in case
-        logger.error(f"eMAG API request exhausted all {max_retries + 1} attempts without resolution")
+        logger.error(
+            f"eMAG API request exhausted all {max_retries + 1} attempts without resolution"
+        )
         raise EmagApiError(
             message=f"Request failed after {max_retries + 1} attempts - no response received",
             status_code=0,
-            details={"error_type": "MaxRetriesExceeded", "attempts": max_retries + 1}
+            details={"error_type": "MaxRetriesExceeded", "attempts": max_retries + 1},
         )
 
     def _normalize_response_payload(
@@ -1096,8 +1117,7 @@ class EmagIntegrationService(BaseService):
             )
             raise EmagApiError(f"Smart Deals price check failed: {e}")
 
-
-# EmagIntegrationService class is defined earlier in the file
+    # EmagIntegrationService class is defined earlier in the file
 
     def _normalize_environment(self, environment: Any) -> EmagApiEnvironment:
         """Normalize environment names from settings.
@@ -1132,45 +1152,55 @@ class EmagIntegrationService(BaseService):
     def _load_config(self, account_type: str) -> EmagApiConfig:
         """Load eMAG API configuration."""
         settings = self.context.settings
-        
+
         # Debug: Print all available settings
         logger.debug(f"[DEBUG] Available settings: {dir(settings)}")
-        
+
         # Get configuration from settings
         environment = getattr(settings, "EMAG_ENVIRONMENT", "production")
-        logger.debug(f"[DEBUG] Environment: {environment}, Account Type: {account_type}")
+        logger.debug(
+            f"[DEBUG] Environment: {environment}, Account Type: {account_type}"
+        )
 
         def _resolve_credentials() -> tuple[str, str]:
             if account_type == "fbe":
                 logger.debug("[DEBUG] Resolving FBE credentials...")
                 # Try both naming conventions for FBE account
                 username = (
-                    getattr(settings, "EMAG_USERNAME_FBE", "") or
-                    getattr(settings, "EMAG_FBE_USERNAME", "") or
-                    getattr(settings, "EMAG_FBE_API_USERNAME", "")
+                    getattr(settings, "EMAG_USERNAME_FBE", "")
+                    or getattr(settings, "EMAG_FBE_USERNAME", "")
+                    or getattr(settings, "EMAG_FBE_API_USERNAME", "")
                 )
                 password = (
-                    getattr(settings, "EMAG_PASSWORD_FBE", "") or
-                    getattr(settings, "EMAG_FBE_PASSWORD", "") or
-                    getattr(settings, "EMAG_FBE_API_PASSWORD", "")
+                    getattr(settings, "EMAG_PASSWORD_FBE", "")
+                    or getattr(settings, "EMAG_FBE_PASSWORD", "")
+                    or getattr(settings, "EMAG_FBE_API_PASSWORD", "")
                 )
-                logger.debug(f"[DEBUG] FBE Username: {'*' * len(username) if username else 'Not found'}")
-                logger.debug(f"[DEBUG] FBE Password: {'*' * len(password) if password else 'Not found'}")
+                logger.debug(
+                    f"[DEBUG] FBE Username: {'*' * len(username) if username else 'Not found'}"
+                )
+                logger.debug(
+                    f"[DEBUG] FBE Password: {'*' * len(password) if password else 'Not found'}"
+                )
             else:  # main or default
                 logger.debug("[DEBUG] Resolving MAIN credentials...")
                 # Try both naming conventions for main account
                 username = (
-                    getattr(settings, "EMAG_USERNAME", "") or
-                    getattr(settings, "EMAG_MAIN_USERNAME", "") or
-                    getattr(settings, "EMAG_API_USERNAME", "")
+                    getattr(settings, "EMAG_USERNAME", "")
+                    or getattr(settings, "EMAG_MAIN_USERNAME", "")
+                    or getattr(settings, "EMAG_API_USERNAME", "")
                 )
                 password = (
-                    getattr(settings, "EMAG_PASSWORD", "") or
-                    getattr(settings, "EMAG_MAIN_PASSWORD", "") or
-                    getattr(settings, "EMAG_API_PASSWORD", "")
+                    getattr(settings, "EMAG_PASSWORD", "")
+                    or getattr(settings, "EMAG_MAIN_PASSWORD", "")
+                    or getattr(settings, "EMAG_API_PASSWORD", "")
                 )
-                logger.debug(f"[DEBUG] MAIN Username: {'*' * len(username) if username else 'Not found'}")
-                logger.debug(f"[DEBUG] MAIN Password: {'*' * len(password) if password else 'Not found'}")
+                logger.debug(
+                    f"[DEBUG] MAIN Username: {'*' * len(username) if username else 'Not found'}"
+                )
+                logger.debug(
+                    f"[DEBUG] MAIN Password: {'*' * len(password) if password else 'Not found'}"
+                )
 
             if not username or not password:
                 error_msg = (
@@ -1204,7 +1234,7 @@ class EmagIntegrationService(BaseService):
             logger.error("Failed to load eMAG configuration: %s", e)
             raise ConfigurationError(f"eMAG integration not properly configured: {e}")
 
-    async def initialize(self):
+# DUPLICATE -     async def initialize(self):
         """Initialize eMAG integration service."""
         try:
             # Initialize the API client with username and password from config
@@ -1213,7 +1243,7 @@ class EmagIntegrationService(BaseService):
                 password=self.config.api_password,
                 base_url=self.config.base_url,
                 timeout=self.config.api_timeout,
-                max_retries=self.config.max_retries
+                max_retries=self.config.max_retries,
             )
             # Set the account type for the client
             self.api_client.account_type = self.account_type
@@ -1266,7 +1296,7 @@ class EmagIntegrationService(BaseService):
         )
 
     @performance_monitor("EmagIntegrationService.sync_products")
-    async def sync_products(self, full_sync: bool = False) -> Dict[str, Any]:
+# DUPLICATE -     async def sync_products(self, full_sync: bool = False) -> Dict[str, Any]:
         """Sync products between ERP and eMAG."""
         try:
             if not self.api_client:
@@ -1341,13 +1371,15 @@ class EmagIntegrationService(BaseService):
             raise EmagApiError(f"Product sync failed: {e}")
 
     @performance_monitor("EmagIntegrationService.sync_orders")
-    async def sync_orders(self) -> Dict[str, Any]:
+# DUPLICATE -     async def sync_orders(self) -> Dict[str, Any]:
         """Sync orders between ERP and eMAG for the current account type."""
         try:
             if not self.api_client:
                 raise EmagApiError("eMAG API client not initialized")
 
-            logger.info("Starting order sync for account: %s", self.account_type.upper())
+            logger.info(
+                "Starting order sync for account: %s", self.account_type.upper()
+            )
             emag_orders = await self._get_emag_orders()
             sync_results = {
                 "account_type": self.account_type,
@@ -1382,14 +1414,18 @@ class EmagIntegrationService(BaseService):
 
                 except Exception as exc:
                     logger.exception("Failed to sync order %s", external_id)
-                    sync_results["errors"].append({
-                        "order_id": external_id,
-                        "error": str(exc),
-                    })
+                    sync_results["errors"].append(
+                        {
+                            "order_id": external_id,
+                            "error": str(exc),
+                        }
+                    )
 
-            logger.info("Completed order sync for account %s: %s", 
-                       self.account_type.upper(), 
-                       {k: v for k, v in sync_results.items() if k != 'account_type'})
+            logger.info(
+                "Completed order sync for account %s: %s",
+                self.account_type.upper(),
+                {k: v for k, v in sync_results.items() if k != "account_type"},
+            )
             return sync_results
 
         except Exception as exc:
@@ -1472,7 +1508,7 @@ class EmagIntegrationService(BaseService):
         # This line should not be reached, but keeps type checkers happy
         raise EmagApiError("Unable to create product after retries")
 
-    async def bulk_update_inventory(
+# DUPLICATE -     async def bulk_update_inventory(
         self,
         inventory_updates: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
@@ -1905,7 +1941,9 @@ class EmagIntegrationService(BaseService):
             "is_update": existing is not None,
         }
 
-    async def _map_order_lines(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _map_order_lines(
+        self, items: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         mapped: List[Dict[str, Any]] = []
         for item in items:
             product_id = await self._resolve_product_id(item)

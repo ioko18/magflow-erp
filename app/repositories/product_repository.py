@@ -94,11 +94,7 @@ class ProductRepository(BaseRepository):
     async def update_by_sku(self, sku: str, values: Dict[str, Any]) -> int:
         """Update a product identified by SKU."""
 
-        stmt = (
-            update(Product)
-            .where(Product.sku == sku)
-            .values(**values)
-        )
+        stmt = update(Product).where(Product.sku == sku).values(**values)
 
         result = await self.db.execute(stmt)
         await self.db.commit()

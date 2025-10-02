@@ -2,6 +2,7 @@
 
 Provides product, brand, and characteristic endpoints used by integration tests.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from typing import Optional

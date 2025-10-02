@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.2.0",
+    "@types/styled-components": "^5.1.34",
     "antd": "^5.11.0",
     "axios": "^1.6.0",
     "clsx": "^2.0.0",
@@ -21,6 +22,7 @@
     "react-router-dom": "^6.20.0",
     "recharts": "^2.8.0",
     "socket.io-client": "^4.7.0",
+    "styled-components": "^6.1.19",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

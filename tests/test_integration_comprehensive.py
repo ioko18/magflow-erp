@@ -7,14 +7,11 @@ different components, services, and modules of the application.
 
 import pytest
 import json
-from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient
 
 from app.main import app
 from tests.test_data_factory import (
     create_test_user_data,
-    create_test_product_data,
-    create_test_category_data,
     UserFactory,
     ProductFactory,
     CategoryFactory,

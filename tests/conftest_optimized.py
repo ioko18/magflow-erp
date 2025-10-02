@@ -17,7 +17,7 @@ import asyncio
 import logging
 import os
 import time
-from pathlib import Path
+
 from typing import AsyncGenerator, Dict, Any
 from uuid import uuid4
 
@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_limiter import FastAPILimiter
-import redis.asyncio as redis
+ as redis
 
 # Import performance optimization system
 from .performance_optimizer import (

@@ -59,7 +59,7 @@ class User(Base, TimestampMixin):
         lazy="selectin",
         cascade="save-update, merge, refresh-expire, expunge"
     )
-    
+
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
         "RefreshToken",
         back_populates="user",
@@ -84,7 +84,7 @@ class User(Base, TimestampMixin):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    
+
     # Helper methods
     def __repr__(self) -> str:
         return f"<User {self.email}>"
@@ -93,7 +93,7 @@ class User(Base, TimestampMixin):
     def is_authenticated(self) -> bool:
         """Check if user is authenticated."""
         return bool(self.id) and self.is_active
-    
+
     @property
     def is_admin(self) -> bool:
         """Check if user has admin privileges.
@@ -104,7 +104,7 @@ class User(Base, TimestampMixin):
         if self.is_superuser:
             return True
         return any(role.name == UserRole.ADMIN for role in (self.roles or []))
-    
+
     def has_permission(self, permission_name: str) -> bool:
         """Check if user has a specific permission.
         
@@ -116,7 +116,7 @@ class User(Base, TimestampMixin):
         """
         if self.is_superuser:
             return True
-            
+
         for role in self.roles or []:
             if any(p.name == permission_name for p in (role.permissions or [])):
                 return True

@@ -50,7 +50,9 @@ def create_access_token(
 
     """
     now = datetime.now(tz=timezone.utc)
-    expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = now + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
 
     to_encode = {
         "iss": settings.JWT_ISSUER,

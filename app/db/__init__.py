@@ -22,7 +22,7 @@ async_engine = create_async_engine(
     max_overflow=settings.db_max_overflow,  # Default 30
     pool_timeout=settings.db_pool_timeout,  # Timeout for getting connection
     pool_recycle=settings.db_pool_recycle,  # Recycle connections
-    pool_pre_ping=settings.db_pool_pre_ping,  # Validate connections before use
+    pool_pre_ping=False,  # FIXED: Disable pre-ping for async engines to avoid greenlet issues
     pool_reset_on_return="commit",  # Reset connections on return
     # Performance optimizations
     future=True,
@@ -55,7 +55,7 @@ AsyncSessionFactory = sessionmaker(
 sync_engine = create_engine(
     settings.alembic_url.replace("+asyncpg", ""),  # Use sync driver for migrations
     poolclass=NullPool,
-    pool_pre_ping=True,
+    pool_pre_ping=False,  # FIXED: Disable pre-ping to avoid greenlet issues
     pool_recycle=300,
 )
 

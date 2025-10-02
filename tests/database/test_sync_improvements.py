@@ -74,11 +74,11 @@ class TestSyncImprovements:
 
         # Test with recent start time
         import sync_emag_sync_improved
-        sync_emag_sync_improved.sync_start_time = datetime.utcnow()
+        sync_emag_sync_improved.# sync_start_time = datetime.utcnow()
         assert not check_sync_timeout()
 
         # Test with old start time (simulate timeout)
-        sync_emag_sync_improved.sync_start_time = datetime.utcnow() - timedelta(hours=3)
+        sync_emag_sync_improved.# sync_start_time = datetime.utcnow() - timedelta(hours=3)
         assert check_sync_timeout()
         logger.info("✅ Sync timeout check test passed")
 
@@ -163,12 +163,12 @@ async def run_async_tests():
     from sync_emag_sync_improved import check_sync_timeout
 
     # Test normal operation
-    sync_start_time = datetime.utcnow()
+    # sync_start_time = datetime.utcnow()
     assert not check_sync_timeout()
     logger.info("✅ Normal sync timeout test passed")
 
     # Test timeout condition
-    sync_start_time = datetime.utcnow() - timedelta(hours=3)
+    # sync_start_time = datetime.utcnow() - timedelta(hours=3)
     assert check_sync_timeout()
     logger.info("✅ Timeout detection test passed")
 

@@ -27,7 +27,7 @@ Performance Improvements Achieved:
 - Parallel test execution: Enabled with optimal resource utilization
 """
 
-import asyncio
+
 import logging
 import time
 import threading
@@ -40,8 +40,8 @@ import json
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+
+
 import redis.asyncio as redis
 
 # Configure logging

@@ -34,6 +34,7 @@ def _get_async_database_uri() -> str:
         return async_uri
     return settings.SQLALCHEMY_DATABASE_URI
 
+
 # Determine whether PgBouncer is fronting the database connections
 _pgbouncer_enabled = os.getenv("PGBOUNCER_ENABLED", "true").lower() == "true"
 
@@ -90,6 +91,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 AsyncSessionLocal = async_sessionmaker(
     autocommit=False, autoflush=False, bind=async_engine, expire_on_commit=False
 )
+
 
 def get_db() -> Generator[Session, None, None]:
     """Get a synchronous database session.

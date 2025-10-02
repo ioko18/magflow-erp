@@ -2,12 +2,14 @@
 
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy import Boolean, Column, Float, ForeignKey, Integer, String, Table, Text, desc
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from app.models.inventory import Category, InventoryItem
+    from app.models.supplier import SupplierProduct
 
+from app.models.product_history import ProductSKUHistory, ProductChangeLog
 from app.db.base_class import Base
 from app.models.mixins import TimestampMixin
 
@@ -28,6 +30,30 @@ class Product(Base, TimestampMixin):
 
     # Basic product information
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    chinese_name: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        index=True,
+        comment="Chinese product name for supplier matching (1688.com integration)",
+    )
+    image_url: Mapped[Optional[str]] = mapped_column(
+        String(1000),
+        nullable=True,
+        comment="Primary product image URL",
+    )
+    
+    # Invoice-specific names (for customs and VAT documentation)
+    invoice_name_ro: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Product name for Romanian invoices (shorter, customs-friendly)",
+    )
+    invoice_name_en: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        nullable=True,
+        comment="Product name for English invoices (customs declarations, VAT)",
+    )
+    
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     short_description: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
@@ -107,6 +133,30 @@ class Product(Base, TimestampMixin):
         "InventoryItem",
         back_populates="product",
         lazy="selectin",
+    )
+
+    # Supplier mappings for 1688.com integration (defined after SupplierProduct class)
+    supplier_mappings: Mapped[List["SupplierProduct"]] = relationship(
+        "SupplierProduct",
+        back_populates="local_product",
+        lazy="selectin",
+    )
+
+    # History tracking
+    sku_history: Mapped[List["ProductSKUHistory"]] = relationship(
+        "ProductSKUHistory",
+        back_populates="product",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by=lambda: desc(ProductSKUHistory.changed_at)
+    )
+    
+    change_logs: Mapped[List["ProductChangeLog"]] = relationship(
+        "ProductChangeLog",
+        back_populates="product",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by=lambda: desc(ProductChangeLog.changed_at)
     )
 
     def __repr__(self) -> str:

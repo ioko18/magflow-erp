@@ -14,7 +14,11 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}📋 Checking environment...${NC}"
 
 # Check if Python is available
-if ! command -v python &> /dev/null; then
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
     echo -e "${RED}❌ Python not found. Please ensure Python is installed.${NC}"
     exit 1
 fi
@@ -41,7 +45,7 @@ start_backend() {
     export $(grep -v '^#' .env | xargs)
 
     # Start FastAPI server
-    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    $PYTHON_CMD -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 }
 
 # Function to start frontend

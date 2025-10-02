@@ -11,13 +11,23 @@ import { NotificationProvider } from './contexts/NotificationContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
-import EmagSync from './pages/EmagSync'
+import EmagProductSyncV2 from './pages/EmagProductSyncV2'
+import EmagProductPublishing from './pages/EmagProductPublishing'
+import EmagAWB from './pages/EmagAWB'
+import EmagEAN from './pages/EmagEAN'
+import EmagInvoices from './pages/EmagInvoices'
+import EmagAddresses from './pages/EmagAddresses'
 import Products from './pages/Products'
 import Orders from './pages/Orders'
 import Customers from './pages/Customers'
 import Users from './pages/Users'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import SupplierMatching from './pages/SupplierMatching'
+import Suppliers from './pages/Suppliers'
+import SupplierProducts from './pages/SupplierProducts'
+import ProductImport from './pages/ProductImport'
+import Inventory from './pages/Inventory'
 
 const AuthProviderWrapper: React.FC = () => {
   return (
@@ -68,11 +78,39 @@ const router = createBrowserRouter(
             },
             {
               path: 'emag',
-              element: <EmagSync />,
+              element: <Navigate to="/emag/sync-v2" replace />,
+            },
+            {
+              path: 'emag/sync-v2',
+              element: <EmagProductSyncV2 />,
+            },
+            {
+              path: 'emag/publishing',
+              element: <EmagProductPublishing />,
+            },
+            {
+              path: 'emag/awb',
+              element: <EmagAWB />,
+            },
+            {
+              path: 'emag/ean',
+              element: <EmagEAN />,
+            },
+            {
+              path: 'emag/invoices',
+              element: <EmagInvoices />,
+            },
+            {
+              path: 'emag/addresses',
+              element: <EmagAddresses />,
             },
             {
               path: 'products',
               element: <Products />,
+            },
+            {
+              path: 'inventory',
+              element: <Inventory />,
             },
             {
               path: 'orders',
@@ -81,6 +119,22 @@ const router = createBrowserRouter(
             {
               path: 'customers',
               element: <Customers />,
+            },
+            {
+              path: 'suppliers',
+              element: <Suppliers />,
+            },
+            {
+              path: 'suppliers/products',
+              element: <SupplierProducts />,
+            },
+            {
+              path: 'suppliers/matching',
+              element: <SupplierMatching />,
+            },
+            {
+              path: 'products/import',
+              element: <ProductImport />,
             },
             {
               path: 'users',

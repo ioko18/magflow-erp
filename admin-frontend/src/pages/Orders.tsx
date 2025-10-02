@@ -1,7 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { 
-  Card, Table, Tag, Typography, Space, Button, message, Statistic, Select, 
-  DatePicker, Input, Descriptions, Segmented, Row, Col, Badge, Divider
+import {
+  Card,
+  Table,
+  Tag,
+  Button,
+  Space,
+  Input,
+  Select,
+  DatePicker,
+  Descriptions,
+  Badge,
+  Statistic,
+  Row,
+  Col,
+  Typography,
+  Segmented,
+  Alert,
+  Divider,
+  notification,
+  message,
 } from 'antd';
 import { 
   ReloadOutlined, UndoOutlined, ShoppingCartOutlined, DatabaseOutlined,
@@ -36,11 +53,14 @@ interface OrderRecord {
   emagOrderId?: string;
   emagStatus?: string;
   paymentMethod?: string;
+  paymentStatus?: 'paid' | 'not_paid';
   deliveryMethod?: string;
   trackingNumber?: string;
   emagSyncStatus?: 'synced' | 'pending' | 'failed' | 'never_synced';
   lastSyncAt?: string | null;
   syncError?: string | null;
+  fulfillmentType?: 'FBE' | 'FBS';
+  cancellationReason?: number;
   customerAddress?: {
     street?: string;
     city?: string;
@@ -158,6 +178,7 @@ export default function OrdersPage() {
   const [summary, setSummary] = useState<OrdersSummary>(defaultSummary);
   const [messageApi, contextHolder] = message.useMessage();
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // Separate state for input value
 
   const hasActiveFilters = useMemo(
     () =>
@@ -180,6 +201,7 @@ export default function OrdersPage() {
             channel: channelFilter !== 'all' ? channelFilter : undefined,
             start_date: dateRange?.[0]?.toISOString(),
             end_date: dateRange?.[1]?.toISOString(),
+            search: searchTerm.trim() || undefined,  // Added search parameter
           },
         });
 
@@ -198,8 +220,8 @@ export default function OrdersPage() {
                 const statusValue = (order?.status ?? 'pending').toString().toLowerCase();
 
                 return {
-                  id: Number(order?.id ?? 0),
-                  orderNumber: order?.order_number ?? `EM-${order?.id ?? 'N/A'}`,
+                  id: order?.id ?? order?.emag_order_id ?? 0,  // Use UUID or emag_order_id
+                  orderNumber: order?.order_number ?? `EM-${order?.emag_order_id ?? 'N/A'}`,
                   customerName: order?.customer?.name ?? '—',
                   customerEmail: order?.customer?.email ?? null,
                   customerPhone: order?.customer?.phone ?? null,
@@ -213,6 +235,12 @@ export default function OrdersPage() {
                   updatedAt: order?.updated_at ?? null,
                   itemsCount: Number(order?.items_count ?? order?.items?.length ?? 0),
                   notes: order?.notes ?? null,
+                  // eMAG specific fields
+                  emagOrderId: order?.emag_order_id,
+                  paymentMethod: order?.payment_method,
+                  deliveryMethod: order?.delivery_mode,
+                  emagSyncStatus: order?.sync_status,
+                  lastSyncAt: order?.last_synced_at,
                 };
               })
             : [];
@@ -261,7 +289,7 @@ export default function OrdersPage() {
         setLoading(false);
       }
     },
-    [messageApi, statusFilter, channelFilter, dateRange]
+    [messageApi, statusFilter, channelFilter, dateRange, searchTerm]
   );
 
   useEffect(() => {
@@ -285,6 +313,57 @@ export default function OrdersPage() {
     const current = pagination.current ?? 1;
     const pageSize = pagination.pageSize ?? 10;
     fetchOrders(current, pageSize, true);
+  };
+
+  const handleSyncOrders = async (syncMode: 'incremental' | 'full' = 'incremental') => {
+    setLoading(true);
+    try {
+      const modeLabels = {
+        incremental: 'Incrementală (ultimele 7 zile)',
+        full: 'Completă (toate comenzile)'
+      };
+      
+      notification.info({
+        message: 'Sincronizare Pornită',
+        description: `Se sincronizează comenzile din ambele conturi (MAIN + FBE). Mod: ${modeLabels[syncMode]}. Vă rugăm așteptați...`,
+        duration: 5,
+      });
+
+      const response = await api.post('/emag/orders/sync', {
+        account_type: 'both',
+        status_filter: null, // All statuses
+        max_pages: syncMode === 'incremental' ? 10 : 50,
+        days_back: null,
+        sync_mode: syncMode,
+        start_date: null,
+        end_date: null,
+        auto_acknowledge: false
+      });
+
+      if (response.data.success) {
+        const data = response.data.data;
+        const totals = data.totals || {};
+        
+        notification.success({
+          message: 'Sincronizare Completă!',
+          description: `Sincronizare finalizată cu succes! Total: ${totals.synced || 0} comenzi (${totals.created || 0} noi, ${totals.updated || 0} actualizate)`,
+          duration: 10,
+        });
+
+        // Refresh orders list
+        const current = pagination.current ?? 1;
+        const pageSize = pagination.pageSize ?? 10;
+        fetchOrders(current, pageSize, false);
+      }
+    } catch (error: any) {
+      notification.error({
+        message: 'Eroare Sincronizare',
+        description: error.response?.data?.detail || 'Nu s-a putut sincroniza comenzile',
+        duration: 10,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStatusChange = (value: string) => {
@@ -316,30 +395,31 @@ export default function OrdersPage() {
     setChannelFilter('all');
     setDateRange(null);
     setSearchTerm('');
+    setSearchInput('');
     setPagination((prev) => ({
       ...prev,
       current: 1,
     }));
   };
 
-  const filteredOrders = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    // Reset to page 1 when searching
+    setPagination((prev) => ({
+      ...prev,
+      current: 1,
+    }));
+  };
 
-    if (!normalizedSearch) {
-      return orders;
-    }
+  const handleSearchSubmit = (value: string) => {
+    setSearchTerm(value);
+    setPagination((prev) => ({
+      ...prev,
+      current: 1,
+    }));
+  };
 
-    return orders.filter((order) => {
-      const searchFields: string[] = [
-        order.orderNumber,
-        order.customerName,
-        order.customerEmail ?? '',
-        order.customerPhone ?? '',
-      ];
-
-      return searchFields.some((field) => field.toLowerCase().includes(normalizedSearch));
-    });
-  }, [orders, searchTerm]);
+  // Search is now handled on backend, no need for client-side filtering
 
   const columns: ColumnsType<OrderRecord> = useMemo(
     () => [
@@ -347,6 +427,16 @@ export default function OrdersPage() {
         title: 'Număr comandă',
         dataIndex: 'orderNumber',
         key: 'orderNumber',
+        render: (orderNumber: string, record: OrderRecord) => (
+          <Space direction="vertical" size={0}>
+            <span style={{ fontWeight: 500 }}>{orderNumber}</span>
+            {record.emagOrderId && (
+              <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                eMAG: {record.emagOrderId}
+              </Typography.Text>
+            )}
+          </Space>
+        ),
       },
       {
         title: 'Client',
@@ -367,10 +457,31 @@ export default function OrdersPage() {
         title: 'Status',
         dataIndex: 'status',
         key: 'status',
-        render: (status: OrderStatus) => (
-          <Tag color={statusColorMap[status] ?? 'default'}>
-            {statusLabelMap[status] ?? status.toUpperCase()}
-          </Tag>
+        render: (status: OrderStatus, record: OrderRecord) => (
+          <Space direction="vertical" size={0}>
+            <Tag color={statusColorMap[status] ?? 'default'}>
+              {statusLabelMap[status] ?? status.toUpperCase()}
+            </Tag>
+            {record.emagSyncStatus && (
+              <Tag
+                color={
+                  record.emagSyncStatus === 'synced'
+                    ? 'success'
+                    : record.emagSyncStatus === 'pending'
+                    ? 'processing'
+                    : record.emagSyncStatus === 'failed'
+                    ? 'error'
+                    : 'default'
+                }
+                style={{ fontSize: 10 }}
+              >
+                {record.emagSyncStatus === 'synced' && '✓ Synced'}
+                {record.emagSyncStatus === 'pending' && '⏳ Pending'}
+                {record.emagSyncStatus === 'failed' && '✗ Failed'}
+                {record.emagSyncStatus === 'never_synced' && '○ Not Synced'}
+              </Tag>
+            )}
+          </Space>
         ),
       },
       {
@@ -440,6 +551,55 @@ export default function OrdersPage() {
           </Descriptions.Item>
         </Descriptions>
 
+        {/* eMAG Specific Details */}
+        {(record.emagOrderId || record.paymentMethod || record.deliveryMethod || record.trackingNumber) && (
+          <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" title="Detalii eMAG">
+            {record.paymentMethod && (
+              <Descriptions.Item label="Metodă plată">
+                <Tag color="blue">{record.paymentMethod}</Tag>
+                {record.paymentStatus && (
+                  <Tag color={record.paymentStatus === 'paid' ? 'success' : 'warning'}>
+                    {record.paymentStatus === 'paid' ? 'Plătit' : 'Neplătit'}
+                  </Tag>
+                )}
+              </Descriptions.Item>
+            )}
+            {record.deliveryMethod && (
+              <Descriptions.Item label="Metodă livrare">
+                <Tag color="green">{record.deliveryMethod}</Tag>
+              </Descriptions.Item>
+            )}
+            {record.trackingNumber && (
+              <Descriptions.Item label="Tracking">
+                <Typography.Text code copyable>{record.trackingNumber}</Typography.Text>
+              </Descriptions.Item>
+            )}
+            {record.fulfillmentType && (
+              <Descriptions.Item label="Fulfillment">
+                <Tag color={record.fulfillmentType === 'FBE' ? 'purple' : 'orange'}>
+                  {record.fulfillmentType}
+                </Tag>
+              </Descriptions.Item>
+            )}
+            {record.emagSyncStatus && record.lastSyncAt && (
+              <Descriptions.Item label="Ultima sincronizare">
+                {formatDateTime(record.lastSyncAt)}
+              </Descriptions.Item>
+            )}
+            {record.syncError && (
+              <Descriptions.Item label="Eroare sync" span={3}>
+                <Alert
+                  message={record.syncError}
+                  type="error"
+                  showIcon
+                  closable
+                  style={{ marginTop: 4 }}
+                />
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
+
         <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" title="Metadate comandă">
           <Descriptions.Item label="Data comandă">
             {formatDateTime(record.orderDate)}
@@ -498,11 +658,11 @@ export default function OrdersPage() {
             <Title level={2} style={{ marginBottom: 0 }}>
               <Space>
                 <ShoppingCartOutlined style={{ color: '#1890ff' }} />
-                Comenzi eMAG
+                Comenzi eMAG v2.0
               </Space>
             </Title>
             <Text type="secondary">
-              Gestionare avansată comenzi eMAG cu sincronizare în timp real
+              Gestionare avansată comenzi eMAG cu sincronizare în timp real și tracking complet
             </Text>
           </div>
           <Space>
@@ -510,8 +670,11 @@ export default function OrdersPage() {
               status={summary.emagSyncStats.failed > 0 ? 'error' : summary.emagSyncStats.pending > 0 ? 'warning' : 'success'}
               text={`Sync Status: ${summary.emagSyncStats.synced} synced, ${summary.emagSyncStats.pending} pending`}
             />
-            <Button icon={<SyncOutlined />} type="primary" onClick={handleRefresh} loading={loading}>
-              Sincronizare eMAG
+            <Button icon={<SyncOutlined />} type="primary" onClick={() => handleSyncOrders('incremental')} loading={loading}>
+              Sincronizare eMAG (Rapid)
+            </Button>
+            <Button icon={<SyncOutlined spin />} onClick={() => handleSyncOrders('full')} loading={loading}>
+              Sincronizare Completă
             </Button>
             <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
               Reîmprospătează
@@ -527,10 +690,11 @@ export default function OrdersPage() {
                 allowClear
                 placeholder="Caută după număr, client sau contact"
                 style={{ width: 260 }}
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                onSearch={(value) => setSearchTerm(value)}
+                value={searchInput}
+                onChange={(event) => handleSearchChange(event.target.value)}
+                onSearch={handleSearchSubmit}
                 disabled={loading && !orders.length}
+                enterButton
               />
               <Select
                 value={statusFilter}
@@ -664,7 +828,7 @@ export default function OrdersPage() {
             <Table<OrderRecord>
               rowKey="id"
               columns={columns}
-              dataSource={filteredOrders}
+              dataSource={orders}
               loading={loading}
               expandable={{ expandedRowRender }}
               pagination={{

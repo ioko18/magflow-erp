@@ -3,18 +3,21 @@
 ## 🚀 Quick Commands
 
 ### Run Backup
+
 ```bash
 cd /Users/macos/anaconda3/envs/MagFlow/scripts
 ./backup_complete.sh
 ```
 
 ### Run Restore
+
 ```bash
 cd /Users/macos/anaconda3/envs/MagFlow/scripts
 ./restore_complete.sh
 ```
 
 ## 📁 Backup Location
+
 ```
 /Users/macos/Dropbox/MagFlow_backup/
 ```
@@ -22,19 +25,22 @@ cd /Users/macos/anaconda3/envs/MagFlow/scripts
 ## ✅ What Gets Backed Up
 
 ### 1. Database (PostgreSQL)
+
 - ✓ Full SQL dump (compressed)
 - ✓ Custom format for pg_restore
 - ✓ Schema-only backup
 - ✓ Database statistics
 
 ### 2. Project Files (145MB)
+
 - ✓ All source code
 - ✓ Scripts and documentation
 - ✓ Configuration templates
 - ✗ Excludes: node_modules, __pycache__, .git, logs
 
 ### 3. Configuration (32KB)
-- ✓ Environment files (.env*)
+
+- ✓ Environment files (.env\*)
 - ✓ JWT keys (12 files)
 - ✓ SSL certificates
 - ✓ Docker configuration
@@ -42,13 +48,14 @@ cd /Users/macos/anaconda3/envs/MagFlow/scripts
 
 ## 📊 Latest Backup Results
 
-**Date:** 2025-10-02 22:17:28  
-**Total Size:** 158MB  
-**Status:** ✓ PASSED  
-**Files:** 38,844 files backed up  
+**Date:** 2025-10-02 22:17:28
+**Total Size:** 158MB
+**Status:** ✓ PASSED
+**Files:** 38,844 files backed up
 **Retention:** 30 days (until 2025-11-01)
 
 ### Backup Contents:
+
 ```
 20251002_221728/
 ├── database/
@@ -77,18 +84,21 @@ cd /Users/macos/anaconda3/envs/MagFlow/scripts
 ## 🔄 Quick Restore Commands
 
 ### Restore Database Only
+
 ```bash
 gunzip -c /Users/macos/Dropbox/MagFlow_backup/20251002_221728/database/magflow_db_20251002_221728.sql.gz | \
   docker exec -i magflow_db psql -U app -d magflow
 ```
 
 ### Restore Files Only
+
 ```bash
 tar -xzf /Users/macos/Dropbox/MagFlow_backup/20251002_221728/files/project_files_20251002_221728.tar.gz \
   -C /Users/macos/anaconda3/envs/
 ```
 
 ### Restore Configuration Only
+
 ```bash
 tar -xzf /Users/macos/Dropbox/MagFlow_backup/20251002_221728/config/sensitive_config_20251002_221728.tar.gz \
   -C /tmp/restore && \
@@ -98,6 +108,7 @@ cp /tmp/restore/env/.env /Users/macos/anaconda3/envs/MagFlow/
 ## ⏰ Automated Backups
 
 ### Using Cron (Daily at 2 AM)
+
 ```bash
 # Edit crontab
 crontab -e
@@ -107,7 +118,9 @@ crontab -e
 ```
 
 ### Using launchd (macOS)
+
 Create file: `~/Library/LaunchAgents/com.magflow.backup.plist`
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -131,6 +144,7 @@ Create file: `~/Library/LaunchAgents/com.magflow.backup.plist`
 ```
 
 Load it:
+
 ```bash
 launchctl load ~/Library/LaunchAgents/com.magflow.backup.plist
 ```
@@ -138,17 +152,20 @@ launchctl load ~/Library/LaunchAgents/com.magflow.backup.plist
 ## 🔍 Verify Backup
 
 ### Check Backup Status
+
 ```bash
 cat /Users/macos/Dropbox/MagFlow_backup/20251002_221728/BACKUP_SUMMARY.txt
 ```
 
 ### Verify Checksums
+
 ```bash
 cd /Users/macos/Dropbox/MagFlow_backup/20251002_221728/database
 shasum -c checksums.txt
 ```
 
 ### Test Archive Integrity
+
 ```bash
 tar -tzf /Users/macos/Dropbox/MagFlow_backup/20251002_221728/files/project_files_20251002_221728.tar.gz > /dev/null && echo "✓ Archive OK"
 ```
@@ -156,10 +173,10 @@ tar -tzf /Users/macos/Dropbox/MagFlow_backup/20251002_221728/files/project_files
 ## ⚠️ Important Notes
 
 1. **Security:** Configuration archive contains sensitive credentials and JWT keys
-2. **Storage:** Backups are stored in Dropbox with 30-day retention
-3. **Testing:** Test restore procedure monthly
-4. **Monitoring:** Check backup logs regularly
-5. **Space:** Ensure sufficient disk space (each backup ~158MB)
+1. **Storage:** Backups are stored in Dropbox with 30-day retention
+1. **Testing:** Test restore procedure monthly
+1. **Monitoring:** Check backup logs regularly
+1. **Space:** Ensure sufficient disk space (each backup ~158MB)
 
 ## 📚 Documentation
 
@@ -170,17 +187,20 @@ tar -tzf /Users/macos/Dropbox/MagFlow_backup/20251002_221728/files/project_files
 ## 🆘 Troubleshooting
 
 ### Database container not running
+
 ```bash
 docker ps
 docker-compose up -d
 ```
 
 ### Permission denied
+
 ```bash
 chmod +x scripts/backup_complete.sh scripts/restore_complete.sh
 ```
 
 ### Disk space full
+
 ```bash
 df -h /Users/macos/Dropbox
 # Clean old backups manually if needed
@@ -188,6 +208,7 @@ rm -rf /Users/macos/Dropbox/MagFlow_backup/OLD_TIMESTAMP
 ```
 
 ### Check backup logs
+
 ```bash
 tail -f /Users/macos/Dropbox/MagFlow_backup/LATEST/logs/backup_*.log
 ```
@@ -195,12 +216,13 @@ tail -f /Users/macos/Dropbox/MagFlow_backup/LATEST/logs/backup_*.log
 ## 📞 Support
 
 For issues or questions, check:
+
 1. Backup logs in `/Users/macos/Dropbox/MagFlow_backup/TIMESTAMP/logs/`
-2. BACKUP_MANIFEST.json for detailed backup information
-3. Full documentation in BACKUP_RESTORE_README.md
+1. BACKUP_MANIFEST.json for detailed backup information
+1. Full documentation in BACKUP_RESTORE_README.md
 
----
+______________________________________________________________________
 
-**Last Updated:** 2025-10-02  
-**Script Version:** 2.0.0  
+**Last Updated:** 2025-10-02
+**Script Version:** 2.0.0
 **Status:** ✅ Production Ready

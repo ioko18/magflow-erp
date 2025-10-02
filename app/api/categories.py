@@ -181,57 +181,43 @@ def get_categories_with_cursor(
     return categories, next_cursor, prev_cursor, has_more
 
 
-@router.get("", response_model=Dict[str, Any])
-@router.get("/", response_model=Dict[str, Any], include_in_schema=False)
+@router.get("", response_model=List[Dict[str, Any]])
+@router.get("/", response_model=List[Dict[str, Any]], include_in_schema=False)
 async def list_categories(
     request: Request,
     limit: int = Query(
-        20,
+        100,
         ge=1,
-        le=100,
+        le=1000,
         description="Maximum number of items to return",
-    ),
-    after: Optional[str] = Query(
-        None,
-        description="Cursor for forward pagination (next page)",
-    ),
-    before: Optional[str] = Query(
-        None,
-        description="Cursor for backward pagination (previous page)",
     ),
     q: Optional[str] = Query(None, description="Search query for category names"),
     db: Session = Depends(get_db),
 ):
-    """List categories with cursor-based pagination.
+    """List all categories (simplified for frontend dropdown).
 
-    This endpoint uses keyset pagination for better performance with large datasets.
-    Use the `after` cursor to fetch the next page or `before` to fetch the previous page.
+    Returns a simple list of categories for use in forms and dropdowns.
     """
     try:
-        # Get categories with cursor-based pagination
-        categories, next_cursor, prev_cursor, has_more = get_categories_with_cursor(
-            db=db,
-            limit=limit,
-            cursor=after,
-            before=before,
-            search_query=q,
-        )
+        # Simple query without pagination for dropdown usage
+        query = """
+            SELECT c.id, c.name
+            FROM app.categories c
+        """
 
-        # Build response with pagination metadata
-        return {
-            "data": [
-                CategoryResponse(id=c["id"], name=c["name"], products=c["products"])
-                for c in categories
-            ],
-            "pagination": {
-                "next": next_cursor,
-                "prev": prev_cursor,
-                "has_more": has_more,
-            },
-        }
+        params = {"limit": limit}
 
-    except HTTPException:
-        raise
+        if q:
+            query += " WHERE c.name ILIKE :search_pattern"
+            params["search_pattern"] = f"%{q}%"
+
+        query += " ORDER BY c.name ASC LIMIT :limit"
+
+        result = await db.execute(text(query), params)
+        rows = result.fetchall()
+
+        return [{"id": row.id, "name": row.name} for row in rows]
+
     except Exception as e:
         logger.error(f"Error fetching categories: {e!s}", exc_info=True)
         raise HTTPException(

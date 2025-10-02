@@ -83,7 +83,9 @@ async def get_all_offers(
         combined_offers = main_offers + fbe_offers
 
         # Sort by account type and name
-        combined_offers.sort(key=lambda x: (x.get("_account_type", ""), x.get("name", "").lower()))
+        combined_offers.sort(
+            key=lambda x: (x.get("_account_type", ""), x.get("name", "").lower())
+        )
 
         return {
             "account_type": "all",

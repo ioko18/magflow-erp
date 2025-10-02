@@ -13,7 +13,7 @@ Tests are optimized for speed by reusing database connections and test data.
 import os
 import time
 import logging
-from typing import Dict, Tuple, Generator
+from typing import Any, Dict, List, Generator
 import psycopg2
 import psycopg2.extensions
 import psycopg2.extras

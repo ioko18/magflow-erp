@@ -1,17 +1,15 @@
 """Test authentication endpoints."""
-
+from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.config import settings
 from app.core.security import create_access_token
-from app.schemas.auth import Token
-from app.schemas.user import UserInDB
-from app.security.jwt import MOCK_USER, oauth2_scheme
+from app.security.jwt import oauth2_scheme
 
 router = APIRouter()
 
-@router.post("/test-token", response_model=Token)
+@router.post("/test-token", response_model=Dict[str, Any])
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     """Generate a test token for development."""
     # In a real app, you would validate the username and password against your database
@@ -21,7 +19,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             expires_delta=settings.access_token_expire_minutes,
         )
         return {"access_token": access_token, "token_type": "bearer"}
-    
+
     # For development, always return a valid token
     if settings.ENVIRONMENT == "development":
         access_token = create_access_token(
@@ -29,7 +27,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             expires_delta=settings.access_token_expire_minutes,
         )
         return {"access_token": access_token, "token_type": "bearer"}
-    
+
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Incorrect username or password",

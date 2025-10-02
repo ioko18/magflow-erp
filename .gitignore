@@ -155,3 +155,4 @@ data/
 
 # Frontend dependencies
 admin-frontend/node_modules/
+service_account.json

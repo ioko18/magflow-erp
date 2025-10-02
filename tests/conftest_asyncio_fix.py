@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.config import settings
+
 from app.db.base_class import Base
 from app.db.session import get_db
 from app.main import app

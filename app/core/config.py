@@ -239,7 +239,7 @@ class Settings(BaseSettings):
     LOG_BACKUP_COUNT: int = 5
 
     # Error handling settings
-    ERROR_INCLUDE_TRACEBACK: bool = False
+    ERROR_INCLUDE_TRACEBACK: bool = True
     ERROR_SHOW_DETAILS: bool = True
     ERROR_RESPONSE_FORMAT: str = "json"  # or 'text'
 
@@ -331,8 +331,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change_me_secure"
     REFRESH_SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "RS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 7  # Access tokens default 15 minutes
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Refresh tokens default 7 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # Access tokens default 24 hours
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # Refresh tokens default 30 days
     JWT_KEY_EXPIRE_DAYS: int = 30  # JWT keys expire after 30 days
 
     # Additional settings for tests

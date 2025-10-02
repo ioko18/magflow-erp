@@ -31,13 +31,15 @@ try:
 
         async with engine.connect() as conn:
             # Set search path to ensure we're working in the right schema
-            await conn.execute(text(f'SET search_path TO {settings.DB_SCHEMA}, public'))
+            await conn.execute(text(f"SET search_path TO {settings.DB_SCHEMA}, public"))
 
             # Create admin user with hashed password
             hashed_password = bcrypt.hash("secret")
 
             # Insert user directly using SQL
-            result = await conn.execute(text("""
+            result = await conn.execute(
+                text(
+                    """
                 INSERT INTO app.users (email, hashed_password, full_name, is_superuser, email_verified)
                 VALUES (:email, :password, :name, :is_superuser, :verified)
                 ON CONFLICT (email) DO UPDATE SET
@@ -46,56 +48,76 @@ try:
                     is_superuser = EXCLUDED.is_superuser,
                     email_verified = EXCLUDED.email_verified
                 RETURNING id
-            """), {
-                "email": "admin@magflow.com",
-                "password": hashed_password,
-                "name": "Test Admin User",
-                "is_superuser": True,
-                "verified": True
-            })
+            """
+                ),
+                {
+                    "email": "admin@magflow.com",
+                    "password": hashed_password,
+                    "name": "Test Admin User",
+                    "is_superuser": True,
+                    "verified": True,
+                },
+            )
 
             user = result.fetchone()
             user_id = user.id if user else None
 
             # Create admin role if it doesn't exist
-            await conn.execute(text("""
+            await conn.execute(
+                text(
+                    """
                 INSERT INTO app.roles (name, description, is_active)
                 VALUES (:name, :description, :is_active)
                 ON CONFLICT (name) DO NOTHING
-            """), {
-                "name": "admin",
-                "description": "Administrator role",
-                "is_active": True
-            })
+            """
+                ),
+                {
+                    "name": "admin",
+                    "description": "Administrator role",
+                    "is_active": True,
+                },
+            )
 
             # Get role ID
-            result = await conn.execute(text("""
+            result = await conn.execute(
+                text(
+                    """
                 SELECT id FROM app.roles WHERE name = :name
-            """), {"name": "admin"})
+            """
+                ),
+                {"name": "admin"},
+            )
             role = result.fetchone()
             role_id = role.id if role else None
 
             # Assign role to user if both exist
             if user_id and role_id:
-                await conn.execute(text("""
+                await conn.execute(
+                    text(
+                        """
                     INSERT INTO app.user_role (user_id, role_id)
                     VALUES (:user_id, :role_id)
                     ON CONFLICT (user_id, role_id) DO NOTHING
-                """), {
-                    "user_id": user_id,
-                    "role_id": role_id
-                })
+                """
+                    ),
+                    {"user_id": user_id, "role_id": role_id},
+                )
 
             await conn.commit()
 
             # Verify user was created
-            result = await conn.execute(text("""
+            result = await conn.execute(
+                text(
+                    """
                 SELECT u.email, u.is_superuser, r.name as role_name
                 FROM app.users u
                 LEFT JOIN app.user_role ur ON u.id = ur.user_id
                 LEFT JOIN app.roles r ON ur.role_id = r.id
                 WHERE u.email = :email
-            """), {"email": "admin@magflow.com"})
+            """
+                ),
+                {"email": "admin@magflow.com"},
+            )
 
             user_info = result.fetchone()
 
@@ -112,6 +134,7 @@ try:
 
     if __name__ == "__main__":
         import asyncio
+
         asyncio.run(create_test_user())
 
 except ImportError as e:
@@ -120,4 +143,5 @@ except ImportError as e:
 except Exception as e:
     print(f"❌ Error: {e}")
     import traceback
+
     traceback.print_exc()

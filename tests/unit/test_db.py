@@ -2,7 +2,7 @@ import asyncio
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import StaticPool
+
 
 
 async def test_connection():

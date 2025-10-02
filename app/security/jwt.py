@@ -13,7 +13,9 @@ from ..core.config import settings
 from .keys import get_key_manager
 
 # Supported JWT algorithms (normalised to uppercase)
-SUPPORTED_ALGORITHMS = sorted({alg.upper() for alg in settings.jwt_supported_algorithms})
+SUPPORTED_ALGORITHMS = sorted(
+    {alg.upper() for alg in settings.jwt_supported_algorithms}
+)
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -26,7 +28,7 @@ MOCK_USER = UserInDB(
     full_name="Admin User",
     is_active=True,
     is_superuser=True,
-    hashed_password="$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi"  # password = "secret"
+    hashed_password="$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",  # password = "secret"
 )
 
 # OAuth2 scheme for token authentication
@@ -263,90 +265,96 @@ def get_user(db, username: str):
 
 
 async def get_current_user(
-        request: Request,
-        token: Optional[str] = Depends(oauth2_scheme),
-    ) -> UserInDB:
-        """Dependency to get the current user from a JWT token.
+    request: Request,
+    token: Optional[str] = Depends(oauth2_scheme),
+) -> UserInDB:
+    """Dependency to get the current user from a JWT token.
 
-        Args:
-            request: The FastAPI request object
-            token: The JWT token from the Authorization header
+    Args:
+        request: The FastAPI request object
+        token: The JWT token from the Authorization header
 
-        Returns:
-            UserInDB: The authenticated user
+    Returns:
+        UserInDB: The authenticated user
 
-        Raises:
-            HTTPException: If authentication fails
+    Raises:
+        HTTPException: If authentication fails
 
-        """
-        if not token:
+    """
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        # Decode and verify the JWT token
+        payload = decode_token(token)
+        username: str = payload.get("sub")
+        if username is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Not authenticated",
+                detail="Invalid token: missing subject",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        try:
-            # Decode and verify the JWT token
-            payload = decode_token(token)
-            username: str = payload.get("sub")
-            if username is None:
+        # For development, return mock user if username is "admin"
+        if username == "admin":
+            return MOCK_USER
+
+        # Look up user in database
+        from app.db.session import AsyncSessionLocal
+        from app.models.user import User as UserModel
+        from sqlalchemy import select
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(UserModel).where(UserModel.email == username)
+            )
+            db_user = result.scalar_one_or_none()
+
+            if not db_user:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token: missing subject",
+                    detail="User not found",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            # For development, return mock user if username is "admin"
-            if username == "admin":
-                return MOCK_USER
-
-            # Look up user in database
-            from app.db.session import AsyncSessionLocal
-            from app.models.user import User as UserModel
-            from sqlalchemy import select
-
-            async with AsyncSessionLocal() as session:
-                result = await session.execute(
-                    select(UserModel).where(UserModel.email == username)
-                )
-                db_user = result.scalar_one_or_none()
-
-                if not db_user:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="User not found",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-
-                # Create UserInDB object from database user
-                user_data = UserInDB(
-                    id=db_user.id,
-                    email=db_user.email,
-                    full_name=db_user.full_name,
-                    is_active=db_user.is_active,
-                    is_superuser=db_user.is_superuser,
-                    hashed_password=db_user.hashed_password,
-                    created_at=db_user.created_at,
-                    updated_at=db_user.updated_at,
-                    last_login=db_user.last_login,
-                    failed_login_attempts=db_user.failed_login_attempts,
-                    avatar_url=db_user.avatar_url,
-                )
-
-                return user_data
-
-        except JWTError as e:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid token: {str(e)}",
-                headers={"WWW-Authenticate": "Bearer"},
+            # Create UserInDB object from database user
+            user_data = UserInDB(
+                id=db_user.id,
+                email=db_user.email,
+                full_name=db_user.full_name,
+                is_active=db_user.is_active,
+                is_superuser=db_user.is_superuser,
+                hashed_password=db_user.hashed_password,
+                created_at=db_user.created_at,
+                updated_at=db_user.updated_at,
+                last_login=db_user.last_login,
+                failed_login_attempts=db_user.failed_login_attempts,
+                avatar_url=db_user.avatar_url,
             )
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Authentication error",
-            )
+
+            return user_data
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except JWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unexpected error in get_current_user: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication error: {str(e)}",
+        )
 
 
 async def get_current_active_user(

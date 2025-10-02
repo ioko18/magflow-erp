@@ -15,10 +15,11 @@ from app.models.user import User
 from app.models.role import Role
 from sqlalchemy import select
 
+
 async def create_admin_user():
     """Create admin user using SQLAlchemy models."""
     print("🔧 Creating admin user...")
-    
+
     try:
         async for session in get_async_session():
             # Check if admin user exists
@@ -26,12 +27,12 @@ async def create_admin_user():
                 select(User).where(User.email == "admin@magflow.local")
             )
             existing_user = result.scalar_one_or_none()
-            
+
             if existing_user:
                 print("✅ Admin user already exists")
                 print(f"   Email: {existing_user.email}")
                 return
-            
+
             # Create admin user
             hashed_password = get_password_hash("secret")
             admin_user = User(
@@ -40,41 +41,39 @@ async def create_admin_user():
                 full_name="Admin User",
                 is_superuser=True,
                 is_active=True,
-                email_verified=True
+                email_verified=True,
             )
-            
+
             session.add(admin_user)
             await session.flush()  # Get the user ID
-            
+
             # Check if admin role exists
-            result = await session.execute(
-                select(Role).where(Role.name == "admin")
-            )
+            result = await session.execute(select(Role).where(Role.name == "admin"))
             admin_role = result.scalar_one_or_none()
-            
+
             if not admin_role:
                 admin_role = Role(
-                    name="admin",
-                    description="Administrator role",
-                    is_system_role=True
+                    name="admin", description="Administrator role", is_system_role=True
                 )
                 session.add(admin_role)
                 await session.flush()
-            
+
             # Assign role to user
             admin_user.roles.append(admin_role)
-            
+
             await session.commit()
-            
+
             print("✅ Admin user created successfully!")
             print("   Email: admin@magflow.local")
             print("   Password: secret")
             print("   Role: admin")
-            
+
     except Exception as e:
         print(f"❌ Error creating admin user: {e}")
         import traceback
+
         traceback.print_exc()
+
 
 if __name__ == "__main__":
     asyncio.run(create_admin_user())

@@ -17,9 +17,18 @@ from ..models.product import Product
 from ..services.redis import CacheManager
 from ..core.config import settings
 from ..db import get_db
-from ..schemas.product import ProductCreate, ProductUpdate, ProductResponse
+from ..schemas.product import (
+    ProductCreate,
+    ProductUpdate,
+    ProductResponse,
+    ProductBulkCreate,
+    ProductBulkCreateResponse,
+    ProductValidationResult,
+)
 from ..security.jwt import get_current_active_user
 from ..schemas.auth import UserInDB
+from ..crud.product import ProductCRUD
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/products", tags=["products"])
@@ -148,7 +157,7 @@ async def get_products_with_cursor(
 
     # Base query with categories as array
     query = """
-        SELECT p.id, p.name, p.sku, p.base_price, p.description, p.is_active, p.created_at, p.updated_at,
+        SELECT p.id, p.name, p.sku, p.base_price, p.currency, p.description, p.is_active, p.created_at, p.updated_at,
                COALESCE(array_agg(c.name) FILTER (WHERE c.name IS NOT NULL), '{}') as categories
         FROM app.products p
         LEFT JOIN app.product_categories pc ON p.id = pc.product_id
@@ -192,7 +201,7 @@ async def get_products_with_cursor(
 
     # Group by product fields for the array_agg
     query += f"""
-        GROUP BY p.id, p.name, p.sku, p.base_price, p.description, p.is_active, p.created_at, p.updated_at
+        GROUP BY p.id, p.name, p.sku, p.base_price, p.currency, p.description, p.is_active, p.created_at, p.updated_at
         ORDER BY p.created_at {order_direction}, p.id {order_direction}
         LIMIT :limit
         """
@@ -354,115 +363,46 @@ async def create_product(
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new product."""
-    # Apply rate limiting
+    """Create a new product with comprehensive validation.
+    
+    This endpoint creates a new product with all fields including:
+    - Basic information (name, SKU, description, brand, manufacturer)
+    - Pricing (base price, recommended price, currency)
+    - Physical properties (weight, dimensions)
+    - eMAG integration fields (category, brand, warranty, EAN)
+    - Media (images, attachments)
+    - Categories
+    
+    The product can optionally be auto-published to eMAG if `auto_publish_emag` is set to true.
+    """
     try:
         await rate_limit(request, None)
     except Exception as e:
         logger.error(f"Rate limiting error: {str(e)}")
         raise
 
-    # Check for duplicate name
-    existing = await db.execute(
-        text("SELECT id FROM app.products WHERE name = :name"), {"name": product.name}
-    )
-    if existing.fetchone():
+    try:
+        # Create product using CRUD service
+        created_product = await ProductCRUD.create_product(db, product)
+
+        # Invalidate cache
+        await CacheManager.invalidate_prefix("products:list")
+        await CacheManager.delete(f"products:detail:{created_product.id}")
+
+        logger.info(f"Successfully created product: {created_product.sku} (ID: {created_product.id})")
+        return ProductResponse.model_validate(created_product)
+
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="A product with this name already exists",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
-
-    # Prepare product data
-    price_value = (
-        product.base_price
-        if getattr(product, "base_price", None) is not None
-        else getattr(product, "price", None)
-    )
-    if price_value is None:
-        price_value = 0.0
-
-    product_data = {
-        "name": product.name,
-        "sku": getattr(product, "sku", ""),
-        "price": price_value,
-        "description": getattr(product, "description", ""),
-        "is_active": getattr(product, "is_active", True),
-        "currency": getattr(product, "currency", "RON"),
-        "is_discontinued": getattr(product, "is_discontinued", False),
-    }
-    logger.info(f"Inserting product with data: {product_data}")
-    # Insert new product
-    result = await db.execute(
-        text(
-            """
-            INSERT INTO app.products (
-                name, sku, base_price, description, is_active, currency, is_discontinued,
-                created_at, updated_at
-            ) VALUES (
-                :name, :sku, :price, :description, :is_active, :currency, :is_discontinued,
-                NOW(), NOW()
-            )
-            RETURNING id, name, sku, base_price, description, is_active, currency,
-                      is_discontinued, created_at, updated_at
-            """
-        ),
-        product_data,
-    )
-    result = result.mappings().first()
-    if not result:
+    except Exception as e:
+        logger.exception(f"Error creating product: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve inserted product data",
+            detail=f"Failed to create product: {str(e)}",
         )
-    result_dict = dict(result)
-    # Convert Decimal/base_price to float for JSON serialization
-    if "base_price" in result_dict and result_dict["base_price"] is not None:
-        result_dict["base_price"] = float(result_dict["base_price"])
-    # Handle categories if any
-    category_ids = (
-        getattr(product, "category_ids", None)
-        or getattr(product, "categories", None)
-        or []
-    )
-    logger.info(f"Processing categories for product: {category_ids}")
-    if category_ids:
-        categories_result = await db.execute(
-            text("SELECT id, name FROM app.categories WHERE id = ANY(:category_ids)"),
-            {"category_ids": category_ids},
-        )
-        categories = categories_result.fetchall()
-        if categories:
-            category_associations = [
-                {"product_id": result_dict["id"], "category_id": cat.id}
-                for cat in categories
-            ]
-            await db.execute(
-                text(
-                    """
-                    INSERT INTO app.product_categories (product_id, category_id)
-                    VALUES (:product_id, :category_id)
-                    """
-                ),
-                category_associations,
-            )
-            result_dict["categories"] = [
-                {"id": cat.id, "name": cat.name} for cat in categories
-            ]
-    await db.commit()
-    await CacheManager.invalidate_prefix("products:list")
-    detail_cache_key = f"products:detail:{result_dict['id']}"
-    await CacheManager.delete(detail_cache_key)
-
-    product_detail = await get_product_with_categories(db, result_dict["id"])
-    if not product_detail:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve product",
-        )
-    logger.debug(
-        "Create product response payload", extra={"product_detail": product_detail}
-    )
-    return ProductResponse(**product_detail)
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -473,108 +413,168 @@ async def update_product(
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Update an existing product."""
-    # Apply rate limiting
+    """Update an existing product.
+    
+    All fields are optional. Only provided fields will be updated.
+    Set `sync_to_emag` to true to automatically sync changes to eMAG.
+    """
     try:
         await rate_limit(request, None)
     except Exception as e:
         logger.error(f"Rate limiting error: {str(e)}")
         raise
 
-    # Fetch existing product
-    existing = await db.execute(
-        text("SELECT id FROM app.products WHERE id = :id"), {"id": product_id}
-    )
-    if not existing.fetchone():
+    try:
+        # Update product using CRUD service
+        updated_product = await ProductCRUD.update_product(db, product_id, product)
+
+        # Invalidate cache
+        await CacheManager.invalidate_prefix("products:list")
+        await CacheManager.delete(f"products:detail:{product_id}")
+
+        logger.info(f"Successfully updated product: {updated_product.sku} (ID: {product_id})")
+        return ProductResponse.model_validate(updated_product)
+
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+            status_code=status.HTTP_404_NOT_FOUND if "not found" in str(e).lower() else status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
-
-    # Prepare update data
-    update_data: Dict[str, Any] = {}
-    if product.name is not None:
-        update_data["name"] = product.name
-    if getattr(product, "sku", None) is not None:
-        update_data["sku"] = product.sku
-    price_value = (
-        product.base_price
-        if getattr(product, "base_price", None) is not None
-        else getattr(product, "price", None)
-    )
-    if price_value is not None:
-        update_data["base_price"] = price_value
-    if getattr(product, "description", None) is not None:
-        update_data["description"] = product.description
-    if getattr(product, "is_active", None) is not None:
-        update_data["is_active"] = product.is_active
-    if getattr(product, "currency", None) is not None:
-        update_data["currency"] = product.currency
-
-    if not update_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update"
-        )
-
-    set_clause = ", ".join([f"{key} = :{key}" for key in update_data.keys()])
-    sql = f"""
-        UPDATE app.products SET {set_clause}, updated_at = NOW() WHERE id = :product_id RETURNING id, name, sku, base_price, description, is_active, currency, created_at, updated_at
-    """
-    params = {**update_data, "product_id": product_id}
-    result = await db.execute(text(sql), params)
-    updated = result.mappings().first()
-    if not updated:
+    except Exception as e:
+        logger.exception(f"Error updating product {product_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update product",
+            detail=f"Failed to update product: {str(e)}",
         )
-    await db.commit()
-    await CacheManager.invalidate_prefix("products:list")
-    await CacheManager.delete(f"products:detail:{product_id}")
-
-    product_detail = await get_product_with_categories(db, product_id)
-    if not product_detail:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to load updated product",
-        )
-    logger.debug(
-        "Update product response payload", extra={"product_detail": product_detail}
-    )
-    return ProductResponse(**product_detail)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product(
     request: Request,
     product_id: int,
+    hard_delete: bool = Query(False, description="Perform hard delete (permanent removal)"),
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Delete an existing product."""
+    """Delete a product.
+    
+    By default, performs a soft delete (marks as inactive and discontinued).
+    Set `hard_delete=true` to permanently remove the product from the database.
+    """
     try:
         await rate_limit(request, None)
     except Exception as e:
         logger.error(f"Rate limiting error: {str(e)}")
         raise
 
-    exists_query = text("SELECT id FROM app.products WHERE id = :id")
-    existing = await db.execute(exists_query, {"id": product_id})
-    if not existing.fetchone():
+    try:
+        # Delete product using CRUD service
+        await ProductCRUD.delete_product(db, product_id, soft_delete=not hard_delete)
+
+        # Invalidate cache
+        await CacheManager.invalidate_prefix("products:list")
+        await CacheManager.delete(f"products:detail:{product_id}")
+
+        logger.info(f"Successfully {'hard' if hard_delete else 'soft'} deleted product ID: {product_id}")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.exception(f"Error deleting product {product_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete product: {str(e)}",
         )
 
-    await db.execute(
-        text("DELETE FROM app.product_categories WHERE product_id = :product_id"),
-        {"product_id": product_id},
-    )
-    await db.execute(
-        text("DELETE FROM app.products WHERE id = :product_id"),
-        {"product_id": product_id},
-    )
-    await db.commit()
 
-    await CacheManager.invalidate_prefix("products:list")
-    await CacheManager.delete(f"products:detail:{product_id}")
+@router.post("/validate", response_model=ProductValidationResult)
+async def validate_product(
+    request: Request,
+    product: ProductCreate,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Validate a product without creating it.
+    
+    This endpoint checks if the product data is valid and ready for eMAG integration.
+    Returns validation errors, warnings, and missing fields for eMAG compliance.
+    """
+    try:
+        validation_result = await ProductCRUD.validate_product(db, product)
+        return validation_result
+    except Exception as e:
+        logger.exception(f"Error validating product: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to validate product: {str(e)}",
+        )
 
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post("/bulk", response_model=ProductBulkCreateResponse, status_code=201)
+async def bulk_create_products(
+    request: Request,
+    bulk_data: ProductBulkCreate,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Bulk create products (max 100 at a time).
+    
+    This endpoint allows creating multiple products in a single request.
+    Returns both successfully created products and failed products with error messages.
+    """
+    try:
+        await rate_limit(request, None)
+    except Exception as e:
+        logger.error(f"Rate limiting error: {str(e)}")
+        raise
+
+    try:
+        created, failed = await ProductCRUD.bulk_create_products(db, bulk_data.products)
+
+        # Invalidate cache
+        await CacheManager.invalidate_prefix("products:list")
+
+        response = ProductBulkCreateResponse(
+            created=[ProductResponse.model_validate(p) for p in created],
+            failed=failed,
+            total_created=len(created),
+            total_failed=len(failed),
+        )
+
+        logger.info(f"Bulk create completed: {len(created)} created, {len(failed)} failed")
+        return response
+
+    except Exception as e:
+        logger.exception(f"Error in bulk create: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to bulk create products: {str(e)}",
+        )
+
+
+@router.get("/statistics", response_model=Dict[str, Any])
+async def get_product_statistics(
+    request: Request,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get product statistics.
+    
+    Returns aggregate statistics about products including:
+    - Total, active, inactive, discontinued counts
+    - eMAG mapped vs unmapped products
+    - Average price
+    """
+    try:
+        stats = await ProductCRUD.get_product_statistics(db)
+        return stats
+    except Exception as e:
+        logger.exception(f"Error getting product statistics: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get product statistics: {str(e)}",
+        )

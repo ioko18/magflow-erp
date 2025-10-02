@@ -23,7 +23,7 @@ class DatabaseConfig:
         db_host = os.getenv("DB_HOST", "localhost")
         db_port = os.getenv("DB_PORT", "6432")  # Default to PgBouncer port
         db_name = os.getenv("DB_NAME", "magflow")
-        
+
         # For PgBouncer, we need to use the transaction mode and add the application name
         return (
             f"postgresql+asyncpg://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}?"
@@ -44,7 +44,7 @@ class DatabaseConfig:
         pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
         pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))
         pool_pre_ping = os.getenv("DB_POOL_PRE_PING", "true").lower() == "true"
-        
+
         # When using PgBouncer in transaction mode, we need to disable SQLAlchemy's connection pooling
         # and let PgBouncer handle the pooling
         if os.getenv("PGBOUNCER_ENABLED", "true").lower() == "true":

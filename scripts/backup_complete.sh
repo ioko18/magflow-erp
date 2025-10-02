@@ -77,7 +77,7 @@ BACKUP_ERRORS=()
 init_logging() {
     mkdir -p "${LOGS_DIR}"
     touch "${LOG_FILE}"
-    
+
     log_info "==================================================================="
     log_info "MagFlow ERP - Complete Backup Process Started"
     log_info "==================================================================="
@@ -176,22 +176,22 @@ calculate_checksum() {
 # Load environment variables from .env file
 load_env_vars() {
     log_section "Loading Environment Variables"
-    
+
     local env_file="${PROJECT_DIR}/.env"
-    
+
     if [[ -f "$env_file" ]]; then
         log_info "Loading variables from .env file..."
-        
+
         # Source the .env file safely
         set -a
         source <(grep -v '^#' "$env_file" | grep -v '^$' | sed 's/export //')
         set +a
-        
+
         # Override DB credentials if found in .env
         DB_PASSWORD="${DB_PASS:-${DB_PASSWORD}}"
         DB_USER="${DB_USER:-app}"
         DB_NAME="${DB_NAME:-magflow}"
-        
+
         log_success "Environment variables loaded successfully"
     else
         log_warning ".env file not found at ${env_file}"
@@ -205,17 +205,17 @@ load_env_vars() {
 
 check_prerequisites() {
     log_section "Pre-flight Checks"
-    
+
     local checks_passed=true
-    
+
     # Check if running on macOS
     if [[ "$(uname)" != "Darwin" ]]; then
         log_warning "This script is optimized for macOS"
     fi
-    
+
     # Check required commands
     log_info "Checking required commands..."
-    
+
     local required_commands=("docker" "tar" "gzip" "shasum" "jq")
     for cmd in "${required_commands[@]}"; do
         if command_exists "$cmd"; then
@@ -225,7 +225,7 @@ check_prerequisites() {
             checks_passed=false
         fi
     done
-    
+
     # Check if Docker is running
     log_info "Checking Docker status..."
     if docker info >/dev/null 2>&1; then
@@ -234,7 +234,7 @@ check_prerequisites() {
         log_error "Docker is not running. Please start Docker Desktop."
         checks_passed=false
     fi
-    
+
     # Check if database container exists and is running
     log_info "Checking database container..."
     if docker ps --format '{{.Names}}' | grep -q "^${DB_CONTAINER}$"; then
@@ -245,7 +245,7 @@ check_prerequisites() {
         docker ps --format "table {{.Names}}\t{{.Status}}" | tee -a "${LOG_FILE}"
         checks_passed=false
     fi
-    
+
     # Check if project directory exists
     log_info "Checking project directory..."
     if [[ -d "$PROJECT_DIR" ]]; then
@@ -254,7 +254,7 @@ check_prerequisites() {
         log_error "Project directory not found: ${PROJECT_DIR}"
         checks_passed=false
     fi
-    
+
     # Check backup destination
     log_info "Checking backup destination..."
     if [[ -d "$BACKUP_BASE_DIR" ]] || mkdir -p "$BACKUP_BASE_DIR" 2>/dev/null; then
@@ -263,17 +263,17 @@ check_prerequisites() {
         log_error "Cannot create backup directory: ${BACKUP_BASE_DIR}"
         checks_passed=false
     fi
-    
+
     # Check available disk space
     log_info "Checking available disk space..."
     local available_space=$(df -h "$BACKUP_BASE_DIR" | awk 'NR==2 {print $4}')
     log_info "Available space at backup destination: ${available_space}"
-    
+
     if [[ "$checks_passed" == false ]]; then
         log_error "Pre-flight checks failed. Cannot proceed with backup."
         exit 1
     fi
-    
+
     log_success "All pre-flight checks passed!"
 }
 
@@ -283,15 +283,15 @@ check_prerequisites() {
 
 create_backup_structure() {
     log_section "Creating Backup Directory Structure"
-    
+
     log_info "Creating directory structure..."
-    
+
     mkdir -p "${BACKUP_DIR}"
     mkdir -p "${DB_BACKUP_DIR}"
     mkdir -p "${FILES_BACKUP_DIR}"
     mkdir -p "${CONFIG_BACKUP_DIR}"
     mkdir -p "${LOGS_DIR}"
-    
+
     log_success "Backup directory structure created:"
     log_info "  ├── database/     (PostgreSQL backups)"
     log_info "  ├── files/        (Project files)"
@@ -305,15 +305,15 @@ create_backup_structure() {
 
 backup_database() {
     log_section "PostgreSQL Database Backup"
-    
+
     local db_dump_file="${DB_BACKUP_DIR}/magflow_db_${TIMESTAMP}.sql"
     local db_dump_compressed="${db_dump_file}.gz"
     local db_custom_format="${DB_BACKUP_DIR}/magflow_db_${TIMESTAMP}.dump"
-    
+
     log_info "Starting PostgreSQL backup..."
     log_info "Database: ${DB_NAME}"
     log_info "Container: ${DB_CONTAINER}"
-    
+
     # Backup in SQL format (human-readable)
     log_info "Creating SQL dump..."
     if docker exec "${DB_CONTAINER}" pg_dump -U "${DB_USER}" -d "${DB_NAME}" \
@@ -323,10 +323,10 @@ backup_database() {
         --clean \
         --if-exists \
         > "${db_dump_file}" 2>> "${LOG_FILE}"; then
-        
+
         local sql_size=$(get_file_size "${db_dump_file}")
         log_success "SQL dump created: ${sql_size}"
-        
+
         # Compress SQL dump
         log_info "Compressing SQL dump..."
         if gzip -9 "${db_dump_file}"; then
@@ -339,7 +339,7 @@ backup_database() {
         log_error "Failed to create SQL dump"
         return 1
     fi
-    
+
     # Backup in custom format (for pg_restore)
     log_info "Creating custom format dump (for pg_restore)..."
     if docker exec "${DB_CONTAINER}" pg_dump -U "${DB_USER}" -d "${DB_NAME}" \
@@ -348,13 +348,13 @@ backup_database() {
         --no-owner \
         --no-acl \
         > "${db_custom_format}" 2>> "${LOG_FILE}"; then
-        
+
         local custom_size=$(get_file_size "${db_custom_format}")
         log_success "Custom format dump created: ${custom_size}"
     else
         log_error "Failed to create custom format dump"
     fi
-    
+
     # Backup database schema only
     log_info "Creating schema-only backup..."
     local schema_file="${DB_BACKUP_DIR}/schema_${TIMESTAMP}.sql"
@@ -363,12 +363,12 @@ backup_database() {
         --no-owner \
         --no-acl \
         > "${schema_file}" 2>> "${LOG_FILE}"; then
-        
+
         log_success "Schema backup created"
     else
         log_warning "Failed to create schema backup"
     fi
-    
+
     # Get database statistics
     log_info "Collecting database statistics..."
     local stats_file="${DB_BACKUP_DIR}/db_stats_${TIMESTAMP}.txt"
@@ -381,7 +381,7 @@ backup_database() {
         echo ""
         echo "Table Sizes:"
         docker exec "${DB_CONTAINER}" psql -U "${DB_USER}" -d "${DB_NAME}" -c "
-            SELECT 
+            SELECT
                 schemaname,
                 relname as tablename,
                 pg_size_pretty(pg_total_relation_size(schemaname||'.'||relname)) AS size,
@@ -392,7 +392,7 @@ backup_database() {
         echo ""
         echo "Row Counts:"
         docker exec "${DB_CONTAINER}" psql -U "${DB_USER}" -d "${DB_NAME}" -c "
-            SELECT 
+            SELECT
                 schemaname,
                 relname as tablename,
                 n_live_tup AS row_count
@@ -400,9 +400,9 @@ backup_database() {
             ORDER BY n_live_tup DESC;
         " || echo "Failed to get row counts"
     } > "${stats_file}" 2>&1 || true
-    
+
     log_success "Database statistics saved"
-    
+
     # Calculate checksums
     log_info "Calculating checksums..."
     local checksums_file="${DB_BACKUP_DIR}/checksums.txt"
@@ -417,7 +417,7 @@ backup_database() {
             fi
         done
     } > "${checksums_file}"
-    
+
     log_success "Database backup completed successfully"
 }
 
@@ -427,12 +427,12 @@ backup_database() {
 
 backup_project_files() {
     log_section "Project Files Backup"
-    
+
     local files_archive="${FILES_BACKUP_DIR}/project_files_${TIMESTAMP}.tar.gz"
-    
+
     log_info "Starting project files backup..."
     log_info "Source: ${PROJECT_DIR}"
-    
+
     # Create exclusion list
     local exclude_file="${FILES_BACKUP_DIR}/exclude_patterns.txt"
     cat > "${exclude_file}" << 'EOF'
@@ -475,41 +475,41 @@ backups/*.dump
 backups/*.tar.gz
 *.pid
 EOF
-    
+
     log_info "Exclusion patterns:"
     cat "${exclude_file}" | while read -r pattern; do
         [[ -n "$pattern" ]] && log_info "  - ${pattern}"
     done
-    
+
     # Create tar archive with progress
     log_info "Creating compressed archive..."
     log_info "This may take several minutes depending on project size..."
-    
+
     if tar -czf "${files_archive}" \
         -C "$(dirname "${PROJECT_DIR}")" \
         --exclude-from="${exclude_file}" \
         "$(basename "${PROJECT_DIR}")" \
         2>> "${LOG_FILE}"; then
-        
+
         local archive_size=$(get_file_size "${files_archive}")
         log_success "Project files archived: ${archive_size}"
-        
+
         # Calculate checksum
         local checksum=$(calculate_checksum "${files_archive}")
         echo "${checksum}  $(basename "${files_archive}")" > "${FILES_BACKUP_DIR}/checksum.txt"
         log_success "Checksum calculated: ${checksum:0:16}..."
-        
+
         # List archive contents
         log_info "Generating archive contents list..."
         tar -tzf "${files_archive}" > "${FILES_BACKUP_DIR}/contents.txt" 2>> "${LOG_FILE}"
         local file_count=$(wc -l < "${FILES_BACKUP_DIR}/contents.txt" | tr -d ' ')
         log_success "Archive contains ${file_count} files/directories"
-        
+
     else
         log_error "Failed to create project files archive"
         return 1
     fi
-    
+
     log_success "Project files backup completed"
 }
 
@@ -519,16 +519,16 @@ EOF
 
 backup_configuration_files() {
     log_section "Configuration Files Backup"
-    
+
     log_info "Backing up configuration files..."
-    
+
     # Create subdirectories
     mkdir -p "${CONFIG_BACKUP_DIR}/env"
     mkdir -p "${CONFIG_BACKUP_DIR}/jwt-keys"
     mkdir -p "${CONFIG_BACKUP_DIR}/certs"
     mkdir -p "${CONFIG_BACKUP_DIR}/docker"
     mkdir -p "${CONFIG_BACKUP_DIR}/nginx"
-    
+
     # Backup .env files
     log_info "Backing up environment files..."
     for env_file in "${PROJECT_DIR}"/.env*; do
@@ -538,7 +538,7 @@ backup_configuration_files() {
             log_success "  ✓ ${filename}"
         fi
     done
-    
+
     # Backup JWT keys
     log_info "Backing up JWT keys..."
     if [[ -d "${PROJECT_DIR}/jwt-keys" ]]; then
@@ -548,7 +548,7 @@ backup_configuration_files() {
     else
         log_warning "  ! JWT keys directory not found"
     fi
-    
+
     # Backup certificates
     log_info "Backing up certificates..."
     if [[ -d "${PROJECT_DIR}/certs" ]]; then
@@ -558,7 +558,7 @@ backup_configuration_files() {
     else
         log_warning "  ! Certificates directory not found"
     fi
-    
+
     # Backup Docker configuration
     log_info "Backing up Docker configuration..."
     for docker_file in "${PROJECT_DIR}"/docker-compose*.yml "${PROJECT_DIR}"/Dockerfile*; do
@@ -568,14 +568,14 @@ backup_configuration_files() {
             log_success "  ✓ ${filename}"
         fi
     done
-    
+
     # Backup nginx configuration
     log_info "Backing up nginx configuration..."
     if [[ -d "${PROJECT_DIR}/nginx" ]]; then
         cp -r "${PROJECT_DIR}/nginx"/* "${CONFIG_BACKUP_DIR}/nginx/" 2>/dev/null || true
         log_success "  ✓ nginx configuration backed up"
     fi
-    
+
     # Backup other important config files
     log_info "Backing up other configuration files..."
     local config_files=(
@@ -586,33 +586,33 @@ backup_configuration_files() {
         ".gitignore"
         "README.md"
     )
-    
+
     for config_file in "${config_files[@]}"; do
         if [[ -f "${PROJECT_DIR}/${config_file}" ]]; then
             cp "${PROJECT_DIR}/${config_file}" "${CONFIG_BACKUP_DIR}/"
             log_success "  ✓ ${config_file}"
         fi
     done
-    
+
     # Create encrypted archive of sensitive files
     log_info "Creating encrypted archive of sensitive configuration..."
     local sensitive_archive="${CONFIG_BACKUP_DIR}/sensitive_config_${TIMESTAMP}.tar.gz"
-    
+
     tar -czf "${sensitive_archive}" \
         -C "${CONFIG_BACKUP_DIR}" \
         env jwt-keys certs \
         2>> "${LOG_FILE}"
-    
+
     local sensitive_size=$(get_file_size "${sensitive_archive}")
     log_success "Sensitive configuration archived: ${sensitive_size}"
-    
+
     # Calculate checksum
     local checksum=$(calculate_checksum "${sensitive_archive}")
     echo "${checksum}  $(basename "${sensitive_archive}")" > "${CONFIG_BACKUP_DIR}/checksum.txt"
-    
+
     log_warning "⚠️  IMPORTANT: Sensitive files contain credentials and keys!"
     log_warning "⚠️  Store this backup securely and restrict access!"
-    
+
     log_success "Configuration files backup completed"
 }
 
@@ -622,18 +622,18 @@ backup_configuration_files() {
 
 verify_backup() {
     log_section "Backup Verification"
-    
+
     log_info "Verifying backup integrity..."
-    
+
     local verification_passed=true
-    
+
     # Verify database backups
     log_info "Verifying database backups..."
     local db_files=(
         "${DB_BACKUP_DIR}/magflow_db_${TIMESTAMP}.sql.gz"
         "${DB_BACKUP_DIR}/magflow_db_${TIMESTAMP}.dump"
     )
-    
+
     for db_file in "${db_files[@]}"; do
         if [[ -f "$db_file" ]]; then
             local size=$(get_file_size "$db_file")
@@ -648,7 +648,7 @@ verify_backup() {
             verification_passed=false
         fi
     done
-    
+
     # Verify checksums
     log_info "Verifying checksums..."
     if [[ -f "${DB_BACKUP_DIR}/checksums.txt" ]]; then
@@ -661,7 +661,7 @@ verify_backup() {
         fi
         cd - > /dev/null
     fi
-    
+
     # Verify project files archive
     log_info "Verifying project files archive..."
     local files_archive="${FILES_BACKUP_DIR}/project_files_${TIMESTAMP}.tar.gz"
@@ -677,7 +677,7 @@ verify_backup() {
         log_error "  ✗ Project files archive not found!"
         verification_passed=false
     fi
-    
+
     # Verify configuration backup
     log_info "Verifying configuration backup..."
     local sensitive_archive="${CONFIG_BACKUP_DIR}/sensitive_config_${TIMESTAMP}.tar.gz"
@@ -692,7 +692,7 @@ verify_backup() {
     else
         log_warning "  ! Configuration archive not found"
     fi
-    
+
     if [[ "$verification_passed" == true ]]; then
         log_success "All backup verifications passed!"
         return 0
@@ -708,17 +708,17 @@ verify_backup() {
 
 create_backup_manifest() {
     log_section "Creating Backup Manifest"
-    
+
     local manifest_file="${BACKUP_DIR}/BACKUP_MANIFEST.json"
-    
+
     log_info "Generating backup manifest..."
-    
+
     # Collect file information
     local db_sql_gz="${DB_BACKUP_DIR}/magflow_db_${TIMESTAMP}.sql.gz"
     local db_dump="${DB_BACKUP_DIR}/magflow_db_${TIMESTAMP}.dump"
     local files_archive="${FILES_BACKUP_DIR}/project_files_${TIMESTAMP}.tar.gz"
     local config_archive="${CONFIG_BACKUP_DIR}/sensitive_config_${TIMESTAMP}.tar.gz"
-    
+
     # Create JSON manifest
     cat > "${manifest_file}" << EOF
 {
@@ -820,9 +820,9 @@ create_backup_manifest() {
   ]
 }
 EOF
-    
+
     log_success "Backup manifest created: BACKUP_MANIFEST.json"
-    
+
     # Create human-readable summary
     local summary_file="${BACKUP_DIR}/BACKUP_SUMMARY.txt"
     cat > "${summary_file}" << EOF
@@ -878,9 +878,9 @@ For detailed restore instructions, see BACKUP_MANIFEST.json
 
 Generated by: backup_complete.sh v2.0.0
 EOF
-    
+
     log_success "Backup summary created: BACKUP_SUMMARY.txt"
-    
+
     # Display summary
     echo ""
     cat "${summary_file}"
@@ -893,26 +893,26 @@ EOF
 
 cleanup_old_backups() {
     log_section "Cleanup Old Backups"
-    
+
     log_info "Searching for backups older than ${RETENTION_DAYS} days..."
-    
+
     local old_backups=()
     while IFS= read -r -d '' backup_dir; do
         old_backups+=("$backup_dir")
     done < <(find "${BACKUP_BASE_DIR}" -maxdepth 1 -type d -mtime +${RETENTION_DAYS} -print0 2>/dev/null)
-    
+
     if [[ ${#old_backups[@]} -eq 0 ]]; then
         log_info "No old backups found to clean up"
         return 0
     fi
-    
+
     log_info "Found ${#old_backups[@]} old backup(s) to remove:"
     for old_backup in "${old_backups[@]}"; do
         local backup_name=$(basename "$old_backup")
         local backup_size=$(get_dir_size "$old_backup")
         log_info "  - ${backup_name} (${backup_size})"
     done
-    
+
     # Remove old backups
     for old_backup in "${old_backups[@]}"; do
         local backup_name=$(basename "$old_backup")
@@ -923,7 +923,7 @@ cleanup_old_backups() {
             log_warning "  ! Failed to remove ${backup_name}"
         fi
     done
-    
+
     log_success "Cleanup completed"
 }
 
@@ -933,35 +933,35 @@ cleanup_old_backups() {
 
 print_final_summary() {
     log_section "Backup Process Summary"
-    
+
     local end_time=$(date +"%Y-%m-%d %H:%M:%S")
     local total_size=$(get_dir_size "${BACKUP_DIR}")
-    
+
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║                    Backup Process Completed                                ║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    
+
     if [[ "$BACKUP_SUCCESS" == true ]]; then
         echo -e "${GREEN}✓ Status:${NC} SUCCESS"
     else
         echo -e "${RED}✗ Status:${NC} FAILED"
     fi
-    
+
     echo -e "${CYAN}📅 Date:${NC} ${BACKUP_DATE}"
     echo -e "${CYAN}⏰ Time:${NC} ${BACKUP_TIME}"
     echo -e "${CYAN}📁 Location:${NC} ${BACKUP_DIR}"
     echo -e "${CYAN}💾 Total Size:${NC} ${total_size}"
     echo ""
-    
+
     echo -e "${YELLOW}Backup Contents:${NC}"
     echo -e "  ${GREEN}✓${NC} PostgreSQL Database"
     echo -e "  ${GREEN}✓${NC} Project Files"
     echo -e "  ${GREEN}✓${NC} Configuration Files"
     echo -e "  ${GREEN}✓${NC} JWT Keys & Certificates"
     echo ""
-    
+
     if [[ ${#BACKUP_ERRORS[@]} -gt 0 ]]; then
         echo -e "${RED}Errors encountered:${NC}"
         for error in "${BACKUP_ERRORS[@]}"; do
@@ -969,19 +969,19 @@ print_final_summary() {
         done
         echo ""
     fi
-    
+
     echo -e "${CYAN}📝 Log File:${NC} ${LOG_FILE}"
     echo -e "${CYAN}📋 Manifest:${NC} ${BACKUP_DIR}/BACKUP_MANIFEST.json"
     echo -e "${CYAN}📄 Summary:${NC} ${BACKUP_DIR}/BACKUP_SUMMARY.txt"
     echo ""
-    
+
     echo -e "${YELLOW}⚠️  Important:${NC}"
     echo -e "  • Backup contains sensitive credentials and keys"
     echo -e "  • Store in a secure location with restricted access"
     echo -e "  • Test restore procedure periodically"
     echo -e "  • Keep backup manifest for reference"
     echo ""
-    
+
     log_info "Backup process finished at ${end_time}"
     log_info "==================================================================="
 }
@@ -993,10 +993,10 @@ print_final_summary() {
 handle_error() {
     local line_no=$1
     local error_code=$2
-    
+
     log_error "Error occurred in script at line ${line_no} (exit code: ${error_code})"
     log_error "Backup process failed!"
-    
+
     # Try to save partial backup information
     if [[ -d "${BACKUP_DIR}" ]]; then
         echo "BACKUP FAILED - INCOMPLETE" > "${BACKUP_DIR}/FAILED.txt"
@@ -1004,7 +1004,7 @@ handle_error() {
         echo "Exit code: ${error_code}" >> "${BACKUP_DIR}/FAILED.txt"
         echo "Timestamp: $(date)" >> "${BACKUP_DIR}/FAILED.txt"
     fi
-    
+
     print_final_summary
     exit 1
 }
@@ -1021,36 +1021,36 @@ main() {
     mkdir -p "${BACKUP_BASE_DIR}"
     mkdir -p "${BACKUP_DIR}"
     mkdir -p "${LOGS_DIR}"
-    
+
     # Initialize logging
     init_logging
-    
+
     # Load environment variables
     load_env_vars
-    
+
     # Run pre-flight checks
     check_prerequisites
-    
+
     # Create backup directory structure
     create_backup_structure
-    
+
     # Perform backups
     backup_database
     backup_project_files
     backup_configuration_files
-    
+
     # Verify backup
     verify_backup
-    
+
     # Create manifest and summary
     create_backup_manifest
-    
+
     # Cleanup old backups
     cleanup_old_backups
-    
+
     # Print final summary
     print_final_summary
-    
+
     # Exit with appropriate code
     if [[ "$BACKUP_SUCCESS" == true ]]; then
         exit 0

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Layout as AntLayout, Menu, Button, Avatar, Dropdown, Badge, Switch, Tooltip } from 'antd'
+import { Layout as AntLayout, Menu, Button, Avatar, Dropdown, Badge, Switch, Tooltip, Tag } from 'antd'
 import {
   DashboardOutlined,
   ShoppingCartOutlined,
@@ -14,6 +14,15 @@ import {
   TeamOutlined,
   SunOutlined,
   MoonOutlined,
+  TruckOutlined,
+  BarcodeOutlined,
+  FilePdfOutlined,
+  EnvironmentOutlined,
+  PlusOutlined,
+  AppstoreOutlined,
+  CloudUploadOutlined,
+  CloudSyncOutlined,
+  InboxOutlined,
 } from '@ant-design/icons'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
@@ -48,14 +57,73 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: <Link to="/dashboard">Dashboard</Link>,
     },
     {
-      key: '/emag',
+      key: 'emag-group',
       icon: <LinkOutlined />,
-      label: <Link to="/emag">eMAG Integration</Link>,
+      label: 'eMAG Integration',
+      children: [
+        {
+          key: '/emag/sync-v2',
+          icon: <CloudSyncOutlined />,
+          label: (
+            <span>
+              <Link to="/emag/sync-v2">Product Sync V2</Link>
+              <Tag color="success" style={{ marginLeft: 8, fontSize: '10px' }}>NEW</Tag>
+            </span>
+          ),
+        },
+        {
+          key: '/emag/publishing',
+          icon: <PlusOutlined />,
+          label: <Link to="/emag/publishing">Product Publishing</Link>,
+        },
+        {
+          key: '/emag/awb',
+          icon: <TruckOutlined />,
+          label: <Link to="/emag/awb">AWB Management</Link>,
+        },
+        {
+          key: '/emag/ean',
+          icon: <BarcodeOutlined />,
+          label: <Link to="/emag/ean">EAN Matching</Link>,
+        },
+        {
+          key: '/emag/invoices',
+          icon: <FilePdfOutlined />,
+          label: <Link to="/emag/invoices">Invoices</Link>,
+        },
+        {
+          key: '/emag/addresses',
+          icon: <EnvironmentOutlined />,
+          label: <Link to="/emag/addresses">Addresses</Link>,
+        },
+      ],
     },
     {
-      key: '/products',
+      key: 'products-group',
       icon: <ShoppingCartOutlined />,
-      label: <Link to="/products">Products</Link>,
+      label: 'Products',
+      children: [
+        {
+          key: '/products',
+          icon: <ShoppingCartOutlined />,
+          label: <Link to="/products">Product Management</Link>,
+        },
+        {
+          key: '/inventory',
+          icon: <InboxOutlined />,
+          label: (
+            <span>
+              <Link to="/inventory">Inventory & Low Stock</Link>
+              <Tag color="warning" style={{ marginLeft: 8, fontSize: '10px' }}>NEW</Tag>
+            </span>
+          ),
+        },
+        {
+          key: '/products/import',
+          icon: <CloudUploadOutlined />,
+          label: <Link to="/products/import">Import from Google Sheets</Link>,
+        },
+      ],
     },
     {
       key: '/orders',
@@ -66,6 +134,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/customers',
       icon: <TeamOutlined />,
       label: <Link to="/customers">Customers</Link>,
+    },
+    {
+      key: 'suppliers-group',
+      icon: <TeamOutlined />,
+      label: 'Suppliers',
+      children: [
+        {
+          key: '/suppliers',
+          icon: <TeamOutlined />,
+          label: <Link to="/suppliers">Supplier List</Link>,
+        },
+        {
+          key: '/suppliers/products',
+          icon: <ShoppingCartOutlined />,
+          label: <Link to="/suppliers/products">Supplier Products</Link>,
+        },
+        {
+          key: '/suppliers/matching',
+          icon: <AppstoreOutlined />,
+          label: <Link to="/suppliers/matching">Product Matching</Link>,
+        },
+      ],
     },
     {
       key: '/users',

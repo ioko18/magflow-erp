@@ -86,7 +86,9 @@ async def _ensure_dev_admin_user() -> None:
                 user.is_superuser = True
                 user.email_verified = True
 
-            result_role = await session.execute(select(Role).where(Role.name == "admin"))
+            result_role = await session.execute(
+                select(Role).where(Role.name == "admin")
+            )
             role = result_role.scalar_one_or_none()
             if role is None:
                 role = Role(
@@ -118,6 +120,7 @@ async def _ensure_dev_admin_user() -> None:
 
 # Global Redis client
 redis_client: Optional[Redis] = None
+
 
 async def setup_redis() -> Redis:
     """Initialize Redis connection for rate limiting."""
@@ -168,10 +171,17 @@ async def setup_redis() -> Redis:
             )
             await asyncio.sleep(retry_delay)
 
-def setup_opentelemetry(app: FastAPI, enable_sqlalchemy_instrumentation: bool = True) -> None:
+
+def setup_opentelemetry(
+    app: FastAPI, enable_sqlalchemy_instrumentation: bool = True
+) -> None:
     """Configure OpenTelemetry for the application."""
     from app.core.tracing import setup_tracing
-    setup_tracing(app, enable_sqlalchemy_instrumentation=enable_sqlalchemy_instrumentation)
+
+    setup_tracing(
+        app, enable_sqlalchemy_instrumentation=enable_sqlalchemy_instrumentation
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -214,6 +224,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("Application shutdown complete")
 
+
 # Initialize FastAPI app with lifespan
 app = FastAPI(
     lifespan=lifespan,
@@ -251,17 +262,19 @@ cors_options = {
 
 if settings.DEBUG:
     cors_options["allow_origin_regex"] = r"http://(localhost|127\\.0\\.0\\.1)(:\\d+)?$"
-    cors_options["allow_origins"] = list({
-        *settings.backend_cors_origins_list,
-        "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",  # Common dev ports
-        "http://127.0.0.1:3000",
-        "http://localhost:8080",  # Additional dev ports
-        "http://127.0.0.1:8080",
-        "http://localhost:4173",  # Vite preview
-        "http://127.0.0.1:4173",
-    })
+    cors_options["allow_origins"] = list(
+        {
+            *settings.backend_cors_origins_list,
+            "http://localhost:5173",  # Vite dev server
+            "http://127.0.0.1:5173",
+            "http://localhost:3000",  # Common dev ports
+            "http://127.0.0.1:3000",
+            "http://localhost:8080",  # Additional dev ports
+            "http://127.0.0.1:8080",
+            "http://localhost:4173",  # Vite preview
+            "http://127.0.0.1:4173",
+        }
+    )
 else:
     cors_options["allow_origins"] = settings.backend_cors_origins_list
 
@@ -284,7 +297,7 @@ register_exception_handlers(app)
 init_rate_limiter(app, rate_limit_health=True)
 
 # Setup OpenTelemetry
-if hasattr(settings, 'OTEL_ENABLED') and settings.OTEL_ENABLED:
+if hasattr(settings, "OTEL_ENABLED") and settings.OTEL_ENABLED:
     setup_opentelemetry(app)
 
 # Include routers
@@ -292,6 +305,7 @@ app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(v1_router, prefix=settings.API_V1_STR)
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(well_known_router, prefix="/.well-known", tags=["well-known"])
+
 
 # Add request logging middleware
 @app.middleware("http")
@@ -329,6 +343,7 @@ async def log_requests(request: Request, call_next):
         )
         raise
 
+
 # Health check endpoint
 @app.get("/", include_in_schema=False)
 async def root():
@@ -338,6 +353,7 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
     }
+
 
 # Add a test Redis endpoint
 @app.get("/test-redis", include_in_schema=False)
@@ -360,6 +376,7 @@ async def test_redis():
             content={"status": "error", "message": str(e)},
         )
 
+
 # Add a test database endpoint
 @app.get("/test-db", include_in_schema=False)
 async def test_db():
@@ -370,13 +387,18 @@ async def test_db():
     try:
         async for session in get_async_session():
             result = await session.execute(text("SELECT 1"))
-            return {"status": "success", "message": "Database is connected", "data": result.scalar()}
+            return {
+                "status": "success",
+                "message": "Database is connected",
+                "data": result.scalar(),
+            }
     except Exception as e:
         logger.error(f"Database test failed: {e}")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "error", "message": str(e)},
         )
+
 
 # Add a test endpoint to check environment variables
 @app.get("/env", include_in_schema=False)

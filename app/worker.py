@@ -19,6 +19,7 @@ celery_app = Celery(
     include=[
         "app.services.tasks.sample",
         "app.services.tasks.maintenance",
+        "app.services.tasks.emag_sync_tasks",
     ],
 )
 
@@ -60,5 +61,32 @@ celery_app.conf.beat_schedule = {
         "task": "maintenance.heartbeat",
         # Interval in seconds, overridable via env
         "schedule": int(os.getenv("CELERY_HEARTBEAT_INTERVAL", "60")),
-    }
+    },
+    # eMAG order synchronization - every 5 minutes
+    "emag.sync_orders": {
+        "task": "emag.sync_orders",
+        "schedule": int(os.getenv("EMAG_SYNC_ORDERS_INTERVAL", "300")),  # 300 seconds = 5 minutes
+    },
+    # eMAG auto-acknowledge orders - every 10 minutes
+    "emag.auto_acknowledge_orders": {
+        "task": "emag.auto_acknowledge_orders",
+        "schedule": int(os.getenv("EMAG_AUTO_ACK_INTERVAL", "600")),  # 10 minutes
+    },
+    # eMAG product sync - every hour
+    "emag.sync_products": {
+        "task": "emag.sync_products",
+        "schedule": int(os.getenv("EMAG_SYNC_PRODUCTS_INTERVAL", "3600")),  # 1 hour
+        "kwargs": {"account_type": "both", "max_pages_per_account": 5},
+    },
+    # Cleanup old sync logs - daily at 3 AM
+    "emag.cleanup_old_sync_logs": {
+        "task": "emag.cleanup_old_sync_logs",
+        "schedule": int(os.getenv("EMAG_CLEANUP_INTERVAL", "86400")),  # 24 hours
+        "kwargs": {"days_to_keep": 30},
+    },
+    # Health check - every 15 minutes
+    "emag.health_check": {
+        "task": "emag.health_check",
+        "schedule": int(os.getenv("EMAG_HEALTH_CHECK_INTERVAL", "900")),  # 15 minutes
+    },
 }

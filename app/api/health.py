@@ -158,7 +158,7 @@ async def resolve_dns(hostname: str) -> Tuple[List[str], Optional[str]]:
 
 
 async def check_database_health() -> DatabaseHealthCheck:
-    """Check database connectivity with DNS resolution."""
+    """Check database connectivity with DNS resolution and schema verification."""
     from app.core.config import settings
 
     # Get database host and resolve it
@@ -187,6 +187,24 @@ async def check_database_health() -> DatabaseHealthCheck:
             # Simple query to check connectivity
             await conn.execute(text("SELECT 1"))
             await conn.execute(text("SET search_path TO app,public"))
+
+            # Check if critical tables exist
+            result = await conn.execute(
+                text("""
+                    SELECT COUNT(*) FROM information_schema.tables 
+                    WHERE table_schema = 'app' 
+                    AND table_name IN ('users', 'audit_logs', 'products')
+                """)
+            )
+            table_count = result.scalar()
+
+            if table_count < 3:
+                return DatabaseHealthCheck(
+                    status="degraded",
+                    dsn_host=db_host,
+                    resolved_ips=resolved_ips,
+                    error=f"Database schema incomplete: only {table_count}/3 critical tables found",
+                )
 
             return DatabaseHealthCheck(
                 status="ok",
@@ -246,14 +264,98 @@ async def check_jwks_health() -> JWKSHealthCheck:
     return JWKSHealthCheck(ok=True, keys_count=1, url=url)
 
 
+async def check_redis_health() -> Dict[str, Any]:
+    """Check Redis connectivity and basic operations."""
+    try:
+        import redis.asyncio as redis
+        from app.core.config import settings
+
+        redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+        client = redis.from_url(redis_url, decode_responses=True)
+
+        start_time = time.time()
+        # Test basic operations
+        await client.ping()
+        await client.set("health_check", "ok", ex=10)
+        value = await client.get("health_check")
+        await client.delete("health_check")
+        response_time_ms = (time.time() - start_time) * 1000
+
+        await client.close()
+
+        if value != "ok":
+            return {
+                "status": "degraded",
+                "message": "Redis operations not working correctly",
+                "response_time_ms": response_time_ms,
+            }
+
+        return {
+            "status": "ok",
+            "message": "Redis is healthy",
+            "response_time_ms": round(response_time_ms, 2),
+        }
+    except ImportError:
+        return {
+            "status": "disabled",
+            "message": "Redis client not installed",
+        }
+    except Exception as e:
+        logger.error(f"Redis health check failed: {e!s}", exc_info=True)
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+        }
+
+
 async def check_migrations() -> Dict[str, Any]:
     """Check if database migrations are up to date."""
-    # This is a placeholder for the migration check
-    # In a real implementation, you would check if all migrations have been applied
-    return {
-        "status": "ok",
-        "migrations_up_to_date": True,
-    }
+    from app.core.config import settings
+
+    db_url = getattr(settings, "SQLALCHEMY_DATABASE_URI", settings.DB_URI)
+    engine = create_async_engine(db_url, pool_pre_ping=True)
+
+    try:
+        async with engine.connect() as conn:
+            # Check if alembic_version table exists
+            result = await conn.execute(
+                text("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_schema = 'app' 
+                        AND table_name = 'alembic_version'
+                    )
+                """)
+            )
+            has_alembic = result.scalar()
+
+            if not has_alembic:
+                return {
+                    "status": "warning",
+                    "migrations_up_to_date": False,
+                    "message": "Alembic version table not found",
+                }
+
+            # Get current migration version
+            result = await conn.execute(
+                text('SELECT version_num FROM app.alembic_version LIMIT 1')
+            )
+            current_version = result.scalar()
+
+            return {
+                "status": "ok",
+                "migrations_up_to_date": True,
+                "current_version": current_version or "none",
+            }
+    except Exception as e:
+        logger.error(f"Migration check failed: {e!s}", exc_info=True)
+        return {
+            "status": "error",
+            "migrations_up_to_date": False,
+            "error": str(e),
+        }
+    finally:
+        await engine.dispose()
 
 
 @router.get("")
@@ -458,6 +560,24 @@ async def database_health() -> Dict[str, Any]:
     update_database_metrics(health_data)
 
     return health_data
+
+
+@router.get("/redis")
+async def redis_health() -> Dict[str, Any]:
+    """Redis health check endpoint.
+    
+    Returns detailed information about Redis connection status and performance.
+    """
+    return await check_redis_health()
+
+
+@router.get("/migrations")
+async def migrations_health() -> Dict[str, Any]:
+    """Database migrations health check endpoint.
+    
+    Returns information about the current migration status.
+    """
+    return await check_migrations()
 
 
 def get_circuit_breakers_status() -> Dict[str, Dict[str, Any]]:

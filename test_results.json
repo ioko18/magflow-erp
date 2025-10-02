@@ -1,0 +1,49 @@
+{
+  "total_tests": 7,
+  "passed": 7,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "Authentication",
+      "passed": true,
+      "details": "Token obtained",
+      "timestamp": "2025-09-29T19:36:17.536678"
+    },
+    {
+      "name": "Health Endpoint",
+      "passed": true,
+      "details": "Status: 200",
+      "timestamp": "2025-09-29T19:36:17.548230"
+    },
+    {
+      "name": "eMAG Products Endpoint",
+      "passed": true,
+      "details": "Retrieved 200 products",
+      "timestamp": "2025-09-29T19:36:17.588826"
+    },
+    {
+      "name": "eMAG Status Endpoint",
+      "passed": true,
+      "details": "Total syncs: 10, Success rate: 20.0%",
+      "timestamp": "2025-09-29T19:36:17.626094"
+    },
+    {
+      "name": "eMAG Management Health",
+      "passed": true,
+      "details": "Status: degraded, Score: 70.0",
+      "timestamp": "2025-09-29T19:36:17.659132"
+    },
+    {
+      "name": "eMAG Monitoring Metrics",
+      "passed": true,
+      "details": "Metrics retrieved: 10 fields",
+      "timestamp": "2025-09-29T19:36:17.690641"
+    },
+    {
+      "name": "Database Products Count",
+      "passed": true,
+      "details": "Total: 200, MAIN: 100, FBE: 100",
+      "timestamp": "2025-09-29T19:36:17.730796"
+    }
+  ]
+}

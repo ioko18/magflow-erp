@@ -7,15 +7,18 @@ import asyncio
 from app.core.database import get_async_session, engine
 from sqlalchemy import text
 
+
 async def create_emag_tables_safe():
     """Creează tabelele eMAG V2 în mod sigur."""
-    
+
     print("🗄️  Creez tabelele eMAG V2 în mod sigur...")
-    
+
     try:
         async for db in get_async_session():
             # Creează tabelul emag_products_v2
-            await db.execute(text("""
+            await db.execute(
+                text(
+                    """
                 CREATE TABLE IF NOT EXISTS emag_products_v2 (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     emag_id VARCHAR(50),
@@ -54,27 +57,47 @@ async def create_emag_tables_safe():
                     emag_modified_at TIMESTAMP,
                     raw_emag_data JSONB
                 )
-            """))
-            
+            """
+                )
+            )
+
             # Creează indexuri pentru emag_products_v2
-            await db.execute(text("""
+            await db.execute(
+                text(
+                    """
                 CREATE INDEX IF NOT EXISTS idx_emag_products_sku_account ON emag_products_v2 (sku, account_type)
-            """))
-            
-            await db.execute(text("""
+            """
+                )
+            )
+
+            await db.execute(
+                text(
+                    """
                 CREATE INDEX IF NOT EXISTS idx_emag_products_emag_id ON emag_products_v2 (emag_id)
-            """))
-            
-            await db.execute(text("""
+            """
+                )
+            )
+
+            await db.execute(
+                text(
+                    """
                 CREATE INDEX IF NOT EXISTS idx_emag_products_sync_status ON emag_products_v2 (sync_status)
-            """))
-            
-            await db.execute(text("""
+            """
+                )
+            )
+
+            await db.execute(
+                text(
+                    """
                 CREATE INDEX IF NOT EXISTS idx_emag_products_last_synced ON emag_products_v2 (last_synced_at)
-            """))
-            
+            """
+                )
+            )
+
             # Creează constraint unic pentru SKU + account_type
-            await db.execute(text("""
+            await db.execute(
+                text(
+                    """
                 DO $$ 
                 BEGIN
                     IF NOT EXISTS (
@@ -86,10 +109,14 @@ async def create_emag_tables_safe():
                         UNIQUE (sku, account_type);
                     END IF;
                 END $$;
-            """))
-            
+            """
+                )
+            )
+
             # Creează tabelul emag_sync_logs
-            await db.execute(text("""
+            await db.execute(
+                text(
+                    """
                 CREATE TABLE IF NOT EXISTS emag_sync_logs (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     sync_type VARCHAR(50) NOT NULL,
@@ -113,30 +140,37 @@ async def create_emag_tables_safe():
                     triggered_by VARCHAR(100),
                     sync_version VARCHAR(20)
                 )
-            """))
-            
+            """
+                )
+            )
+
             await db.commit()
             print("✅ Tabelele eMAG V2 au fost create cu succes!")
-            
+
             # Verifică tabelele create
-            result = await db.execute(text("""
+            result = await db.execute(
+                text(
+                    """
                 SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = 'public' 
                 AND table_name LIKE '%emag%'
                 ORDER BY table_name
-            """))
+            """
+                )
+            )
             tables = result.fetchall()
-            
+
             print("\n📋 Tabele eMAG create:")
             for table in tables:
                 print(f"  ✓ {table[0]}")
-            
+
             break
-            
+
     except Exception as e:
         print(f"❌ Eroare la crearea tabelelor: {e}")
         raise
+
 
 if __name__ == "__main__":
     asyncio.run(create_emag_tables_safe())

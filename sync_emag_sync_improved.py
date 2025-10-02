@@ -1198,7 +1198,9 @@ def process_offers_batch(offers, sync_id):
                 continue
 
             offer_data = {
-                "emag_product_id": str(offer_id) if offer_id else None,  # Ensure it's a string or None
+                "emag_product_id": (
+                    str(offer_id) if offer_id else None
+                ),  # Ensure it's a string or None
                 "emag_offer_id": offer_id_int,  # We already validated this above
                 "price": _safe_float(offer.get("recommended_price")),
                 "sale_price": _safe_float(offer.get("sale_price")),
@@ -1237,7 +1239,9 @@ def process_offers_batch(offers, sync_id):
 
             # Validate required fields
             if not offer_id or not offer_id.strip():
-                logger.warning(f"Skipping offer with invalid or missing ID: {offer.get('id')}")
+                logger.warning(
+                    f"Skipping offer with invalid or missing ID: {offer.get('id')}"
+                )
                 batch_errors += 1
                 continue
 

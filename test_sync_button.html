@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test eMAG Sync</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f2f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1890ff;
+            margin-bottom: 30px;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        button {
+            padding: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+            transition: all 0.3s;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .btn-main {
+            background: #1890ff;
+        }
+        .btn-fbe {
+            background: #722ed1;
+        }
+        .btn-both {
+            background: #13c2c2;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        .status.info {
+            background: #e6f7ff;
+            border: 1px solid #91d5ff;
+            color: #0050b3;
+        }
+        .status.success {
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+            color: #389e0d;
+        }
+        .status.error {
+            background: #fff2e8;
+            border: 1px solid #ffbb96;
+            color: #d4380d;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1890ff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #8c8c8c;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 eMAG Product Sync - Test Interface</h1>
+        
+        <div class="button-group">
+            <button class="btn-main" onclick="startSync('main')" id="btn-main">
+                <div>Sincronizare MAIN</div>
+                <div style="font-size: 12px; font-weight: normal; margin-top: 5px;">1,274 produse</div>
+            </button>
+            
+            <button class="btn-fbe" onclick="startSync('fbe')" id="btn-fbe">
+                <div>Sincronizare FBE</div>
+                <div style="font-size: 12px; font-weight: normal; margin-top: 5px;">1,271 produse</div>
+            </button>
+            
+            <button class="btn-both" onclick="startSync('both')" id="btn-both">
+                <div>Sincronizare AMBELE</div>
+                <div style="font-size: 12px; font-weight: normal; margin-top: 5px;">2,545 produse (recomandat)</div>
+            </button>
+        </div>
+
+        <div id="status"></div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-processed">0</div>
+                <div class="stat-label">Procesate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-created">0</div>
+                <div class="stat-label">Create</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-updated">0</div>
+                <div class="stat-label">Update</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-failed">0</div>
+                <div class="stat-label">Eșuate</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api/v1';
+        let authToken = null;
+
+        // Login and get token
+        async function login() {
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: 'admin@example.com',
+                        password: 'secret'
+                    })
+                });
+                
+                const data = await response.json();
+                authToken = data.access_token;
+                return true;
+            } catch (error) {
+                showStatus('error', 'Eroare la autentificare: ' + error.message);
+                return false;
+            }
+        }
+
+        // Start sync
+        async function startSync(accountType) {
+            // Disable all buttons
+            document.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            
+            // Show loading on clicked button
+            const btnId = `btn-${accountType}`;
+            const btn = document.getElementById(btnId);
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="spinner"></div> Sincronizare în curs...';
+
+            // Show initial status with timer
+            const startTime = Date.now();
+            showStatus('info', `⏳ Se sincronizează produsele din contul ${accountType.toUpperCase()}. Vă rugăm așteptați... (Durată estimată: ~2 minute)`);
+            document.getElementById('stats').style.display = 'none';
+
+            // Update timer every second
+            const timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                showStatus('info', `⏳ Sincronizare în curs... ${elapsed}s (Durată estimată: ~120s)`);
+            }, 1000);
+
+            // Login if needed
+            if (!authToken) {
+                const loggedIn = await login();
+                if (!loggedIn) {
+                    clearInterval(timerInterval);
+                    btn.innerHTML = originalText;
+                    document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                    return;
+                }
+            }
+
+            try {
+                // Set longer timeout for fetch (3 minutes)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutes
+
+                const response = await fetch(`${API_URL}/emag/products/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        account_type: accountType,
+                        mode: 'full',
+                        max_pages: null,
+                        items_per_page: 100,
+                        include_inactive: true,
+                        conflict_strategy: 'emag_priority',
+                        run_async: false
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                clearInterval(timerInterval);
+
+                const data = await response.json();
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+
+                if (data.status === 'completed') {
+                    const stats = data.data;
+                    showStatus('success', `✅ Sincronizare completă în ${elapsed}s! Procesate: ${stats.total_processed}, Create: ${stats.created}, Update: ${stats.updated}, Eșuate: ${stats.failed}`);
+                    
+                    // Show stats
+                    document.getElementById('stats').style.display = 'grid';
+                    document.getElementById('stat-processed').textContent = stats.total_processed;
+                    document.getElementById('stat-created').textContent = stats.created;
+                    document.getElementById('stat-updated').textContent = stats.updated;
+                    document.getElementById('stat-failed').textContent = stats.failed;
+                } else {
+                    showStatus('error', 'Eroare: ' + (data.message || 'Sincronizare eșuată'));
+                }
+            } catch (error) {
+                clearInterval(timerInterval);
+                if (error.name === 'AbortError') {
+                    showStatus('error', '⏱️ Timeout: Sincronizarea durează prea mult (>3 minute). Verifică backend-ul.');
+                } else {
+                    showStatus('error', 'Eroare la sincronizare: ' + error.message);
+                }
+            } finally {
+                // Restore button
+                btn.innerHTML = originalText;
+                document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
+        }
+
+        function showStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        // Auto-login on page load
+        window.addEventListener('load', () => {
+            login();
+        });
+    </script>
+</body>
+</html>

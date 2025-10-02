@@ -14,15 +14,21 @@ from app.models.product import Product
 from app.models.category import Category
 from app.models.inventory import Warehouse, StockMovement, InventoryItem
 from app.models.sales import Customer
-from app.models.purchase import (
+# Supplier models (NEW - comprehensive supplier management)
+from app.models.supplier import (
     Supplier,
+    SupplierProduct,
+    SupplierPerformance,
     PurchaseOrder,
-    PurchaseOrderLine,
-    PurchaseReceipt,
-    PurchaseReceiptLine,
-    SupplierPayment,
-    PurchaseRequisition,
-    PurchaseRequisitionLine,
+    PurchaseOrderItem,
+)
+# Supplier matching models (NEW - 1688.com product matching)
+from app.models.supplier_matching import (
+    SupplierRawProduct,
+    ProductMatchingGroup,
+    ProductMatchingScore,
+    SupplierPriceHistory,
+    MatchingStatus,
 )
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.cancellation import (
@@ -47,27 +53,27 @@ MODEL_CLASSES: List[Type[Any]] = [
     Permission,
     RefreshToken,
     Product,
-    Category,
     Warehouse,
     StockMovement,
     InventoryItem,
     Order,
     OrderLine,
-    Customer,
+    # Purchase models (NEW supplier management)
     Supplier,
+    SupplierProduct,
+    SupplierPerformance,
     PurchaseOrder,
-    PurchaseOrderLine,
-    PurchaseReceipt,
-    PurchaseReceiptLine,
-    SupplierPayment,
-    PurchaseRequisition,
-    PurchaseRequisitionLine,
+    PurchaseOrderItem,
+    # Supplier matching models
+    SupplierRawProduct,
+    ProductMatchingGroup,
+    ProductMatchingScore,
+    SupplierPriceHistory,
     Invoice,
     InvoiceItem,
     CancellationRequest,
     CancellationItem,
     CancellationRefund,
-    EmagCancellationIntegration,
     ReturnRequest,
     ReturnItem,
     RefundTransaction,
@@ -101,15 +107,18 @@ __all__ = [
     "Order",
     "OrderLine",
     "Customer",
-    # Purchase models
+    # Purchase models (NEW supplier management)
     "Supplier",
+    "SupplierProduct",
+    "SupplierPerformance",
     "PurchaseOrder",
-    "PurchaseOrderLine",
-    "PurchaseReceipt",
-    "PurchaseReceiptLine",
-    "SupplierPayment",
-    "PurchaseRequisition",
-    "PurchaseRequisitionLine",
+    "PurchaseOrderItem",
+    # Supplier matching models
+    "SupplierRawProduct",
+    "ProductMatchingGroup",
+    "ProductMatchingScore",
+    "SupplierPriceHistory",
+    "MatchingStatus",
     # Invoice models
     "Invoice",
     "InvoiceItem",

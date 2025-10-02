@@ -2,8 +2,9 @@
 
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, and_
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.order import Order, OrderLine  # Importing Order and OrderLine models
 from app.repositories.base_repository import BaseRepository
@@ -17,19 +18,19 @@ class OrderRepository(BaseRepository):
 
     async def get_by_emag_id(self, emag_id: str) -> Optional[Order]:
         """Get an order by eMAG ID."""
-        result = await self.db.execute(select(Order).where(Order.emag_id == emag_id))
+        await self.db.execute(select(Order).where(Order.emag_id == emag_id))
         return result.scalars().first()
 
     async def get_with_items(self, order_id: int) -> Optional[Order]:
         """Get an order with its items."""
-        result = await self.db.execute(
+        await self.db.execute(
             select(Order).where(Order.id == order_id).options(selectinload(Order.items))
         )
         return result.scalars().first()
 
     async def get_by_status(self, status: str) -> List[Order]:
         """Get orders by status."""
-        result = await self.db.execute(
+        await self.db.execute(
             select(Order)
             .where(Order.status == status)
             .order_by(Order.created_at.desc())
@@ -40,7 +41,7 @@ class OrderRepository(BaseRepository):
         self, customer_id: int, limit: int = 100, offset: int = 0
     ) -> List[Order]:
         """Get orders by customer ID with pagination."""
-        result = await self.db.execute(
+        await self.db.execute(
             select(Order)
             .where(Order.customer_id == customer_id)
             .order_by(Order.created_at.desc())
@@ -57,7 +58,7 @@ class OrderRepository(BaseRepository):
         if notes:
             update_data["notes"] = notes
 
-        result = await self.db.execute(
+        await self.db.execute(
             update(Order)
             .where(Order.id == order_id)
             .values(**update_data)
@@ -124,7 +125,7 @@ class OrderRepository(BaseRepository):
             .returning(Order.id, Order.emag_id)
         )
 
-        result = await self.db.execute(stmt)
+        await self.db.execute(stmt)
         await self.db.commit()
 
         # Now handle order items if there are any

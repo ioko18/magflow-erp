@@ -279,7 +279,8 @@ class TestEmagCompleteWorkflows:
 
         # Mock responses
         responses = [
-            {"isError": False, "data": {"processed": 3}} for _ in range(5)  # 5 chunks
+            {"isError": False, "data": {"processed": 3}}
+            for _ in range(5)  # 5 chunks
         ]
 
         service.api_client.bulk_update_inventory = AsyncMock(side_effect=responses)

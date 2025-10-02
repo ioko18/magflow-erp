@@ -43,7 +43,10 @@ RATE_LIMITS: Dict[str, Tuple[int, int]] = {
     "auth": (50, 60),  # 50 requests / 60 seconds - increased for development
     "read": (200, 60),  # 200 requests / 60 seconds - increased for development
     "health": (100, 60),  # Allow more health checks
-    "emag": (500, 60),  # 500 requests / 60 seconds for eMAG endpoints - much higher for development
+    "emag": (
+        500,
+        60,
+    ),  # 500 requests / 60 seconds for eMAG endpoints - much higher for development
     "admin": (
         getattr(settings, "RATE_LIMIT_ADMIN_LIMIT", 1000),
         getattr(settings, "RATE_LIMIT_ADMIN_WINDOW", 60),

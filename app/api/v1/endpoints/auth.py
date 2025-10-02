@@ -87,7 +87,9 @@ async def _get_current_user(
     return user
 
 
-async def _extract_login_credentials(request: Request, payload: LoginRequest | None) -> tuple[str | None, str | None]:
+async def _extract_login_credentials(
+    request: Request, payload: LoginRequest | None
+) -> tuple[str | None, str | None]:
     """Normalize login credentials from either JSON payloads or form submissions."""
 
     if payload is not None:
@@ -95,7 +97,9 @@ async def _extract_login_credentials(request: Request, payload: LoginRequest | N
 
     content_type = request.headers.get("content-type", "").lower()
 
-    if content_type.startswith("application/x-www-form-urlencoded") or content_type.startswith("multipart/form-data"):
+    if content_type.startswith(
+        "application/x-www-form-urlencoded"
+    ) or content_type.startswith("multipart/form-data"):
         form = await request.form()
         return form.get("username"), form.get("password")
 
@@ -208,7 +212,9 @@ async def read_users_me(current_user: User = Depends(_get_current_user)) -> User
     return UserSchema.model_validate(current_user)
 
 
-@users_router.post("/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED)
+@users_router.post(
+    "/register", response_model=UserSchema, status_code=status.HTTP_201_CREATED
+)
 async def register_user(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
@@ -232,6 +238,7 @@ async def register_user(
     await db.refresh(user)
 
     return UserSchema.model_validate(user)
+
 
 # uncompyle6 version 3.9.2
 # Python bytecode version base 3.11 (3495)

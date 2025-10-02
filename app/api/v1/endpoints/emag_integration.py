@@ -1294,9 +1294,6 @@ async def test_emag_connection(
         )
 
 
-
-
-
 @router.get("/products/details/{product_id}")
 async def get_product_details(
     product_id: str,
@@ -1380,6 +1377,7 @@ async def get_offer_details(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get offer details: {e!s}",
         )
+
 
 @router.post("/sync/scheduled")
 async def setup_scheduled_sync(
@@ -2751,8 +2749,12 @@ async def generate_sync_recommendations(result) -> List[str]:
 @router.post("/sync/all-products")
 async def sync_all_products(
     background_tasks: BackgroundTasks,
-    max_pages_per_account: int = Query(100, description="Maximum pages per account", ge=1, le=500),
-    delay_between_requests: float = Query(1.0, description="Delay between requests in seconds", ge=0.1, le=10.0),
+    max_pages_per_account: int = Query(
+        100, description="Maximum pages per account", ge=1, le=500
+    ),
+    delay_between_requests: float = Query(
+        1.0, description="Delay between requests in seconds", ge=0.1, le=10.0
+    ),
     current_user: UserModel = Depends(get_current_active_user),
 ) -> Dict[str, Any]:
     """Complete product synchronization from both MAIN and FBE accounts.
@@ -2806,8 +2808,8 @@ async def sync_all_products(
                 "delay_between_requests": delay_between_requests,
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "status": "running",
-                "estimated_completion": "2-10 minutes depending on data volume"
-            }
+                "estimated_completion": "2-10 minutes depending on data volume",
+            },
         }
 
     except ConfigurationError as e:
@@ -2825,8 +2827,12 @@ async def sync_all_products(
 @router.post("/sync/all-offers")
 async def sync_all_offers(
     background_tasks: BackgroundTasks,
-    max_pages_per_account: int = Query(50, description="Maximum pages per account", ge=1, le=500),
-    delay_between_requests: float = Query(1.0, description="Delay between requests in seconds", ge=0.1, le=10.0),
+    max_pages_per_account: int = Query(
+        50, description="Maximum pages per account", ge=1, le=500
+    ),
+    delay_between_requests: float = Query(
+        1.0, description="Delay between requests in seconds", ge=0.1, le=10.0
+    ),
     current_user: UserModel = Depends(get_current_active_user),
 ) -> Dict[str, Any]:
     """Complete offers synchronization from both MAIN and FBE accounts.
@@ -2870,8 +2876,8 @@ async def sync_all_offers(
                 "delay_between_requests": delay_between_requests,
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "status": "running",
-                "estimated_completion": "2-10 minutes depending on data volume"
-            }
+                "estimated_completion": "2-10 minutes depending on data volume",
+            },
         }
 
     except ConfigurationError as e:
@@ -2915,12 +2921,14 @@ async def get_all_products(
                     detail="Invalid account_type. Must be 'main', 'fbe', 'all', or null",
                 )
 
-            normalized_filter = account_filter if account_filter in {"main", "fbe"} else ""
+            normalized_filter = (
+                account_filter if account_filter in {"main", "fbe"} else ""
+            )
 
             # Build base query - products don't have account_type, so we ignore the filter for now
             # TODO: Join with emag_product_offers to filter by account_type if needed
             base_query = f"SELECT * FROM {EMAG_PRODUCTS_TABLE}"
-            
+
             # Note: account_type filter is not applied to products table as it doesn't have this column
             # Products are shared across accounts, offers are account-specific
 
@@ -2994,7 +3002,9 @@ async def get_all_offers(
                     detail="Invalid account_type. Must be 'main', 'fbe', 'all', or null",
                 )
 
-            normalized_filter = account_filter if account_filter in {"main", "fbe"} else ""
+            normalized_filter = (
+                account_filter if account_filter in {"main", "fbe"} else ""
+            )
 
             base_query = f"SELECT * FROM {EMAG_PRODUCT_OFFERS_TABLE}"
             if normalized_filter:
@@ -3057,7 +3067,9 @@ async def get_product_by_id(
     try:
         with get_db() as session:
             result = session.execute(
-                text(f"SELECT * FROM {EMAG_PRODUCTS_TABLE} WHERE emag_id = :product_id"),
+                text(
+                    f"SELECT * FROM {EMAG_PRODUCTS_TABLE} WHERE emag_id = :product_id"
+                ),
                 {"product_id": product_id},
             )
             product = result.fetchone()
@@ -3104,7 +3116,9 @@ async def get_offer_by_id(
     try:
         with get_db() as session:
             result = session.execute(
-                text(f"SELECT * FROM {EMAG_PRODUCT_OFFERS_TABLE} WHERE emag_offer_id = :offer_id"),
+                text(
+                    f"SELECT * FROM {EMAG_PRODUCT_OFFERS_TABLE} WHERE emag_offer_id = :offer_id"
+                ),
                 {"offer_id": offer_id},
             )
             offer = result.fetchone()
@@ -3140,8 +3154,12 @@ async def get_offer_by_id(
 
 @router.post("/sync/scheduled")
 async def configure_scheduled_sync(
-    sync_interval_minutes: int = Query(60, description="Sync interval in minutes", ge=5, le=1440),
-    sync_types: List[str] = Query(["products", "offers"], description="Types of sync to run"),
+    sync_interval_minutes: int = Query(
+        60, description="Sync interval in minutes", ge=5, le=1440
+    ),
+    sync_types: List[str] = Query(
+        ["products", "offers"], description="Types of sync to run"
+    ),
     accounts: List[str] = Query(["main", "fbe"], description="Accounts to sync"),
     enabled: bool = Query(True, description="Enable or disable scheduled sync"),
     current_user: UserModel = Depends(get_current_active_user),
@@ -3169,10 +3187,14 @@ async def configure_scheduled_sync(
 
         if enabled:
             # Calculate next run time (mock implementation)
-            next_run = datetime.now(timezone.utc) + timedelta(minutes=sync_interval_minutes)
+            next_run = datetime.now(timezone.utc) + timedelta(
+                minutes=sync_interval_minutes
+            )
             config["next_run"] = next_run.isoformat()
             config["status"] = "enabled"
-            config["message"] = f"Scheduled sync configured to run every {sync_interval_minutes} minutes"
+            config["message"] = (
+                f"Scheduled sync configured to run every {sync_interval_minutes} minutes"
+            )
         else:
             config["status"] = "disabled"
             config["message"] = "Scheduled sync disabled"
@@ -3189,6 +3211,7 @@ async def configure_scheduled_sync(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to configure scheduled sync: {e!s}",
         )
+
 
 @router.get("/sync/progress")
 async def get_sync_progress(
@@ -3252,22 +3275,37 @@ async def get_sync_progress(
 
                 stats_row = stats_result.one_or_none()
                 statistics = {
-                    "total_syncs_24h": (stats_row["total_syncs"] if stats_row else 0) or 0,
-                    "successful_syncs_24h": (stats_row["successful_syncs"] if stats_row else 0) or 0,
-                    "failed_syncs_24h": (stats_row["failed_syncs"] if stats_row else 0) or 0,
-                    "running_syncs": (stats_row["running_syncs"] if stats_row else 0) or 0,
-                    "total_offers_processed_24h": (stats_row["total_offers_processed"] if stats_row else 0) or 0,
-                    "avg_duration_seconds": float((stats_row["avg_duration_seconds"] if stats_row else 0) or 0),
+                    "total_syncs_24h": (stats_row["total_syncs"] if stats_row else 0)
+                    or 0,
+                    "successful_syncs_24h": (
+                        stats_row["successful_syncs"] if stats_row else 0
+                    )
+                    or 0,
+                    "failed_syncs_24h": (stats_row["failed_syncs"] if stats_row else 0)
+                    or 0,
+                    "running_syncs": (stats_row["running_syncs"] if stats_row else 0)
+                    or 0,
+                    "total_offers_processed_24h": (
+                        stats_row["total_offers_processed"] if stats_row else 0
+                    )
+                    or 0,
+                    "avg_duration_seconds": float(
+                        (stats_row["avg_duration_seconds"] if stats_row else 0) or 0
+                    ),
                 }
 
                 # Get product and offer counts
-                products_count = (await session.scalar(
-                    text(f"SELECT COUNT(*) FROM {EMAG_PRODUCTS_TABLE}")
-                )) or 0
+                products_count = (
+                    await session.scalar(
+                        text(f"SELECT COUNT(*) FROM {EMAG_PRODUCTS_TABLE}")
+                    )
+                ) or 0
 
-                offers_count = (await session.scalar(
-                    text(f"SELECT COUNT(*) FROM {EMAG_PRODUCT_OFFERS_TABLE}")
-                )) or 0
+                offers_count = (
+                    await session.scalar(
+                        text(f"SELECT COUNT(*) FROM {EMAG_PRODUCT_OFFERS_TABLE}")
+                    )
+                ) or 0
 
                 return {
                     "status": "success",
@@ -3281,7 +3319,9 @@ async def get_sync_progress(
                 }
 
             except Exception as db_error:
-                logger.warning("eMAG sync progress fallback due to database issue: %s", db_error)
+                logger.warning(
+                    "eMAG sync progress fallback due to database issue: %s", db_error
+                )
                 return {
                     "status": "no_data",
                     "sync_records": [],

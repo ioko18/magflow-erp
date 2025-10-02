@@ -8,12 +8,11 @@ including CRUD operations, queries, and bulk operations.
 import pytest
 import time
 import asyncio
-from typing import List
+from typing import Dict
 import statistics
 
 from tests.test_data_factory import (
     UserFactory,
-    ProductFactory,
     AuditLogFactory,
     create_bulk_users,
     create_bulk_products,
