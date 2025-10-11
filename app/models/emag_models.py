@@ -6,23 +6,24 @@ including products, offers, orders, and synchronization tracking.
 Follows eMAG API v4.4.9 specifications.
 """
 
+import uuid
 from datetime import datetime
+
 from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
     Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
     Integer,
     String,
     Text,
-    Float,
-    Boolean,
-    DateTime,
-    ForeignKey,
-    Index,
     UniqueConstraint,
-    CheckConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
-import uuid
 
 from app.db.base_class import Base
 
@@ -104,13 +105,17 @@ class EmagProductV2(Base):
 
     # eMAG API v4.4.9 - Marketplace Competition
     number_of_offers = Column(Integer, nullable=True)  # How many sellers have offers
-    buy_button_rank = Column(Integer, nullable=True)  # Rank in "Add to cart" competition
+    buy_button_rank = Column(
+        Integer, nullable=True
+    )  # Rank in "Add to cart" competition
     best_offer_sale_price = Column(Float, nullable=True)  # Best price in marketplace
     best_offer_recommended_price = Column(Float, nullable=True)
 
     # eMAG API v4.4.9 - Advanced Stock
     general_stock = Column(Integer, nullable=True)  # Sum across all warehouses
-    estimated_stock = Column(Integer, nullable=True)  # Reserves for unacknowledged orders
+    estimated_stock = Column(
+        Integer, nullable=True
+    )  # Reserves for unacknowledged orders
 
     # eMAG API v4.4.9 - Measurements (in mm and g as per API spec)
     length_mm = Column(Float, nullable=True)  # Length in millimeters
@@ -121,7 +126,9 @@ class EmagProductV2(Base):
     # eMAG API v4.4.9 - Genius Program
     genius_eligibility = Column(Integer, nullable=True)  # 0=not eligible, 1=eligible
     genius_eligibility_type = Column(Integer, nullable=True)  # 1=Full, 2=EasyBox, 3=HD
-    genius_computed = Column(Integer, nullable=True)  # 0=not active, 1=Full, 2=EasyBox, 3=HD
+    genius_computed = Column(
+        Integer, nullable=True
+    )  # 0=not active, 1=Full, 2=EasyBox, 3=HD
 
     # eMAG API v4.4.9 - Product Family (for grouping variants)
     family_id = Column(Integer, nullable=True)  # Your internal family ID
@@ -133,12 +140,18 @@ class EmagProductV2(Base):
 
     # eMAG API v4.4.9 - Additional Product Fields from Section 8
     url = Column(String(1024), nullable=True)  # Product URL on seller website
-    source_language = Column(String(10), nullable=True)  # Content language (en_GB, ro_RO, etc.)
+    source_language = Column(
+        String(10), nullable=True
+    )  # Content language (en_GB, ro_RO, etc.)
     warranty = Column(Integer, nullable=True)  # Warranty in months
     vat_id = Column(Integer, nullable=True)  # VAT rate ID
     currency_type = Column(String(3), nullable=True)  # Alternative currency (EUR, PLN)
-    force_images_download = Column(Boolean, nullable=False, default=False)  # Force image redownload
-    attachments = Column(JSONB, nullable=True)  # Product attachments (manuals, certificates)
+    force_images_download = Column(
+        Boolean, nullable=False, default=False
+    )  # Force image redownload
+    attachments = Column(
+        JSONB, nullable=True
+    )  # Product attachments (manuals, certificates)
 
     # eMAG API v4.4.9 - Offer Validation Status
     offer_validation_status = Column(Integer, nullable=True)  # 1=Valid, 2=Invalid price
@@ -148,26 +161,44 @@ class EmagProductV2(Base):
     doc_errors = Column(JSONB, nullable=True)  # Documentation validation errors
 
     # eMAG API v4.4.9 - Vendor Category
-    vendor_category_id = Column(String(50), nullable=True)  # Seller internal category ID
+    vendor_category_id = Column(
+        String(50), nullable=True
+    )  # Seller internal category ID
 
     # eMAG API v4.4.9 - EAN Dedicated Field (Section 8.6.6)
-    ean = Column(JSONB, nullable=True)  # Array of EAN codes for fast lookup and validation
+    ean = Column(
+        JSONB, nullable=True
+    )  # Array of EAN codes for fast lookup and validation
 
     # eMAG API v4.4.9 - GPSR Presence Flags (Section 8.10.5)
-    has_manufacturer_info = Column(Boolean, nullable=False, default=False)  # Manufacturer info present
-    has_eu_representative = Column(Boolean, nullable=False, default=False)  # EU representative present
+    has_manufacturer_info = Column(
+        Boolean, nullable=False, default=False
+    )  # Manufacturer info present
+    has_eu_representative = Column(
+        Boolean, nullable=False, default=False
+    )  # EU representative present
 
     # eMAG API v4.4.9 - Validation Errors Storage (Section 8.10.3)
-    validation_errors = Column(JSONB, nullable=True)  # Array of validation error objects
-    translation_validation_errors = Column(JSONB, nullable=True)  # Array of translation errors
+    validation_errors = Column(
+        JSONB, nullable=True
+    )  # Array of validation error objects
+    translation_validation_errors = Column(
+        JSONB, nullable=True
+    )  # Array of translation errors
 
     # eMAG API v4.4.9 - Image Validation (Section 8.6.3)
     main_image_url = Column(String(1024), nullable=True)  # Quick access to main image
-    images_validated = Column(Boolean, nullable=False, default=False)  # Images passed validation
+    images_validated = Column(
+        Boolean, nullable=False, default=False
+    )  # Images passed validation
 
     # eMAG API v4.4.9 - Characteristic Validation (Section 8.6.4)
-    characteristics_validated = Column(Boolean, nullable=False, default=False)  # Characteristics validated
-    characteristics_validation_errors = Column(JSONB, nullable=True)  # Characteristic validation errors
+    characteristics_validated = Column(
+        Boolean, nullable=False, default=False
+    )  # Characteristics validated
+    characteristics_validation_errors = Column(
+        JSONB, nullable=True
+    )  # Characteristic validation errors
 
     # Relationships
     offers = relationship(
@@ -182,8 +213,12 @@ class EmagProductV2(Base):
         Index("idx_emag_products_last_synced", "last_synced_at"),
         Index("idx_emag_products_category", "emag_category_id"),
         Index("idx_emag_products_ean", "ean"),  # Fast EAN lookup
-        Index("idx_emag_products_part_number_key", "part_number_key"),  # Fast part_number_key lookup
-        Index("idx_emag_products_validation", "validation_status"),  # Filter by validation status
+        Index(
+            "idx_emag_products_part_number_key", "part_number_key"
+        ),  # Fast part_number_key lookup
+        Index(
+            "idx_emag_products_validation", "validation_status"
+        ),  # Filter by validation status
         UniqueConstraint("sku", "account_type", name="uq_emag_products_sku_account"),
         CheckConstraint(
             "account_type IN ('main', 'fbe')", name="ck_emag_products_account_type"
@@ -195,6 +230,7 @@ class EmagProductV2(Base):
             "supply_lead_time IN (2,3,5,7,14,30,60,90,120)",
             name="ck_emag_products_lead_time",
         ),
+        {"schema": "app"},
     )
 
 
@@ -207,7 +243,7 @@ class EmagProductOfferV2(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     emag_offer_id = Column(String(50), nullable=True, index=True)
     product_id = Column(
-        UUID(as_uuid=True), ForeignKey("emag_products_v2.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("app.emag_products_v2.id"), nullable=False
     )
 
     # Offer identification
@@ -281,6 +317,7 @@ class EmagProductOfferV2(Base):
             "currency IN ('RON', 'EUR', 'USD')", name="ck_emag_offers_currency"
         ),
         CheckConstraint("stock >= 0", name="ck_emag_offers_stock_positive"),
+        {"schema": "app"},
     )
 
 
@@ -314,8 +351,12 @@ class EmagOrder(Base):
     currency = Column(String(3), nullable=False, default="RON")
 
     # Payment information
-    payment_method = Column(String(50), nullable=True)  # COD, bank_transfer, online_card
-    payment_mode_id = Column(Integer, nullable=True)  # 1=COD, 2=bank_transfer, 3=card_online
+    payment_method = Column(
+        String(50), nullable=True
+    )  # COD, bank_transfer, online_card
+    payment_mode_id = Column(
+        Integer, nullable=True
+    )  # 1=COD, 2=bank_transfer, 3=card_online
     detailed_payment_method = Column(String(100), nullable=True)
     payment_status = Column(Integer, nullable=True)  # 0=not_paid, 1=paid
     cashed_co = Column(Float, nullable=True)  # card online amount
@@ -324,7 +365,9 @@ class EmagOrder(Base):
     # Shipping information
     delivery_mode = Column(String(50), nullable=True)  # courier, pickup
     shipping_tax = Column(Float, nullable=True)
-    shipping_tax_voucher_split = Column(JSONB, nullable=True)  # Voucher split for shipping
+    shipping_tax_voucher_split = Column(
+        JSONB, nullable=True
+    )  # Voucher split for shipping
     shipping_address = Column(JSONB, nullable=True)
     billing_address = Column(JSONB, nullable=True)
 
@@ -378,13 +421,15 @@ class EmagOrder(Base):
         Index("idx_emag_orders_sync_status", "sync_status"),
         Index("idx_emag_orders_order_date", "order_date"),
         Index("idx_emag_orders_customer_email", "customer_email"),
-        UniqueConstraint("emag_order_id", "account_type", name="uq_emag_orders_id_account"),
+        UniqueConstraint(
+            "emag_order_id", "account_type", name="uq_emag_orders_id_account"
+        ),
         CheckConstraint(
             "account_type IN ('main', 'fbe')", name="ck_emag_orders_account_type"
         ),
         CheckConstraint("status IN (0,1,2,3,4,5)", name="ck_emag_orders_status"),
         CheckConstraint("type IN (2,3)", name="ck_emag_orders_type"),
-        {"schema": "app"}
+        {"schema": "app"},
     )
 
 
@@ -479,10 +524,14 @@ class EmagCategory(Base):
     family_types = Column(JSONB, nullable=True)  # List of family type objects
 
     # eMAG API v4.4.9 - Detailed characteristic info (Section 8.3.3)
-    characteristics_detailed = Column(JSONB, nullable=True)  # Full characteristic objects with type_id, allow_new_value, tags
+    characteristics_detailed = Column(
+        JSONB, nullable=True
+    )  # Full characteristic objects with type_id, allow_new_value, tags
 
     # eMAG API v4.4.9 - Family type details (Section 8.3.5)
-    family_types_detailed = Column(JSONB, nullable=True)  # Full family type objects with characteristic_family_type_id, is_foldable
+    family_types_detailed = Column(
+        JSONB, nullable=True
+    )  # Full family type objects with characteristic_family_type_id, is_foldable
 
     # Metadata
     language = Column(String(5), nullable=False, default="ro")  # ro, en, hu, bg, etc.
@@ -561,7 +610,7 @@ class EmagSyncProgress(Base):
     """Real-time sync progress tracking."""
 
     __tablename__ = "emag_sync_progress"
-    
+
     # Explicitly exclude created_at inherited from Base (table doesn't have this column)
     created_at = None  # type: ignore
 

@@ -5,17 +5,18 @@ import json
 import logging
 
 # datetime is used in the response models
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from app.core.rate_limiting import RateLimiter
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..services.redis import CacheManager
+from app.core.rate_limiting import RateLimiter
+
 from ..core.config import settings
 from ..db import get_db
 from ..schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from ..services.infrastructure.redis import CacheManager
 
 # Response models are defined in the function signatures
 
@@ -33,7 +34,7 @@ rate_limit = RateLimiter(
 )
 
 
-def decode_cursor(cursor: Optional[str]) -> Optional[Dict[str, Any]]:
+def decode_cursor(cursor: str | None) -> dict[str, Any] | None:
     """Decode base64-encoded cursor to dictionary."""
     if not cursor:
         return None
@@ -43,7 +44,7 @@ def decode_cursor(cursor: Optional[str]) -> Optional[Dict[str, Any]]:
         raise HTTPException(status_code=400, detail="Invalid cursor format")
 
 
-def encode_cursor(cursor_data: Dict[str, Any]) -> str:
+def encode_cursor(cursor_data: dict[str, Any]) -> str:
     """Encode cursor dictionary to base64 string."""
     return base64.b64encode(json.dumps(cursor_data).encode()).decode()
 
@@ -51,10 +52,10 @@ def encode_cursor(cursor_data: Dict[str, Any]) -> str:
 def get_categories_with_cursor(
     db: Session,
     limit: int,
-    cursor: Optional[str] = None,
-    search_query: Optional[str] = None,
-    before: Optional[str] = None,
-) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[str], bool]:
+    cursor: str | None = None,
+    search_query: str | None = None,
+    before: str | None = None,
+) -> tuple[list[dict[str, Any]], str | None, str | None, bool]:
     """Get categories with cursor-based pagination using composite index.
 
     Args:
@@ -181,8 +182,8 @@ def get_categories_with_cursor(
     return categories, next_cursor, prev_cursor, has_more
 
 
-@router.get("", response_model=List[Dict[str, Any]])
-@router.get("/", response_model=List[Dict[str, Any]], include_in_schema=False)
+@router.get("", response_model=list[dict[str, Any]])
+@router.get("/", response_model=list[dict[str, Any]], include_in_schema=False)
 async def list_categories(
     request: Request,
     limit: int = Query(
@@ -191,7 +192,7 @@ async def list_categories(
         le=1000,
         description="Maximum number of items to return",
     ),
-    q: Optional[str] = Query(None, description="Search query for category names"),
+    q: str | None = Query(None, description="Search query for category names"),
     db: Session = Depends(get_db),
 ):
     """List all categories (simplified for frontend dropdown).

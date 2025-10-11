@@ -1,25 +1,64 @@
 """OpenTelemetry configuration and utilities for MagFlow."""
 
+import logging
 import os
 
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.logging import LoggingInstrumentor
-from opentelemetry.instrumentation.redis import RedisInstrumentor
-from opentelemetry.metrics import set_meter_provider
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import (
-    ConsoleMetricExporter,
-    PeriodicExportingMetricReader,
-)
-from opentelemetry.sdk.resources import DEPLOYMENT_ENVIRONMENT, SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+logger = logging.getLogger(__name__)
 
-from app.core.config import settings
+# Try to import OpenTelemetry dependencies - make them optional
+try:
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
+        OTLPMetricExporter,
+    )
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.logging import LoggingInstrumentor
+    from opentelemetry.instrumentation.redis import RedisInstrumentor
+    from opentelemetry.metrics import set_meter_provider
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import (
+        ConsoleMetricExporter,
+        PeriodicExportingMetricReader,
+    )
+    from opentelemetry.sdk.resources import (
+        DEPLOYMENT_ENVIRONMENT,
+        SERVICE_NAME,
+        Resource,
+    )
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    TELEMETRY_AVAILABLE = True
+except ImportError as e:
+    logger.warning(
+        f"OpenTelemetry not available: {e}. Telemetry features will be disabled."
+    )
+    TELEMETRY_AVAILABLE = False
+
+    # Create dummy classes/functions to avoid breaking code that imports these
+    trace = None
+    OTLPMetricExporter = None
+    OTLPSpanExporter = None
+    AsyncPGInstrumentor = None
+    FastAPIInstrumentor = None
+    LoggingInstrumentor = None
+    RedisInstrumentor = None
+    set_meter_provider = None
+    MeterProvider = None
+    ConsoleMetricExporter = None
+    PeriodicExportingMetricReader = None
+    DEPLOYMENT_ENVIRONMENT = None
+    SERVICE_NAME = None
+    Resource = None
+    TracerProvider = None
+    BatchSpanProcessor = None
+
+try:
+    from app.core.config import settings
+except ImportError:
+    settings = None
 
 
 def setup_telemetry(service_name: str = "magflow-api", app=None):
@@ -30,6 +69,10 @@ def setup_telemetry(service_name: str = "magflow-api", app=None):
         app: Optional FastAPI application to instrument
 
     """
+    if not TELEMETRY_AVAILABLE:
+        logger.warning("Telemetry not available, skipping setup")
+        return
+
     # Configure resource
     resource = Resource.create(
         {
@@ -50,8 +93,11 @@ def setup_telemetry(service_name: str = "magflow-api", app=None):
     setup_metrics(resource)
 
 
-def setup_tracing(resource: Resource):
+def setup_tracing(resource):
     """Configure OpenTelemetry tracing."""
+    if not TELEMETRY_AVAILABLE:
+        return
+
     # Create OTLP exporter
     otlp_exporter = OTLPSpanExporter(
         endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
@@ -78,8 +124,11 @@ def setup_tracing(resource: Resource):
     )
 
 
-def setup_metrics(resource: Resource):
+def setup_metrics(resource):
     """Configure OpenTelemetry metrics."""
+    if not TELEMETRY_AVAILABLE:
+        return
+
     # Create OTLP exporter for metrics
     otlp_metric_exporter = OTLPMetricExporter(
         endpoint=os.getenv(
@@ -116,6 +165,9 @@ def setup_metrics(resource: Resource):
 
 def register_metrics(meter_provider):
     """Register application metrics."""
+    if not TELEMETRY_AVAILABLE:
+        return {}
+
     meter = meter_provider.get_meter("magflow.metrics")
 
     # HTTP server metrics
@@ -147,6 +199,10 @@ def register_metrics(meter_provider):
 
 def instrument_app(app):
     """Telemetry module for the application."""
+    if not TELEMETRY_AVAILABLE:
+        logger.warning("Telemetry not available, skipping instrumentation")
+        return
+
     from opentelemetry.sdk.resources import Resource
 
     from . import otel_metrics
@@ -177,4 +233,6 @@ def instrument_app(app):
 
 def get_tracer(name: str = None):
     """Get a tracer instance."""
+    if not TELEMETRY_AVAILABLE:
+        return None
     return trace.get_tracer(name or __name__)

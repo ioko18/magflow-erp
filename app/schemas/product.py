@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from decimal import Decimal
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from decimal import Decimal
+from typing import Any
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class CategorySummary(BaseModel):
@@ -22,26 +29,30 @@ class ProductBase(BaseModel):
     sku: str = Field(
         ..., min_length=1, max_length=100, description="Stock Keeping Unit (unique)"
     )
-    description: Optional[str] = Field(None, description="Product description")
-    short_description: Optional[str] = Field(None, max_length=500, description="Short product description")
-    brand: Optional[str] = Field(None, max_length=100, description="Product brand")
-    manufacturer: Optional[str] = Field(None, max_length=100, description="Product manufacturer")
+    description: str | None = Field(None, description="Product description")
+    short_description: str | None = Field(
+        None, max_length=500, description="Short product description"
+    )
+    brand: str | None = Field(None, max_length=100, description="Product brand")
+    manufacturer: str | None = Field(
+        None, max_length=100, description="Product manufacturer"
+    )
 
     # Pricing
-    base_price: Optional[Decimal] = Field(
+    base_price: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("999999.99"),
         description="Product base price",
         validation_alias=AliasChoices("base_price", "price"),
     )
-    recommended_price: Optional[Decimal] = Field(
+    recommended_price: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("999999.99"),
         description="Recommended retail price",
     )
-    currency: Optional[str] = Field(
+    currency: str | None = Field(
         default="RON",
         min_length=3,
         max_length=3,
@@ -49,25 +60,25 @@ class ProductBase(BaseModel):
     )
 
     # Physical Properties
-    weight_kg: Optional[Decimal] = Field(
+    weight_kg: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("9999.99"),
         description="Product weight in kilograms",
     )
-    length_cm: Optional[Decimal] = Field(
+    length_cm: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("9999.99"),
         description="Product length in centimeters",
     )
-    width_cm: Optional[Decimal] = Field(
+    width_cm: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("9999.99"),
         description="Product width in centimeters",
     )
-    height_cm: Optional[Decimal] = Field(
+    height_cm: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("9999.99"),
@@ -75,20 +86,24 @@ class ProductBase(BaseModel):
     )
 
     # Status
-    is_active: Optional[bool] = Field(True, description="Whether the product is active")
-    is_discontinued: Optional[bool] = Field(False, description="Whether the product is discontinued")
+    is_active: bool | None = Field(True, description="Whether the product is active")
+    is_discontinued: bool | None = Field(
+        False, description="Whether the product is discontinued"
+    )
 
     # eMAG Specific Fields
-    ean: Optional[str] = Field(None, max_length=18, description="European Article Number")
-    emag_category_id: Optional[int] = Field(None, description="eMAG category ID")
-    emag_brand_id: Optional[int] = Field(None, description="eMAG brand ID")
-    emag_warranty_months: Optional[int] = Field(
+    ean: str | None = Field(
+        None, max_length=18, description="European Article Number"
+    )
+    emag_category_id: int | None = Field(None, description="eMAG category ID")
+    emag_brand_id: int | None = Field(None, description="eMAG brand ID")
+    emag_warranty_months: int | None = Field(
         None,
         ge=0,
         le=240,
         description="Warranty period in months",
     )
-    emag_part_number_key: Optional[str] = Field(
+    emag_part_number_key: str | None = Field(
         None,
         max_length=50,
         description="eMAG unique product identifier",
@@ -96,54 +111,56 @@ class ProductBase(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
-    @field_validator('currency')
+    @field_validator("currency")
     @classmethod
-    def validate_currency(cls, v: Optional[str]) -> str:
+    def validate_currency(cls, v: str | None) -> str:
         """Validate currency code."""
         if v is None:
             return "RON"
         return v.upper()
 
-    @field_validator('sku')
+    @field_validator("sku")
     @classmethod
     def validate_sku(cls, v: str) -> str:
         """Validate SKU format."""
         if not v or not v.strip():
             raise ValueError("SKU cannot be empty")
         # Allow alphanumeric, hyphens, and underscores
-        if not all(c.isalnum() or c in '-_' for c in v):
-            raise ValueError("SKU can only contain alphanumeric characters, hyphens, and underscores")
+        if not all(c.isalnum() or c in "-_" for c in v):
+            raise ValueError(
+                "SKU can only contain alphanumeric characters, hyphens, and underscores"
+            )
         return v.strip().upper()
 
 
 class ProductCreate(ProductBase):
     """Schema for creating a new product."""
 
-    category_ids: List[int] = Field(
+    category_ids: list[int] = Field(
         default_factory=list,
         description="Categories to attach to the product",
     )
-    characteristics: Optional[Dict[str, Any]] = Field(
+    characteristics: dict[str, Any] | None = Field(
         default=None,
         description="Structured product characteristics (key-value pairs)",
     )
-    images: Optional[List[str]] = Field(
+    images: list[str] | None = Field(
         default_factory=list,
         description="Product image URLs",
     )
-    attachments: Optional[List[str]] = Field(
+    attachments: list[str] | None = Field(
         default_factory=list,
         description="Product attachment URLs (manuals, certificates, etc.)",
     )
 
     # Auto-publish to eMAG option
-    auto_publish_emag: Optional[bool] = Field(
+    auto_publish_emag: bool | None = Field(
         default=False,
         description="Automatically publish to eMAG after creation",
     )
 
-    @model_validator(mode='after')
-    def validate_emag_fields(self) -> 'ProductCreate':
+    @model_validator(mode="after")
+    def validate_emag_fields(self) -> ProductCreate:
         """Validate eMAG-specific fields if auto-publish is enabled."""
         if self.auto_publish_emag:
             if not self.emag_category_id:
@@ -151,7 +168,9 @@ class ProductCreate(ProductBase):
             if not self.base_price or self.base_price <= 0:
                 raise ValueError("Valid base price is required for auto-publish")
             if not self.description or len(self.description.strip()) < 10:
-                raise ValueError("Description (min 10 chars) is required for auto-publish")
+                raise ValueError(
+                    "Description (min 10 chars) is required for auto-publish"
+                )
         return self
 
 
@@ -159,38 +178,42 @@ class ProductUpdate(BaseModel):
     """Schema for updating an existing product."""
 
     # Basic Information
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None,
         min_length=1,
         max_length=255,
         description="Product name",
     )
-    sku: Optional[str] = Field(
+    sku: str | None = Field(
         None,
         min_length=1,
         max_length=100,
         description="Stock Keeping Unit",
     )
-    description: Optional[str] = Field(None, description="Product description")
-    short_description: Optional[str] = Field(None, max_length=500, description="Short product description")
-    brand: Optional[str] = Field(None, max_length=100, description="Product brand")
-    manufacturer: Optional[str] = Field(None, max_length=100, description="Product manufacturer")
+    description: str | None = Field(None, description="Product description")
+    short_description: str | None = Field(
+        None, max_length=500, description="Short product description"
+    )
+    brand: str | None = Field(None, max_length=100, description="Product brand")
+    manufacturer: str | None = Field(
+        None, max_length=100, description="Product manufacturer"
+    )
 
     # Pricing
-    base_price: Optional[Decimal] = Field(
+    base_price: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("999999.99"),
         description="Product base price",
         validation_alias=AliasChoices("base_price", "price"),
     )
-    recommended_price: Optional[Decimal] = Field(
+    recommended_price: Decimal | None = Field(
         default=None,
         ge=Decimal(0),
         le=Decimal("999999.99"),
         description="Recommended retail price",
     )
-    currency: Optional[str] = Field(
+    currency: str | None = Field(
         None,
         min_length=3,
         max_length=3,
@@ -198,52 +221,74 @@ class ProductUpdate(BaseModel):
     )
 
     # Physical Properties
-    weight_kg: Optional[Decimal] = Field(None, ge=Decimal(0), description="Product weight in kilograms")
-    length_cm: Optional[Decimal] = Field(None, ge=Decimal(0), description="Product length in centimeters")
-    width_cm: Optional[Decimal] = Field(None, ge=Decimal(0), description="Product width in centimeters")
-    height_cm: Optional[Decimal] = Field(None, ge=Decimal(0), description="Product height in centimeters")
+    weight_kg: Decimal | None = Field(
+        None, ge=Decimal(0), description="Product weight in kilograms"
+    )
+    length_cm: Decimal | None = Field(
+        None, ge=Decimal(0), description="Product length in centimeters"
+    )
+    width_cm: Decimal | None = Field(
+        None, ge=Decimal(0), description="Product width in centimeters"
+    )
+    height_cm: Decimal | None = Field(
+        None, ge=Decimal(0), description="Product height in centimeters"
+    )
 
     # Status
-    is_active: Optional[bool] = Field(None, description="Whether the product is active")
-    is_discontinued: Optional[bool] = Field(None, description="Whether the product is discontinued")
+    is_active: bool | None = Field(None, description="Whether the product is active")
+    is_discontinued: bool | None = Field(
+        None, description="Whether the product is discontinued"
+    )
 
     # eMAG Specific
-    ean: Optional[str] = Field(None, max_length=18, description="European Article Number")
-    emag_category_id: Optional[int] = Field(None, description="eMAG category ID")
-    emag_brand_id: Optional[int] = Field(None, description="eMAG brand ID")
-    emag_warranty_months: Optional[int] = Field(None, ge=0, le=240, description="Warranty period in months")
+    ean: str | None = Field(
+        None, max_length=18, description="European Article Number"
+    )
+    emag_category_id: int | None = Field(None, description="eMAG category ID")
+    emag_brand_id: int | None = Field(None, description="eMAG brand ID")
+    emag_warranty_months: int | None = Field(
+        None, ge=0, le=240, description="Warranty period in months"
+    )
 
     # Metadata
-    category_ids: Optional[List[int]] = Field(None, description="Categories to attach to the product")
-    characteristics: Optional[Dict[str, Any]] = Field(None, description="Product characteristics")
-    images: Optional[List[str]] = Field(None, description="Product image URLs")
-    attachments: Optional[List[str]] = Field(None, description="Product attachment URLs")
+    category_ids: list[int] | None = Field(
+        None, description="Categories to attach to the product"
+    )
+    characteristics: dict[str, Any] | None = Field(
+        None, description="Product characteristics"
+    )
+    images: list[str] | None = Field(None, description="Product image URLs")
+    attachments: list[str] | None = Field(
+        None, description="Product attachment URLs"
+    )
 
     # Sync to eMAG option
-    sync_to_emag: Optional[bool] = Field(
+    sync_to_emag: bool | None = Field(
         default=False,
         description="Sync changes to eMAG after update",
     )
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
-    @field_validator('currency')
+    @field_validator("currency")
     @classmethod
-    def validate_currency(cls, v: Optional[str]) -> Optional[str]:
+    def validate_currency(cls, v: str | None) -> str | None:
         """Validate currency code."""
         if v is not None:
             return v.upper()
         return v
 
-    @field_validator('sku')
+    @field_validator("sku")
     @classmethod
-    def validate_sku(cls, v: Optional[str]) -> Optional[str]:
+    def validate_sku(cls, v: str | None) -> str | None:
         """Validate SKU format."""
         if v is not None:
             if not v.strip():
                 raise ValueError("SKU cannot be empty")
-            if not all(c.isalnum() or c in '-_' for c in v):
-                raise ValueError("SKU can only contain alphanumeric characters, hyphens, and underscores")
+            if not all(c.isalnum() or c in "-_" for c in v):
+                raise ValueError(
+                    "SKU can only contain alphanumeric characters, hyphens, and underscores"
+                )
             return v.strip().upper()
         return v
 
@@ -254,51 +299,53 @@ class ProductResponse(BaseModel):
     id: int
     name: str
     sku: str
-    description: Optional[str] = None
-    short_description: Optional[str] = None
-    brand: Optional[str] = None
-    manufacturer: Optional[str] = None
+    description: str | None = None
+    short_description: str | None = None
+    brand: str | None = None
+    manufacturer: str | None = None
 
     # Pricing
-    base_price: Optional[Decimal] = Field(
+    base_price: Decimal | None = Field(
         default=None,
         description="Product base price",
         validation_alias=AliasChoices("base_price", "price"),
     )
-    recommended_price: Optional[Decimal] = None
-    currency: Optional[str] = Field(default="RON", description="ISO currency code")
+    recommended_price: Decimal | None = None
+    currency: str | None = Field(default="RON", description="ISO currency code")
 
     # Physical Properties
-    weight_kg: Optional[Decimal] = None
-    length_cm: Optional[Decimal] = None
-    width_cm: Optional[Decimal] = None
-    height_cm: Optional[Decimal] = None
+    weight_kg: Decimal | None = None
+    length_cm: Decimal | None = None
+    width_cm: Decimal | None = None
+    height_cm: Decimal | None = None
 
     # Status
     is_active: bool = Field(..., description="Whether the product is active")
-    is_discontinued: bool = Field(default=False, description="Whether the product is discontinued")
+    is_discontinued: bool = Field(
+        default=False, description="Whether the product is discontinued"
+    )
 
     # eMAG Fields
-    ean: Optional[str] = None
-    emag_category_id: Optional[int] = None
-    emag_brand_id: Optional[int] = None
-    emag_warranty_months: Optional[int] = None
-    emag_part_number_key: Optional[str] = None
+    ean: str | None = None
+    emag_category_id: int | None = None
+    emag_brand_id: int | None = None
+    emag_warranty_months: int | None = None
+    emag_part_number_key: str | None = None
 
     # Metadata
-    characteristics: Optional[Dict[str, Any]] = None
-    images: Optional[List[str]] = None
-    attachments: Optional[List[str]] = None
+    characteristics: dict[str, Any] | None = None
+    images: list[str] | None = None
+    attachments: list[str] | None = None
 
     # Relationships
-    categories: List[CategorySummary] = Field(
+    categories: list[CategorySummary] = Field(
         default_factory=list,
         description="Associated categories",
     )
 
     # Timestamps
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -306,7 +353,7 @@ class ProductResponse(BaseModel):
 class ProductListResponse(BaseModel):
     """Schema for paginated product list response."""
 
-    products: List[ProductResponse]
+    products: list[ProductResponse]
     total: int
     limit: int
     offset: int
@@ -315,7 +362,7 @@ class ProductListResponse(BaseModel):
 class ProductBulkCreate(BaseModel):
     """Schema for bulk product creation."""
 
-    products: List[ProductCreate] = Field(
+    products: list[ProductCreate] = Field(
         ...,
         min_length=1,
         max_length=100,
@@ -326,17 +373,29 @@ class ProductBulkCreate(BaseModel):
 class ProductBulkCreateResponse(BaseModel):
     """Schema for bulk product creation response."""
 
-    created: List[ProductResponse] = Field(default_factory=list, description="Successfully created products")
-    failed: List[Dict[str, Any]] = Field(default_factory=list, description="Failed products with error messages")
-    total_created: int = Field(default=0, description="Total number of products created")
-    total_failed: int = Field(default=0, description="Total number of products that failed")
+    created: list[ProductResponse] = Field(
+        default_factory=list, description="Successfully created products"
+    )
+    failed: list[dict[str, Any]] = Field(
+        default_factory=list, description="Failed products with error messages"
+    )
+    total_created: int = Field(
+        default=0, description="Total number of products created"
+    )
+    total_failed: int = Field(
+        default=0, description="Total number of products that failed"
+    )
 
 
 class ProductValidationResult(BaseModel):
     """Schema for product validation result."""
 
     is_valid: bool = Field(..., description="Whether the product is valid")
-    errors: List[str] = Field(default_factory=list, description="Validation errors")
-    warnings: List[str] = Field(default_factory=list, description="Validation warnings")
-    emag_ready: bool = Field(default=False, description="Whether the product is ready for eMAG")
-    missing_fields: List[str] = Field(default_factory=list, description="Missing required fields for eMAG")
+    errors: list[str] = Field(default_factory=list, description="Validation errors")
+    warnings: list[str] = Field(default_factory=list, description="Validation warnings")
+    emag_ready: bool = Field(
+        default=False, description="Whether the product is ready for eMAG"
+    )
+    missing_fields: list[str] = Field(
+        default_factory=list, description="Missing required fields for eMAG"
+    )

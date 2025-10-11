@@ -1,54 +1,41 @@
+"""COMPATIBILITY LAYER: Re-exports from app.db.session.
+
+FIXED: This module previously created its own engine, causing memory leaks.
+Now it re-exports from the canonical source (app.db.session) to ensure
+a single connection pool.
+
+For new code, import directly from app.db.session instead.
+"""
+
 from __future__ import annotations
 
 import logging
-from typing import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator, Generator
 
-from sqlalchemy import create_engine, exc, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy import exc, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from .core.config import settings
+from ..db.session import (
+    AsyncSessionLocal as AsyncSessionFactory,
+)
+from ..db.session import (
+    SessionLocal as SessionFactory,
+)
+
+# Import from the canonical source - single connection pool
+from ..db.session import (
+    async_engine as engine,  # noqa: F401
+)
+from ..db.session import (
+    engine as sync_engine,  # noqa: F401
+)
+from .config import settings
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Create async engine with PgBouncer
-engine = create_async_engine(
-    settings.DB_URI,
-    echo=settings.ENVIRONMENT == "development",
-    pool_pre_ping=True,
-    pool_recycle=300,  # Recycle connections after 5 minutes
-    connect_args={"server_settings": {"application_name": "magflow-api"}},
-)
-
-# Create async session factory
-AsyncSessionFactory = sessionmaker(
-    engine,  # Use the engine variable defined above
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-    autocommit=False,
-)
-
-# Create sync engine for migrations and other sync operations
-engine = create_engine(
-    settings.alembic_url.replace("+asyncpg", ""),  # Use sync driver for migrations
-    poolclass=NullPool,
-    pool_pre_ping=True,
-    pool_recycle=300,
-)
-
-# Sync session factory for migrations
-SessionFactory = sessionmaker(
-    bind=engine,
-    autocommit=False,
-    autoflush=False,
-    expire_on_commit=False,
-)
-
-# Scoped session for thread safety
-Session = scoped_session(SessionFactory)
+# Re-export for compatibility
+Session = SessionFactory
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - {{ app_name }}{% endblock %}
+
+{% block header %}
+    {% if priority == 'critical' %}🚨{% elif priority == 'high' %}⚠️{% elif priority == 'low' %}ℹ️{% else %}📢{% endif %} {{ title }}
+{% endblock %}
+
+{% block content %}
+    <h2 style="color: #333; margin-top: 0;">{{ title }}</h2>
+    
+    {% if priority == 'critical' %}
+        <div class="alert alert-danger">
+            <strong>Critical Alert:</strong> This notification requires immediate attention.
+        </div>
+    {% elif priority == 'high' %}
+        <div class="alert alert-warning">
+            <strong>Important:</strong> Please review this notification as soon as possible.
+        </div>
+    {% endif %}
+    
+    <p style="font-size: 16px; color: #555;">{{ message }}</p>
+    
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Type:</strong> {{ notification_type|title }}</p>
+        <p style="margin: 5px 0;"><strong>Priority:</strong> {{ priority|title }}</p>
+        <p style="margin: 5px 0;"><strong>Time:</strong> {{ timestamp }}</p>
+    </div>
+    
+    {% if action_url %}
+        <div style="text-align: center;">
+            <a href="{{ action_url }}" class="button">{{ action_text }}</a>
+        </div>
+    {% endif %}
+    
+    <p style="font-size: 14px; color: #6c757d; margin-top: 30px;">
+        This is an automated notification from {{ app_name }}. 
+        You can manage your notification preferences in your account settings.
+    </p>
+{% endblock %}

@@ -1,7 +1,7 @@
 """Add supplier matching tables for 1688.com product comparison
 
 Revision ID: supplier_matching_001
-Revises: 
+Revises: c8e960008812
 Create Date: 2025-10-01 00:56:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'supplier_matching_001'
-down_revision = None  # Update this with your latest migration
+down_revision = 'c8e960008812'  # Links to add_shipping_tax_voucher_split_to_orders
 branch_labels = None
 depends_on = None
 
@@ -19,7 +19,42 @@ depends_on = None
 def upgrade() -> None:
     """Create supplier matching tables."""
     
-    # Create supplier_raw_products table
+    # Create product_matching_groups table FIRST (to avoid FK constraint issues)
+    op.create_table(
+        'product_matching_groups',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('group_name', sa.String(length=500), nullable=False),
+        sa.Column('group_name_en', sa.String(length=500), nullable=True),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('representative_image_url', sa.String(length=2000), nullable=True),
+        sa.Column('representative_image_hash', sa.String(length=64), nullable=True),
+        sa.Column('confidence_score', sa.Float(), nullable=False, server_default='0.0'),
+        sa.Column('matching_method', sa.String(length=50), nullable=False),
+        sa.Column('status', sa.String(length=20), nullable=False, server_default='auto_matched'),
+        sa.Column('verified_by', sa.Integer(), nullable=True),
+        sa.Column('verified_at', sa.DateTime(), nullable=True),
+        sa.Column('min_price_cny', sa.Float(), nullable=True),
+        sa.Column('max_price_cny', sa.Float(), nullable=True),
+        sa.Column('avg_price_cny', sa.Float(), nullable=True),
+        sa.Column('best_supplier_id', sa.Integer(), nullable=True),
+        sa.Column('product_count', sa.Integer(), nullable=False, server_default='0'),
+        sa.Column('local_product_id', sa.Integer(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
+        sa.Column('tags', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.Column('notes', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
+        sa.ForeignKeyConstraint(['local_product_id'], ['app.products.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        schema='app'
+    )
+    
+    # Create indexes for product_matching_groups
+    op.create_index('idx_group_status', 'product_matching_groups', ['status'], schema='app')
+    op.create_index('idx_group_confidence', 'product_matching_groups', ['confidence_score'], schema='app')
+    op.create_index('idx_group_active', 'product_matching_groups', ['is_active'], schema='app')
+    
+    # Create supplier_raw_products table (after product_matching_groups)
     op.create_table(
         'supplier_raw_products',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -59,41 +94,6 @@ def upgrade() -> None:
     op.create_index('idx_supplier_raw_active', 'supplier_raw_products', ['is_active'], schema='app')
     op.create_index('idx_supplier_raw_batch', 'supplier_raw_products', ['import_batch_id'], schema='app')
     op.create_index('idx_supplier_raw_group', 'supplier_raw_products', ['product_group_id'], schema='app')
-    
-    # Create product_matching_groups table
-    op.create_table(
-        'product_matching_groups',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('group_name', sa.String(length=500), nullable=False),
-        sa.Column('group_name_en', sa.String(length=500), nullable=True),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('representative_image_url', sa.String(length=2000), nullable=True),
-        sa.Column('representative_image_hash', sa.String(length=64), nullable=True),
-        sa.Column('confidence_score', sa.Float(), nullable=False, server_default='0.0'),
-        sa.Column('matching_method', sa.String(length=50), nullable=False),
-        sa.Column('status', sa.String(length=20), nullable=False, server_default='auto_matched'),
-        sa.Column('verified_by', sa.Integer(), nullable=True),
-        sa.Column('verified_at', sa.DateTime(), nullable=True),
-        sa.Column('min_price_cny', sa.Float(), nullable=True),
-        sa.Column('max_price_cny', sa.Float(), nullable=True),
-        sa.Column('avg_price_cny', sa.Float(), nullable=True),
-        sa.Column('best_supplier_id', sa.Integer(), nullable=True),
-        sa.Column('product_count', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('local_product_id', sa.Integer(), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
-        sa.Column('tags', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('notes', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.ForeignKeyConstraint(['local_product_id'], ['app.products.id'], ),
-        sa.PrimaryKeyConstraint('id'),
-        schema='app'
-    )
-    
-    # Create indexes for product_matching_groups
-    op.create_index('idx_group_status', 'product_matching_groups', ['status'], schema='app')
-    op.create_index('idx_group_confidence', 'product_matching_groups', ['confidence_score'], schema='app')
-    op.create_index('idx_group_active', 'product_matching_groups', ['is_active'], schema='app')
     
     # Create product_matching_scores table
     op.create_table(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json as _json
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class Response:
@@ -11,7 +11,7 @@ class Response:
         self,
         *,
         status: int = 200,
-        headers: Optional[Dict[str, str]] = None,
+        headers: dict[str, str] | None = None,
         text: str = "",
         content_type: str = "application/json",
     ) -> None:

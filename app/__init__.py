@@ -43,7 +43,7 @@ if settings.OTLP_ENABLED:
         )
 
 
-def setup_tracing(service_name: Optional[str] = None, app=None):
+def setup_tracing(service_name: str | None = None, app=None):
     """Initialize OpenTelemetry tracing when available."""
 
     if _telemetry_enabled and _telemetry_setup_tracing:
@@ -55,7 +55,7 @@ def setup_tracing(service_name: Optional[str] = None, app=None):
     return None
 
 
-def get_tracer(name: Optional[str] = None):
+def get_tracer(name: str | None = None):
     """Return a tracer, falling back to a no-op tracer when telemetry is unavailable."""
 
     if _telemetry_enabled and _telemetry_get_tracer:

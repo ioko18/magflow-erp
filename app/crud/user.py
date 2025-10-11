@@ -1,6 +1,6 @@
 """CRUD operations for users."""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +14,7 @@ from app.schemas.user import UserCreate, UserUpdate
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     """CRUD operations for User model."""
 
-    async def get_by_email(self, db: AsyncSession, *, email: str) -> Optional[User]:
+    async def get_by_email(self, db: AsyncSession, *, email: str) -> User | None:
         """Get a user by email.
 
         Args:
@@ -55,7 +55,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db: AsyncSession,
         *,
         db_obj: User,
-        obj_in: Union[UserUpdate, Dict[str, Any]],
+        obj_in: UserUpdate | dict[str, Any],
     ) -> User:
         """Update a user's information.
 
@@ -86,7 +86,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         *,
         email: str,
         password: str,
-    ) -> Optional[User]:
+    ) -> User | None:
         """Authenticate a user.
 
         Args:

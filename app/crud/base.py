@@ -1,6 +1,6 @@
 """Base CRUD (Create, Read, Update, Delete) operations."""
 
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
@@ -27,7 +27,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     """
 
-    def __init__(self, model: Type[ModelType]):
+    def __init__(self, model: type[ModelType]):
         """Initialize CRUD base with model.
 
         Args:
@@ -36,7 +36,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         """
         self.model = model
 
-    async def get(self, db: AsyncSession, id: Any) -> Optional[ModelType]:
+    async def get(self, db: AsyncSession, id: Any) -> ModelType | None:
         """Get a single record by ID.
 
         Args:
@@ -56,8 +56,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         *,
         skip: int = 0,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[ModelType]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[ModelType]:
         """Get multiple records with optional pagination and filtering.
 
         Args:
@@ -83,8 +83,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         self,
         db: AsyncSession,
         id: Any,
-        relationships: List[str],
-    ) -> Optional[ModelType]:
+        relationships: list[str],
+    ) -> ModelType | None:
         """Get a single record with specified relationships loaded.
 
         Args:
@@ -111,9 +111,9 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         *,
         skip: int = 0,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
-        relationships: Optional[List[str]] = None,
-    ) -> List[ModelType]:
+        filters: dict[str, Any] | None = None,
+        relationships: list[str] | None = None,
+    ) -> list[ModelType]:
         """Get multiple records with optional relationships loaded.
 
         Args:
@@ -147,9 +147,9 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         *,
         skip: int = 0,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
-        join_relationships: Optional[Dict[str, Any]] = None,
-    ) -> List[ModelType]:
+        filters: dict[str, Any] | None = None,
+        join_relationships: dict[str, Any] | None = None,
+    ) -> list[ModelType]:
         """Get multiple records with joined relationships.
 
         Args:
@@ -201,7 +201,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         db: AsyncSession,
         *,
         db_obj: ModelType,
-        obj_in: Union[UpdateSchemaType, Dict[str, Any]],
+        obj_in: UpdateSchemaType | dict[str, Any],
     ) -> ModelType:
         """Update an existing record.
 
@@ -229,7 +229,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         await db.refresh(db_obj)
         return db_obj
 
-    async def remove(self, db: AsyncSession, *, id: Any) -> Optional[ModelType]:
+    async def remove(self, db: AsyncSession, *, id: Any) -> ModelType | None:
         """Delete a record by ID.
 
         Args:
@@ -263,7 +263,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     async def count(
         self,
         db: AsyncSession,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
     ) -> int:
         """Count records with optional filtering.
 

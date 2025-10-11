@@ -19,14 +19,13 @@ by FastAPI TestClient.
 from __future__ import annotations
 
 import time
-from typing import Dict, Tuple
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
+from app.core.config import settings
 from app.core.problem import Problem
 from app.middleware.correlation_id import get_correlation_id
-from app.core.config import settings
 
 # Paths that should not be rate limited
 EXCLUDED_PATHS = [
@@ -38,7 +37,7 @@ EXCLUDED_PATHS = [
 ]
 
 # Named rate limits: name -> (limit, window_seconds)
-RATE_LIMITS: Dict[str, Tuple[int, int]] = {
+RATE_LIMITS: dict[str, tuple[int, int]] = {
     "default": (100, 60),  # 100 requests / 60 seconds - increased for development
     "auth": (50, 60),  # 50 requests / 60 seconds - increased for development
     "read": (200, 60),  # 200 requests / 60 seconds - increased for development
@@ -54,7 +53,7 @@ RATE_LIMITS: Dict[str, Tuple[int, int]] = {
 }
 
 # Path prefix mapping to a named rate limit
-PATH_RATE_LIMITS: Dict[str, str] = {
+PATH_RATE_LIMITS: dict[str, str] = {
     "/api/v1/auth/": "auth",
     "/api/v1/products": "read",
     "/api/v1/health/": "health",
@@ -85,10 +84,7 @@ def should_rate_limit(request: Request, *, rate_limit_health: bool) -> bool:
             return False
 
     # Always skip metrics regardless of config
-    if path.startswith("/metrics"):
-        return False
-
-    return True
+    return not path.startswith("/metrics")
 
 
 def _get_counter_key(
@@ -139,7 +135,7 @@ def init_rate_limiter(app: FastAPI, *, rate_limit_health: bool = False) -> None:
         )
 
         # Get current count
-        counters: Dict[str, int] = app.state._rate_limit_counters
+        counters: dict[str, int] = app.state._rate_limit_counters
         count = counters.get(counter_key, 0)
 
         # If over limit, reject with 429 and Retry-After

@@ -18,10 +18,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import get_db
 from app.emag.client import EmagAPIWrapper
@@ -44,7 +45,7 @@ class OfferSyncService:
     def __init__(self, per_page: int = 100) -> None:
         self.per_page = per_page
         self.sync_id = f"sync-{uuid.uuid4().hex[:8]}"
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(UTC)
 
     async def _record_sync_start(self) -> EmagOfferSync:
         """Create a ``EmagOfferSync`` row marking the start of the operation."""
@@ -61,8 +62,12 @@ class OfferSyncService:
                 await session.commit()
                 await session.refresh(sync)
                 return sync
+            except SQLAlchemyError as e:
+                log.error("Failed to record sync start", extra={"error": str(e)})
+                await session.rollback()
             except Exception:
-                pass
+                log.error("Unexpected error recording sync start", exc_info=True)
+                await session.rollback()
 
     async def _record_sync_end(
         self,
@@ -73,20 +78,27 @@ class OfferSyncService:
         """Update the ``EmagOfferSync`` row with final statistics."""
         async for session in get_db():
             try:
-                sync.completed_at = datetime.utcnow()
+                sync.completed_at = datetime.now(UTC)
                 sync.duration_seconds = (
                     sync.completed_at - sync.started_at
                 ).total_seconds()
                 sync.total_offers_processed = processed
                 sync.status = "completed" if success else "failed"
                 await session.commit()
+            except SQLAlchemyError as e:
+                log.error(
+                    "Failed to record sync end",
+                    extra={"error": str(e), "sync_id": sync.sync_id},
+                )
+                await session.rollback()
             except Exception:
-                pass
+                log.error("Unexpected error recording sync end", exc_info=True)
+                await session.rollback()
 
     async def _upsert_product(
         self,
         session,
-        product_data: Dict[str, Any],
+        product_data: dict[str, Any],
     ) -> EmagProduct:
         """Upsert a product (``EmagProduct``) using PostgreSQL ``ON CONFLICT``.
 
@@ -104,7 +116,7 @@ class OfferSyncService:
             characteristics=product_data.get("characteristics", {}),
             images=product_data.get("images", []),
             is_active=product_data.get("is_active", True),
-            last_imported_at=datetime.utcnow(),
+            last_imported_at=datetime.now(UTC),
             raw_data=product_data,
         )
         stmt = stmt.on_conflict_do_update(
@@ -120,7 +132,7 @@ class OfferSyncService:
                 "characteristics": stmt.excluded.characteristics,
                 "images": stmt.excluded.images,
                 "is_active": stmt.excluded.is_active,
-                "last_imported_at": datetime.utcnow(),
+                "last_imported_at": datetime.now(UTC),
                 "raw_data": stmt.excluded.raw_data,
             },
         )
@@ -137,7 +149,7 @@ class OfferSyncService:
     async def _upsert_offer(
         self,
         session,
-        offer_data: Dict[str, Any],
+        offer_data: dict[str, Any],
         product_id: int,
     ) -> EmagProductOffer:
         """Upsert an ``EmagProductOffer`` linked to the given ``product_id``."""
@@ -160,7 +172,7 @@ class OfferSyncService:
             warehouse_name=offer_data.get("warehouse_name"),
             account_type=offer_data.get("account_type", "main"),
             warranty=offer_data.get("warranty"),
-            last_imported_at=datetime.utcnow(),
+            last_imported_at=datetime.now(UTC),
             raw_data=offer_data,
         )
         stmt = stmt.on_conflict_do_update(
@@ -181,7 +193,7 @@ class OfferSyncService:
                 "warehouse_name": stmt.excluded.warehouse_name,
                 "account_type": stmt.excluded.account_type,
                 "warranty": stmt.excluded.warranty,
-                "last_imported_at": datetime.utcnow(),
+                "last_imported_at": datetime.now(UTC),
                 "raw_data": stmt.excluded.raw_data,
             },
         )
@@ -207,7 +219,7 @@ class OfferSyncService:
 
         try:
             async with EmagAPIWrapper() as client:
-                offers: List[Dict[str, Any]] = await client.fetch_all_offers(
+                offers: list[dict[str, Any]] = await client.fetch_all_offers(
                     per_page=self.per_page,
                 )
                 log.info("Fetched %d offers from eMAG", len(offers))
@@ -240,8 +252,21 @@ class OfferSyncService:
                             )
                             await self._upsert_offer(session, offer, product_id)
                             processed += 1
+                    except SQLAlchemyError as e:
+                        log.error(
+                            "Database error processing offer",
+                            extra={
+                                "error": str(e),
+                                "offer_id": offer.get("id"),
+                                "emag_id": offer.get("emag_id"),
+                            },
+                        )
                     except Exception:
-                        pass
+                        log.error(
+                            "Unexpected error processing offer",
+                            exc_info=True,
+                            extra={"offer_id": offer.get("id")},
+                        )
         except Exception as exc:
             log.exception("Error during eMAG sync: %s", exc)
             success = False

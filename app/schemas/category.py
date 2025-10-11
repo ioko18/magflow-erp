@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import List, Optional
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -14,7 +12,7 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: Optional[str] = Field(
+    name: str | None = Field(
         None,
         min_length=1,
         max_length=255,
@@ -29,7 +27,7 @@ class CategoryResponse(CategoryBase):
 
 
 class CategoryListResponse(BaseModel):
-    categories: List[CategoryResponse]
+    categories: list[CategoryResponse]
     total: int
     limit: int
     offset: int

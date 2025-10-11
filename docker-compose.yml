@@ -6,10 +6,12 @@ services:
       target: development
     container_name: magflow_app
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     environment:
-      - DATABASE_URL=postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow
-      - REDIS_URL=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow}
+      - REDIS_URL=${REDIS_URL:-redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0}
     volumes:
       - .:/app
       - /app/__pycache__
@@ -20,24 +22,28 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 40s
 
   db:
     image: postgres:16
     container_name: magflow_db
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     environment:
-      - POSTGRES_USER=app
-      - POSTGRES_PASSWORD=pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0
-      - POSTGRES_DB=magflow
+      - POSTGRES_USER=${POSTGRES_USER:-app}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-magflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db/init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -53,7 +59,9 @@ services:
     image: redis:7
     container_name: magflow_redis
     restart: unless-stopped
-    command: redis-server --requirepass pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0
+    env_file:
+      - .env.docker
+    command: redis-server --requirepass pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0 --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     healthcheck:
@@ -69,11 +77,13 @@ services:
       target: development
     container_name: magflow_worker
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     environment:
-      - DATABASE_URL=postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow
-      - CELERY_BROKER_URL=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0}
     command: ["celery", "-A", "app.worker:celery_app", "worker", "--loglevel=info", "--pool=solo", "--concurrency=1"]
     depends_on:
       redis:
@@ -87,6 +97,7 @@ services:
       interval: 60s
       timeout: 15s
       retries: 3
+      start_period: 40s
 
   beat:
     build:
@@ -95,12 +106,14 @@ services:
       target: development
     container_name: magflow_beat
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
+      - .env.docker
     environment:
-      - DATABASE_URL=postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow
-      - CELERY_BROKER_URL=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0
-      - CELERY_HEARTBEAT_INTERVAL=60
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@redis:6379/0}
+      - CELERY_HEARTBEAT_INTERVAL=${CELERY_HEARTBEAT_INTERVAL:-60}
     command: ["celery", "-A", "app.worker:celery_app", "beat", "--loglevel=info", "--pidfile=", "--schedule=/tmp/celerybeat-schedule"]
     depends_on:
       redis:
@@ -114,6 +127,7 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
 volumes:
   postgres_data:

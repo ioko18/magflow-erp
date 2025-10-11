@@ -1,0 +1,142 @@
+MagFlow ERP - Project Structure
+================================
+
+Last Updated: 2025-10-10, version 2
+
+Directory Organization
+----------------------
+
+app/
+├── api/                    # API endpoints and routes
+│   └── v1/
+│       ├── endpoints/      # API endpoint modules (REORGANIZED)
+│       │   ├── products/   # Product endpoints (10 files)
+│       │   ├── suppliers/  # Supplier endpoints (4 files)
+│       │   ├── orders/     # Order endpoints (8 files)
+│       │   ├── inventory/  # Inventory endpoints (3 files)
+│       │   ├── system/     # System endpoints (14 files)
+│       │   ├── reporting/  # Reporting endpoints (2 files)
+│       │   └── emag/       # eMAG endpoints (23 files)
+│       └── api.py         # Main API router
+│
+├── core/                   # Core functionality (44 files)
+│   ├── config.py          # Main configuration (USE THIS)
+│   ├── logging_config.py  # Logging setup (USE THIS)
+│   ├── database.py        # Database connection (USE THIS)
+│   ├── cache.py           # Redis caching
+│   └── ...                # Other core utilities
+│
+├── services/              # Business logic services (REORGANIZED)
+│   ├── emag/             # eMAG integration services (20 files)
+│   │   ├── emag_integration_service.py
+│   │   ├── emag_product_sync_service.py
+│   │   ├── emag_order_service.py
+│   │   └── ...
+│   │
+│   ├── product/          # Product-related services
+│   │   ├── product_matching_service.py
+│   │   └── product_service.py
+│   │
+│   ├── system/           # System-level services
+│   │   ├── migration_manager.py
+│   │   ├── session_tracking_service.py
+│   │   └── notification_service.py
+│   │
+│   └── ...               # Other general services
+│
+├── middleware/           # HTTP middleware (11 files)
+│   ├── performance.py    # Performance monitoring (NEW)
+│   ├── correlation_id.py # Request correlation
+│   ├── rate_limit.py     # Rate limiting
+│   └── ...
+│
+├── models/               # SQLAlchemy models (30 files)
+│   ├── user.py
+│   ├── product.py
+│   └── ...
+│
+├── schemas/              # Pydantic schemas (21 files)
+│   └── ...
+│
+├── integrations/         # External integrations
+│   └── emag/            # eMAG API integration
+│
+└── main.py              # Application entry point
+
+Import Guidelines
+-----------------
+
+Services:
+  from app.services.emag.emag_integration_service import EmagIntegrationService
+  from app.services.product.product_matching_service import ProductMatchingService
+  from app.services.system.session_tracking_service import SessionTrackingService
+
+Core:
+  from app.core.config import settings
+  from app.core.logging_config import get_logger
+  from app.core.database import get_db
+  from app.core.cache import get_redis
+
+Middleware:
+  from app.middleware.performance import PerformanceMonitoringMiddleware
+  from app.middleware.correlation_id import CorrelationIdMiddleware
+
+New Features (2025-10-10)
+--------------------------
+
+1. Performance Monitoring
+   - Middleware: app/middleware/performance.py
+   - API: app/api/v1/endpoints/performance_metrics.py
+   - Endpoints: /api/v1/performance/*
+
+2. Session Tracking
+   - Service: app/services/system/session_tracking_service.py
+   - API: app/api/v1/endpoints/session_management.py
+   - Endpoints: /api/v1/sessions/*
+
+3. Migration Management
+   - Service: app/services/system/migration_manager.py
+   - API: app/api/v1/endpoints/migration_management.py
+   - Endpoints: /api/v1/migrations/*
+
+4. Reorganized Services
+   - eMAG services → app/services/emag/
+   - Product services → app/services/product/
+   - System services → app/services/system/
+
+Best Practices
+--------------
+
+1. Always use the main files (not duplicates):
+   - config.py (not configuration.py)
+   - logging_config.py (not logger.py or logging.py)
+   - database.py (not db.py or database_config.py)
+
+2. Import from reorganized service packages:
+   - app.services.emag.* for eMAG services
+   - app.services.product.* for product services
+   - app.services.system.* for system services
+
+3. Middleware is automatically loaded in main.py
+
+4. All new features should follow the package structure
+
+Statistics
+----------
+
+- Total Python files: ~317
+- API endpoints: 67
+- Services: 62 (organized in 3 categories)
+- Middleware: 11
+- Models: 30
+- Core utilities: 44
+
+Health Status
+-------------
+
+All services: HEALTHY ✓
+- magflow_app: healthy
+- magflow_worker: healthy
+- magflow_beat: healthy
+- magflow_db: healthy
+- magflow_redis: healthy

@@ -8,10 +8,10 @@ This module provides integration with eMAG Marketplace API for:
 """
 
 import logging
-from datetime import datetime
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
-from app.integrations.emag.client import EmagAPIWrapper
+from app.integrations.emag.client import EmagAPIClient
 from app.models.cancellation import (
     CancellationRequest,
     EmagCancellationIntegration,
@@ -26,13 +26,13 @@ class EmagRMAIntegration:
     """eMAG RMA (Returns) Integration Service."""
 
     def __init__(self):
-        self.client = EmagAPIWrapper()
+        self.client = EmagAPIClient()
         self.base_url = "https://api.emag.ro"
 
     async def create_return_request(
         self,
         return_request: ReturnRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a return request in eMAG."""
         try:
             async with self.client as api:
@@ -88,7 +88,7 @@ class EmagRMAIntegration:
     async def update_return_status(
         self,
         return_request: ReturnRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update return request status in eMAG."""
         try:
             async with self.client as api:
@@ -133,12 +133,12 @@ class EmagCancellationService:
     """eMAG Order Cancellation Integration Service."""
 
     def __init__(self):
-        self.client = EmagAPIWrapper()
+        self.client = EmagAPIClient()
 
     async def create_cancellation_request(
         self,
         cancellation_request: CancellationRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a cancellation request in eMAG."""
         try:
             async with self.client as api:
@@ -183,7 +183,7 @@ class EmagCancellationService:
     async def process_cancellation_refund(
         self,
         cancellation_request: CancellationRequest,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process refund for cancellation in eMAG."""
         try:
             async with self.client as api:
@@ -218,9 +218,9 @@ class EmagInvoiceService:
     """eMAG Invoice Integration Service."""
 
     def __init__(self):
-        self.client = EmagAPIWrapper()
+        self.client = EmagAPIClient()
 
-    async def create_invoice(self, invoice: Invoice) -> Dict[str, Any]:
+    async def create_invoice(self, invoice: Invoice) -> dict[str, Any]:
         """Create an invoice in eMAG."""
         try:
             async with self.client as api:
@@ -281,7 +281,7 @@ class EmagInvoiceService:
                 "message": "Failed to create invoice in eMAG",
             }
 
-    async def update_payment_status(self, invoice: Invoice) -> Dict[str, Any]:
+    async def update_payment_status(self, invoice: Invoice) -> dict[str, Any]:
         """Update invoice payment status in eMAG."""
         try:
             async with self.client as api:
@@ -325,7 +325,7 @@ class EmagIntegrationManager:
         self.cancellations = EmagCancellationService()
         self.invoices = EmagInvoiceService()
 
-    async def sync_return_request(self, return_request_id: int) -> Dict[str, Any]:
+    async def sync_return_request(self, return_request_id: int) -> dict[str, Any]:
         """Sync a return request with eMAG."""
         # This would load the return request from database and sync it
         # Implementation depends on your database session setup
@@ -334,20 +334,20 @@ class EmagIntegrationManager:
     async def sync_cancellation_request(
         self,
         cancellation_request_id: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Sync a cancellation request with eMAG."""
         return {"status": "sync_completed", "message": "Cancellation request synced"}
 
-    async def sync_invoice(self, invoice_id: int) -> Dict[str, Any]:
+    async def sync_invoice(self, invoice_id: int) -> dict[str, Any]:
         """Sync an invoice with eMAG."""
         return {"status": "sync_completed", "message": "Invoice synced"}
 
-    async def get_sync_status(self, account_type: str = "main") -> Dict[str, Any]:
+    async def get_sync_status(self, account_type: str = "main") -> dict[str, Any]:
         """Get sync status for all integrations."""
         return {
             "account_type": account_type,
             "rma_sync": "ready",
             "cancellation_sync": "ready",
             "invoice_sync": "ready",
-            "last_sync": datetime.utcnow().isoformat(),
+            "last_sync": datetime.now(UTC).isoformat(),
         }

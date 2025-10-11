@@ -7,7 +7,7 @@ loaded from environment variables with sensible defaults.
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -139,9 +139,9 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
-    REDIS_PASSWORD: Optional[str] = None
+    REDIS_PASSWORD: str | None = None
     REDIS_SSL: bool = False
-    REDIS_SSL_CERT_REQS: Optional[str] = None
+    REDIS_SSL_CERT_REQS: str | None = None
     REDIS_SOCKET_TIMEOUT: int = 5  # seconds
     REDIS_SOCKET_CONNECT_TIMEOUT: int = 5  # seconds
     REDIS_RETRY_ON_TIMEOUT: bool = True
@@ -252,7 +252,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     # Environment-based CORS settings
-    CORS_CONFIG: Dict[str, Dict[str, Any]] = {
+    CORS_CONFIG: dict[str, dict[str, Any]] = {
         "development": {
             "allow_origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
             "allow_credentials": True,
@@ -299,7 +299,7 @@ class Settings(BaseSettings):
     EMAG_FBE_PASSWORD: str = ""
     EMAG_FBE_API_USERNAME: str = ""
     EMAG_FBE_API_PASSWORD: str = ""
-    EMAG_WAREHOUSE_ID_FBE: Optional[str] = None
+    EMAG_WAREHOUSE_ID_FBE: str | None = None
 
     # eMAG Rate Limiting
     EMAG_RATE_LIMIT_ORDERS: int = 12
@@ -312,6 +312,15 @@ class Settings(BaseSettings):
     EMAG_REQUEST_TIMEOUT: int = 30
     EMAG_CONNECT_TIMEOUT: int = 10
     EMAG_READ_TIMEOUT: int = 30
+
+    # Email/SMTP settings
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    FROM_EMAIL: str = ""
+    FROM_NAME: str = "MagFlow ERP"
+    APP_URL: str = "http://localhost:8000"
 
     # Metrics and monitoring settings
     METRICS_PATH: str = "/metrics"
@@ -336,7 +345,7 @@ class Settings(BaseSettings):
     JWT_KEY_EXPIRE_DAYS: int = 30  # JWT keys expire after 30 days
 
     # Additional settings for tests
-    ALLOWED_HOSTS: List[str] = ["*"]
+    ALLOWED_HOSTS: list[str] = ["*"]
     REQUEST_ID_HEADER: str = "X-Request-ID"
     GENERATE_REQUEST_ID_IF_NOT_IN_HEADER: bool = True
 
@@ -350,7 +359,7 @@ class Settings(BaseSettings):
     JWT_LEEWAY: int = 60
     JWT_MAX_ACTIVE_KEYS: int = 2
     JWKS_CACHE_MAX_AGE: int = 3600
-    JWT_SUPPORTED_ALGORITHMS: List[str] = ["HS256", "RS256", "EDDSA"]
+    JWT_SUPPORTED_ALGORITHMS: list[str] = ["HS256", "RS256", "EDDSA"]
     JWT_KEYSET_DIR: str = "jwt-keys"
     AUDIT_LOG_FILE: str = "logs/audit.log"
     AUDIT_LOG_LEVEL: str = "INFO"
@@ -374,8 +383,13 @@ class Settings(BaseSettings):
         return value
 
     def validate_configuration(self) -> None:
-        """Validate configuration settings at startup."""
+        """Validate configuration settings at startup.
+
+        Performs strict validation in production, lenient in development/testing.
+        """
         errors = []
+        warnings = []
+        is_production = self.APP_ENV.lower() == "production"
 
         # Validate required settings
         required_settings = {
@@ -383,50 +397,66 @@ class Settings(BaseSettings):
             "DB_NAME": self.DB_NAME,
             "DB_USER": self.DB_USER,
         }
-        # DB_HOST is optional; validation does not enforce it.
 
         for setting_name, setting_value in required_settings.items():
-            if not setting_value or setting_value in [
-                "change-this-in-production",
-                "change_me_secure",
-            ]:
-                errors.append(
-                    f"Required setting {setting_name} is not properly configured",
-                )
+            if not setting_value:
+                errors.append(f"Required setting {setting_name} is missing")
+            elif setting_value in ["change-this-in-production", "change_me_secure"]:
+                if is_production:
+                    errors.append(
+                        f"Required setting {setting_name} must be changed in production"
+                    )
+                else:
+                    warnings.append(
+                        f"Setting {setting_name} is using default value (acceptable in {self.APP_ENV})"
+                    )
 
         # Validate database connection settings
-        if self.APP_ENV == "production":
+        if is_production:
             if self.DB_HOST in ["localhost", "127.0.0.1"]:
                 errors.append(
-                    "Production environment should not use localhost for database",
+                    "Production environment should not use localhost for database"
                 )
 
             if not self.DB_PASS or len(self.DB_PASS) < 8:
                 errors.append(
-                    "Production database password should be at least 8 characters",
+                    "Production database password should be at least 8 characters"
                 )
 
         # Validate JWT settings
-        if self.SECRET_KEY == "change_me_secure":
-            errors.append("JWT secret key must be changed from default value")
+        if "change-this-in-production" in self.JWT_SECRET_KEY:
+            if is_production:
+                errors.append("JWT_SECRET_KEY must be changed in production")
+            else:
+                warnings.append(
+                    f"JWT_SECRET_KEY is using default value (acceptable in {self.APP_ENV})"
+                )
 
         # Validate CORS settings
-        if self.APP_ENV == "production" and "*" in self.CORS_ORIGINS:
+        if is_production and "*" in self.CORS_ORIGINS:
             errors.append("Production environment should not allow all CORS origins")
 
         # Validate Redis settings
         if self.REDIS_ENABLED and not self.REDIS_HOST:
             errors.append("Redis is enabled but no Redis host configured")
 
+        # Log warnings
+        for warning in warnings:
+            logger.warning(warning)
+
+        # Raise error only if there are actual errors
         if errors:
             error_message = f"Configuration validation failed: {'; '.join(errors)}"
             logger.error(error_message)
             raise ConfigurationError(
                 error_message,
-                details={"validation_errors": errors},
+                details={"validation_errors": errors, "warnings": warnings},
             )
 
-        logger.info("Configuration validation passed successfully")
+        logger.info(
+            f"Configuration validation passed for {self.APP_ENV} environment"
+            + (f" ({len(warnings)} warnings)" if warnings else "")
+        )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -458,14 +488,14 @@ class Settings(BaseSettings):
         return self.DB_COMMAND_TIMEOUT
 
     @property
-    def cors_origins_list(self) -> List[str]:
+    def cors_origins_list(self) -> list[str]:
         """Parse CORS_ORIGINS string into a list of origins."""
         return [
             origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()
         ]
 
     @property
-    def backend_cors_origins_list(self) -> List[str]:
+    def backend_cors_origins_list(self) -> list[str]:
         """Parse BACKEND_CORS_ORIGINS string into a list of origins."""
         return [
             origin.strip()
@@ -473,7 +503,7 @@ class Settings(BaseSettings):
             if origin.strip()
         ]
 
-    def get_cors_config(self, env: Optional[str] = None) -> Dict[str, Any]:
+    def get_cors_config(self, env: str | None = None) -> dict[str, Any]:
         """Get CORS configuration for the specified environment.
 
         Args:
@@ -487,12 +517,12 @@ class Settings(BaseSettings):
         return self.CORS_CONFIG.get(env, self.CORS_CONFIG["development"])
 
     @property
-    def health_check_paths(self) -> Set[str]:
+    def health_check_paths(self) -> set[str]:
         """Get health check paths as a set."""
         return {path.strip() for path in self.HEALTH_CHECK_PATHS.split(",")}
 
     @property
-    def skip_paths(self) -> Set[str]:
+    def skip_paths(self) -> set[str]:
         """Get paths that should be excluded from request logging."""
         # Parse health check paths directly to avoid circular dependency
         health_paths = {path.strip() for path in self.HEALTH_CHECK_PATHS.split(",")}

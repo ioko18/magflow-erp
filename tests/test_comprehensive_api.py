@@ -48,8 +48,8 @@ def test_app():
     async def create_user(user_data: dict):
         return {
             "id": 1,
-            "email": user_data["email"],
-            "full_name": user_data["full_name"],
+            "email": user_data.get("email", ""),
+            "full_name": user_data.get("full_name", ""),
             "is_active": True,
             "created_at": "2024-01-01T00:00:00Z",
         }

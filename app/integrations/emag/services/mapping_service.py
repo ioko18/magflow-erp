@@ -2,7 +2,7 @@
 
 import logging
 from difflib import SequenceMatcher
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..models.mapping import (
     BrandIdMapping,
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class ProductMappingService:
     """Service for managing product mappings between internal system and eMAG."""
 
-    def __init__(self, config: Optional[MappingConfiguration] = None):
+    def __init__(self, config: MappingConfiguration | None = None):
         """Initialize the product mapping service.
 
         Args:
@@ -35,10 +35,10 @@ class ProductMappingService:
         )
 
         # In-memory storage for mappings (in production, this would be a database)
-        self._product_mappings: Dict[str, ProductIdMapping] = {}
-        self._category_mappings: Dict[str, CategoryIdMapping] = {}
-        self._brand_mappings: Dict[str, BrandIdMapping] = {}
-        self._characteristic_mappings: Dict[str, CharacteristicIdMapping] = {}
+        self._product_mappings: dict[str, ProductIdMapping] = {}
+        self._category_mappings: dict[str, CategoryIdMapping] = {}
+        self._brand_mappings: dict[str, BrandIdMapping] = {}
+        self._characteristic_mappings: dict[str, CharacteristicIdMapping] = {}
 
     def _get_default_field_mapping(self) -> ProductFieldMapping:
         """Get default field mapping configuration."""
@@ -108,7 +108,7 @@ class ProductMappingService:
         self,
         internal_id: str,
         emag_id: str,
-        emag_offer_id: Optional[int] = None,
+        emag_offer_id: int | None = None,
     ) -> ProductIdMapping:
         """Add or update a product ID mapping.
 
@@ -131,7 +131,7 @@ class ProductMappingService:
         logger.info(f"Added product mapping: {internal_id} -> {emag_id}")
         return mapping
 
-    def get_product_mapping(self, internal_id: str) -> Optional[ProductIdMapping]:
+    def get_product_mapping(self, internal_id: str) -> ProductIdMapping | None:
         """Get product mapping by internal ID.
 
         Args:
@@ -143,7 +143,7 @@ class ProductMappingService:
         """
         return self._product_mappings.get(internal_id)
 
-    def find_product_by_emag_id(self, emag_id: str) -> Optional[ProductIdMapping]:
+    def find_product_by_emag_id(self, emag_id: str) -> ProductIdMapping | None:
         """Find product mapping by eMAG ID.
 
         Args:
@@ -190,7 +190,7 @@ class ProductMappingService:
         logger.info(f"Added category mapping: {internal_name} -> {emag_name}")
         return mapping
 
-    def get_category_mapping(self, internal_id: str) -> Optional[CategoryIdMapping]:
+    def get_category_mapping(self, internal_id: str) -> CategoryIdMapping | None:
         """Get category mapping by internal ID.
 
         Args:
@@ -202,7 +202,7 @@ class ProductMappingService:
         """
         return self._category_mappings.get(internal_id)
 
-    def find_category_by_emag_id(self, emag_id: int) -> Optional[CategoryIdMapping]:
+    def find_category_by_emag_id(self, emag_id: int) -> CategoryIdMapping | None:
         """Find category mapping by eMAG ID.
 
         Args:
@@ -221,7 +221,7 @@ class ProductMappingService:
         self,
         name: str,
         fuzzy: bool = False,
-    ) -> Optional[CategoryIdMapping]:
+    ) -> CategoryIdMapping | None:
         """Find category mapping by name.
 
         Args:
@@ -295,7 +295,7 @@ class ProductMappingService:
         logger.info(f"Added brand mapping: {internal_name} -> {emag_name}")
         return mapping
 
-    def get_brand_mapping(self, internal_id: str) -> Optional[BrandIdMapping]:
+    def get_brand_mapping(self, internal_id: str) -> BrandIdMapping | None:
         """Get brand mapping by internal ID.
 
         Args:
@@ -307,7 +307,7 @@ class ProductMappingService:
         """
         return self._brand_mappings.get(internal_id)
 
-    def find_brand_by_emag_id(self, emag_id: int) -> Optional[BrandIdMapping]:
+    def find_brand_by_emag_id(self, emag_id: int) -> BrandIdMapping | None:
         """Find brand mapping by eMAG ID.
 
         Args:
@@ -326,7 +326,7 @@ class ProductMappingService:
         self,
         name: str,
         fuzzy: bool = False,
-    ) -> Optional[BrandIdMapping]:
+    ) -> BrandIdMapping | None:
         """Find brand mapping by name.
 
         Args:
@@ -372,7 +372,7 @@ class ProductMappingService:
 
     def transform_product_for_emag(
         self,
-        internal_product: Dict[str, Any],
+        internal_product: dict[str, Any],
     ) -> ProductTransformationResult:
         """Transform an internal product to eMAG format.
 
@@ -390,7 +390,7 @@ class ProductMappingService:
         field_mappings = self.config.product_field_mapping
 
         # Transform each field according to mapping rules
-        for field_name, mapping_rule in field_mappings:
+        for field_name, _mapping_rule in field_mappings:
             if hasattr(field_mappings, field_name):
                 rule = getattr(field_mappings, field_name)
                 if rule is None:
@@ -465,7 +465,7 @@ class ProductMappingService:
     def _apply_field_transformation(
         self,
         value: Any,
-        transform_function: Optional[str],
+        transform_function: str | None,
     ) -> Any:
         """Apply a transformation function to a field value.
 
@@ -501,7 +501,7 @@ class ProductMappingService:
 
     def bulk_create_product_mappings(
         self,
-        mappings: List[Dict[str, Any]],
+        mappings: list[dict[str, Any]],
     ) -> BulkMappingResult:
         """Bulk create product mappings.
 
@@ -561,7 +561,7 @@ class ProductMappingService:
 
     # Utility Methods
 
-    def get_mapping_statistics(self) -> Dict[str, int]:
+    def get_mapping_statistics(self) -> dict[str, int]:
         """Get statistics about current mappings.
 
         Returns:
@@ -575,7 +575,7 @@ class ProductMappingService:
             "characteristic_mappings": len(self._characteristic_mappings),
         }
 
-    def clear_mappings(self, mapping_type: Optional[MappingType] = None) -> None:
+    def clear_mappings(self, mapping_type: MappingType | None = None) -> None:
         """Clear mappings of specified type or all mappings.
 
         Args:

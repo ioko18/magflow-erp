@@ -2,7 +2,7 @@
 
 import secrets
 from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -47,7 +47,7 @@ class OAuth2Service:
     """Service for handling OAuth2 authentication with various providers."""
 
     def __init__(self):
-        self.state_store: Dict[str, Dict[str, Any]] = {}
+        self.state_store: dict[str, dict[str, Any]] = {}
         self.state_timeout = 600  # 10 minutes
 
     def generate_state(self) -> str:
@@ -62,7 +62,7 @@ class OAuth2Service:
             "created_at": datetime.now(),
         }
 
-    def get_and_validate_state(self, state: str) -> Optional[Dict[str, Any]]:
+    def get_and_validate_state(self, state: str) -> dict[str, Any] | None:
         """Get and validate OAuth2 state."""
         if state not in self.state_store:
             return None
@@ -109,7 +109,7 @@ class OAuth2Service:
         provider: str,
         code: str,
         redirect_uri: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Exchange authorization code for access token."""
         provider_config = OAUTH_PROVIDERS.get(provider)
         if not provider_config:
@@ -139,7 +139,7 @@ class OAuth2Service:
 
             return response.json()
 
-    async def get_user_info(self, provider: str, access_token: str) -> Dict[str, Any]:
+    async def get_user_info(self, provider: str, access_token: str) -> dict[str, Any]:
         """Get user information from OAuth2 provider."""
         provider_config = OAUTH_PROVIDERS.get(provider)
         if not provider_config:
@@ -168,7 +168,7 @@ class OAuth2Service:
     def map_provider_user_to_user(
         self,
         provider: str,
-        user_info: Dict[str, Any],
+        user_info: dict[str, Any],
     ) -> UserCreate:
         """Map OAuth2 provider user info to our User model."""
         if provider == "google":

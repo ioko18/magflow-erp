@@ -1,6 +1,6 @@
 """Custom exceptions for health check functionality."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import status
 
@@ -12,8 +12,8 @@ class HealthCheckError(Exception):
         self,
         message: str,
         status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE,
-        details: Optional[Dict[str, Any]] = None,
-        component: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        component: str | None = None,
     ):
         self.message = message
         self.status_code = status_code
@@ -21,7 +21,7 @@ class HealthCheckError(Exception):
         self.component = component
         super().__init__(self.message)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to a dictionary for JSON response."""
         return {
             "error": {
@@ -36,7 +36,7 @@ class HealthCheckError(Exception):
 class DatabaseHealthError(HealthCheckError):
     """Raised when database health check fails."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
             message=message,
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -106,7 +106,7 @@ class HealthCheckTimeoutError(HealthCheckError):
 class ServiceNotReadyError(HealthCheckError):
     """Raised when the service is not yet ready to handle requests."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
             message=message,
             status_code=status.HTTP_425_TOO_EARLY,
@@ -118,7 +118,7 @@ class ServiceNotReadyError(HealthCheckError):
 class CircuitBreakerOpenError(HealthCheckError):
     """Raised when the circuit breaker is open and blocks the request."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
             message=message,
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -130,7 +130,7 @@ class CircuitBreakerOpenError(HealthCheckError):
 class ServiceUnavailableError(HealthCheckError):
     """Raised when a service is temporarily unavailable."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
             message=message,
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -142,7 +142,7 @@ class ServiceUnavailableError(HealthCheckError):
 class ConfigurationError(HealthCheckError):
     """Raised when there is a configuration error affecting health checks."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(
             message=message,
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

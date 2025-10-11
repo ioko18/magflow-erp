@@ -32,7 +32,6 @@ celery_app.conf.update(
     result_serializer="json",
     timezone=os.getenv("TZ", "UTC"),
     enable_utc=True,
-
     # Robustness and reliability
     broker_connection_retry_on_startup=True,
     broker_heartbeat=int(os.getenv("CELERY_BROKER_HEARTBEAT", "30")),
@@ -45,12 +44,10 @@ celery_app.conf.update(
         # Retry in case of timeouts
         "retry_on_timeout": True,
     },
-
     # Task acknowledgement and worker resiliency
     task_acks_late=os.getenv("CELERY_TASK_ACKS_LATE", "true").lower() == "true",
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=int(os.getenv("CELERY_WORKER_PREFETCH_MULTIPLIER", "1")),
-
     # Results expiration to avoid unbounded growth
     result_expires=int(os.getenv("CELERY_RESULT_EXPIRES", str(60 * 60 * 24))),  # 24h
 )
@@ -65,7 +62,9 @@ celery_app.conf.beat_schedule = {
     # eMAG order synchronization - every 5 minutes
     "emag.sync_orders": {
         "task": "emag.sync_orders",
-        "schedule": int(os.getenv("EMAG_SYNC_ORDERS_INTERVAL", "300")),  # 300 seconds = 5 minutes
+        "schedule": int(
+            os.getenv("EMAG_SYNC_ORDERS_INTERVAL", "300")
+        ),  # 300 seconds = 5 minutes
     },
     # eMAG auto-acknowledge orders - every 10 minutes
     "emag.auto_acknowledge_orders": {

@@ -1,6 +1,6 @@
 """Response models for handling time endpoints."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -13,7 +13,7 @@ class HandlingTimeResponse(BaseModel):
         alias="isError",
         description="Indicates if there was an error",
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of messages",
     )

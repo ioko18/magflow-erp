@@ -4,12 +4,11 @@ This module provides FastAPI dependency injection providers that integrate
 with the service registry system for clean API endpoint implementation.
 """
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.database_resilience import DatabaseHealthChecker
 from app.core.dependency_injection import ServiceContext
 from app.core.service_registry import get_service_registry, initialize_service_registry
@@ -18,37 +17,18 @@ from app.security.jwt import oauth2_scheme
 
 
 async def get_database_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency for database session."""
-    settings = get_settings()
+    """FastAPI dependency for database session.
 
-    # Create session factory if not already created
-    if not hasattr(get_database_session, "session_factory"):
-        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    FIXED: Now uses the shared session factory from app.db.session
+    instead of creating a separate engine. This prevents memory leaks
+    from multiple connection pools.
+    """
+    # Import from the canonical source - single connection pool
+    from app.db.session import get_async_db
 
-        engine = create_async_engine(
-            settings.DB_URI,
-            echo=settings.SQL_ECHO,
-            future=True,
-        )
-
-        get_database_session.session_factory = async_sessionmaker(
-            engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False,
-        )
-
-        get_database_session.engine = engine
-
-    async with get_database_session.session_factory() as session:
-        try:
-            yield session
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+    # Delegate to the standard session provider
+    async for session in get_async_db():
+        yield session
 
 
 async def get_service_context(
@@ -212,7 +192,7 @@ class BackgroundTaskManager:
         """Execute all pending background tasks."""
         for func, args, kwargs in self.tasks:
             try:
-                if hasattr(func, "__call__"):
+                if callable(func):
                     await func(*args, **kwargs)
             except Exception as e:
                 # Log error but don't fail the request

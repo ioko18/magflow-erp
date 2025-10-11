@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
 
@@ -60,7 +60,7 @@ class ProductOfferCharacteristic(BaseModel):
     id: int = Field(..., description="Characteristic ID")
     name: str = Field(..., description="Characteristic name")
     value: str = Field(..., description="Characteristic value")
-    group_name: Optional[str] = Field(None, description="Characteristic group name")
+    group_name: str | None = Field(None, description="Characteristic group name")
 
 
 class ProductOfferResponse(BaseModel):
@@ -69,7 +69,7 @@ class ProductOfferResponse(BaseModel):
     id: int = Field(..., description="eMAG offer ID")
     product_id: str = Field(..., description="Your product ID")
     emag_id: int = Field(..., description="eMAG product ID")
-    part_number: Optional[str] = Field(None, description="Manufacturer part number")
+    part_number: str | None = Field(None, description="Manufacturer part number")
     name: str = Field(..., description="Product name")
     category_id: int = Field(..., description="eMAG category ID")
     brand_id: int = Field(..., description="eMAG brand ID")
@@ -77,15 +77,15 @@ class ProductOfferResponse(BaseModel):
     price: ProductOfferPrice = Field(..., description="Price information")
     stock: ProductOfferStock = Field(..., description="Stock information")
     status: ProductOfferStatus = Field(..., description="Offer status")
-    images: List[ProductOfferImage] = Field(
+    images: list[ProductOfferImage] = Field(
         default_factory=list,
         description="Product images",
     )
-    characteristics: List[ProductOfferCharacteristic] = Field(
+    characteristics: list[ProductOfferCharacteristic] = Field(
         default_factory=list,
         description="Product characteristics",
     )
-    url: Optional[HttpUrl] = Field(None, description="Product URL on eMAG marketplace")
+    url: HttpUrl | None = Field(None, description="Product URL on eMAG marketplace")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
@@ -116,11 +116,11 @@ class ProductOfferListResponse(BaseModel):
         alias="isError",
         description="Indicates if there was an error",
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of messages",
     )
-    results: List[ProductOfferResponse] = Field(
+    results: list[ProductOfferResponse] = Field(
         default_factory=list,
         description="List of product offers",
     )
@@ -133,7 +133,7 @@ class ProductOfferListResponse(BaseModel):
     total_items: int = Field(0, alias="totalItems", description="Total number of items")
     total_pages: int = Field(1, alias="totalPages", description="Total number of pages")
 
-    model_config = ConfigDict(allow_population_by_field_name=True)
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ProductOfferBulkResponseItem(BaseModel):
@@ -141,9 +141,9 @@ class ProductOfferBulkResponseItem(BaseModel):
 
     product_id: str = Field(..., description="Your product ID")
     success: bool = Field(..., description="Whether the operation was successful")
-    message: Optional[str] = Field(None, description="Operation message")
-    emag_id: Optional[int] = Field(None, description="eMAG product ID if created")
-    errors: List[Dict[str, Any]] = Field(
+    message: str | None = Field(None, description="Operation message")
+    emag_id: int | None = Field(None, description="eMAG product ID if created")
+    errors: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of errors if any",
     )
@@ -157,16 +157,16 @@ class ProductOfferBulkResponse(BaseModel):
         alias="isError",
         description="Indicates if there was an error",
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of messages",
     )
-    results: List[ProductOfferBulkResponseItem] = Field(
+    results: list[ProductOfferBulkResponseItem] = Field(
         default_factory=list,
         description="Results of bulk operation",
     )
 
-    model_config = ConfigDict(allow_population_by_field_name=True)
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ProductOfferSyncStatus(str, Enum):
@@ -186,11 +186,11 @@ class ProductOfferSyncResponse(BaseModel):
     processed_items: int = Field(0, description="Number of processed items")
     total_items: int = Field(0, description="Total number of items to process")
     started_at: datetime = Field(..., description="Synchronization start time")
-    completed_at: Optional[datetime] = Field(
+    completed_at: datetime | None = Field(
         None,
         description="Synchronization completion time",
     )
-    errors: List[Dict[str, Any]] = Field(
+    errors: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of errors if any",
     )
@@ -199,6 +199,6 @@ class ProductOfferSyncResponse(BaseModel):
 
     @field_serializer("started_at", "completed_at", when_used="json")
     def serialize_optional_datetime(
-        self, value: Optional[datetime], _info
-    ) -> Optional[str]:
+        self, value: datetime | None, _info
+    ) -> str | None:
         return value.isoformat() if value else None

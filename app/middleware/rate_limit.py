@@ -7,7 +7,6 @@ and configurable limits per endpoint or globally.
 import asyncio
 import time
 from collections import defaultdict
-from typing import Dict, Optional
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -17,7 +16,7 @@ from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-print("[RATE LIMIT] Middleware module loaded")  # Debug print
+logger.debug("Rate limit middleware module loaded")
 
 
 class RateLimiter:
@@ -27,8 +26,8 @@ class RateLimiter:
     """
 
     def __init__(self):
-        self.requests: Dict[str, list] = defaultdict(list)
-        self.cleanup_task: Optional[asyncio.Task] = None
+        self.requests: dict[str, list] = defaultdict(list)
+        self.cleanup_task: asyncio.Task | None = None
 
     def is_allowed(self, key: str, limit: int, window: int) -> bool:
         """Check if request is allowed based on rate limit.
@@ -117,12 +116,7 @@ def should_skip_rate_limit(request: Request) -> bool:
         return True
 
     # Skip OpenAPI docs in development
-    if settings.APP_ENV == "development" and (
-        path.startswith("/docs") or path.startswith("/openapi")
-    ):
-        return True
-
-    return False
+    return bool(settings.APP_ENV == "development" and (path.startswith("/docs") or path.startswith("/openapi")))
 
 
 async def rate_limit_middleware(request: Request, call_next):
@@ -130,7 +124,10 @@ async def rate_limit_middleware(request: Request, call_next):
 
     Applies rate limiting based on client IP address with configurable limits.
     """
-    print(f"[RATE LIMIT] Checking {request.method} {request.url.path}")  # Debug print
+    logger.debug(
+        "Rate limit check",
+        extra={"method": request.method, "path": str(request.url.path)},
+    )
 
     # Skip rate limiting if globally disabled
     if not settings.RATE_LIMIT_ENABLED:
@@ -138,7 +135,7 @@ async def rate_limit_middleware(request: Request, call_next):
 
     # Skip rate limiting for certain endpoints
     if should_skip_rate_limit(request):
-        print(f"[RATE LIMIT] Skipping {request.url.path}")  # Debug print
+        logger.debug("Skipping rate limit", extra={"path": str(request.url.path)})
         return await call_next(request)
 
     client_ip = get_client_ip(request)

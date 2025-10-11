@@ -1,9 +1,11 @@
 """Service for importing offers from eMAG Marketplace."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any, Callable
 
 from ..client import EmagAPIClient
 from ..exceptions import EmagAPIError
@@ -18,8 +20,8 @@ class EmagImportService:
 
     def __init__(
         self,
-        http_client: Optional[EmagAPIClient] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        http_client: EmagAPIClient | None = None,
+        rate_limiter: RateLimiter | None = None,
     ):
         """Initialize the import service.
 
@@ -36,8 +38,8 @@ class EmagImportService:
         self,
         endpoint: str,
         method: str = "GET",
-        data: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Any] = None,
+        data: dict[str, Any] | None = None,
+        response_model: Any | None = None,
         retries: int = 3,
     ) -> Any:
         """Make an HTTP request with rate limiting and retry logic.
@@ -111,7 +113,7 @@ class EmagImportService:
             ),
         )
 
-    async def get_offer_by_id(self, offer_id: int) -> Optional[ProductOfferResponse]:
+    async def get_offer_by_id(self, offer_id: int) -> ProductOfferResponse | None:
         """Get a single offer by ID from eMAG.
 
         Args:
@@ -144,7 +146,7 @@ class EmagImportService:
     async def get_offers_by_product(
         self,
         product_id: str,
-    ) -> List[ProductOfferResponse]:
+    ) -> list[ProductOfferResponse]:
         """Get all offers for a specific product from eMAG.
 
         Args:
@@ -168,7 +170,7 @@ class EmagImportService:
         self,
         page: int = 1,
         per_page: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         account_type: str = "main",
     ) -> ProductOfferListResponse:
         """List offers from eMAG with optional filtering and pagination.
@@ -214,11 +216,11 @@ class EmagImportService:
 
     async def get_all_offers(
         self,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         account_type: str = "main",
-        max_pages: Optional[int] = None,
-        progress_callback: Optional[callable] = None,
-    ) -> List[ProductOfferResponse]:
+        max_pages: int | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
+    ) -> list[ProductOfferResponse]:
         """Get all offers from eMAG, handling pagination automatically.
 
         Args:
@@ -285,10 +287,10 @@ class EmagImportService:
     async def get_offers_by_date_range(
         self,
         start_date: datetime,
-        end_date: Optional[datetime] = None,
+        end_date: datetime | None = None,
         account_type: str = "main",
-        max_pages: Optional[int] = None,
-    ) -> List[ProductOfferResponse]:
+        max_pages: int | None = None,
+    ) -> list[ProductOfferResponse]:
         """Get offers modified within a date range.
 
         Args:
@@ -302,7 +304,7 @@ class EmagImportService:
 
         """
         if end_date is None:
-            end_date = datetime.now(timezone.utc)
+            end_date = datetime.now(UTC)
 
         # Convert to timestamps
         start_timestamp = int(start_date.timestamp())
@@ -323,7 +325,7 @@ class EmagImportService:
         self,
         hours: int = 24,
         account_type: str = "main",
-    ) -> List[ProductOfferResponse]:
+    ) -> list[ProductOfferResponse]:
         """Get offers modified in the last N hours.
 
         Args:
@@ -336,7 +338,7 @@ class EmagImportService:
         """
         from datetime import timedelta
 
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(UTC)
         start_date = end_date - timedelta(hours=hours)
 
         return await self.get_offers_by_date_range(
@@ -349,8 +351,8 @@ class EmagImportService:
         self,
         since_timestamp: int,
         account_type: str = "main",
-        max_pages: Optional[int] = None,
-    ) -> List[ProductOfferResponse]:
+        max_pages: int | None = None,
+    ) -> list[ProductOfferResponse]:
         """Get offers modified since a specific timestamp.
 
         Args:
@@ -374,10 +376,10 @@ class EmagImportService:
 
     async def get_offers_with_filters(
         self,
-        filters: Dict[str, Any],
+        filters: dict[str, Any],
         account_type: str = "main",
-        max_pages: Optional[int] = None,
-    ) -> List[ProductOfferResponse]:
+        max_pages: int | None = None,
+    ) -> list[ProductOfferResponse]:
         """Get offers with advanced filters according to API v4.4.8.
 
         Args:
@@ -445,11 +447,11 @@ class EmagImportService:
 
     async def get_offers_by_price_range(
         self,
-        min_price: Optional[float] = None,
-        max_price: Optional[float] = None,
+        min_price: float | None = None,
+        max_price: float | None = None,
         account_type: str = "main",
-        max_pages: Optional[int] = None,
-    ) -> List[ProductOfferResponse]:
+        max_pages: int | None = None,
+    ) -> list[ProductOfferResponse]:
         """Get offers within a price range.
 
         Args:
@@ -480,8 +482,8 @@ class EmagImportService:
         self,
         available: bool = True,
         account_type: str = "main",
-        max_pages: Optional[int] = None,
-    ) -> List[ProductOfferResponse]:
+        max_pages: int | None = None,
+    ) -> list[ProductOfferResponse]:
         """Get offers by availability status.
 
         Args:
@@ -521,8 +523,8 @@ class EmagImportService:
         self,
         last_sync_timestamp: int,
         account_type: str = "main",
-        change_types: Optional[List[str]] = None,
-    ) -> Dict[str, List[ProductOfferResponse]]:
+        change_types: list[str] | None = None,
+    ) -> dict[str, list[ProductOfferResponse]]:
         """Get offers that have changed since last sync, categorized by change type.
 
         Args:
@@ -564,7 +566,7 @@ class EmagImportService:
     async def get_sync_summary(
         self,
         account_type: str = "main",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get a summary of current offer data for sync planning.
 
         Args:

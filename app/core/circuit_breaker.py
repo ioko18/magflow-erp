@@ -14,15 +14,16 @@ Key Features:
 from __future__ import annotations
 
 import logging
-import time
 import threading
+import time
+from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 # datetime imports removed as they're not used
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, Deque, Dict, Optional, TypeVar
-from collections import deque
+from typing import Any, TypeVar
 
 from prometheus_client import Counter, Gauge, Histogram
 
@@ -108,11 +109,11 @@ class CircuitBreaker:
     half_open_max_attempts: int = 1
     failure_window_seconds: float = 60.0  # Time window in seconds to track failures
     _state: CircuitState = field(init=False, default=CircuitState.CLOSED)
-    _failure_timestamps: Deque[float] = field(init=False, default_factory=deque)
+    _failure_timestamps: deque[float] = field(init=False, default_factory=deque)
     _half_open_attempts: int = field(init=False, default=0)
     _lock: threading.RLock = field(init=False, default_factory=threading.RLock)
-    _opened_at: Optional[float] = field(init=False, default=None)
-    _half_open_timer: Optional[threading.Timer] = field(init=False, default=None)
+    _opened_at: float | None = field(init=False, default=None)
+    _half_open_timer: threading.Timer | None = field(init=False, default=None)
     _logger: logging.Logger = field(
         init=False, default_factory=lambda: logging.getLogger(__name__)
     )
@@ -206,7 +207,7 @@ class CircuitBreaker:
             return len(self._failure_timestamps)
 
     @property
-    def opened_at(self) -> Optional[float]:
+    def opened_at(self) -> float | None:
         """Get the timestamp when the circuit was opened."""
         with self._lock:
             return self._opened_at
@@ -520,7 +521,7 @@ class CircuitBreaker:
 
 
 # Global registry for circuit breakers
-_registry: Dict[str, CircuitBreaker] = {}
+_registry: dict[str, CircuitBreaker] = {}
 _registry_lock = threading.RLock()
 
 # Global, test-visible breaker for database

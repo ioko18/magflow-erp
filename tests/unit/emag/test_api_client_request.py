@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.emag_integration_service import EmagApiClient, EmagApiConfig, EmagApiEnvironment, EmagIntegrationService
+from app.services.emag.emag_integration_service import EmagApiClient, EmagApiConfig, EmagApiEnvironment, EmagIntegrationService
 
 
 @pytest.fixture
@@ -15,18 +15,22 @@ def emag_config():
 
 @pytest.mark.asyncio
 async def test_api_client_request_delegates_to_make_request(emag_config):
-    client = EmagApiClient(emag_config)
-
-    with patch.object(client, "_make_request", new=AsyncMock(return_value={"ok": True})) as mock_make_request:
-        result = await client.request("GET", "/offers", data={"foo": "bar"}, params={"q": 1})
-
-    assert result == {"ok": True}
-    mock_make_request.assert_awaited_once_with(
-        "GET",
-        "/offers",
-        data={"foo": "bar"},
-        params={"q": 1},
+    """Test that EmagApiClient methods use _request internally."""
+    client = EmagApiClient(
+        username=emag_config.api_username,
+        password=emag_config.api_password,
     )
+
+    # Test a real public method (get_products) that uses _request
+    with patch.object(client, "_request", new=AsyncMock(return_value={"results": []})) as mock_request:
+        result = await client.get_products(page=1, items_per_page=10)
+
+    assert result == {"results": []}
+    # Verify _request was called with correct parameters
+    mock_request.assert_awaited_once()
+    call_args = mock_request.call_args
+    assert call_args[0][0] == "POST"  # method
+    assert "product_offer/read" in call_args[0][1]  # endpoint
 
 
 @pytest.mark.asyncio

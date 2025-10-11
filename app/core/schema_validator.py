@@ -7,7 +7,6 @@ helpful error messages.
 """
 
 import logging
-from typing import Dict, List
 
 from sqlalchemy import inspect, text
 
@@ -61,7 +60,7 @@ class SchemaValidator:
     def __init__(self, async_session_factory):
         self.async_session_factory = async_session_factory
 
-    async def validate_schema(self) -> Dict[str, List[str]]:
+    async def validate_schema(self) -> dict[str, list[str]]:
         """
         Validate that all required columns exist in the database tables.
 
@@ -73,6 +72,7 @@ class SchemaValidator:
         try:
             # Create a sync engine for inspection (since inspect() doesn't work with async engines)
             from sqlalchemy import create_engine
+
             from app.core.config import settings
 
             sync_engine = create_engine(
@@ -99,12 +99,12 @@ class SchemaValidator:
         except Exception as e:
             logger.error(f"Error creating database inspector: {e}")
             # Return all columns as missing if we can't check
-            for table_name in self.REQUIRED_COLUMNS.keys():
+            for table_name in self.REQUIRED_COLUMNS:
                 missing_columns[table_name] = list(self.REQUIRED_COLUMNS[table_name])
 
         return missing_columns
 
-    async def validate_sync_requirements(self) -> Dict[str, any]:
+    async def validate_sync_requirements(self) -> dict[str, any]:
         """
         Validate all requirements for sync operations.
 
@@ -167,7 +167,7 @@ class SchemaValidator:
         return validation_results
 
     def generate_migration_suggestions(
-        self, missing_columns: Dict[str, List[str]]
+        self, missing_columns: dict[str, list[str]]
     ) -> str:
         """
         Generate SQL migration suggestions for missing columns.
@@ -205,7 +205,7 @@ class SchemaValidator:
         return "\n".join(suggestions)
 
 
-async def validate_sync_environment(async_session_factory) -> Dict[str, any]:
+async def validate_sync_environment(async_session_factory) -> dict[str, any]:
     """
     Validate the environment and database schema for sync operations.
 
@@ -219,34 +219,34 @@ async def validate_sync_environment(async_session_factory) -> Dict[str, any]:
     return await validator.validate_sync_requirements()
 
 
-def print_validation_report(validation_results: Dict[str, any]) -> None:
+def print_validation_report(validation_results: dict[str, any]) -> None:
     """
     Print a formatted validation report.
 
     Args:
         validation_results: Results from validate_sync_requirements
     """
-    print("\n" + "=" * 60)
-    print("Database Schema Validation Report")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("Database Schema Validation Report")
+    logger.info("=" * 60)
 
     if validation_results["schema_valid"]:
-        print("✅ Database schema is valid for sync operations")
+        logger.info("✅ Database schema is valid for sync operations")
     else:
-        print("❌ Database schema validation failed")
-        print("\nMissing columns:")
+        logger.error("❌ Database schema validation failed")
+        logger.error("Missing columns:")
         for table, columns in validation_results["missing_columns"].items():
-            print(f"  {table}: {', '.join(columns)}")
+            logger.error(f"  {table}: {', '.join(columns)}")
 
     if validation_results["errors"]:
-        print("\n❌ Errors:")
+        logger.error("❌ Errors:")
         for error in validation_results["errors"]:
-            print(f"  • {error}")
+            logger.error(f"  • {error}")
 
     if validation_results["warnings"]:
-        print("\n⚠️  Warnings:")
+        logger.warning("⚠️  Warnings:")
         for warning in validation_results["warnings"]:
-            print(f"  • {warning}")
+            logger.warning(f"  • {warning}")
 
     # Generate migration suggestions if there are missing columns
     if validation_results["missing_columns"]:
@@ -254,6 +254,6 @@ def print_validation_report(validation_results: Dict[str, any]) -> None:
         suggestions = validator.generate_migration_suggestions(
             validation_results["missing_columns"]
         )
-        print(f"\n💡 Migration suggestions:\n{suggestions}")
+        logger.info(f"💡 Migration suggestions:\n{suggestions}")
 
-    print("\n" + "=" * 60)
+    logger.info("=" * 60)

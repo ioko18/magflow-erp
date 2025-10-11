@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from app.core.config import get_settings
 from app.core.dependency_injection import ServiceContext
-from app.services.emag_integration_service import EmagIntegrationService
+from app.services.emag.emag_integration_service import EmagIntegrationService
 
 
 class FakeProductRepository:
@@ -67,11 +67,11 @@ async def test_sync_orders_creates_and_updates_orders(monkeypatch):
     fake_product_repo = FakeProductRepository()
 
     monkeypatch.setattr(
-        "app.services.emag_integration_service.get_order_repository",
+        "app.services.emag.emag_integration_service.get_order_repository",
         lambda: fake_order_repo,
     )
     monkeypatch.setattr(
-        "app.services.emag_integration_service.get_product_repository",
+        "app.services.emag.emag_integration_service.get_product_repository",
         lambda: fake_product_repo,
     )
 

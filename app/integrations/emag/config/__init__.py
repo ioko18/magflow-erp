@@ -4,11 +4,11 @@ import sys
 
 # Load the sibling config.py (located one directory above this package)
 _config_path = pathlib.Path(__file__).resolve().parents[1] / "config.py"
-_spec = importlib.util.spec_from_file_location('emag_config', _config_path)
+_spec = importlib.util.spec_from_file_location("emag_config", _config_path)
 _emag_config = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_emag_config)
 # Optionally register the loaded module for future imports
-sys.modules[__name__ + '.config_module'] = _emag_config
+sys.modules[__name__ + ".config_module"] = _emag_config
 
 # Re-export required symbols from the loaded config module
 EmagAccountType = _emag_config.EmagAccountType
@@ -24,7 +24,3 @@ __all__ = [
     "get_settings",
     "settings",
 ]
-
-
-
-

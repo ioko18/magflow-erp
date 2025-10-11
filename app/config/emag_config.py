@@ -9,7 +9,7 @@ and environment-specific settings according to eMAG API v4.4.8 specifications.
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Any
+from typing import Any
 
 # from app.core.config import settings  # Commented out to avoid circular import
 
@@ -284,13 +284,10 @@ def validate_emag_credentials(config: EmagApiConfig) -> bool:
         return False
 
     # Basic format validation
-    if len(config.api_username) < 3 or len(config.api_password) < 6:
-        return False
-
-    return True
+    return not (len(config.api_username) < 3 or len(config.api_password) < 6)
 
 
-def get_rate_limit_info(config: EmagApiConfig) -> Dict[str, Any]:
+def get_rate_limit_info(config: EmagApiConfig) -> dict[str, Any]:
     """Get rate limit information for monitoring.
 
     Args:

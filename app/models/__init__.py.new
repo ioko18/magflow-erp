@@ -1,0 +1,42 @@
+"""SQLAlchemy models for the application."""
+from typing import Any, List, Type
+from sqlalchemy.orm import registry
+
+# Core models
+from app.models.core.user import *
+from app.models.core.mixins import *
+from app.models.core.permission import *
+from app.models.core.role import *
+from app.models.core.user_session import *
+from app.models.core.audit_log import *
+
+# Products models
+from app.models.products.product_mapping import *
+from app.models.products.associations import *
+from app.models.products.product import *
+from app.models.products.product_supplier_sheet import *
+from app.models.products.category import *
+
+# Inventory models
+from app.models.inventory.inventory import *
+
+# Sales models
+from app.models.sales.sales import *
+from app.models.sales.cancellation import *
+from app.models.sales.order import *
+from app.models.sales.rma import *
+from app.models.sales.invoice import *
+
+# Purchase models
+from app.models.purchase.supplier_matching import *
+from app.models.purchase.purchase import *
+from app.models.purchase.supplier import *
+
+# Integrations models
+from app.models.integrations.notification import *
+from app.models.integrations.emag_offers import *
+
+# Create a mapper registry
+mapper_registry = registry()
+
+# Note: __all__ should be updated based on actual exports

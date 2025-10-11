@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ):
         correlation_id = get_correlation_id()
         problem = Problem.from_validation_errors(
             errors=exc.errors(),
@@ -82,7 +84,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         logger.error(
             f"Unhandled exception in {request.method} {request.url.path}: {exc}",
             exc_info=True,
-            extra={"correlation_id": correlation_id}
+            extra={"correlation_id": correlation_id},
         )
 
         problem = Problem.from_exception(

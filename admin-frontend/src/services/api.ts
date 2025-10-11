@@ -5,10 +5,12 @@ import axios, {
   InternalAxiosRequestConfig,
   AxiosResponse,
 } from 'axios';
+import { logError, logWarning } from '../utils/errorLogger';
 
 // Extend the AxiosRequestConfig interface to include our custom _retry property
 interface RetryConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
+  _retryCount?: number;
 }
 
 const API_BASE_URL = (import.meta as ImportMeta).env?.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
@@ -119,10 +121,23 @@ api.interceptors.response.use(
       const retryAfter = error.response.headers['retry-after'] || '2';
       const delay = parseInt(retryAfter) * 1000;
       
-      console.log(`Rate limited. Retrying after ${delay}ms`);
+      logWarning(`Rate limited. Retrying after ${delay}ms`, {
+        url: originalRequest.url,
+        method: originalRequest.method,
+      });
       await new Promise(resolve => setTimeout(resolve, delay));
       
       return api(originalRequest);
+    }
+
+    // Log API errors
+    if (error.response?.status && error.response.status >= 500) {
+      logError(error, {
+        component: 'API',
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        status: error.response.status,
+      });
     }
 
     if (error.response?.status !== 401 || !originalRequest) {
@@ -182,7 +197,11 @@ api.interceptors.response.use(
 
       return api(originalRequest);
     } catch (refreshError) {
-      console.error('Token refresh failed:', refreshError);
+      logError(refreshError as Error, {
+        component: 'API',
+        action: 'Token refresh failed',
+        url: originalRequest?.url,
+      });
       processQueue(null);
       if (!isEmagRequest) {
         clearAuth();

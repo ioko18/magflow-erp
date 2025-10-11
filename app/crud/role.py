@@ -1,6 +1,5 @@
 """CRUD operations for roles and permissions."""
 
-from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +12,7 @@ from app.schemas.role import PermissionCreate, PermissionUpdate, RoleCreate, Rol
 class CRUDPermission(CRUDBase[Permission, PermissionCreate, PermissionUpdate]):
     """CRUD operations for Permission model."""
 
-    async def get_by_name(self, db: AsyncSession, *, name: str) -> Optional[Permission]:
+    async def get_by_name(self, db: AsyncSession, *, name: str) -> Permission | None:
         """Get a permission by name.
 
         Args:
@@ -30,8 +29,8 @@ class CRUDPermission(CRUDBase[Permission, PermissionCreate, PermissionUpdate]):
     async def get_multi_by_names(
         self,
         db: AsyncSession,
-        names: List[str],
-    ) -> List[Permission]:
+        names: list[str],
+    ) -> list[Permission]:
         """Get multiple permissions by names.
 
         Args:
@@ -49,7 +48,7 @@ class CRUDPermission(CRUDBase[Permission, PermissionCreate, PermissionUpdate]):
 class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
     """CRUD operations for Role model."""
 
-    async def get_by_name(self, db: AsyncSession, *, name: str) -> Optional[Role]:
+    async def get_by_name(self, db: AsyncSession, *, name: str) -> Role | None:
         """Get a role by name.
 
         Args:
@@ -63,7 +62,7 @@ class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
         result = await db.execute(select(Role).filter(Role.name == name))
         return result.scalars().first()
 
-    async def get_active_roles(self, db: AsyncSession) -> List[Role]:
+    async def get_active_roles(self, db: AsyncSession) -> list[Role]:
         """Get all active roles.
 
         Args:
@@ -83,7 +82,7 @@ class CRUDRole(CRUDBase[Role, RoleCreate, RoleUpdate]):
         db: AsyncSession,
         *,
         role_id: int,
-    ) -> Optional[Role]:
+    ) -> Role | None:
         """Get a role with its permissions loaded.
 
         Args:

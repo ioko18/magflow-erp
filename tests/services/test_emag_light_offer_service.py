@@ -6,7 +6,7 @@ Tests the Light Offer API implementation according to eMAG API v4.4.9 specificat
 
 import pytest
 from unittest.mock import patch, AsyncMock
-from app.services.emag_light_offer_service import EmagLightOfferService
+from app.services.emag.emag_light_offer_service import EmagLightOfferService
 from app.core.exceptions import ServiceError
 
 
@@ -16,7 +16,7 @@ class TestEmagLightOfferService:
     @pytest.fixture
     def service(self):
         """Create service instance for testing."""
-        with patch('app.services.emag_light_offer_service.EmagApiClient'):
+        with patch('app.services.emag.emag_light_offer_service.EmagApiClient'):
             return EmagLightOfferService("main")
     
     @pytest.fixture

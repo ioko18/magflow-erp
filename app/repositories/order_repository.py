@@ -1,6 +1,6 @@
 """Order repository for database operations."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,19 +16,19 @@ class OrderRepository(BaseRepository):
     def __init__(self, db_session: AsyncSession):
         super().__init__(Order, db_session)
 
-    async def get_by_emag_id(self, emag_id: str) -> Optional[Order]:
+    async def get_by_emag_id(self, emag_id: str) -> Order | None:
         """Get an order by eMAG ID."""
         result = await self.db.execute(select(Order).where(Order.emag_id == emag_id))
         return result.scalars().first()
 
-    async def get_with_items(self, order_id: int) -> Optional[Order]:
+    async def get_with_items(self, order_id: int) -> Order | None:
         """Get an order with its items."""
         result = await self.db.execute(
             select(Order).where(Order.id == order_id).options(selectinload(Order.items))
         )
         return result.scalars().first()
 
-    async def get_by_status(self, status: str) -> List[Order]:
+    async def get_by_status(self, status: str) -> list[Order]:
         """Get orders by status."""
         result = await self.db.execute(
             select(Order)
@@ -39,7 +39,7 @@ class OrderRepository(BaseRepository):
 
     async def get_orders_by_customer(
         self, customer_id: int, limit: int = 100, offset: int = 0
-    ) -> List[Order]:
+    ) -> list[Order]:
         """Get orders by customer ID with pagination."""
         result = await self.db.execute(
             select(Order)
@@ -51,8 +51,8 @@ class OrderRepository(BaseRepository):
         return result.scalars().all()
 
     async def update_status(
-        self, order_id: int, status: str, notes: Optional[str] = None
-    ) -> Optional[Order]:
+        self, order_id: int, status: str, notes: str | None = None
+    ) -> Order | None:
         """Update order status."""
         update_data = {"status": status}
         if notes:
@@ -69,7 +69,7 @@ class OrderRepository(BaseRepository):
         return result.scalars().first()
 
     async def bulk_upsert_orders(
-        self, orders: List[Dict[str, Any]], update_fields: Optional[List[str]] = None
+        self, orders: list[dict[str, Any]], update_fields: list[str] | None = None
     ) -> int:
         """Bulk upsert orders with their items.
 
@@ -146,7 +146,7 @@ class OrderRepository(BaseRepository):
 
 
 # Factory function to get an order repository instance
-def get_order_repository(db_session: Optional[AsyncSession] = None):
+def get_order_repository(db_session: AsyncSession | None = None):
     """Get an order repository instance.
 
     Args:

@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 @router.get("/available")
 async def get_available_reports(
     current_user: UserModel = Depends(get_current_active_user),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get list of available report types.
 
     - **Returns**: List of available report types with descriptions
@@ -84,8 +84,8 @@ async def generate_report(
 
 @router.get("/sales/overview", response_model=Report)
 async def get_sales_overview(
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ) -> Report:
@@ -144,8 +144,8 @@ async def get_sales_overview(
 
 @router.get("/inventory/status", response_model=Report)
 async def get_inventory_status(
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ) -> Report:
@@ -204,8 +204,8 @@ async def get_inventory_status(
 
 @router.get("/users/activity", response_model=Report)
 async def get_user_activity(
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ) -> Report:
@@ -264,8 +264,8 @@ async def get_user_activity(
 
 @router.get("/financial/summary", response_model=Report)
 async def get_financial_summary(
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ) -> Report:
@@ -324,8 +324,8 @@ async def get_financial_summary(
 
 @router.get("/system/metrics", response_model=Report)
 async def get_system_metrics(
-    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD)"),
-    end_date: Optional[str] = Query(None, description="End date (YYYY-MM-DD)"),
+    start_date: str | None = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str | None = Query(None, description="End date (YYYY-MM-DD)"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
 ) -> Report:
@@ -432,11 +432,11 @@ async def export_report(
 @router.post("/schedule")
 async def schedule_report(
     report_config: ReportConfig,
-    schedule_config: Dict[str, Any],
-    recipients: List[str],
+    schedule_config: dict[str, Any],
+    recipients: list[str],
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Schedule a report for automated generation and delivery.
 
     - **report_config**: Configuration for the report
@@ -464,7 +464,7 @@ async def schedule_report(
 @router.get("/templates")
 async def get_report_templates(
     current_user: UserModel = Depends(get_current_active_user),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get available report templates.
 
     - **Returns**: List of pre-configured report templates
@@ -516,7 +516,7 @@ async def get_report_templates(
 async def get_dashboard_summary(
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get dashboard summary for quick overview.
 
     - **Returns**: Key metrics and summary data for dashboard display

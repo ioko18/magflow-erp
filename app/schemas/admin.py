@@ -1,7 +1,7 @@
 """Admin dashboard schemas for MagFlow ERP."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -16,7 +16,7 @@ class DashboardStats(BaseModel):
     total_revenue: float = Field(..., description="Total revenue")
     monthly_growth: float = Field(..., description="Monthly growth percentage")
     system_health: str = Field(..., description="System health status")
-    recent_activities: List[Dict[str, Any]] = Field(
+    recent_activities: list[dict[str, Any]] = Field(
         ...,
         description="Recent system activities",
     )
@@ -29,12 +29,12 @@ class UserSummary(BaseModel):
 
     id: int = Field(..., description="User ID")
     email: EmailStr = Field(..., description="User email")
-    full_name: Optional[str] = Field(None, description="User full name")
+    full_name: str | None = Field(None, description="User full name")
     is_active: bool = Field(..., description="Whether user is active")
     is_superuser: bool = Field(..., description="Whether user is superuser")
-    last_login: Optional[datetime] = Field(None, description="Last login time")
+    last_login: datetime | None = Field(None, description="Last login time")
     created_at: datetime = Field(..., description="User creation time")
-    role_names: List[str] = Field(..., description="User role names")
+    role_names: list[str] = Field(..., description="User role names")
     failed_login_attempts: int = Field(..., description="Failed login attempts")
 
     model_config = ConfigDict(from_attributes=True)
@@ -59,13 +59,13 @@ class AuditLogSummary(BaseModel):
     """Audit log summary for dashboard."""
 
     id: int = Field(..., description="Audit log ID")
-    user_id: Optional[int] = Field(None, description="User ID")
-    user_email: Optional[str] = Field(None, description="User email")
+    user_id: int | None = Field(None, description="User ID")
+    user_email: str | None = Field(None, description="User email")
     action: str = Field(..., description="Action performed")
     resource: str = Field(..., description="Resource affected")
     timestamp: datetime = Field(..., description="Action timestamp")
     success: bool = Field(..., description="Whether action was successful")
-    ip_address: Optional[str] = Field(None, description="IP address")
+    ip_address: str | None = Field(None, description="IP address")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -74,13 +74,14 @@ class AdminUserCreate(BaseModel):
     """Admin user creation request."""
 
     email: EmailStr = Field(..., description="User email")
-    full_name: Optional[str] = Field(None, description="User full name")
+    full_name: str | None = Field(None, description="User full name")
     password: str = Field(..., min_length=8, description="User password")
     is_active: bool = Field(True, description="Whether user is active")
     is_superuser: bool = Field(False, description="Whether user is superuser")
-    role_ids: List[int] = Field(..., description="Role IDs to assign")
+    role_ids: list[int] = Field(..., description="Role IDs to assign")
 
     @field_validator("password")
+    @classmethod
     def validate_password_strength(cls, v: str) -> str:
         """Validate password meets security requirements."""
         if len(v) < 8:
@@ -97,11 +98,11 @@ class AdminUserCreate(BaseModel):
 class AdminUserUpdate(BaseModel):
     """Admin user update request."""
 
-    email: Optional[EmailStr] = Field(None, description="User email")
-    full_name: Optional[str] = Field(None, description="User full name")
-    is_active: Optional[bool] = Field(None, description="Whether user is active")
-    is_superuser: Optional[bool] = Field(None, description="Whether user is superuser")
-    role_ids: Optional[List[int]] = Field(None, description="Role IDs to assign")
+    email: EmailStr | None = Field(None, description="User email")
+    full_name: str | None = Field(None, description="User full name")
+    is_active: bool | None = Field(None, description="Whether user is active")
+    is_superuser: bool | None = Field(None, description="Whether user is superuser")
+    role_ids: list[int] | None = Field(None, description="Role IDs to assign")
     reset_password: bool = Field(False, description="Whether to reset user password")
 
 
@@ -110,7 +111,7 @@ class RoleSummary(BaseModel):
 
     id: int = Field(..., description="Role ID")
     name: str = Field(..., description="Role name")
-    description: Optional[str] = Field(None, description="Role description")
+    description: str | None = Field(None, description="Role description")
     is_system_role: bool = Field(..., description="Whether this is a system role")
     user_count: int = Field(..., description="Number of users with this role")
     permission_count: int = Field(..., description="Number of permissions")
@@ -124,7 +125,7 @@ class PermissionSummary(BaseModel):
 
     id: int = Field(..., description="Permission ID")
     name: str = Field(..., description="Permission name")
-    description: Optional[str] = Field(None, description="Permission description")
+    description: str | None = Field(None, description="Permission description")
     resource: str = Field(..., description="Resource name")
     action: str = Field(..., description="Action name")
     role_count: int = Field(..., description="Number of roles with this permission")
@@ -142,7 +143,7 @@ class DashboardAlert(BaseModel):
     message: str = Field(..., description="Alert message")
     timestamp: datetime = Field(..., description="Alert timestamp")
     acknowledged: bool = Field(False, description="Whether alert is acknowledged")
-    user_id: Optional[int] = Field(None, description="User who acknowledged")
+    user_id: int | None = Field(None, description="User who acknowledged")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -155,7 +156,7 @@ class SystemHealth(BaseModel):
     cache: str = Field(..., description="Cache status")
     api: str = Field(..., description="API status")
     last_check: datetime = Field(..., description="Last health check time")
-    issues: List[str] = Field(..., description="List of current issues")
+    issues: list[str] = Field(..., description="List of current issues")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -171,9 +172,9 @@ class AdminActivityLog(BaseModel):
         ...,
         description="Target type (user, role, permission, etc.)",
     )
-    target_id: Optional[str] = Field(None, description="Target ID")
-    details: Optional[str] = Field(None, description="Action details")
+    target_id: str | None = Field(None, description="Target ID")
+    details: str | None = Field(None, description="Action details")
     timestamp: datetime = Field(..., description="Action timestamp")
-    ip_address: Optional[str] = Field(None, description="IP address")
+    ip_address: str | None = Field(None, description="IP address")
 
     model_config = ConfigDict(from_attributes=True)

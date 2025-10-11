@@ -1,57 +1,41 @@
-"""Purchase Management models."""
+"""Purchase Management models.
+
+Note: This module uses the Supplier model from app.models.supplier
+to avoid duplicate model definitions.
+"""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
 from app.models.mixins import TimestampMixin
 
-
-class Supplier(Base, TimestampMixin):
-    """Supplier model for purchase management."""
-
-    __tablename__ = "suppliers"
-    __table_args__ = {"schema": "app", "extend_existing": True}
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    city: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    country: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    tax_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    payment_terms: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    lead_time_days: Mapped[int] = mapped_column(Integer, default=7)  # days
-    minimum_order_value: Mapped[Optional[float]] = mapped_column(
-        Numeric(10, 2),
-        nullable=True,
-    )
-    is_active: Mapped[bool] = mapped_column(Boolean(), default=True)
-    rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 1-5 stars
-
-    # Relationships
-    purchase_orders: Mapped[List["PurchaseOrder"]] = relationship(
-        "PurchaseOrder",
-        back_populates="supplier",
-    )
-    supplier_products: Mapped[List["SupplierProduct"]] = relationship(
-        "SupplierProduct",
-        back_populates="supplier",
-    )
-
-    def __repr__(self) -> str:
-        return f"<Supplier {self.name} ({self.code})>"
+if TYPE_CHECKING:
+    from app.models.supplier import Supplier
 
 
-class SupplierProduct(Base, TimestampMixin):
-    """Supplier product model for tracking supplier-specific products."""
+class SupplierProductPurchase(Base, TimestampMixin):
+    """Supplier product model for tracking supplier-specific products in purchase orders.
 
-    __tablename__ = "supplier_products"
+    Note: This is different from SupplierProduct in supplier.py which is used for
+    1688.com product matching. This model is specifically for purchase order management.
+    """
+
+    __tablename__ = "supplier_products_purchase"
     __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -61,11 +45,11 @@ class SupplierProduct(Base, TimestampMixin):
         nullable=False,
     )
     product_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    supplier_product_code: Mapped[Optional[str]] = mapped_column(
+    supplier_product_code: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    supplier_product_name: Mapped[Optional[str]] = mapped_column(
+    supplier_product_name: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
@@ -73,18 +57,16 @@ class SupplierProduct(Base, TimestampMixin):
     minimum_order_quantity: Mapped[int] = mapped_column(Integer, default=1)
     lead_time_days: Mapped[int] = mapped_column(Integer, default=7)
     is_preferred: Mapped[bool] = mapped_column(Boolean(), default=False)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     supplier: Mapped["Supplier"] = relationship(
         "Supplier",
-        back_populates="supplier_products",
+        foreign_keys=[supplier_id],
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<SupplierProduct supplier:{self.supplier_id} product:{self.product_id}>"
-        )
+        return f"<SupplierProductPurchase supplier:{self.supplier_id} product:{self.product_id}>"
 
 
 class PurchaseOrder(Base, TimestampMixin):
@@ -101,46 +83,100 @@ class PurchaseOrder(Base, TimestampMixin):
         nullable=False,
     )
     order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    expected_delivery_date: Mapped[Optional[datetime]] = mapped_column(
+    expected_delivery_date: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
     status: Mapped[str] = mapped_column(
         String(20),
         default="draft",
-    )  # draft, sent, confirmed, received, cancelled
-    total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    tax_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
-    discount_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
-    shipping_cost: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
-    currency: Mapped[str] = mapped_column(String(3), default="RON")
-    payment_terms: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    approved_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+        index=True,
+    )  # draft, sent, confirmed, partially_received, received, cancelled
+    # Financial fields - adapted to existing schema
+    total_value: Mapped[float] = mapped_column(Float, nullable=False)  # existing field
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="RON")
+    exchange_rate: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)  # existing field
+
+    # Existing fields from old schema
+    order_items: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # existing field
+    supplier_confirmation: Mapped[str | None] = mapped_column(String(1000), nullable=True)  # existing
+    internal_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # existing
+    attachments: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # existing
+    quality_check_passed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # existing
+    quality_notes: Mapped[str | None] = mapped_column(Text, nullable=True)  # existing
+
+    # Enhanced tracking fields
+    delivery_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tracking_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    actual_delivery_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cancelled_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     supplier: Mapped["Supplier"] = relationship(
         "Supplier",
         back_populates="purchase_orders",
     )
-    order_lines: Mapped[List["PurchaseOrderLine"]] = relationship(
-        "PurchaseOrderLine",
+    order_items_rel: Mapped[list["PurchaseOrderItem"]] = relationship(
+        "PurchaseOrderItem",
         back_populates="purchase_order",
+        foreign_keys="[PurchaseOrderItem.purchase_order_id]",
     )
-    purchase_receipts: Mapped[List["PurchaseReceipt"]] = relationship(
+    purchase_receipts: Mapped[list["PurchaseReceipt"]] = relationship(
         "PurchaseReceipt",
         back_populates="purchase_order",
+    )
+    unreceived_items: Mapped[list["PurchaseOrderUnreceivedItem"]] = relationship(
+        "PurchaseOrderUnreceivedItem",
+        back_populates="purchase_order",
+        cascade="all, delete-orphan",
+    )
+    history: Mapped[list["PurchaseOrderHistory"]] = relationship(
+        "PurchaseOrderHistory",
+        back_populates="purchase_order",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
         return f"<PurchaseOrder {self.order_number}>"
 
+    @property
+    def total_ordered_quantity(self) -> int:
+        """Calculate total quantity ordered across all items."""
+        return sum(item.quantity_ordered for item in self.order_items_rel)
 
-class PurchaseOrderLine(Base, TimestampMixin):
-    """Purchase order line model."""
+    @property
+    def total_received_quantity(self) -> int:
+        """Calculate total quantity received across all items."""
+        return sum(item.quantity_received or 0 for item in self.order_items_rel)
 
-    __tablename__ = "purchase_order_lines"
+    @property
+    def is_fully_received(self) -> bool:
+        """Check if all items have been received."""
+        return all((item.quantity_received or 0) >= item.quantity_ordered for item in self.order_items_rel)
+
+    @property
+    def is_partially_received(self) -> bool:
+        """Check if some items have been received."""
+        return any((item.quantity_received or 0) > 0 for item in self.order_items_rel) and not self.is_fully_received
+
+    # Compatibility properties for API
+    @property
+    def total_amount(self) -> float:
+        """Alias for total_value for API compatibility."""
+        return self.total_value
+
+    @property
+    def order_lines(self) -> list["PurchaseOrderItem"]:
+        """Alias for order_items_rel for API compatibility."""
+        return self.order_items_rel
+
+
+class PurchaseOrderItem(Base, TimestampMixin):
+    """Purchase order item model - adapted to existing DB schema."""
+
+    __tablename__ = "purchase_order_items"
     __table_args__ = {"schema": "app", "extend_existing": True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -148,32 +184,85 @@ class PurchaseOrderLine(Base, TimestampMixin):
         Integer,
         ForeignKey("app.purchase_orders.id"),
         nullable=False,
+        index=True,
     )
-    product_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    supplier_product_id: Mapped[Optional[int]] = mapped_column(
+    supplier_product_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("app.supplier_products.id"),
         nullable=True,
+        index=True,
     )
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    unit_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    discount_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=0)
-    tax_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=19)
-    line_total: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    received_quantity: Mapped[int] = mapped_column(Integer, default=0)
-    notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    local_product_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.products.id"),
+        nullable=False,
+        index=True,
+    )
+
+    # Quantities - using existing DB column names
+    quantity_ordered: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity_received: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
+
+    # Prices - using existing DB column names
+    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
+    total_price: Mapped[float] = mapped_column(Float, nullable=False)
+
+    # Dates
+    expected_delivery_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    actual_delivery_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Quality
+    quality_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    quality_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     purchase_order: Mapped["PurchaseOrder"] = relationship(
         "PurchaseOrder",
-        back_populates="order_lines",
-    )
-    supplier_product: Mapped[Optional["SupplierProduct"]] = relationship(
-        "SupplierProduct",
+        back_populates="order_items_rel",
     )
 
     def __repr__(self) -> str:
-        return f"<PurchaseOrderLine order:{self.purchase_order_id} product:{self.product_id} qty:{self.quantity}>"
+        return f"<PurchaseOrderItem order:{self.purchase_order_id} product:{self.local_product_id} qty:{self.quantity_ordered}>"
+
+    # Compatibility properties for API
+    @property
+    def product_id(self) -> int:
+        """Alias for local_product_id."""
+        return self.local_product_id
+
+    @property
+    def quantity(self) -> int:
+        """Alias for quantity_ordered."""
+        return self.quantity_ordered
+
+    @property
+    def received_quantity(self) -> int:
+        """Alias for quantity_received."""
+        return self.quantity_received or 0
+
+    @property
+    def unit_cost(self) -> float:
+        """Alias for unit_price."""
+        return self.unit_price
+
+    @property
+    def line_total(self) -> float:
+        """Alias for total_price."""
+        return self.total_price
+
+
+# Legacy PurchaseOrderLine class - DISABLED to avoid conflicts
+# The table purchase_order_lines exists in DB but is not used by the new system
+# Use PurchaseOrderItem instead which maps to the existing purchase_order_items table
+
+# NOTE: This class is commented out to prevent SQLAlchemy mapper conflicts
+# If you need to access the purchase_order_lines table, create a new model without relationships
+
+# class PurchaseOrderLine(Base, TimestampMixin):
+#     """Purchase order line model - DEPRECATED, use PurchaseOrderItem instead."""
+#     __tablename__ = "purchase_order_lines"
+#     __table_args__ = {"schema": "app", "extend_existing": True}
+#     # ... (fields omitted)
 
 
 class PurchaseReceipt(Base, TimestampMixin):
@@ -190,11 +279,11 @@ class PurchaseReceipt(Base, TimestampMixin):
         nullable=False,
     )
     receipt_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    supplier_invoice_number: Mapped[Optional[str]] = mapped_column(
+    supplier_invoice_number: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,
     )
-    supplier_invoice_date: Mapped[Optional[datetime]] = mapped_column(
+    supplier_invoice_date: Mapped[datetime | None] = mapped_column(
         DateTime,
         nullable=True,
     )
@@ -205,16 +294,16 @@ class PurchaseReceipt(Base, TimestampMixin):
     total_received_quantity: Mapped[int] = mapped_column(Integer, default=0)
     total_amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="RON")
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    received_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    quality_checked_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    received_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quality_checked_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     purchase_order: Mapped["PurchaseOrder"] = relationship(
         "PurchaseOrder",
         back_populates="purchase_receipts",
     )
-    receipt_lines: Mapped[List["PurchaseReceiptLine"]] = relationship(
+    receipt_lines: Mapped[list["PurchaseReceiptLine"]] = relationship(
         "PurchaseReceiptLine",
         back_populates="purchase_receipt",
     )
@@ -249,15 +338,15 @@ class PurchaseReceiptLine(Base, TimestampMixin):
         String(20),
         default="pending",
     )  # pending, accepted, rejected, partial
-    rejection_reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Relationships
     purchase_receipt: Mapped["PurchaseReceipt"] = relationship(
         "PurchaseReceipt",
         back_populates="receipt_lines",
     )
-    purchase_order_line: Mapped["PurchaseOrderLine"] = relationship("PurchaseOrderLine")
+    # purchase_order_line: Mapped["PurchaseOrderLine"] = relationship("PurchaseOrderLine")  # DISABLED
 
     def __repr__(self) -> str:
         return f"<PurchaseReceiptLine receipt:{self.purchase_receipt_id} qty:{self.received_quantity}>"
@@ -276,7 +365,7 @@ class SupplierPayment(Base, TimestampMixin):
         ForeignKey("app.suppliers.id"),
         nullable=False,
     )
-    purchase_receipt_id: Mapped[Optional[int]] = mapped_column(
+    purchase_receipt_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("app.purchase_receipts.id"),
         nullable=True,
@@ -287,7 +376,7 @@ class SupplierPayment(Base, TimestampMixin):
         String(50),
         nullable=False,
     )  # bank_transfer, check, cash, etc.
-    reference: Mapped[Optional[str]] = mapped_column(
+    reference: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )  # transaction ID, check number
@@ -295,8 +384,8 @@ class SupplierPayment(Base, TimestampMixin):
         String(20),
         default="pending",
     )  # pending, completed, failed
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    processed_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Relationships
     supplier: Mapped["Supplier"] = relationship("Supplier")
@@ -321,7 +410,7 @@ class PurchaseRequisition(Base, TimestampMixin):
         nullable=False,
     )
     requested_by: Mapped[int] = mapped_column(Integer, nullable=False)  # user_id
-    department: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(50), nullable=True)
     required_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     status: Mapped[str] = mapped_column(
         String(20),
@@ -333,13 +422,13 @@ class PurchaseRequisition(Base, TimestampMixin):
     )  # low, normal, high, urgent
     total_estimated_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="RON")
-    justification: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    approved_by: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    justification: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    approved_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
-    requisition_lines: Mapped[List["PurchaseRequisitionLine"]] = relationship(
+    requisition_lines: Mapped[list["PurchaseRequisitionLine"]] = relationship(
         "PurchaseRequisitionLine",
         back_populates="purchase_requisition",
     )
@@ -365,11 +454,11 @@ class PurchaseRequisitionLine(Base, TimestampMixin):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_unit_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     estimated_total_cost: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    supplier_preference: Mapped[Optional[str]] = mapped_column(
+    supplier_preference: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
-    justification: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    justification: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         String(20),
         default="pending",
@@ -383,3 +472,99 @@ class PurchaseRequisitionLine(Base, TimestampMixin):
 
     def __repr__(self) -> str:
         return f"<PurchaseRequisitionLine req:{self.purchase_requisition_id} product:{self.product_id}>"
+
+
+class PurchaseOrderUnreceivedItem(Base, TimestampMixin):
+    """Track unreceived items from purchase orders."""
+
+    __tablename__ = "purchase_order_unreceived_items"
+    __table_args__ = {"schema": "app", "extend_existing": True}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    purchase_order_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.purchase_orders.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    purchase_order_item_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.purchase_order_items.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    product_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.products.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    ordered_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    received_quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unreceived_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    expected_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    follow_up_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="pending",
+        index=True,
+    )  # pending, partial, resolved, cancelled
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    resolved_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Relationships
+    purchase_order: Mapped["PurchaseOrder"] = relationship(
+        "PurchaseOrder",
+        back_populates="unreceived_items",
+    )
+    purchase_order_item: Mapped["PurchaseOrderItem"] = relationship(
+        "PurchaseOrderItem",
+    )
+
+    def __repr__(self) -> str:
+        return f"<PurchaseOrderUnreceivedItem PO:{self.purchase_order_id} Product:{self.product_id} Qty:{self.unreceived_quantity}>"
+
+
+class PurchaseOrderHistory(Base):
+    """Audit trail for purchase order changes."""
+
+    __tablename__ = "purchase_order_history"
+    __table_args__ = {"schema": "app", "extend_existing": True}
+
+    # Exclude created_at and updated_at from Base class (table doesn't have these columns)
+    created_at = None  # type: ignore
+    updated_at = None  # type: ignore
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    purchase_order_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("app.purchase_orders.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    action: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        index=True,
+    )  # created, sent, confirmed, received, cancelled, etc.
+    old_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    new_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    changed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default="CURRENT_TIMESTAMP",
+    )
+    extra_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Relationships
+    purchase_order: Mapped["PurchaseOrder"] = relationship(
+        "PurchaseOrder",
+        back_populates="history",
+    )
+
+    def __repr__(self) -> str:
+        return f"<PurchaseOrderHistory PO:{self.purchase_order_id} Action:{self.action}>"

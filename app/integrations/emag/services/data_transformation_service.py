@@ -1,8 +1,8 @@
 """Data transformation service for converting between eMAG and internal data formats."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List
+from datetime import UTC, datetime
+from typing import Any
 
 from app.integrations.emag.models.responses.offer import ProductOfferResponse
 
@@ -57,7 +57,7 @@ class DataTransformationService:
         self,
         emag_offer: ProductOfferResponse,
         account_type: str = "main",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Transform an eMAG offer response to internal format.
 
         Args:
@@ -72,7 +72,7 @@ class DataTransformationService:
             "emag_product_id": emag_offer.product_id,
             "emag_offer_id": emag_offer.emag_id,
             "account_type": account_type,
-            "last_imported_at": datetime.now(timezone.utc),
+            "last_imported_at": datetime.now(UTC),
             "raw_data": getattr(emag_offer, "raw_data", None),
         }
 
@@ -101,14 +101,14 @@ class DataTransformationService:
         if hasattr(emag_offer, "updated_at") and emag_offer.updated_at:
             transformed["emag_updated_at"] = emag_offer.updated_at
         else:
-            transformed["emag_updated_at"] = datetime.now(timezone.utc)
+            transformed["emag_updated_at"] = datetime.now(UTC)
 
         return transformed
 
     def transform_emag_product_to_internal(
         self,
-        emag_product_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        emag_product_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Transform eMAG product data to internal format.
 
         Args:
@@ -120,7 +120,7 @@ class DataTransformationService:
         """
         transformed = {
             "emag_id": emag_product_data.get("id"),
-            "last_imported_at": datetime.now(timezone.utc),
+            "last_imported_at": datetime.now(UTC),
             "is_active": emag_product_data.get("is_active", True),
             "raw_data": emag_product_data,
         }
@@ -154,14 +154,14 @@ class DataTransformationService:
         if emag_product_data.get("updated_at"):
             transformed["emag_updated_at"] = emag_product_data["updated_at"]
         else:
-            transformed["emag_updated_at"] = datetime.now(timezone.utc)
+            transformed["emag_updated_at"] = datetime.now(UTC)
 
         return transformed
 
     def create_emag_product_from_offer(
         self,
-        offer_data: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        offer_data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Create minimal eMAG product data from offer data.
 
         Args:
@@ -183,17 +183,17 @@ class DataTransformationService:
             "characteristics": {},
             "images": [],
             "is_active": True,
-            "last_imported_at": datetime.now(timezone.utc),
-            "emag_updated_at": datetime.now(timezone.utc),
+            "last_imported_at": datetime.now(UTC),
+            "emag_updated_at": datetime.now(UTC),
             "raw_data": None,
         }
 
     def merge_offer_data(
         self,
-        existing_offer: Dict[str, Any],
-        new_offer: Dict[str, Any],
+        existing_offer: dict[str, Any],
+        new_offer: dict[str, Any],
         strategy: str = "update",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Merge existing offer data with new offer data.
 
         Args:
@@ -225,7 +225,7 @@ class DataTransformationService:
                         merged[key] = new_value
 
         # Always update import metadata
-        merged["last_imported_at"] = datetime.now(timezone.utc)
+        merged["last_imported_at"] = datetime.now(UTC)
         if "emag_updated_at" in new_offer:
             merged["emag_updated_at"] = new_offer["emag_updated_at"]
         if "raw_data" in new_offer:
@@ -235,9 +235,9 @@ class DataTransformationService:
 
     def detect_data_conflicts(
         self,
-        existing_offer: Dict[str, Any],
-        new_offer: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        existing_offer: dict[str, Any],
+        new_offer: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Detect conflicts between existing and new offer data.
 
         Args:
@@ -258,7 +258,6 @@ class DataTransformationService:
             and existing_offer["price"] is not None
             and new_offer["price"] is not None
         ):
-
             price_diff = abs(existing_offer["price"] - new_offer["price"])
             price_diff_percent = (
                 (price_diff / existing_offer["price"]) * 100
@@ -286,7 +285,6 @@ class DataTransformationService:
             and existing_offer["stock"] is not None
             and new_offer["stock"] is not None
         ):
-
             stock_diff = abs(existing_offer["stock"] - new_offer["stock"])
 
             if stock_diff > 5:  # More than 5 units difference
@@ -308,7 +306,6 @@ class DataTransformationService:
             and existing_offer["status"]
             and new_offer["status"]
         ):
-
             conflicts.append(
                 {
                     "type": "status_change",
@@ -320,7 +317,7 @@ class DataTransformationService:
 
         return conflicts
 
-    def validate_offer_data(self, offer_data: Dict[str, Any]) -> List[str]:
+    def validate_offer_data(self, offer_data: dict[str, Any]) -> list[str]:
         """Validate offer data for consistency and completeness.
 
         Args:
@@ -339,12 +336,11 @@ class DataTransformationService:
                 errors.append(f"Missing required field: {field}")
 
         # Price validation
-        if "price" in offer_data and offer_data["price"] is not None:
-            if (
-                not isinstance(offer_data["price"], (int, float))
-                or offer_data["price"] < 0
-            ):
-                errors.append("Invalid price: must be a non-negative number")
+        if "price" in offer_data and offer_data["price"] is not None and (
+            not isinstance(offer_data["price"], (int, float))
+            or offer_data["price"] < 0
+        ):
+            errors.append("Invalid price: must be a non-negative number")
 
         # Stock validation
         if "stock" in offer_data and offer_data["stock"] is not None:
@@ -362,9 +358,9 @@ class DataTransformationService:
 
     def transform_bulk_offers(
         self,
-        emag_offers: List[ProductOfferResponse],
+        emag_offers: list[ProductOfferResponse],
         account_type: str = "main",
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Transform multiple eMAG offers to internal format.
 
         Args:
@@ -408,9 +404,9 @@ class DataTransformationService:
 
     def create_import_summary(
         self,
-        transformed_offers: List[Dict[str, Any]],
-        conflicts: List[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        transformed_offers: list[dict[str, Any]],
+        conflicts: list[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """Create a summary of the import operation.
 
         Args:

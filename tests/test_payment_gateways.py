@@ -480,6 +480,7 @@ class TestPaymentService:
         result = await payment_service.handle_webhook(
             PaymentGatewayType.STRIPE,
             {"type": "payment_intent.succeeded", "data": {"object": {}}},
+            signature="test_signature_123",
         )
 
         assert result["gateway_type"] == PaymentGatewayType.STRIPE

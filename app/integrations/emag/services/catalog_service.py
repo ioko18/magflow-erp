@@ -1,6 +1,6 @@
 """Service for handling eMAG catalog operations."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..exceptions import EmagAPIError
 from ..models.responses.category import (
@@ -25,7 +25,7 @@ class CatalogService:
         """
         self.http_client = http_client
 
-    async def get_categories(self, parent_id: Optional[int] = None) -> List[Category]:
+    async def get_categories(self, parent_id: int | None = None) -> list[Category]:
         """Get a list of categories from eMAG.
 
         Args:
@@ -59,7 +59,7 @@ class CatalogService:
     async def get_category_characteristics(
         self,
         category_id: int,
-    ) -> List[CategoryCharacteristic]:
+    ) -> list[CategoryCharacteristic]:
         """Get characteristics for a specific category.
 
         Args:
@@ -86,7 +86,7 @@ class CatalogService:
 
         return response.results
 
-    async def get_vat_rates(self) -> Dict[str, float]:
+    async def get_vat_rates(self) -> dict[str, float]:
         """Get VAT rates from eMAG.
 
         Returns:
@@ -112,7 +112,7 @@ class CatalogService:
             for item in response.results
         }
 
-    async def get_handling_times(self) -> Dict[str, int]:
+    async def get_handling_times(self) -> dict[str, int]:
         """Get handling time settings from eMAG.
 
         Returns:
@@ -139,7 +139,7 @@ class CatalogService:
             "min_handling_time": response.min_handling_time,
         }
 
-    async def get_category_tree(self) -> List[Dict[str, Any]]:
+    async def get_category_tree(self) -> list[dict[str, Any]]:
         """Get a hierarchical tree of categories.
 
         Returns:

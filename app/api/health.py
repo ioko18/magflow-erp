@@ -1,9 +1,10 @@
 import asyncio
+import contextlib
 import logging
 import socket
 import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 # import aiodns
 # import httpx
@@ -21,14 +22,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
 # Startup timing and readiness state used by tests
-STARTUP_TIME = datetime.now(timezone.utc)
+STARTUP_TIME = datetime.now(UTC)
 WARMUP_PERIOD = 30  # seconds
 
 _ready_state = {
     "db_ready": True,
     "jwks_ready": True,
     "otel_ready": True,
-    "last_checked": datetime.now(timezone.utc),
+    "last_checked": datetime.now(UTC),
 }
 
 # Cache health check results for 30 seconds
@@ -43,7 +44,7 @@ except Exception:  # pragma: no cover
 
 
 def _format_dt(dt: datetime) -> str:
-    formatted = dt.astimezone(timezone.utc).isoformat()
+    formatted = dt.astimezone(UTC).isoformat()
     return formatted.replace("+00:00", "Z")
 
 
@@ -61,24 +62,24 @@ def _get_time_module():  # pragma: no cover - simple proxy
 
 def _get_startup_time() -> datetime:
     if v1_health and hasattr(v1_health, "STARTUP_TIME"):
-        return getattr(v1_health, "STARTUP_TIME")
+        return v1_health.STARTUP_TIME
     return STARTUP_TIME
 
 
 def _get_warmup_period() -> float:
     if v1_health and hasattr(v1_health, "WARMUP_PERIOD"):
-        return float(getattr(v1_health, "WARMUP_PERIOD"))
+        return float(v1_health.WARMUP_PERIOD)
     return float(WARMUP_PERIOD)
 
 
-def _get_ready_state() -> Dict[str, Any]:
+def _get_ready_state() -> dict[str, Any]:
     if v1_health and hasattr(v1_health, "_ready_state"):
-        return getattr(v1_health, "_ready_state")
+        return v1_health._ready_state
     return _ready_state
 
 
-def _serialize_ready_state(state: Dict[str, Any]) -> Dict[str, Any]:
-    serialized: Dict[str, Any] = {}
+def _serialize_ready_state(state: dict[str, Any]) -> dict[str, Any]:
+    serialized: dict[str, Any] = {}
     for key, value in state.items():
         if isinstance(value, datetime):
             serialized[key] = _format_dt(value)
@@ -98,7 +99,7 @@ def _normalize_service_status(value: Any) -> str:
     return str(value)
 
 
-def _normalize_services(services: Dict[str, Any]) -> Dict[str, str]:
+def _normalize_services(services: dict[str, Any]) -> dict[str, str]:
     return {key: _normalize_service_status(value) for key, value in services.items()}
 
 
@@ -106,49 +107,49 @@ def _normalize_services(services: Dict[str, Any]) -> Dict[str, str]:
 class HealthCheckResponse(BaseModel):
     status: str = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat() + "Z"
+        default_factory=lambda: datetime.now(UTC).isoformat() + "Z"
     )
 
 
 class DatabaseHealthCheck(BaseModel):
     status: str
     dsn_host: str
-    resolved_ips: List[str]
-    error: Optional[str] = None
+    resolved_ips: list[str]
+    error: str | None = None
 
 
 class JWKSHealthCheck(BaseModel):
     ok: bool
     url: str
-    error: Optional[str] = None
-    response_time_ms: Optional[float] = None
+    error: str | None = None
+    response_time_ms: float | None = None
 
 
 class CircuitBreakerStatus(BaseModel):
     state: str
     failure_count: int
     failure_threshold: int
-    opened_at: Optional[str] = None
-    time_until_retry: Optional[float] = None
+    opened_at: str | None = None
+    time_until_retry: float | None = None
 
 
 class FullHealthCheckResponse(BaseModel):
     status: str = "ok"
     timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat() + "Z"
+        default_factory=lambda: datetime.now(UTC).isoformat() + "Z"
     )
     db: DatabaseHealthCheck
     jwks: JWKSHealthCheck
-    circuit_breakers: Dict[str, CircuitBreakerStatus]
+    circuit_breakers: dict[str, CircuitBreakerStatus]
     version: str = settings.APP_VERSION
     environment: str = settings.ENVIRONMENT
 
 
-async def resolve_dns(hostname: str) -> Tuple[List[str], Optional[str]]:
+async def resolve_dns(hostname: str) -> tuple[list[str], str | None]:
     """Resolve a hostname to a list of IP addresses."""
     try:
-        # Fall back to socket.gethostbyname if aiodns fails
-        loop = asyncio.get_event_loop()
+        # Use the current event loop to run DNS resolution in executor
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(None, socket.gethostbyname_ex, hostname)
         return result[2], None  # Return the list of IP addresses
     except socket.gaierror as e:
@@ -191,8 +192,8 @@ async def check_database_health() -> DatabaseHealthCheck:
             # Check if critical tables exist
             result = await conn.execute(
                 text("""
-                    SELECT COUNT(*) FROM information_schema.tables 
-                    WHERE table_schema = 'app' 
+                    SELECT COUNT(*) FROM information_schema.tables
+                    WHERE table_schema = 'app'
                     AND table_name IN ('users', 'audit_logs', 'products')
                 """)
             )
@@ -264,10 +265,11 @@ async def check_jwks_health() -> JWKSHealthCheck:
     return JWKSHealthCheck(ok=True, keys_count=1, url=url)
 
 
-async def check_redis_health() -> Dict[str, Any]:
+async def check_redis_health() -> dict[str, Any]:
     """Check Redis connectivity and basic operations."""
     try:
         import redis.asyncio as redis
+
         from app.core.config import settings
 
         redis_url = getattr(settings, "REDIS_URL", "redis://localhost:6379/0")
@@ -308,7 +310,7 @@ async def check_redis_health() -> Dict[str, Any]:
         }
 
 
-async def check_migrations() -> Dict[str, Any]:
+async def check_migrations() -> dict[str, Any]:
     """Check if database migrations are up to date."""
     from app.core.config import settings
 
@@ -321,8 +323,8 @@ async def check_migrations() -> Dict[str, Any]:
             result = await conn.execute(
                 text("""
                     SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_schema = 'app' 
+                        SELECT FROM information_schema.tables
+                        WHERE table_schema = 'app'
                         AND table_name = 'alembic_version'
                     )
                 """)
@@ -338,7 +340,7 @@ async def check_migrations() -> Dict[str, Any]:
 
             # Get current migration version
             result = await conn.execute(
-                text('SELECT version_num FROM app.alembic_version LIMIT 1')
+                text("SELECT version_num FROM app.alembic_version LIMIT 1")
             )
             current_version = result.scalar()
 
@@ -359,13 +361,13 @@ async def check_migrations() -> Dict[str, Any]:
 
 
 @router.get("")
-async def health() -> Dict[str, str]:
+async def health() -> dict[str, str]:
     """Basic health check endpoint.
 
     This is a lightweight check that only verifies the API is running.
     For a full system health check, use /health/full
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "status": "ok",
         "timestamp": _format_dt(now),
@@ -373,22 +375,22 @@ async def health() -> Dict[str, str]:
 
 
 @router.get("/health")
-async def health_alias() -> Dict[str, str]:  # pragma: no cover - thin wrapper
+async def health_alias() -> dict[str, str]:  # pragma: no cover - thin wrapper
     """Alias to support legacy /health path used by integration tests."""
     return await health()
 
 
 # --- New lightweight probes expected by tests ---
 @router.get("/live")
-async def liveness_probe() -> Dict[str, Any]:
+async def liveness_probe() -> dict[str, Any]:
     """Simple liveness probe that always returns alive."""
     datetime_module = _get_datetime_module()
-    now = datetime_module.now(timezone.utc)
+    now = datetime_module.now(UTC)
     startup_time = _get_startup_time()
     uptime_seconds = max((now - startup_time).total_seconds(), 0.0)
     ready_state = _get_ready_state()
 
-    services: Dict[str, str] = {
+    services: dict[str, str] = {
         "database": "ready" if ready_state.get("db_ready", True) else "unhealthy",
         "jwks": "ready" if ready_state.get("jwks_ready", True) else "unhealthy",
     }
@@ -407,16 +409,16 @@ async def liveness_probe() -> Dict[str, Any]:
 
 
 @router.get("/ready")
-async def readiness_probe() -> Dict[str, Any]:
+async def readiness_probe() -> dict[str, Any]:
     """Readiness probe; returns ready with service map."""
     datetime_module = _get_datetime_module()
-    now = datetime_module.now(timezone.utc)
+    now = datetime_module.now(UTC)
     startup_time = _get_startup_time()
 
     ready_state = _get_ready_state()
-    services: Dict[str, Any]
+    services: dict[str, Any]
 
-    readiness_details: Optional[Dict[str, Any]] = None
+    readiness_details: dict[str, Any] | None = None
     if v1_health and hasattr(v1_health, "readiness_probe"):
         try:
             readiness_details = v1_health.readiness_probe()
@@ -439,10 +441,8 @@ async def readiness_probe() -> Dict[str, Any]:
 
     # Allow tests to influence metrics via monkeypatch
     if v1_health and hasattr(v1_health, "update_health_metrics"):
-        try:
+        with contextlib.suppress(Exception):
             v1_health.update_health_metrics({"probe": "ready", "services": services})
-        except Exception:
-            pass
 
     duration = max((now - startup_time).total_seconds(), 0.0)
     return {
@@ -454,11 +454,11 @@ async def readiness_probe() -> Dict[str, Any]:
 
 
 @router.get("/startup")
-async def startup_probe() -> Dict[str, Any]:
+async def startup_probe() -> dict[str, Any]:
     """Startup probe; returns a rich readiness payload used by integration tests."""
 
     datetime_module = _get_datetime_module()
-    now = datetime_module.now(timezone.utc)
+    now = datetime_module.now(UTC)
     startup_time = _get_startup_time()
     elapsed = max((now - startup_time).total_seconds(), 0.0)
     required = _get_warmup_period()
@@ -466,8 +466,8 @@ async def startup_probe() -> Dict[str, Any]:
 
     ready_state = _get_ready_state()
 
-    readiness_details: Optional[Dict[str, Any]] = None
-    raw_services: Dict[str, Any] = {}
+    readiness_details: dict[str, Any] | None = None
+    raw_services: dict[str, Any] = {}
 
     if v1_health and hasattr(v1_health, "readiness_probe"):
         try:
@@ -488,7 +488,7 @@ async def startup_probe() -> Dict[str, Any]:
                 "ready" if ready_state.get("otel_ready", True) else "starting"
             )
 
-    fallback_details: Optional[Dict[str, Any]] = None
+    fallback_details: dict[str, Any] | None = None
     try:
         fallback_details = await readiness_probe()
     except Exception:  # pragma: no cover - ignore probe failures
@@ -542,7 +542,7 @@ async def startup_probe() -> Dict[str, Any]:
 
 
 @router.get("/database", response_model=DatabaseHealthCheck)
-async def database_health() -> Dict[str, Any]:
+async def database_health() -> dict[str, Any]:
     """Database health check endpoint.
 
     Returns detailed information about the database connection status,
@@ -550,7 +550,7 @@ async def database_health() -> Dict[str, Any]:
     """
     # Use local helper that manages its own engine and does not require a session
     health_model = await check_database_health()
-    health_data: Dict[str, Any] = (
+    health_data: dict[str, Any] = (
         health_model.model_dump()
         if hasattr(health_model, "model_dump")
         else dict(health_model)
@@ -563,24 +563,24 @@ async def database_health() -> Dict[str, Any]:
 
 
 @router.get("/redis")
-async def redis_health() -> Dict[str, Any]:
+async def redis_health() -> dict[str, Any]:
     """Redis health check endpoint.
-    
+
     Returns detailed information about Redis connection status and performance.
     """
     return await check_redis_health()
 
 
 @router.get("/migrations")
-async def migrations_health() -> Dict[str, Any]:
+async def migrations_health() -> dict[str, Any]:
     """Database migrations health check endpoint.
-    
+
     Returns information about the current migration status.
     """
     return await check_migrations()
 
 
-def get_circuit_breakers_status() -> Dict[str, Dict[str, Any]]:
+def get_circuit_breakers_status() -> dict[str, dict[str, Any]]:
     """Get the status of all circuit breakers.
 
     Returns:
@@ -650,7 +650,7 @@ def get_circuit_breakers_status() -> Dict[str, Dict[str, Any]]:
 
 
 @router.get("/full", response_model=FullHealthCheckResponse)
-async def full_health_check() -> Dict[str, Any]:
+async def full_health_check() -> dict[str, Any]:
     """Full system health check that verifies all critical dependencies:
     - Database connection and performance
     - Database migrations status
@@ -734,7 +734,7 @@ async def full_health_check() -> Dict[str, Any]:
     except Exception as _e:  # pragma: no cover - defensive fallback
         jwks_check = JWKSHealthCheck(ok=True, keys_count=1, url="auto")
 
-    db_health: Dict[str, Any] = (
+    db_health: dict[str, Any] = (
         _db_health_model.model_dump()
         if hasattr(_db_health_model, "model_dump")
         else dict(_db_health_model)

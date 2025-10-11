@@ -3,17 +3,17 @@
 import json
 import logging
 import uuid
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import UTC, date, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import and_, func, select
 
 from app.core.dependency_injection import ServiceBase, ServiceContext
 from app.core.service_registry import (
     get_audit_log_repository,
+    get_order_repository,
     get_product_repository,
     get_user_repository,
-    get_order_repository,
 )  # get_order_repository
 from app.db.models import AuditLog, Category, Product, Role, User  # , Order
 
@@ -60,8 +60,8 @@ class ReportingService(ServiceBase):
 
     async def _generate_inventory_status(
         self,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Generate inventory status report."""
         try:
             date_range = self._get_date_range(filters)
@@ -77,7 +77,7 @@ class ReportingService(ServiceBase):
             for i in range(20):
                 stock_movements.append(
                     {
-                        "date": (datetime.utcnow() - timedelta(days=i)).strftime(
+                        "date": (datetime.now(UTC) - timedelta(days=i)).strftime(
                             "%Y-%m-%d",
                         ),
                         "product": f"Product {chr(65 + i % 10)}",
@@ -142,8 +142,8 @@ class ReportingService(ServiceBase):
 
     async def _generate_user_activity(
         self,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Generate user activity report."""
         try:
             date_range = self._get_date_range(filters)
@@ -247,8 +247,8 @@ class ReportingService(ServiceBase):
 
     async def _generate_financial_summary(
         self,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Generate financial summary report."""
         try:
             date_range = self._get_date_range(filters)
@@ -262,7 +262,7 @@ class ReportingService(ServiceBase):
             # Mock monthly revenue
             revenue_by_month = []
             for i in range(12):
-                month_date = datetime.utcnow().replace(month=i + 1, day=1)
+                month_date = datetime.now(UTC).replace(month=i + 1, day=1)
                 revenue_by_month.append(
                     {
                         "month": month_date.strftime("%Y-%m"),
@@ -351,8 +351,8 @@ class ReportingService(ServiceBase):
 
     async def _generate_system_metrics(
         self,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Generate system metrics report."""
         try:
             date_range = self._get_date_range(filters)
@@ -360,7 +360,7 @@ class ReportingService(ServiceBase):
             # Mock system metrics data
             system_metrics = []
             for i in range(24):
-                current_time = datetime.utcnow() - timedelta(hours=23 - i)
+                current_time = datetime.now(UTC) - timedelta(hours=23 - i)
                 system_metrics.append(
                     {
                         "timestamp": current_time.strftime("%Y-%m-%d %H:%M"),
@@ -429,8 +429,8 @@ class ReportingService(ServiceBase):
 
     def _get_date_range(
         self,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, date]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, date]:
         """Get date range from filters or use defaults."""
         if filters and "date_range" in filters:
             start_date = filters["date_range"].get(
@@ -444,7 +444,7 @@ class ReportingService(ServiceBase):
 
         return {"start_date": start_date, "end_date": end_date}
 
-    def _get_empty_report_data(self) -> Dict[str, Any]:
+    def _get_empty_report_data(self) -> dict[str, Any]:
         """Get empty report data structure for error cases."""
         return {
             "summary": {
@@ -460,7 +460,7 @@ class ReportingService(ServiceBase):
             "raw_data": [],
         }
 
-    async def get_available_reports(self) -> List[Dict[str, Any]]:
+    async def get_available_reports(self) -> list[dict[str, Any]]:
         """Get list of available report types."""
         return [
             {
@@ -502,9 +502,9 @@ class ReportingService(ServiceBase):
 
     async def export_report(
         self,
-        report_data: Dict[str, Any],
+        report_data: dict[str, Any],
         export_format: str,
-        filename: Optional[str] = None,
+        filename: str | None = None,
     ) -> bytes:
         """Export report data to specified format."""
         try:
@@ -522,7 +522,7 @@ class ReportingService(ServiceBase):
             logger.error(f"Error exporting report: {e}")
             raise
 
-    def _export_to_csv(self, report_data: Dict[str, Any]) -> bytes:
+    def _export_to_csv(self, report_data: dict[str, Any]) -> bytes:
         """Export report data to CSV format."""
         import csv
         import io
@@ -549,7 +549,7 @@ class ReportingService(ServiceBase):
 
         return output.getvalue().encode("utf-8")
 
-    def _export_to_excel(self, report_data: Dict[str, Any]) -> bytes:
+    def _export_to_excel(self, report_data: dict[str, Any]) -> bytes:
         """Export report data to Excel format."""
         try:
             import io
@@ -579,7 +579,7 @@ class ReportingService(ServiceBase):
         except ImportError:
             raise ValueError("Excel export requires pandas and openpyxl")
 
-    async def _export_to_pdf(self, report_data: Dict[str, Any]) -> bytes:
+    async def _export_to_pdf(self, report_data: dict[str, Any]) -> bytes:
         """Export report data to PDF format."""
         try:
             import io
@@ -642,9 +642,9 @@ class ReportingService(ServiceBase):
 
     async def schedule_report(
         self,
-        report_config: Dict[str, Any],
-        schedule_config: Dict[str, Any],
-        recipients: List[str],
+        report_config: dict[str, Any],
+        schedule_config: dict[str, Any],
+        recipients: list[str],
     ) -> str:
         """Schedule a report for automated generation."""
         try:
@@ -664,7 +664,7 @@ class ReportingService(ServiceBase):
         self,
         start_date: date,
         end_date: date,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get customer segments based on user roles and activity."""
         try:
             # Get user role distribution for customer segmentation
@@ -729,7 +729,7 @@ class ReportingService(ServiceBase):
         self,
         start_date: date,
         end_date: date,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get inventory metrics from database."""
         try:
             # Get product count

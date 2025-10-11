@@ -5,9 +5,8 @@ returned by the eMAG API endpoints.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from app.core.utils.datetime_utils import get_utc_now
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -16,6 +15,8 @@ from pydantic import (
     field_serializer,
     field_validator,
 )
+
+from app.core.utils.datetime_utils import get_utc_now
 
 
 class VatRate(BaseModel):
@@ -53,12 +54,12 @@ class VatRate(BaseModel):
         alias="isDefault",
         description="Indicates if this is the default VAT rate for the country",
     )
-    valid_from: Optional[datetime] = Field(
+    valid_from: datetime | None = Field(
         None,
         alias="validFrom",
         description="Date and time when this VAT rate becomes effective",
     )
-    valid_until: Optional[datetime] = Field(
+    valid_until: datetime | None = Field(
         None,
         alias="validUntil",
         description="Date and time when this VAT rate expires",
@@ -80,11 +81,12 @@ class VatRate(BaseModel):
 
     @field_serializer("valid_from", "valid_until", when_used="json")
     def serialize_optional_datetime(
-        self, value: Optional[datetime], _info
-    ) -> Optional[str]:
+        self, value: datetime | None, _info
+    ) -> str | None:
         return value.isoformat() if value else None
 
     @field_validator("country_code")
+    @classmethod
     def validate_country_code(cls, v):
         """Validate country code is uppercase and valid."""
         if not v or len(v) != 2 or not v.isalpha():
@@ -92,6 +94,7 @@ class VatRate(BaseModel):
         return v.upper()
 
     @field_validator("name")
+    @classmethod
     def validate_name(cls, v):
         """Strip whitespace from name and ensure it's not empty."""
         v = v.strip()
@@ -111,11 +114,11 @@ class VatResponse(BaseModel):
         alias="isError",
         description="Indicates if the request resulted in an error",
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of messages, warnings, or errors related to the request",
     )
-    results: List[VatRate] = Field(
+    results: list[VatRate] = Field(
         default_factory=list,
         description="List of VAT rates returned by the API",
     )
@@ -123,17 +126,17 @@ class VatResponse(BaseModel):
         default_factory=get_utc_now,
         description="Server timestamp when the response was generated, in UTC timezone",
     )
-    next_cursor: Optional[str] = Field(
+    next_cursor: str | None = Field(
         None,
         alias="nextCursor",
         description="Cursor for the next page of results, if available",
     )
-    prev_cursor: Optional[str] = Field(
+    prev_cursor: str | None = Field(
         None,
         alias="prevCursor",
         description="Cursor for the previous page of results, if available",
     )
-    total_count: Optional[int] = Field(
+    total_count: int | None = Field(
         None,
         alias="totalCount",
         description="Total number of results available, if known",
@@ -148,9 +151,9 @@ class VatResponse(BaseModel):
     @classmethod
     def from_emag_response(
         cls,
-        data: Dict[str, Any],
-        cursor: Optional[str] = None,
-        limit: Optional[int] = None,
+        data: dict[str, Any],
+        cursor: str | None = None,
+        limit: int | None = None,
     ) -> "VatResponse":
         """Create a VatResponse from eMAG API response data with pagination support.
 
@@ -176,7 +179,7 @@ class VatResponse(BaseModel):
 
         return response
 
-    def get_default_rate(self) -> Optional[VatRate]:
+    def get_default_rate(self) -> VatRate | None:
         """Get the default VAT rate from the results.
 
         Returns:
@@ -197,7 +200,7 @@ class VatResponse(BaseModel):
         """
         return self.next_cursor is not None
 
-    def get_pagination_links(self, base_url: str) -> Dict[str, Optional[str]]:
+    def get_pagination_links(self, base_url: str) -> dict[str, str | None]:
         """Generate pagination links for the response.
 
         Args:

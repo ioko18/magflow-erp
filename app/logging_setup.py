@@ -1,10 +1,9 @@
 """Simple logging setup for request context management."""
 
 import contextvars
-from typing import Optional
 
 # Context variables for request tracking
-request_id_var: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "request_id",
     default=None,
 )
@@ -20,6 +19,6 @@ def clear_request_context() -> None:
     request_id_var.set(None)
 
 
-def get_current_request_id() -> Optional[str]:
+def get_current_request_id() -> str | None:
     """Get the current request ID from context."""
     return request_id_var.get()

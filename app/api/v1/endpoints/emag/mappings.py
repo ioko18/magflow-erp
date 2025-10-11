@@ -1,6 +1,6 @@
 """API endpoints for eMAG product mappings."""
 
-from typing import Any, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,11 +20,11 @@ from app.models.mapping import MappingStatus
 router = APIRouter()
 
 
-@router.get("/mappings", response_model=List[ProductMappingResponse])
+@router.get("/mappings", response_model=list[ProductMappingResponse])
 async def list_product_mappings(
     skip: int = 0,
     limit: int = 100,
-    status: Optional[MappingStatus] = None,
+    status: MappingStatus | None = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -121,7 +121,7 @@ async def delete_product_mapping(
 
 @router.post("/mappings/sync", response_model=BulkMappingResult)
 async def sync_products(
-    product_ids: List[str],
+    product_ids: list[str],
     force: bool = False,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -136,7 +136,7 @@ async def sync_products(
     return await service.bulk_sync_products(products_data)
 
 
-@router.get("/mappings/{mapping_id}/history", response_model=List[SyncHistoryResponse])
+@router.get("/mappings/{mapping_id}/history", response_model=list[SyncHistoryResponse])
 async def get_mapping_sync_history(
     mapping_id: int,
     skip: int = 0,

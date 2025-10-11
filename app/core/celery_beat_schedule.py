@@ -9,12 +9,15 @@ This module defines the periodic task schedule for automated eMAG synchronizatio
 - Health checks
 """
 
-from celery.schedules import crontab
 import os
+
+from celery.schedules import crontab
 
 # Get configuration from environment
 EMAG_SYNC_INTERVAL_MINUTES = int(os.getenv("EMAG_SYNC_INTERVAL_MINUTES", "60"))
-EMAG_ENABLE_SCHEDULED_SYNC = os.getenv("EMAG_ENABLE_SCHEDULED_SYNC", "false").lower() == "true"
+EMAG_ENABLE_SCHEDULED_SYNC = (
+    os.getenv("EMAG_ENABLE_SCHEDULED_SYNC", "false").lower() == "true"
+)
 EMAG_LOG_RETENTION = int(os.getenv("EMAG_MAIN_LOG_RETENTION", "30"))
 
 # Celery Beat Schedule
@@ -29,7 +32,6 @@ CELERY_BEAT_SCHEDULE = {
         },
         "enabled": EMAG_ENABLE_SCHEDULED_SYNC,
     },
-    
     # Order synchronization - runs every 5 minutes
     "sync-emag-orders-5min": {
         "task": "emag.sync_orders",
@@ -39,7 +41,6 @@ CELERY_BEAT_SCHEDULE = {
         },
         "enabled": True,  # Always enabled for orders
     },
-    
     # Auto-acknowledge new orders - runs every 10 minutes
     "auto-acknowledge-orders-10min": {
         "task": "emag.auto_acknowledge_orders",
@@ -49,7 +50,6 @@ CELERY_BEAT_SCHEDULE = {
         },
         "enabled": True,
     },
-    
     # Cleanup old sync logs - runs daily at 3 AM
     "cleanup-sync-logs-daily": {
         "task": "emag.cleanup_old_sync_logs",
@@ -60,7 +60,6 @@ CELERY_BEAT_SCHEDULE = {
         },
         "enabled": True,
     },
-    
     # Health check - runs every 15 minutes
     "emag-health-check-15min": {
         "task": "emag.health_check",
@@ -70,7 +69,6 @@ CELERY_BEAT_SCHEDULE = {
         },
         "enabled": True,
     },
-    
     # Full product sync - runs daily at 2 AM (for comprehensive sync)
     "full-product-sync-daily": {
         "task": "emag.sync_products",

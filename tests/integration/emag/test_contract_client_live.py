@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 import pytest
 from aiohttp import web
 
-from app.services.emag_integration_service import (
+from app.services.emag.emag_integration_service import (
     EmagApiClient,
     EmagApiConfig,
     EmagApiEnvironment,
@@ -99,10 +99,16 @@ async def test_emag_api_client_live_contract(live_emag_server: Tuple[str, List[D
     # Override the default sandbox URL with our local test server
     config.base_url = base_url
 
-    client = EmagApiClient(config)
+    client = EmagApiClient(
+        username=config.api_username,
+        password=config.api_password,
+        base_url=base_url,
+        timeout=config.api_timeout,
+        max_retries=config.max_retries,
+    )
 
     try:
-        await client.initialize()
+        await client.start()
         products_response = await client.get_products(page=1, limit=25)
     finally:
         await client.close()

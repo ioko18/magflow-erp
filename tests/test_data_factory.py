@@ -21,7 +21,7 @@ try:
     from app.models.product import Product
     from app.models.category import Category
     from app.models.order import Order, OrderLine
-    from app.models.purchase import Supplier
+    from app.models.supplier import Supplier  # Fixed: Import from correct module
     from app.models.sales import Customer
     from app.models.inventory import Warehouse
     from app.models.audit_log import AuditLog

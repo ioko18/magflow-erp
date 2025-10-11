@@ -8,6 +8,24 @@
 
 **MagFlow ERP** is a modern, comprehensive Enterprise Resource Planning system built with FastAPI, SQLAlchemy, and PostgreSQL. It provides complete inventory management, sales, purchasing, and financial operations with real-time analytics and monitoring.
 
+## 📚 Documentație
+
+**Documentație Unificată:** Vezi [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) pentru documentația completă:
+- Structură completă backend și frontend
+- Ghiduri de utilizare și best practices
+- Exemple de cod și pattern-uri
+- Tool-uri și scripturi disponibile
+- Migrare și actualizare
+- API Documentation și arhitectură
+
+## ✨ Caracteristici v3.0
+
+- ✅ **Arhitectură Enterprise** - Organizare modulară pe 15+ directoare
+- ✅ **Type Safety 100%** - TypeScript complet cu interfețe pentru toate entitățile
+- ✅ **Security First** - Guards pentru autentificare, permisiuni și roluri
+- ✅ **Developer Experience** - IntelliSense, autocomplete, documentație completă
+- ✅ **Production Ready** - Scalabil, mententabil, testabil
+
 ## 🧪 Testing
 
 MagFlow uses `pytest` for testing with a comprehensive test suite including unit, integration, and API tests.

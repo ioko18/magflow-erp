@@ -1,8 +1,8 @@
 """Service for importing and synchronizing eMAG offers with the database."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import and_, select
@@ -39,7 +39,7 @@ class ImportResult:
         self.conflicts_found = 0
         self.errors = []
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for reporting."""
         return {
             "offers_processed": self.offers_processed,
@@ -66,7 +66,7 @@ class ConflictResolutionStrategy:
 class EmagOfferImportService:
     """Service for importing and synchronizing eMAG offers with the database."""
 
-    def __init__(self, db: Optional[AsyncSession] = None):
+    def __init__(self, db: AsyncSession | None = None):
         """Initialize the import service.
 
         Args:
@@ -87,13 +87,13 @@ class EmagOfferImportService:
     async def import_offers_from_emag(
         self,
         account_type: str = "main",
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         conflict_strategy: str = ConflictResolutionStrategy.UPDATE,
         batch_size: int = 50,
-        max_offers: Optional[int] = None,
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None,
-    ) -> Tuple[str, ImportResult]:
+        max_offers: int | None = None,
+        user_id: int | None = None,
+        user_name: str | None = None,
+    ) -> tuple[str, ImportResult]:
         """Import offers from eMAG and store them in the database.
 
         Args:
@@ -120,7 +120,7 @@ class EmagOfferImportService:
                 account_type=account_type,
                 operation_type="full_import",
                 status=EmagSyncStatus.RUNNING,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
                 filters=filters or {},
                 user_id=user_id,
                 initiated_by=user_name,
@@ -167,14 +167,14 @@ class EmagOfferImportService:
 
                 except Exception as e:
                     logger.error(
-                        f"Error processing batch {i//batch_size + 1}: {e!s}",
+                        f"Error processing batch {i // batch_size + 1}: {e!s}",
                     )
-                    result.errors.append(f"Batch {i//batch_size + 1}: {e!s}")
+                    result.errors.append(f"Batch {i // batch_size + 1}: {e!s}")
                     result.offers_failed += len(batch)
 
             # Update final sync status
             sync_record.status = EmagSyncStatus.COMPLETED
-            sync_record.completed_at = datetime.now(timezone.utc)
+            sync_record.completed_at = datetime.now(UTC)
             sync_record.duration_seconds = (
                 sync_record.completed_at - sync_record.started_at
             ).total_seconds()
@@ -191,12 +191,12 @@ class EmagOfferImportService:
             # Update sync record with failure
             if sync_record:
                 sync_record.status = EmagSyncStatus.FAILED
-                sync_record.completed_at = datetime.now(timezone.utc)
+                sync_record.completed_at = datetime.now(UTC)
                 sync_record.error_count += 1
                 sync_record.errors.append(
                     {
                         "error": str(e),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     },
                 )
                 await db.commit()
@@ -208,7 +208,7 @@ class EmagOfferImportService:
 
     async def _process_offer_batch(
         self,
-        offers: List[ProductOfferResponse],
+        offers: list[ProductOfferResponse],
         account_type: str,
         conflict_strategy: str,
         result: ImportResult,
@@ -265,7 +265,7 @@ class EmagOfferImportService:
         self,
         emag_offer_id: int,
         emag_product_id: str,
-    ) -> Optional[EmagProductOffer]:
+    ) -> EmagProductOffer | None:
         """Get existing offer from database.
 
         Args:
@@ -406,7 +406,7 @@ class EmagOfferImportService:
     async def _ensure_product_exists(
         self,
         emag_product_id: str,
-    ) -> Optional[EmagProduct]:
+    ) -> EmagProduct | None:
         """Ensure a product exists in the database.
 
         Args:
@@ -432,7 +432,7 @@ class EmagOfferImportService:
             product = EmagProduct(
                 emag_id=emag_product_id,
                 name=f"Product {emag_product_id}",
-                last_imported_at=datetime.now(timezone.utc),
+                last_imported_at=datetime.now(UTC),
                 is_active=True,
             )
             db.add(product)
@@ -504,10 +504,10 @@ class EmagOfferImportService:
 
     async def list_sync_operations(
         self,
-        account_type: Optional[str] = None,
-        status: Optional[str] = None,
+        account_type: str | None = None,
+        status: str | None = None,
         limit: int = 50,
-    ) -> List[EmagOfferSync]:
+    ) -> list[EmagOfferSync]:
         """List sync operations with optional filtering.
 
         Args:
@@ -538,7 +538,7 @@ class EmagOfferImportService:
         self,
         account_type: str = "main",
         days: int = 30,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get import statistics for the specified period.
 
         Args:
@@ -554,7 +554,7 @@ class EmagOfferImportService:
         # Calculate date threshold
         from datetime import timedelta
 
-        threshold_date = datetime.now(timezone.utc) - timedelta(days=days)
+        threshold_date = datetime.now(UTC) - timedelta(days=days)
 
         # Get completed syncs in the period
         stmt = select(EmagOfferSync).where(
@@ -598,10 +598,10 @@ class EmagOfferImportService:
     async def import_saleable_offers(
         self,
         account_type: str = "main",
-        max_offers: Optional[int] = None,
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None,
-    ) -> Tuple[str, ImportResult]:
+        max_offers: int | None = None,
+        user_id: int | None = None,
+        user_name: str | None = None,
+    ) -> tuple[str, ImportResult]:
         """Import only saleable offers according to API v4.4.8 validation rules.
 
         This imports only offers that are actually available for sale based on:
@@ -648,11 +648,11 @@ class EmagOfferImportService:
     async def update_offer_stock(
         self,
         offer_id: int,
-        stock_data: Dict[str, Any],
+        stock_data: dict[str, Any],
         account_type: str = "main",
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: int | None = None,
+        user_name: str | None = None,
+    ) -> dict[str, Any]:
         """Update stock for a specific offer using PATCH /offer_stock/{id} (API v4.4.8).
 
         Args:
@@ -689,7 +689,7 @@ class EmagOfferImportService:
 
             # Update local database
             existing_offer.stock = stock_data["stock"]
-            existing_offer.last_imported_at = datetime.now(timezone.utc)
+            existing_offer.last_imported_at = datetime.now(UTC)
             await db.commit()
 
             return {
@@ -698,7 +698,7 @@ class EmagOfferImportService:
                 "old_stock": old_stock,
                 "new_stock": stock_data["stock"],
                 "emag_response": response,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -708,11 +708,11 @@ class EmagOfferImportService:
 
     async def schedule_offer_update(
         self,
-        update_data: Dict[str, Any],
+        update_data: dict[str, Any],
         account_type: str = "main",
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: int | None = None,
+        user_name: str | None = None,
+    ) -> dict[str, Any]:
         """Schedule offer updates with start_date (API v4.4.8 feature).
 
         Args:
@@ -747,7 +747,7 @@ class EmagOfferImportService:
                 scheduled_data = {
                     "id": offer_id,
                     "start_date": start_date,
-                    "scheduled_at": datetime.now(timezone.utc),
+                    "scheduled_at": datetime.now(UTC),
                     "scheduled_by": user_name,
                 }
 
@@ -782,11 +782,11 @@ class EmagOfferImportService:
 
     async def create_campaign_proposal(
         self,
-        campaign_data: Dict[str, Any],
+        campaign_data: dict[str, Any],
         account_type: str = "main",
-        user_id: Optional[int] = None,
-        user_name: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        user_id: int | None = None,
+        user_name: str | None = None,
+    ) -> dict[str, Any]:
         """Create campaign proposals with MultiDeals support (API v4.4.8).
 
         Args:
@@ -815,7 +815,7 @@ class EmagOfferImportService:
                 "success": True,
                 "campaign_id": campaign_data["id"],
                 "emag_response": response,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "created_by": user_name,
             }
 
@@ -826,7 +826,7 @@ class EmagOfferImportService:
     async def _get_existing_offer_by_emag_id(
         self,
         emag_offer_id: int,
-    ) -> Optional[EmagProductOffer]:
+    ) -> EmagProductOffer | None:
         """Get existing offer by eMAG offer ID.
 
         Args:

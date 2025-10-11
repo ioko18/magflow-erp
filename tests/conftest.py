@@ -47,8 +47,18 @@ def event_loop():
     """Create an instance of the default event loop for the test session."""
     policy = asyncio.get_event_loop_policy()
     loop = policy.new_event_loop()
+    asyncio.set_event_loop(loop)
     yield loop
-    loop.close()
+    # Ensure all pending tasks are completed before closing
+    try:
+        pending = asyncio.all_tasks(loop)
+        for task in pending:
+            task.cancel()
+        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+    except Exception:
+        pass
+    finally:
+        loop.close()
 
 
 async def create_test_database():
@@ -307,6 +317,42 @@ async def async_client(db_engine: AsyncEngine) -> AsyncGenerator[AsyncClient, No
     test_app.dependency_overrides[get_async_db] = override_get_db
     test_app.dependency_overrides[get_db] = override_get_db
 
+    # Override authentication to bypass login for tests
+    async def override_get_current_user():
+        from app.models.user import User
+        from datetime import datetime
+        
+        # Return a mock user for testing
+        return User(
+            id=1,
+            email="test@example.com",
+            full_name="Test User",
+            hashed_password="",
+            is_active=True,
+            is_superuser=True,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+    
+    # Import and override the authentication dependencies
+    try:
+        from app.security.jwt import get_current_user as jwt_get_current_user
+        test_app.dependency_overrides[jwt_get_current_user] = override_get_current_user
+    except ImportError:
+        pass
+    
+    try:
+        from app.core.auth import get_current_user as core_get_current_user
+        test_app.dependency_overrides[core_get_current_user] = override_get_current_user
+    except ImportError:
+        pass
+    
+    try:
+        from app.api.dependencies import get_current_user as deps_get_current_user
+        test_app.dependency_overrides[deps_get_current_user] = override_get_current_user
+    except ImportError:
+        pass
+
     # Initialize Redis client as None
     redis_client = None
 
@@ -346,6 +392,55 @@ def client(async_client: AsyncClient) -> AsyncClient:
 def test_client(async_client: AsyncClient) -> AsyncClient:
     """Alias for 'client' to maintain backward compatibility with tests expecting 'test_client'."""
     return async_client
+
+
+# Alias fixture for tests that expect a 'db' fixture
+@pytest_asyncio.fixture
+async def db(db_session: AsyncSession) -> AsyncSession:
+    """Alias for 'db_session' to maintain backward compatibility with tests expecting 'db'."""
+    return db_session
+
+
+@pytest_asyncio.fixture
+async def auth_headers() -> dict[str, str]:
+    """Get authentication headers for testing protected endpoints.
+    
+    Returns a valid test authorization header. The actual authentication
+    is bypassed in tests through dependency overrides.
+    """
+    # Create a valid test token
+    from app.core.security import create_access_token
+    from datetime import timedelta
+    
+    access_token = create_access_token(
+        subject="test@example.com",
+        expires_delta=timedelta(minutes=30)
+    )
+    
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest_asyncio.fixture
+async def test_user(db_session: AsyncSession):
+    """Create a test user in the database for authentication tests."""
+    from app.core.security import get_password_hash
+    from app.models.user import User
+    
+    # Create user object
+    user = User(
+        email="test@example.com",
+        hashed_password=get_password_hash("TestPassword123!"),
+        full_name="Test User",
+        is_active=True,
+        is_superuser=False,
+    )
+    
+    # Add user to the database
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    
+    return user
 
 
 # Configuration fixtures

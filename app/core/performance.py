@@ -6,11 +6,12 @@ caching optimization, and database query optimization.
 
 import logging
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import wraps
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -32,7 +33,7 @@ class PerformanceMetrics:
 
 
 # Global metrics storage
-_metrics: Dict[str, PerformanceMetrics] = {}
+_metrics: dict[str, PerformanceMetrics] = {}
 
 
 def get_performance_metrics(request_id: str) -> PerformanceMetrics:
@@ -104,7 +105,7 @@ class CacheOptimizer:
         self,
         key: str,
         compute_func: Callable,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
         namespace: str = "default",
     ) -> Any:
         """Get cached value or compute and cache it."""
@@ -130,14 +131,16 @@ class QueryOptimizer:
     """Database query optimization utilities."""
 
     @staticmethod
-    def analyze_query_performance(query, execution_time: float) -> Dict[str, Any]:
+    def analyze_query_performance(query, execution_time: float) -> dict[str, Any]:
         """Analyze query performance and provide recommendations."""
         analysis = {
             "execution_time": execution_time,
             "performance_level": (
                 "good"
                 if execution_time < 0.1
-                else "slow" if execution_time < 1.0 else "very_slow"
+                else "slow"
+                if execution_time < 1.0
+                else "very_slow"
             ),
             "recommendations": [],
         }

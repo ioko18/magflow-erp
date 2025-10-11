@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional, Sequence, Union
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -51,7 +52,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def _normalize_alg(algorithm: Optional[str]) -> str:
+def _normalize_alg(algorithm: str | None) -> str:
     alg = (algorithm or settings.jwt_algorithm).upper()
     if alg not in SUPPORTED_ALGORITHMS:
         raise ValueError(
@@ -61,10 +62,10 @@ def _normalize_alg(algorithm: Optional[str]) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
-    additional_claims: Optional[Dict[str, Any]] = None,
-    algorithm: Optional[str] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
+    additional_claims: dict[str, Any] | None = None,
+    algorithm: str | None = None,
 ) -> str:
     """Create a JWT access token with the specified subject and claims.
 
@@ -78,7 +79,7 @@ def create_access_token(
         str: Encoded JWT token
 
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if expires_delta:
         expire = now + expires_delta
     else:
@@ -125,8 +126,8 @@ def create_access_token(
 
 
 def create_refresh_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a refresh token for the specified subject.
 
@@ -150,9 +151,9 @@ def create_refresh_token(
 
 def decode_token(
     token: str,
-    algorithms: Optional[Sequence[str]] = None,
-    options: Optional[Dict[str, bool]] = None,
-) -> Dict[str, Any]:
+    algorithms: Sequence[str] | None = None,
+    options: dict[str, bool] | None = None,
+) -> dict[str, Any]:
     """Decode and verify a JWT token using the key manager.
 
     Args:
@@ -231,7 +232,7 @@ def decode_token(
         )
 
         # Additional validation
-        current_time = datetime.now(timezone.utc).timestamp()
+        current_time = datetime.now(UTC).timestamp()
         if "exp" in payload:
             if payload["exp"] < current_time - 60:  # 60 seconds leeway
                 raise ExpiredSignatureError("Token has expired")
@@ -266,7 +267,7 @@ def get_user(db, username: str):
 
 async def get_current_user(
     request: Request,
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: str | None = Depends(oauth2_scheme),
 ) -> UserInDB:
     """Dependency to get the current user from a JWT token.
 
@@ -304,9 +305,10 @@ async def get_current_user(
             return MOCK_USER
 
         # Look up user in database
+        from sqlalchemy import select
+
         from app.db.session import AsyncSessionLocal
         from app.models.user import User as UserModel
-        from sqlalchemy import select
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(
@@ -349,6 +351,7 @@ async def get_current_user(
         )
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Unexpected error in get_current_user: {str(e)}", exc_info=True)
         raise HTTPException(

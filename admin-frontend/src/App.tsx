@@ -1,5 +1,5 @@
-import React from 'react'
-import { App as AntApp } from 'antd'
+import React, { Suspense, lazy } from 'react'
+import { App as AntApp, Spin } from 'antd'
 import {
   createBrowserRouter,
   RouterProvider,
@@ -10,29 +10,61 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { NotificationProvider } from './contexts/NotificationContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import EmagProductSyncV2 from './pages/EmagProductSyncV2'
-import EmagProductPublishing from './pages/EmagProductPublishing'
-import EmagAWB from './pages/EmagAWB'
-import EmagEAN from './pages/EmagEAN'
-import EmagInvoices from './pages/EmagInvoices'
-import EmagAddresses from './pages/EmagAddresses'
-import Products from './pages/Products'
-import Orders from './pages/Orders'
-import Customers from './pages/Customers'
-import Users from './pages/Users'
-import Settings from './pages/Settings'
+import ErrorBoundary from './components/ErrorBoundary'
+
+// Eager load critical pages
+import Dashboard from './pages/system/Dashboard'
 import Login from './pages/Login'
-import SupplierMatching from './pages/SupplierMatching'
-import Suppliers from './pages/Suppliers'
-import SupplierProducts from './pages/SupplierProducts'
-import ProductImport from './pages/ProductImport'
-import Inventory from './pages/Inventory'
+
+// Lazy load other pages
+const EmagProductSyncV2 = lazy(() => import('./pages/emag/EmagProductSyncV2'))
+const EmagProductPublishing = lazy(() => import('./pages/emag/EmagProductPublishing'))
+const EmagAWB = lazy(() => import('./pages/emag/EmagAWB'))
+const EmagEAN = lazy(() => import('./pages/emag/EmagEAN'))
+const EmagInvoices = lazy(() => import('./pages/emag/EmagInvoices'))
+const EmagAddresses = lazy(() => import('./pages/emag/EmagAddresses'))
+const Products = lazy(() => import('./pages/products/Products'))
+const Orders = lazy(() => import('./pages/orders/Orders'))
+const Customers = lazy(() => import('./pages/orders/Customers'))
+const Users = lazy(() => import('./pages/system/Users'))
+const Settings = lazy(() => import('./pages/system/Settings'))
+const NotificationSettings = lazy(() => import('./pages/system/NotificationSettings'))
+const SupplierMatching = lazy(() => import('./pages/suppliers/SupplierMatching'))
+const Suppliers = lazy(() => import('./pages/suppliers/Suppliers'))
+const SupplierProducts = lazy(() => import('./pages/suppliers/SupplierProducts'))
+const SupplierProductsSheet = lazy(() => import('./pages/suppliers/SupplierProductsSheet'))
+const ProductImport = lazy(() => import('./pages/products/ProductImport'))
+const Inventory = lazy(() => import('./pages/products/Inventory'))
+const LowStockSuppliers = lazy(() => import('./pages/products/LowStockSuppliers'))
+
+// Purchase Orders
+const PurchaseOrderList = lazy(() => import('./components/purchase-orders/PurchaseOrderList'))
+const PurchaseOrderListModern = lazy(() => import('./components/purchase-orders/PurchaseOrderListModern'))
+const PurchaseOrderForm = lazy(() => import('./components/purchase-orders/PurchaseOrderForm'))
+const PurchaseOrderDetails = lazy(() => import('./components/purchase-orders/PurchaseOrderDetails'))
+const UnreceivedItemsList = lazy(() => import('./components/purchase-orders/UnreceivedItemsList'))
+
+// Loading component
+const PageLoader = () => (
+  <div style={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    minHeight: '400px',
+    flexDirection: 'column',
+    gap: '16px'
+  }}>
+    <Spin size="large" />
+    <div style={{ color: '#666', fontSize: '16px' }}>Se încarcă...</div>
+  </div>
+)
 
 const AuthProviderWrapper: React.FC = () => {
   return (
     <AuthProvider>
-      <Outlet />
+      <NotificationProvider>
+        <Outlet />
+      </NotificationProvider>
     </AuthProvider>
   );
 };
@@ -49,9 +81,13 @@ const AppLayout: React.FC = () => {
   }
 
   return (
-    <Layout>
-      <Outlet />
-    </Layout>
+    <ErrorBoundary>
+      <Layout>
+        <Suspense fallback={<PageLoader />}>
+          <Outlet />
+        </Suspense>
+      </Layout>
+    </ErrorBoundary>
   );
 }
 
@@ -113,6 +149,10 @@ const router = createBrowserRouter(
               element: <Inventory />,
             },
             {
+              path: 'low-stock-suppliers',
+              element: <LowStockSuppliers />,
+            },
+            {
               path: 'orders',
               element: <Orders />,
             },
@@ -129,6 +169,10 @@ const router = createBrowserRouter(
               element: <SupplierProducts />,
             },
             {
+              path: 'suppliers/products-sheet',
+              element: <SupplierProductsSheet />,
+            },
+            {
               path: 'suppliers/matching',
               element: <SupplierMatching />,
             },
@@ -143,6 +187,27 @@ const router = createBrowserRouter(
             {
               path: 'settings',
               element: <Settings />,
+            },
+            {
+              path: 'notification-settings',
+              element: <NotificationSettings />,
+            },
+            // Purchase Orders routes
+            {
+              path: 'purchase-orders',
+              element: <PurchaseOrderListModern />,
+            },
+            {
+              path: 'purchase-orders/new',
+              element: <PurchaseOrderForm />,
+            },
+            {
+              path: 'purchase-orders/unreceived',
+              element: <UnreceivedItemsList />,
+            },
+            {
+              path: 'purchase-orders/:id',
+              element: <PurchaseOrderDetails />,
             },
             {
               path: '*',
@@ -164,16 +229,14 @@ const router = createBrowserRouter(
 function App() {
   return (
     <ThemeProvider>
-      <NotificationProvider>
-        <AntApp>
-          <RouterProvider
-            router={router}
-            future={{
-              v7_startTransition: true,
-            }}
-          />
-        </AntApp>
-      </NotificationProvider>
+      <AntApp>
+        <RouterProvider
+          router={router}
+          future={{
+            v7_startTransition: true,
+          }}
+        />
+      </AntApp>
     </ThemeProvider>
   )
 }

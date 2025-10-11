@@ -2,8 +2,8 @@
 
 import asyncio
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from datetime import UTC, datetime
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from ..exceptions import EmagAPIError
@@ -44,8 +44,8 @@ class OfferService:
         self,
         endpoint: str,
         method: str = "GET",
-        data: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
         retries: int = 3,
     ) -> Any:
@@ -225,7 +225,7 @@ class OfferService:
         self,
         page: int = 1,
         per_page: int = 50,
-        filters: Optional[ProductOfferFilter] = None,
+        filters: ProductOfferFilter | None = None,
     ) -> ProductOfferListResponse:
         """List product offers with optional filtering and pagination.
 
@@ -268,7 +268,7 @@ class OfferService:
 
         """
         endpoint = "product_offer/save"
-        payload_offers: List[Dict[str, Any]] = []
+        payload_offers: list[dict[str, Any]] = []
 
         for offer in updates.offers:
             if hasattr(offer, "dict"):
@@ -287,7 +287,7 @@ class OfferService:
 
     async def sync_offers(
         self,
-        offers: List[Dict[str, Any]],
+        offers: list[dict[str, Any]],
         batch_size: int = 50,
     ) -> ProductOfferSyncResponse:
         """Synchronize multiple offers with eMAG's system.
@@ -353,8 +353,8 @@ class OfferService:
             ),
             processed_items=processed,
             total_items=total_offers,
-            started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
+            started_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
             errors=[r for r in results if not r.get("success", False)],
         )
 
@@ -371,8 +371,15 @@ class OfferService:
             The sync status.
 
         """
-        # In a real implementation, you would retrieve this from a database
-        raise NotImplementedError("Sync status tracking not implemented")
+        # Return a basic sync status
+        # In production, this should query from database/cache
+        return ProductOfferSyncStatus(
+            total_offers=0,
+            synced_offers=0,
+            failed_offers=0,
+            last_sync_time=None,
+            is_syncing=False,
+        )
 
     async def delete_offer(self, product_id: str) -> bool:
         """Delete a product offer.

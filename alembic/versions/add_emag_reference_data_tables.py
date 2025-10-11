@@ -1,7 +1,7 @@
 """add emag reference data tables
 
 Revision ID: add_emag_reference_data
-Revises: add_section8_fields_to_emag_models
+Revises: 3880b6b52d31
 Create Date: 2025-09-30 22:10:00.000000
 
 """

@@ -13,11 +13,11 @@ class IdempotencyTestRequest(BaseModel):
 
 
 @router.post("/idempotency")
-def test_idempotency_endpoint(request: IdempotencyTestRequest) -> Dict[str, Any]:
+def idempotency_endpoint(request: IdempotencyTestRequest) -> Dict[str, Any]:
     """Test endpoint for idempotency functionality."""
     return {
         "message": "Request processed successfully",
-        "data": request.dict(),
+        "data": request.model_dump(),
         "timestamp": int(time.time()),
         "status": "created",
     }

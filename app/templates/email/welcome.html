@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to {{ app_name }}!{% endblock %}
+
+{% block header %}Welcome to {{ app_name }}! 🎉{% endblock %}
+
+{% block content %}
+    <h2 style="color: #333; margin-top: 0;">Hello {{ user_name }}! 👋</h2>
+    
+    <p style="font-size: 16px; color: #555;">
+        Welcome to <strong>{{ app_name }}</strong>! We're excited to have you on board.
+    </p>
+    
+    <p style="font-size: 16px; color: #555;">
+        Your account has been successfully created. You can now access all features of our platform:
+    </p>
+    
+    <ul style="font-size: 16px; color: #555; line-height: 1.8;">
+        <li>📦 Product Management</li>
+        <li>📊 Order Processing</li>
+        <li>🔄 eMAG Integration</li>
+        <li>📈 Analytics & Reports</li>
+        <li>👥 Team Collaboration</li>
+    </ul>
+    
+    {% if verification_url %}
+        <div class="alert alert-info">
+            <strong>Action Required:</strong> Please verify your email address to activate your account.
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="{{ verification_url }}" class="button">Verify Email Address</a>
+        </div>
+        
+        <p style="font-size: 14px; color: #6c757d; text-align: center;">
+            Or copy and paste this link in your browser:<br>
+            <code style="background-color: #f8f9fa; padding: 5px 10px; border-radius: 4px; font-size: 12px;">{{ verification_url }}</code>
+        </p>
+    {% else %}
+        <div style="text-align: center;">
+            <a href="{{ app_url }}" class="button">Go to Dashboard</a>
+        </div>
+    {% endif %}
+    
+    <p style="font-size: 16px; color: #555; margin-top: 30px;">
+        If you have any questions or need assistance, feel free to reach out to our support team.
+    </p>
+    
+    <p style="font-size: 16px; color: #555;">
+        Best regards,<br>
+        <strong>The {{ app_name }} Team</strong>
+    </p>
+{% endblock %}

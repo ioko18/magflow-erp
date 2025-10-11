@@ -1,15 +1,15 @@
 """Admin dashboard service for MagFlow ERP."""
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import desc, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import AuditLog, Permission, Role, User
-from ..services.cache_service import CacheManager
-from ..services.rbac_service import AuditService, RBACService
+from ..services.infrastructure.cache_service import CacheManager
+from ..services.security.rbac_service import AuditService, RBACService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class AdminService:
         self.rbac_service = RBACService(db)
         self.audit_service = AuditService(db)
 
-    async def get_dashboard_stats(self) -> Dict[str, Any]:
+    async def get_dashboard_stats(self) -> dict[str, Any]:
         """Get dashboard statistics."""
         try:
             # Get user statistics
@@ -112,8 +112,8 @@ class AdminService:
         self,
         skip: int = 0,
         limit: int = 50,
-        search: Optional[str] = None,
-    ) -> List[User]:
+        search: str | None = None,
+    ) -> list[User]:
         """Get list of users for admin management."""
         try:
             query = select(User)
@@ -132,7 +132,7 @@ class AdminService:
             logger.error(f"Error getting users list: {e}")
             return []
 
-    async def get_user_details(self, user_id: int) -> Optional[User]:
+    async def get_user_details(self, user_id: int) -> User | None:
         """Get detailed user information."""
         try:
             result = await self.db.execute(select(User).where(User.id == user_id))
@@ -144,9 +144,9 @@ class AdminService:
 
     async def create_user(
         self,
-        user_data: Dict[str, Any],
+        user_data: dict[str, Any],
         current_user: User,
-    ) -> Optional[User]:
+    ) -> User | None:
         """Create a new user."""
         try:
             # Check permissions
@@ -164,8 +164,8 @@ class AdminService:
                 full_name=user_data.get("full_name"),
                 is_active=user_data.get("is_active", True),
                 is_superuser=user_data.get("is_superuser", False),
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
             )
 
             self.db.add(new_user)
@@ -225,9 +225,9 @@ class AdminService:
     async def update_user(
         self,
         user_id: int,
-        update_data: Dict[str, Any],
+        update_data: dict[str, Any],
         current_user: User,
-    ) -> Optional[User]:
+    ) -> User | None:
         """Update user information."""
         try:
             # Check permissions
@@ -259,7 +259,7 @@ class AdminService:
                     if role_obj:
                         user.roles.append(role_obj)
 
-            user.updated_at = datetime.utcnow()
+            user.updated_at = datetime.now(UTC)
             await self.db.commit()
 
             # Log admin action
@@ -353,10 +353,10 @@ class AdminService:
         self,
         skip: int = 0,
         limit: int = 50,
-        action: Optional[str] = None,
-        user_id: Optional[int] = None,
-        resource: Optional[str] = None,
-    ) -> List[AuditLog]:
+        action: str | None = None,
+        user_id: int | None = None,
+        resource: str | None = None,
+    ) -> list[AuditLog]:
         """Get audit logs for admin review."""
         try:
             return await self.audit_service.get_audit_logs(
@@ -371,7 +371,7 @@ class AdminService:
             logger.error(f"Error getting audit logs: {e}")
             return []
 
-    async def get_system_health(self) -> Dict[str, Any]:
+    async def get_system_health(self) -> dict[str, Any]:
         """Get system health status."""
         try:
             # Database health
@@ -403,7 +403,9 @@ class AdminService:
             overall_health = (
                 "healthy"
                 if not issues
-                else "degraded" if len(issues) == 1 else "unhealthy"
+                else "degraded"
+                if len(issues) == 1
+                else "unhealthy"
             )
 
             return {
@@ -411,7 +413,7 @@ class AdminService:
                 "database": db_health,
                 "cache": cache_health,
                 "api": api_health,
-                "last_check": datetime.utcnow(),
+                "last_check": datetime.now(UTC),
                 "issues": issues,
             }
 
@@ -422,11 +424,11 @@ class AdminService:
                 "database": "unknown",
                 "cache": "unknown",
                 "api": "unknown",
-                "last_check": datetime.utcnow(),
+                "last_check": datetime.now(UTC),
                 "issues": ["Health check failed"],
             }
 
-    async def get_roles_list(self, skip: int = 0, limit: int = 50) -> List[Role]:
+    async def get_roles_list(self, skip: int = 0, limit: int = 50) -> list[Role]:
         """Get list of roles."""
         try:
             result = await self.db.execute(
@@ -442,7 +444,7 @@ class AdminService:
         self,
         skip: int = 0,
         limit: int = 50,
-    ) -> List[Permission]:
+    ) -> list[Permission]:
         """Get list of permissions."""
         try:
             result = await self.db.execute(

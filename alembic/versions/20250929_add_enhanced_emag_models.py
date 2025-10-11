@@ -1,7 +1,7 @@
 """Add enhanced eMAG integration models
 
 Revision ID: 20250929_add_enhanced_emag_models
-Revises: 20250928_add_external_id_to_orders
+Revises: 20250928_add_external_id
 Create Date: 2025-09-29 16:10:00.000000
 
 """

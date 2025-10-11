@@ -95,7 +95,7 @@ def _prepare_metadata_for_sqlite() -> None:
                     element._resolved_target = None
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def engine() -> AsyncEngine:
     """Create a test database engine."""
     # Create engine with SQLite in-memory database
@@ -126,7 +126,7 @@ async def engine() -> AsyncEngine:
         del os.environ["DB_URL"]
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def app(engine: AsyncEngine):
     """Create a test FastAPI application with test settings."""
     # Ensure we're using test settings

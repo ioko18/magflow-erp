@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Order Confirmation - {{ order_number }}{% endblock %}
+
+{% block header %}Order Confirmation 📦{% endblock %}
+
+{% block content %}
+    <h2 style="color: #333; margin-top: 0;">Thank you for your order!</h2>
+    
+    <div class="alert alert-success">
+        <strong>Order Confirmed:</strong> Your order has been successfully placed and is being processed.
+    </div>
+    
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
+        <h3 style="margin-top: 0; color: #333;">Order Details</h3>
+        <p style="margin: 5px 0;"><strong>Order Number:</strong> {{ order_number }}</p>
+        
+        {% if order_details.customer_name %}
+        <p style="margin: 5px 0;"><strong>Customer:</strong> {{ order_details.customer_name }}</p>
+        {% endif %}
+        
+        {% if order_details.order_date %}
+        <p style="margin: 5px 0;"><strong>Order Date:</strong> {{ order_details.order_date }}</p>
+        {% endif %}
+        
+        {% if order_details.total_amount %}
+        <p style="margin: 5px 0;"><strong>Total Amount:</strong> {{ order_details.total_amount }} {{ order_details.currency|default('RON') }}</p>
+        {% endif %}
+        
+        {% if order_details.status %}
+        <p style="margin: 5px 0;"><strong>Status:</strong> <span style="color: #28a745;">{{ order_details.status }}</span></p>
+        {% endif %}
+    </div>
+    
+    {% if order_details.items %}
+    <h3 style="color: #333;">Order Items</h3>
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">Product</th>
+                <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">Quantity</th>
+                <th style="padding: 10px; text-align: right; border-bottom: 2px solid #dee2e6;">Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_details.items %}
+            <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #dee2e6;">{{ item.name }}</td>
+                <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{{ item.quantity }}</td>
+                <td style="padding: 10px; text-align: right; border-bottom: 1px solid #dee2e6;">{{ item.price }} {{ order_details.currency|default('RON') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    
+    {% if order_details.shipping_address %}
+    <h3 style="color: #333;">Shipping Address</h3>
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0;">
+        <p style="margin: 5px 0;">{{ order_details.shipping_address.street }}</p>
+        <p style="margin: 5px 0;">{{ order_details.shipping_address.city }}, {{ order_details.shipping_address.postal_code }}</p>
+        <p style="margin: 5px 0;">{{ order_details.shipping_address.country }}</p>
+    </div>
+    {% endif %}
+    
+    {% if order_details.tracking_url %}
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ order_details.tracking_url }}" class="button">Track Your Order</a>
+    </div>
+    {% endif %}
+    
+    <p style="font-size: 16px; color: #555; margin-top: 30px;">
+        We'll send you another email when your order ships. If you have any questions about your order, 
+        please don't hesitate to contact our support team.
+    </p>
+    
+    <p style="font-size: 16px; color: #555;">
+        Best regards,<br>
+        <strong>The {{ app_name }} Team</strong>
+    </p>
+{% endblock %}

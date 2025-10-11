@@ -200,7 +200,7 @@ HTTP_ATTRS = {
 def get_metrics_router():
     """Return a router with metrics endpoint."""
     import time
-    from typing import Awaitable, Callable
+    from collections.abc import Awaitable, Callable
 
     from fastapi import APIRouter, Request, Response
     from fastapi.responses import Response as FastAPIResponse
@@ -258,8 +258,12 @@ def get_metrics_router():
             process_time = time.time() - start_time
             error_type = type(e).__name__
             record_error(error_type=error_type, endpoint=endpoint)
-            print(
-                f"Error processing request to {endpoint} after {process_time:.4f} seconds: {e}",
+            logger.error(
+                "Error processing request to %s after %.4f seconds: %s",
+                endpoint,
+                process_time,
+                e,
+                exc_info=True,
             )
             raise
 

@@ -1,22 +1,23 @@
 """Test admin dashboard API endpoints without authentication for development."""
 
+import contextlib
 import logging
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db import get_db
 from app.core.config import settings
+from app.db import get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
-@router.get("/dashboard", response_model=Dict[str, Any])
+@router.get("/dashboard", response_model=dict[str, Any])
 async def get_dashboard_data(
     db: AsyncSession = Depends(get_db),
 ):
@@ -217,7 +218,7 @@ async def get_dashboard_data(
         }
 
 
-@router.get("/emag-products", response_model=Dict[str, Any])
+@router.get("/emag-products", response_model=dict[str, Any])
 async def get_emag_products(
     skip: int = 0,
     limit: int = 50,
@@ -399,19 +400,19 @@ async def get_emag_products(
         }
 
 
-@router.get("/emag-orders", response_model=Dict[str, Any])
+@router.get("/emag-orders", response_model=dict[str, Any])
 async def get_emag_orders(
     skip: int = 0,
     limit: int = 50,
-    status: Optional[str] = Query(None, description="Filter by order status"),
-    channel: Optional[str] = Query(
+    status: str | None = Query(None, description="Filter by order status"),
+    channel: str | None = Query(
         None,
         description="Filter by derived fulfillment channel (main/fbe/other)",
     ),
-    start_date: Optional[str] = Query(
+    start_date: str | None = Query(
         None, description="Filter orders created after this ISO timestamp"
     ),
-    end_date: Optional[str] = Query(
+    end_date: str | None = Query(
         None, description="Filter orders created before this ISO timestamp"
     ),
     db: AsyncSession = Depends(get_db),
@@ -419,8 +420,8 @@ async def get_emag_orders(
     """Get eMAG orders from database (test version without auth)."""
     try:
         try:
-            filters: List[str] = []
-            query_params: Dict[str, Any] = {"limit": limit, "skip": skip}
+            filters: list[str] = []
+            query_params: dict[str, Any] = {"limit": limit, "skip": skip}
 
             channel_expression = (
                 "CASE "
@@ -432,7 +433,7 @@ async def get_emag_orders(
                 "END"
             )
 
-            normalized_channel: Optional[str] = None
+            normalized_channel: str | None = None
             if channel:
                 normalized_channel = channel.lower()
                 if normalized_channel not in {"main", "fbe", "other"}:
@@ -529,7 +530,7 @@ async def get_emag_orders(
                     return float(value)
                 return float(value or 0)
 
-            mapped_orders: List[Dict[str, Any]] = []
+            mapped_orders: list[dict[str, Any]] = []
             for order in orders:
                 order_number = order.external_id or f"EM-{order.id}"
                 derived_channel = getattr(order, "derived_channel", None) or "other"
@@ -572,8 +573,8 @@ async def get_emag_orders(
                     }
                 )
 
-            status_breakdown: Dict[str, int] = {}
-            channel_breakdown: Dict[str, int] = {}
+            status_breakdown: dict[str, int] = {}
+            channel_breakdown: dict[str, int] = {}
             total_value = 0.0
 
             for order in mapped_orders:
@@ -678,8 +679,8 @@ async def get_emag_orders(
             mock_total_value = sum(
                 order.get("total_amount", 0.0) for order in mock_summary_orders
             )
-            mock_status_breakdown: Dict[str, int] = {}
-            mock_channel_breakdown: Dict[str, int] = {}
+            mock_status_breakdown: dict[str, int] = {}
+            mock_channel_breakdown: dict[str, int] = {}
 
             for order in mock_summary_orders:
                 mock_status = order.get("status") or "unknown"
@@ -722,16 +723,16 @@ async def get_emag_orders(
         }
 
 
-@router.get("/emag-customers", response_model=Dict[str, Any])
+@router.get("/emag-customers", response_model=dict[str, Any])
 async def get_emag_customers(
     skip: int = Query(0, ge=0, description="Number of customers to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum customers to return"),
-    status: Optional[str] = Query(
+    status: str | None = Query(
         None,
         description="Optional status filter (active/inactive/blocked)",
     ),
     db: AsyncSession = Depends(get_db),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return aggregated customer insights (test version without auth)."""
 
     def _calculate_tier(total_spent: float) -> str:
@@ -741,7 +742,7 @@ async def get_emag_customers(
             return "silver"
         return "bronze"
 
-    def _derive_status(is_active: bool, failed_attempts: Optional[int]) -> str:
+    def _derive_status(is_active: bool, failed_attempts: int | None) -> str:
         if (failed_attempts or 0) >= 5:
             return "blocked"
         return "active" if is_active else "inactive"
@@ -851,7 +852,7 @@ async def get_emag_customers(
 
     status_filter = status.lower() if isinstance(status, str) else None
 
-    customers: List[Dict[str, Any]] = []
+    customers: list[dict[str, Any]] = []
     total_active = 0
     total_inactive = 0
     total_spent_all = 0.0
@@ -917,7 +918,7 @@ async def get_emag_customers(
     }
 
 
-@router.get("/system-status", response_model=Dict[str, Any])
+@router.get("/system-status", response_model=dict[str, Any])
 async def get_system_status(
     db: AsyncSession = Depends(get_db),
 ):
@@ -986,7 +987,7 @@ async def get_system_status(
         }
 
 
-@router.get("/sync-progress", response_model=Dict[str, Any])
+@router.get("/sync-progress", response_model=dict[str, Any])
 async def get_sync_progress():
     """Get current sync progress (mock implementation for demo)."""
     # This would normally check actual sync progress from a shared state or database
@@ -1046,27 +1047,27 @@ async def export_sync_data(sync_id: str):
     }
 
 
-@router.get("/emag-products-by-account", response_model=Dict[str, Any])
+@router.get("/emag-products-by-account", response_model=dict[str, Any])
 async def get_emag_products_by_account(
     account_type: str = Query(..., description="Account type: main or fbe"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=200, description="Number of records to return"),
-    search: Optional[str] = Query(
+    search: str | None = Query(
         None, description="Search by name, part number or eMAG ID"
     ),
     status: str = Query(
         "active", description="Filter by product status: active, inactive or all"
     ),
-    availability: Optional[bool] = Query(
+    availability: bool | None = Query(
         None, description="Filter by availability status"
     ),
-    min_price: Optional[float] = Query(None, ge=0, description="Minimum price filter"),
-    max_price: Optional[float] = Query(None, ge=0, description="Maximum price filter"),
-    sort_by: Optional[str] = Query(
+    min_price: float | None = Query(None, ge=0, description="Minimum price filter"),
+    max_price: float | None = Query(None, ge=0, description="Maximum price filter"),
+    sort_by: str | None = Query(
         None,
         description="Sort field: effective_price, price, sale_price, created_at, updated_at, name",
     ),
-    sort_order: Optional[str] = Query("desc", description="Sort order: asc or desc"),
+    sort_order: str | None = Query("desc", description="Sort order: asc or desc"),
 ):
     """Get eMAG products filtered by account type with pagination and summaries."""
 
@@ -1076,18 +1077,17 @@ async def get_emag_products_by_account(
 
     try:
         from sqlalchemy import text
+
         from app.db.session import AsyncSessionLocal
 
         async with AsyncSessionLocal() as session:
-            try:
+            with contextlib.suppress(Exception):
                 await session.execute(
                     text(f"SET search_path TO {settings.search_path}")
                 )
-            except Exception:
-                pass
 
-            filters: List[str] = ["o.account_type = :account_type"]
-            params: Dict[str, Any] = {"account_type": account_type}
+            filters: list[str] = ["o.account_type = :account_type"]
+            params: dict[str, Any] = {"account_type": account_type}
 
             if normalized_status == "inactive":
                 filters.append("p.is_active = false")
@@ -1102,9 +1102,7 @@ async def get_emag_products_by_account(
                     for index, term in enumerate(search_terms):
                         param_name = f"search_term_{index}"
                         filters.append(
-                            "(p.name ILIKE :{param} OR p.part_number ILIKE :{param} OR p.emag_id ILIKE :{param})".format(
-                                param=param_name
-                            )
+                            f"(p.name ILIKE :{param_name} OR p.part_number ILIKE :{param_name} OR p.emag_id ILIKE :{param_name})"
                         )
                         params[param_name] = f"%{term}%"
 
@@ -1166,7 +1164,7 @@ async def get_emag_products_by_account(
             result = await session.execute(products_query, products_params)
             rows = result.mappings().all()
 
-            products: List[Dict[str, Any]] = []
+            products: list[dict[str, Any]] = []
             for row in rows:
                 product = dict(row)
                 created_at = product.get("created_at")
@@ -1406,7 +1404,7 @@ async def get_emag_products_by_account(
                 },
             ]
 
-        def matches_filters(product: Dict[str, Any]) -> bool:
+        def matches_filters(product: dict[str, Any]) -> bool:
             if normalized_status == "inactive" and product.get("status") != "inactive":
                 return False
             if normalized_status == "active" and product.get("status") != "active":
@@ -1443,7 +1441,7 @@ async def get_emag_products_by_account(
             1 for p in filtered_mock_products if float(p.get("price") or 0) == 0
         )
         prices = [float(p.get("price") or 0) for p in filtered_mock_products]
-        brand_counts: Dict[str, int] = {}
+        brand_counts: dict[str, int] = {}
         for product in filtered_mock_products:
             brand_key = product.get("brand") or "Necunoscut"
             brand_counts[brand_key] = brand_counts.get(brand_key, 0) + 1

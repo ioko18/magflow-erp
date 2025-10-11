@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from ..models.mapping import (
     FieldMappingRule,
@@ -15,7 +15,7 @@ class MappingConfigLoader:
     """Loader for mapping configuration from various sources."""
 
     @staticmethod
-    def from_dict(config_dict: Dict[str, Any]) -> MappingConfiguration:
+    def from_dict(config_dict: dict[str, Any]) -> MappingConfiguration:
         """Load configuration from a dictionary.
 
         Args:
@@ -28,7 +28,7 @@ class MappingConfigLoader:
         return MappingConfiguration(**config_dict)
 
     @staticmethod
-    def from_json_file(file_path: Union[str, Path]) -> MappingConfiguration:
+    def from_json_file(file_path: str | Path) -> MappingConfiguration:
         """Load configuration from a JSON file.
 
         Args:
@@ -370,7 +370,7 @@ class MappingPreset:
 class MappingConfigManager:
     """Manager for loading and managing mapping configurations."""
 
-    def __init__(self, config_dir: Optional[Union[str, Path]] = None):
+    def __init__(self, config_dir: str | Path | None = None):
         """Initialize the configuration manager.
 
         Args:
@@ -379,7 +379,7 @@ class MappingConfigManager:
         """
         self.config_dir = Path(config_dir) if config_dir else Path.cwd() / "config"
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        self._current_config: Optional[MappingConfiguration] = None
+        self._current_config: MappingConfiguration | None = None
 
     def load_config(self, config_name: str = "default") -> MappingConfiguration:
         """Load a mapping configuration by name.
@@ -405,7 +405,7 @@ class MappingConfigManager:
     def save_config(
         self,
         config_name: str,
-        config: Optional[MappingConfiguration] = None,
+        config: MappingConfiguration | None = None,
     ) -> None:
         """Save a mapping configuration to file.
 
@@ -422,7 +422,7 @@ class MappingConfigManager:
         with open(config_file, "w", encoding="utf-8") as f:
             json.dump(config.dict(), f, indent=2, ensure_ascii=False)
 
-    def list_configs(self) -> List[str]:
+    def list_configs(self) -> list[str]:
         """List available configuration files.
 
         Returns:
@@ -464,7 +464,7 @@ class MappingConfigManager:
         return config
 
     @property
-    def current_config(self) -> Optional[MappingConfiguration]:
+    def current_config(self) -> MappingConfiguration | None:
         """Get the current configuration.
 
         Returns:
@@ -475,8 +475,8 @@ class MappingConfigManager:
 
     def validate_config(
         self,
-        config: Optional[MappingConfiguration] = None,
-    ) -> List[str]:
+        config: MappingConfiguration | None = None,
+    ) -> list[str]:
         """Validate a mapping configuration.
 
         Args:

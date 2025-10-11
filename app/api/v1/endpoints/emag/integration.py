@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.core.database import get_async_session
 from app.db.models import User
-from app.integrations.emag.client import EmagAccountType, EmagAPIWrapper
+from app.emag.client import EmagAccountType, EmagAPIWrapper
 
 router = APIRouter(prefix="/integration", tags=["emag-integration"])
 

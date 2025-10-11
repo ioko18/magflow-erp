@@ -4,30 +4,31 @@ import base64
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from app.core.rate_limiting import RateLimiter
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.product import Product
-from ..services.redis import CacheManager
+from app.core.rate_limiting import RateLimiter
+
 from ..core.config import settings
+from ..crud.product import ProductCRUD
 from ..db import get_db
+from ..models.product import Product
+from ..schemas.auth import UserInDB
 from ..schemas.product import (
-    ProductCreate,
-    ProductUpdate,
-    ProductResponse,
     ProductBulkCreate,
     ProductBulkCreateResponse,
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
     ProductValidationResult,
 )
 from ..security.jwt import get_current_active_user
-from ..schemas.auth import UserInDB
-from ..crud.product import ProductCRUD
+from ..services.infrastructure.redis import CacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,10 @@ rate_limit = RateLimiter(
 
 # Cursor pagination models
 class CursorPagination(BaseModel):
-    items: List[Dict[str, Any]]
-    next_cursor: Optional[str] = None
+    items: list[dict[str, Any]]
+    next_cursor: str | None = None
     has_more: bool = False
-    total: Optional[int] = None
+    total: int | None = None
 
 
 # Cursor encoding/decoding
@@ -54,7 +55,7 @@ def encode_cursor(created_at: datetime, id: int) -> str:
     return base64.b64encode(json.dumps(cursor_data).encode()).decode()
 
 
-def decode_cursor(cursor: str) -> Dict[str, Any]:
+def decode_cursor(cursor: str) -> dict[str, Any]:
     try:
         data = json.loads(base64.b64decode(cursor.encode()).decode())
         return {
@@ -65,7 +66,7 @@ def decode_cursor(cursor: str) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="Invalid cursor format")
 
 
-def _normalize_categories(raw: Any) -> List[Dict[str, Any]]:
+def _normalize_categories(raw: Any) -> list[dict[str, Any]]:
     if not raw:
         return []
     if isinstance(raw, list):
@@ -116,7 +117,7 @@ async def get_product_with_categories(db: AsyncSession, product_id: int):
     }
 
 
-def _decode_cursor(cursor: Optional[str]) -> Optional[Dict[str, Any]]:
+def _decode_cursor(cursor: str | None) -> dict[str, Any] | None:
     """Decode base64-encoded cursor to dictionary."""
     if not cursor:
         return None
@@ -133,10 +134,10 @@ def _decode_cursor(cursor: Optional[str]) -> Optional[Dict[str, Any]]:
 async def get_products_with_cursor(
     db: AsyncSession,
     limit: int,
-    after: Optional[str] = None,
-    before: Optional[str] = None,
-    search_query: Optional[str] = None,
-) -> Tuple[List[Dict[str, Any]], Optional[str], Optional[str], bool]:
+    after: str | None = None,
+    before: str | None = None,
+    search_query: str | None = None,
+) -> tuple[list[dict[str, Any]], str | None, str | None, bool]:
     """Fetch products with cursor-based pagination using composite index.
 
     Args:
@@ -270,9 +271,9 @@ async def list_products(
         le=100,
         description="Maximum number of items to return",
     ),
-    after: Optional[str] = Query(None, description="Cursor for forward pagination"),
-    before: Optional[str] = Query(None, description="Cursor for backward pagination"),
-    search_query: Optional[str] = Query(
+    after: str | None = Query(None, description="Cursor for forward pagination"),
+    before: str | None = Query(None, description="Cursor for backward pagination"),
+    search_query: str | None = Query(
         None, description="Search term for product name"
     ),
     db: AsyncSession = Depends(get_db),
@@ -364,7 +365,7 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new product with comprehensive validation.
-    
+
     This endpoint creates a new product with all fields including:
     - Basic information (name, SKU, description, brand, manufacturer)
     - Pricing (base price, recommended price, currency)
@@ -372,7 +373,7 @@ async def create_product(
     - eMAG integration fields (category, brand, warranty, EAN)
     - Media (images, attachments)
     - Categories
-    
+
     The product can optionally be auto-published to eMAG if `auto_publish_emag` is set to true.
     """
     try:
@@ -389,7 +390,9 @@ async def create_product(
         await CacheManager.invalidate_prefix("products:list")
         await CacheManager.delete(f"products:detail:{created_product.id}")
 
-        logger.info(f"Successfully created product: {created_product.sku} (ID: {created_product.id})")
+        logger.info(
+            f"Successfully created product: {created_product.sku} (ID: {created_product.id})"
+        )
         return ProductResponse.model_validate(created_product)
 
     except ValueError as e:
@@ -414,7 +417,7 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
 ):
     """Update an existing product.
-    
+
     All fields are optional. Only provided fields will be updated.
     Set `sync_to_emag` to true to automatically sync changes to eMAG.
     """
@@ -432,12 +435,16 @@ async def update_product(
         await CacheManager.invalidate_prefix("products:list")
         await CacheManager.delete(f"products:detail:{product_id}")
 
-        logger.info(f"Successfully updated product: {updated_product.sku} (ID: {product_id})")
+        logger.info(
+            f"Successfully updated product: {updated_product.sku} (ID: {product_id})"
+        )
         return ProductResponse.model_validate(updated_product)
 
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND if "not found" in str(e).lower() else status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_404_NOT_FOUND
+            if "not found" in str(e).lower()
+            else status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
     except Exception as e:
@@ -452,12 +459,14 @@ async def update_product(
 async def delete_product(
     request: Request,
     product_id: int,
-    hard_delete: bool = Query(False, description="Perform hard delete (permanent removal)"),
+    hard_delete: bool = Query(
+        False, description="Perform hard delete (permanent removal)"
+    ),
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Delete a product.
-    
+
     By default, performs a soft delete (marks as inactive and discontinued).
     Set `hard_delete=true` to permanently remove the product from the database.
     """
@@ -475,7 +484,9 @@ async def delete_product(
         await CacheManager.invalidate_prefix("products:list")
         await CacheManager.delete(f"products:detail:{product_id}")
 
-        logger.info(f"Successfully {'hard' if hard_delete else 'soft'} deleted product ID: {product_id}")
+        logger.info(
+            f"Successfully {'hard' if hard_delete else 'soft'} deleted product ID: {product_id}"
+        )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     except ValueError as e:
@@ -499,7 +510,7 @@ async def validate_product(
     db: AsyncSession = Depends(get_db),
 ):
     """Validate a product without creating it.
-    
+
     This endpoint checks if the product data is valid and ready for eMAG integration.
     Returns validation errors, warnings, and missing fields for eMAG compliance.
     """
@@ -522,7 +533,7 @@ async def bulk_create_products(
     db: AsyncSession = Depends(get_db),
 ):
     """Bulk create products (max 100 at a time).
-    
+
     This endpoint allows creating multiple products in a single request.
     Returns both successfully created products and failed products with error messages.
     """
@@ -545,7 +556,9 @@ async def bulk_create_products(
             total_failed=len(failed),
         )
 
-        logger.info(f"Bulk create completed: {len(created)} created, {len(failed)} failed")
+        logger.info(
+            f"Bulk create completed: {len(created)} created, {len(failed)} failed"
+        )
         return response
 
     except Exception as e:
@@ -556,14 +569,14 @@ async def bulk_create_products(
         )
 
 
-@router.get("/statistics", response_model=Dict[str, Any])
+@router.get("/statistics", response_model=dict[str, Any])
 async def get_product_statistics(
     request: Request,
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get product statistics.
-    
+
     Returns aggregate statistics about products including:
     - Total, active, inactive, discontinued counts
     - eMAG mapped vs unmapped products

@@ -1,7 +1,7 @@
 """JWT utility functions for token creation, validation, and verification."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Union
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from jose import JWTError, jwt
 from jose.exceptions import ExpiredSignatureError, JWTClaimsError
@@ -21,11 +21,11 @@ class JWTValidationError(JWTError):
 
 
 def create_token(
-    subject: Union[str, Any],
+    subject: str | Any,
     token_type: str = "access",
-    expires_delta: Optional[timedelta] = None,
-    additional_claims: Optional[Dict[str, Any]] = None,
-    algorithm: Optional[str] = None,
+    expires_delta: timedelta | None = None,
+    additional_claims: dict[str, Any] | None = None,
+    algorithm: str | None = None,
 ) -> str:
     """Create a JWT token with the specified subject and claims.
 
@@ -40,7 +40,7 @@ def create_token(
         str: Encoded JWT token
 
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Set expiration time based on token type
     if expires_delta:
@@ -95,9 +95,9 @@ def create_token(
 
 def decode_token(
     token: str,
-    algorithms: Optional[List[str]] = None,
-    options: Optional[Dict[str, bool]] = None,
-) -> Dict[str, Any]:
+    algorithms: list[str] | None = None,
+    options: dict[str, bool] | None = None,
+) -> dict[str, Any]:
     """Decode and verify a JWT token using the key manager.
 
     Args:
@@ -170,10 +170,10 @@ def decode_token(
 
 
 def create_access_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
-    additional_claims: Optional[Dict[str, Any]] = None,
-    algorithm: Optional[str] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
+    additional_claims: dict[str, Any] | None = None,
+    algorithm: str | None = None,
 ) -> str:
     """Create an access token with the specified subject and claims."""
     return create_token(
@@ -186,10 +186,10 @@ def create_access_token(
 
 
 def create_refresh_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
-    additional_claims: Optional[Dict[str, Any]] = None,
-    algorithm: Optional[str] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
+    additional_claims: dict[str, Any] | None = None,
+    algorithm: str | None = None,
 ) -> str:
     """Create a refresh token with the specified subject and claims."""
     return create_token(

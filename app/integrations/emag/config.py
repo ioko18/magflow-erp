@@ -3,12 +3,20 @@
 This module handles the configuration for the eMAG Marketplace API integration.
 """
 
+import contextlib
 import os
 from enum import Enum
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import AnyHttpUrl, Field, field_validator, ConfigDict, BaseModel, model_validator
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,7 +40,9 @@ class EmagAccountConfig(BaseModel):
     username: str = Field(..., description="API username")
     password: str = Field(..., description="API password")
     warehouse_id: int = Field(..., description="Warehouse ID for this account")
-    ip_whitelist_name: str = Field(..., description="IP whitelist name for this account")
+    ip_whitelist_name: str = Field(
+        ..., description="IP whitelist name for this account"
+    )
     callback_base: AnyHttpUrl = Field(..., description="Base URL for callbacks")
 
     # Ignore any extra fields that may be present in the environment
@@ -74,38 +84,59 @@ class EmagSettings(BaseSettings):
     )
 
     # Timeouts (in seconds)
-    request_timeout: int = Field(default=30, description="Request timeout in seconds", gt=0)
+    request_timeout: int = Field(
+        default=30, description="Request timeout in seconds", gt=0
+    )
     api_timeout: int = Field(
         default=30,
         description="Total API timeout in seconds (deprecated; kept for backward compatibility)",
         gt=0,
     )
-    connect_timeout: int = Field(default=10, description="Connection timeout in seconds", gt=0)
+    connect_timeout: int = Field(
+        default=10, description="Connection timeout in seconds", gt=0
+    )
 
     # Retry configuration
-    max_retries: int = Field(default=3, description="Maximum number of retries for failed requests", ge=0, le=5)
-    retry_delay: float = Field(default=1.0, description="Initial delay between retries in seconds", gt=0)
+    max_retries: int = Field(
+        default=3,
+        description="Maximum number of retries for failed requests",
+        ge=0,
+        le=5,
+    )
+    retry_delay: float = Field(
+        default=1.0, description="Initial delay between retries in seconds", gt=0
+    )
 
     # Circuit breaker configuration
-    circuit_breaker_failures: int = Field(default=5, description="Number of failures before opening the circuit", gt=0)
-    circuit_breaker_timeout: int = Field(default=60, description="Circuit breaker timeout in seconds", gt=0)
+    circuit_breaker_failures: int = Field(
+        default=5, description="Number of failures before opening the circuit", gt=0
+    )
+    circuit_breaker_timeout: int = Field(
+        default=60, description="Circuit breaker timeout in seconds", gt=0
+    )
 
     # Logging
-    log_level: str = Field(default="INFO", description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
     log_format: str = Field(default="json", description="Log format (json, text)")
 
     # Monitoring
     metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
-    tracing_enabled: bool = Field(default=True, description="Enable distributed tracing")
+    tracing_enabled: bool = Field(
+        default=True, description="Enable distributed tracing"
+    )
 
     # Nested account configurations (populated via validator)
-    main: Optional[EmagAccountConfig] = None
-    fbe: Optional[EmagAccountConfig] = None
+    main: EmagAccountConfig | None = None
+    fbe: EmagAccountConfig | None = None
 
     # Settings model config – only variables with EMAG_ prefix are considered
     model_config = SettingsConfigDict(env_prefix="EMAG_", env_file=None, extra="allow")
 
     @field_validator("log_level")
+    @classmethod
     def validate_log_level(cls, v: str) -> str:
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if v.upper() not in valid_levels:
@@ -114,9 +145,13 @@ class EmagSettings(BaseSettings):
 
     @field_validator("main", "fbe", mode="before")
     @classmethod
-    def load_account_config(cls, v: Any, info: Any) -> Optional[dict]:
+    def load_account_config(cls, v: Any, info: Any) -> dict | None:
         """Load account configuration from environment variables for a given account type."""
-        field_name = info.field_name
+        # In Pydantic v2, we need to check if field_name exists
+        field_name = getattr(info, "field_name", None)
+        if field_name is None:
+            # Fallback: try to get from data or return None
+            return v if isinstance(v, dict) else None
         prefix = f"EMAG_{field_name.upper()}_"
         env_vars = {
             k[len(prefix) :].lower(): v
@@ -129,28 +164,32 @@ class EmagSettings(BaseSettings):
         if "password" in env_vars:
             account_config["password"] = env_vars["password"]
         if "warehouse_id" in env_vars:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 account_config["warehouse_id"] = int(env_vars["warehouse_id"])
-            except (ValueError, TypeError):
-                pass
         if "ip_whitelist_name" in env_vars:
             account_config["ip_whitelist_name"] = env_vars["ip_whitelist_name"]
         if "callback_base" in env_vars:
             account_config["callback_base"] = env_vars["callback_base"]
-        required = ["username", "password", "warehouse_id", "ip_whitelist_name", "callback_base"]
+        required = [
+            "username",
+            "password",
+            "warehouse_id",
+            "ip_whitelist_name",
+            "callback_base",
+        ]
         if all(k in account_config for k in required):
             return account_config
         return None
 
     @model_validator(mode="after")
-    def ensure_timeout_consistency(cls, values: "EmagSettings") -> "EmagSettings":
+    def ensure_timeout_consistency(self) -> "EmagSettings":
         """Keep api_timeout and request_timeout in sync for backwards compatibility."""
 
-        if values.api_timeout is None:
-            values.api_timeout = values.request_timeout
-        elif values.api_timeout != values.request_timeout:
-            values.request_timeout = values.api_timeout
-        return values
+        if self.api_timeout is None:
+            self.api_timeout = self.request_timeout
+        elif self.api_timeout != self.request_timeout:
+            self.request_timeout = self.api_timeout
+        return self
 
     def get_account_config(self, account_type: EmagAccountType) -> EmagAccountConfig:
         account = getattr(self, account_type.value)
@@ -162,6 +201,7 @@ class EmagSettings(BaseSettings):
 @lru_cache
 def get_settings() -> EmagSettings:
     return EmagSettings()
+
 
 # Create a cached settings instance for module import
 settings = get_settings()

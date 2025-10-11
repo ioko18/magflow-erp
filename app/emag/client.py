@@ -12,7 +12,7 @@ ERP we want a clean, reusable interface that:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 from .emag_client_complete import EmagAccountType, EmagClient
 
@@ -29,7 +29,7 @@ class EmagAPIWrapper:
 
     def __init__(self, account_type: EmagAccountType = EmagAccountType.MAIN) -> None:
         self.account_type = account_type
-        self._client: Optional[EmagClient] = None
+        self._client: EmagClient | None = None
 
     async def __aenter__(self) -> EmagAPIWrapper:
         self._client = EmagClient(account_type=self.account_type)
@@ -44,8 +44,8 @@ class EmagAPIWrapper:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
     ) -> T:
         if not self._client:
             raise RuntimeError(
@@ -60,8 +60,8 @@ class EmagAPIWrapper:
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
     ) -> T:
         if not self._client:
             raise RuntimeError(
@@ -75,12 +75,12 @@ class EmagAPIWrapper:
 
     # Additional HTTP verbs can be added if needed (put, delete, …)
 
-    async def fetch_all_offers(self, per_page: int = 100) -> list[Dict[str, Any]]:
+    async def fetch_all_offers(self, per_page: int = 100) -> list[dict[str, Any]]:
         """Iterate over all pages of ``/product_offer/read``.
 
         The eMAG API uses POST for reads, so we delegate to ``post``.
         """
-        offers: list[Dict[str, Any]] = []
+        offers: list[dict[str, Any]] = []
         page = 1
         while True:
             resp = await self.post(
@@ -95,7 +95,7 @@ class EmagAPIWrapper:
         return offers
 
     # RMA (Returns Management) endpoints
-    async def create_rma(self, rma_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_rma(self, rma_data: dict[str, Any]) -> dict[str, Any]:
         """Create a return request in eMAG."""
         return await self.post("rma/create", data=rma_data, response_model=dict)
 
@@ -104,14 +104,14 @@ class EmagAPIWrapper:
         rma_id: str,
         status: str,
         notes: str = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update RMA status in eMAG."""
         data = {"rma_id": rma_id, "status": status}
         if notes:
             data["notes"] = notes
         return await self.post("rma/update_status", data=data, response_model=dict)
 
-    async def get_rma_details(self, rma_id: str) -> Dict[str, Any]:
+    async def get_rma_details(self, rma_id: str) -> dict[str, Any]:
         """Get RMA details from eMAG."""
         return await self.get(f"rma/{rma_id}", response_model=dict)
 
@@ -121,7 +121,7 @@ class EmagAPIWrapper:
         order_id: str,
         reason: str,
         description: str = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Cancel an order in eMAG."""
         data = {
             "order_id": order_id,
@@ -135,7 +135,7 @@ class EmagAPIWrapper:
         cancellation_id: str,
         refund_amount: float,
         currency: str = "RON",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process refund for order cancellation in eMAG."""
         data = {
             "cancellation_id": cancellation_id,
@@ -145,7 +145,7 @@ class EmagAPIWrapper:
         return await self.post("order/process_refund", data=data, response_model=dict)
 
     # Invoice endpoints
-    async def create_invoice(self, invoice_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_invoice(self, invoice_data: dict[str, Any]) -> dict[str, Any]:
         """Create an invoice in eMAG."""
         return await self.post("invoice/create", data=invoice_data, response_model=dict)
 
@@ -154,13 +154,13 @@ class EmagAPIWrapper:
         invoice_id: str,
         payment_status: str,
         paid_amount: float = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update invoice payment status in eMAG."""
         data = {"invoice_id": invoice_id, "payment_status": payment_status}
         if paid_amount:
             data["paid_amount"] = paid_amount
         return await self.post("invoice/update_payment", data=data, response_model=dict)
 
-    async def get_invoice_details(self, invoice_id: str) -> Dict[str, Any]:
+    async def get_invoice_details(self, invoice_id: str) -> dict[str, Any]:
         """Get invoice details from eMAG."""
         return await self.get(f"invoice/{invoice_id}", response_model=dict)

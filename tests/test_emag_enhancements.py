@@ -14,7 +14,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock
 
-from app.services.order_validation import (
+from app.services.orders.order_validation import (
     validate_order_data,
     validate_order_cancellation,
     validate_bulk_order_update
@@ -299,7 +299,7 @@ class TestMonitoring:
     @pytest.mark.asyncio
     async def test_metrics_collector(self):
         """Test metrics collector."""
-        from app.services.emag_monitoring import MetricsCollector
+        from app.services.emag.emag_monitoring import MetricsCollector
         
         collector = MetricsCollector(window_size=60)
         

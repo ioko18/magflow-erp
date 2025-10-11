@@ -1,8 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
-from typing import Optional
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
@@ -16,23 +15,24 @@ try:
     from app.core.container import container
 except Exception:  # ModuleNotFoundError or any import-time error inside container
     container = None  # Fallback: DI wiring is disabled
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.api.health import router as health_router
 from app.api.v1.api import api_router as v1_router
-from app.api.v1.endpoints.admin import router as admin_router
+from app.api.v1.endpoints.system.admin import router as admin_router
 from app.api.well_known import router as well_known_router
 from app.core.error_handling import register_exception_handlers
-from app.core.rate_limiting import init_rate_limiter
 from app.core.logging_config import configure_logging, get_logger
+from app.core.rate_limiting import init_rate_limiter
+from app.core.security import get_password_hash
+from app.db.session import AsyncSessionLocal
 from app.middleware.compression import CompressionMiddleware
 from app.middleware.correlation_id import CorrelationIdMiddleware
 from app.middleware.idempotency import IdempotencyMiddleware
 from app.middleware.logging_middleware import setup_logging_middleware
-from app.core.security import get_password_hash
-from app.db.session import AsyncSessionLocal
 from app.models.role import Role
 from app.models.user import User
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
 
 # Initialize logging
 configure_logging()
@@ -119,7 +119,7 @@ async def _ensure_dev_admin_user() -> None:
 
 
 # Global Redis client
-redis_client: Optional[Redis] = None
+redis_client: Redis | None = None
 
 
 async def setup_redis() -> Redis:
@@ -138,13 +138,9 @@ async def setup_redis() -> Redis:
                 max_retries,
             )
 
-            client = Redis(
-                host=settings.REDIS_HOST,
-                port=settings.REDIS_PORT,
-                password=settings.REDIS_PASSWORD,
-                db=settings.REDIS_DB,
-                ssl=settings.REDIS_SSL,
-                ssl_cert_reqs=settings.REDIS_SSL_CERT_REQS,
+            # Use REDIS_URL from settings which is properly configured in docker-compose
+            client = Redis.from_url(
+                settings.REDIS_URL,
                 decode_responses=True,
                 retry_on_timeout=True,
                 socket_connect_timeout=5,
@@ -194,8 +190,18 @@ async def lifespan(app: FastAPI):
     if settings.REDIS_ENABLED:
         try:
             redis_client = await setup_redis()
+        except (ConnectionError, RedisError) as e:
+            logger.warning(
+                "Redis connection failed; continuing without Redis",
+                extra={"error": str(e), "redis_url": settings.REDIS_URL},
+            )
+            redis_client = None
         except Exception as e:
-            logger.warning(f"Redis init failed; continuing without Redis: {e}")
+            logger.error(
+                "Unexpected error during Redis initialization",
+                exc_info=True,
+                extra={"error": str(e)},
+            )
             redis_client = None
     else:
         logger.info("Redis is disabled, skipping Redis initialization")
@@ -332,13 +338,15 @@ async def log_requests(request: Request, call_next):
             },
         )
         return response
-    except Exception as e:
+    except HTTPException:
+        # Re-raise HTTP exceptions without logging as errors (they're handled by FastAPI)
+        raise
+    except Exception:
         logger.exception(
-            "Request failed",
+            "Request failed with unexpected error",
             extra={
                 "method": request.method,
                 "url": str(request.url),
-                "error": str(e),
             },
         )
         raise
@@ -369,11 +377,17 @@ async def test_redis():
         # Test Redis connection
         await redis_client.ping()
         return {"status": "success", "message": "Redis is connected"}
-    except Exception as e:
-        logger.error(f"Redis test failed: {e}")
+    except RedisError as e:
+        logger.error("Redis test failed - connection error", extra={"error": str(e)})
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "error", "message": str(e)},
+            content={"status": "error", "message": f"Redis connection error: {str(e)}"},
+        )
+    except Exception:
+        logger.error("Redis test failed - unexpected error", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "error", "message": "Unexpected Redis error"},
         )
 
 
@@ -382,6 +396,7 @@ async def test_redis():
 async def test_db():
     """Test database connection."""
     from sqlalchemy import text
+
     from app.core.database import get_async_session
 
     try:
@@ -392,11 +407,17 @@ async def test_db():
                 "message": "Database is connected",
                 "data": result.scalar(),
             }
-    except Exception as e:
-        logger.error(f"Database test failed: {e}")
+    except SQLAlchemyError as e:
+        logger.error("Database test failed - SQLAlchemy error", extra={"error": str(e)})
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "error", "message": str(e)},
+            content={"status": "error", "message": f"Database error: {str(e)}"},
+        )
+    except Exception:
+        logger.error("Database test failed - unexpected error", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "error", "message": "Unexpected database error"},
         )
 
 
@@ -410,5 +431,5 @@ async def get_env():
         "REDIS_DB": settings.REDIS_DB,
         "REDIS_SSL": settings.REDIS_SSL,
         "REDIS_URL": settings.REDIS_URL,
-        "DATABASE_URL": settings.DATABASE_URL,
+        "DATABASE_URL": settings.DB_URI,
     }

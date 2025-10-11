@@ -5,7 +5,7 @@ sessions, caches, and other service dependencies that need to be shared across
 different parts of the application.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,9 +19,9 @@ class ServiceContext:
 
     def __init__(
         self,
-        db_session: Optional[AsyncSession] = None,
-        cache: Optional[Any] = None,
-        settings: Optional[Any] = None,
+        db_session: AsyncSession | None = None,
+        cache: Any | None = None,
+        settings: Any | None = None,
     ):
         """Initialize the service context with optional dependencies.
 
@@ -35,7 +35,7 @@ class ServiceContext:
         self._settings = settings
 
     @property
-    def db_session(self) -> Optional[AsyncSession]:
+    def db_session(self) -> AsyncSession | None:
         """Get the database session."""
         return self._db_session
 
@@ -45,7 +45,7 @@ class ServiceContext:
         self._db_session = session
 
     @property
-    def cache(self) -> Optional[Any]:
+    def cache(self) -> Any | None:
         """Get the cache client."""
         return self._cache
 
@@ -55,7 +55,7 @@ class ServiceContext:
         self._cache = cache
 
     @property
-    def settings(self) -> Optional[Any]:
+    def settings(self) -> Any | None:
         """Get the application settings."""
         return self._settings
 
@@ -80,11 +80,11 @@ class ServiceContext:
 
         if self._db_session is not None or self._cache is not None:
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
+                # Schedule cleanup task in the running loop
                 if loop.is_running():
                     loop.create_task(self.close())
-                else:
-                    loop.run_until_complete(self.close())
             except RuntimeError:
-                # Event loop already closed or not available
+                # No running loop - resources will be cleaned up by garbage collector
+                # This is acceptable in __del__ as we can't reliably create event loops here
                 pass

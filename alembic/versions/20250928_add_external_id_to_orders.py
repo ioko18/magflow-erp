@@ -1,7 +1,7 @@
 """Add external order identifiers
 
 Revision ID: 20250928_add_external_id
-Revises:
+Revises: f8a938c16fd8
 Create Date: 2025-09-28 09:53:00.000000
 """
 

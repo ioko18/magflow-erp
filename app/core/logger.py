@@ -1,7 +1,7 @@
 """Logging utilities for the application."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import Request
 
@@ -21,7 +21,7 @@ def log_request(request: Request, **kwargs: Any) -> None:
         **kwargs: Additional context to include in the log
 
     """
-    log_data: Dict[str, Any] = {
+    log_data: dict[str, Any] = {
         "event": "request.received",
         "method": request.method,
         "path": request.url.path,
@@ -50,7 +50,7 @@ def log_response(
         **kwargs: Additional context to include in the log
 
     """
-    log_data: Dict[str, Any] = {
+    log_data: dict[str, Any] = {
         "event": "request.completed",
         "method": request.method,
         "path": request.url.path,
@@ -66,7 +66,7 @@ def log_response(
 
 def log_error(
     error: Exception,
-    request: Optional[Request] = None,
+    request: Request | None = None,
     **kwargs: Any,
 ) -> None:
     """Log an error.
@@ -77,7 +77,7 @@ def log_error(
         **kwargs: Additional context to include in the log
 
     """
-    log_data: Dict[str, Any] = {
+    log_data: dict[str, Any] = {
         "event": "error.occurred",
         "error": str(error),
         "error_type": error.__class__.__name__,

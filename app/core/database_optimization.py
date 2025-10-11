@@ -10,14 +10,21 @@ class DatabaseOptimization:
 
     @staticmethod
     async def analyze_query_performance(session: AsyncSession, query: str):
-        """Analyze query performance using EXPLAIN ANALYZE."""
+        """Analyze query performance using EXPLAIN ANALYZE.
+
+        WARNING: This method should only be used with trusted query strings.
+        Do not pass user input directly to this method.
+        """
+        # Note: EXPLAIN ANALYZE cannot use parameterized queries
+        # This is a utility for internal analysis only
         result = await session.execute(text(f"EXPLAIN ANALYZE {query}"))
         return result.fetchall()
 
     @staticmethod
     async def get_table_statistics(session: AsyncSession, table_name: str):
         """Get table statistics for optimization."""
-        stats_query = f"""
+        # Use parameterized query to prevent SQL injection
+        stats_query = """
         SELECT
             schemaname,
             tablename,
@@ -25,9 +32,9 @@ class DatabaseOptimization:
             n_distinct,
             correlation
         FROM pg_stats
-        WHERE tablename = '{table_name}';
+        WHERE tablename = :table_name;
         """
-        result = await session.execute(text(stats_query))
+        result = await session.execute(text(stats_query), {"table_name": table_name})
         return result.fetchall()
 
     @staticmethod

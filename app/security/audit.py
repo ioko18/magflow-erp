@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 from fastapi import Request
@@ -72,22 +72,22 @@ class AuditEvent(BaseModel):
     id: str
     event_type: AuditEventType
     severity: AuditSeverity
-    user_id: Optional[str] = None
-    username: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    resource: Optional[str] = None  # e.g., "user:123", "product:456"
-    action: Optional[str] = None  # e.g., "create", "update", "delete", "read"
-    details: Dict[str, Any] = {}
-    before_state: Optional[Dict[str, Any]] = None
-    after_state: Optional[Dict[str, Any]] = None
-    correlation_id: Optional[str] = None
-    session_id: Optional[str] = None
+    user_id: str | None = None
+    username: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    resource: str | None = None  # e.g., "user:123", "product:456"
+    action: str | None = None  # e.g., "create", "update", "delete", "read"
+    details: dict[str, Any] = {}
+    before_state: dict[str, Any] | None = None
+    after_state: dict[str, Any] | None = None
+    correlation_id: str | None = None
+    session_id: str | None = None
     timestamp: datetime
     success: bool = True
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert audit event to dictionary for storage."""
         return {
             "id": self.id,
@@ -115,7 +115,7 @@ class AuditLogger:
 
     def __init__(self):
         self.logger = logging.getLogger("audit")
-        self._handlers: List[AuditHandler] = []
+        self._handlers: list[AuditHandler] = []
         self._setup_logger()
 
     def _setup_logger(self):
@@ -149,19 +149,19 @@ class AuditLogger:
         self,
         event_type: AuditEventType,
         severity: AuditSeverity,
-        user_id: Optional[str] = None,
-        username: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        resource: Optional[str] = None,
-        action: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        before_state: Optional[Dict[str, Any]] = None,
-        after_state: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None,
-        session_id: Optional[str] = None,
+        user_id: str | None = None,
+        username: str | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        resource: str | None = None,
+        action: str | None = None,
+        details: dict[str, Any] | None = None,
+        before_state: dict[str, Any] | None = None,
+        after_state: dict[str, Any] | None = None,
+        correlation_id: str | None = None,
+        session_id: str | None = None,
         success: bool = True,
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ):
         """Log an audit event."""
         event = AuditEvent(
@@ -260,9 +260,9 @@ def get_audit_logger() -> AuditLogger:
 async def audit_log(
     event_type: AuditEventType,
     severity: AuditSeverity,
-    user_id: Optional[str] = None,
-    username: Optional[str] = None,
-    request: Optional[Request] = None,
+    user_id: str | None = None,
+    username: str | None = None,
+    request: Request | None = None,
     **kwargs,
 ):
     """Convenience function for logging audit events."""
@@ -308,9 +308,9 @@ async def audit_user_action(
     resource: str,
     user_id: str,
     username: str,
-    before_state: Optional[Dict] = None,
-    after_state: Optional[Dict] = None,
-    request: Optional[Request] = None,
+    before_state: dict | None = None,
+    after_state: dict | None = None,
+    request: Request | None = None,
     success: bool = True,
 ):
     """Log a user action on a resource."""
@@ -335,7 +335,7 @@ async def audit_user_action(
 async def audit_security_event(
     event_type: AuditEventType,
     severity: AuditSeverity,
-    details: Dict[str, Any],
+    details: dict[str, Any],
     request: Request,
 ):
     """Log a security event."""

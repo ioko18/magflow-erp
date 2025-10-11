@@ -8,8 +8,7 @@ This module provides a service layer for managing VAT rates with support for:
 - Business logic for VAT rate management
 """
 
-from datetime import datetime, timezone
-from typing import List, Optional, Union
+from datetime import UTC, datetime
 
 import pytz  # Used for timezone handling in _is_rate_active
 
@@ -29,7 +28,7 @@ class VatService:
     caching, error handling, and fallback mechanisms.
     """
 
-    def __init__(self, emag_client: Optional[EmagAPIClient] = None):
+    def __init__(self, emag_client: EmagAPIClient | None = None):
         """Initialize the VAT service.
 
         Args:
@@ -43,7 +42,7 @@ class VatService:
     async def get_vat_rates(
         self,
         country_code: str = "RO",
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
         limit: int = 100,
         force_refresh: bool = False,
         include_inactive: bool = False,
@@ -192,7 +191,7 @@ class VatService:
         self,
         country_code: str = "RO",
         force_refresh: bool = False,
-        effective_date: Optional[datetime] = None,
+        effective_date: datetime | None = None,
     ) -> VatRate:
         """Get the default VAT rate for a specific country and optional date.
 
@@ -268,7 +267,7 @@ class VatService:
                             name=f"Cached {cached_rate}%",
                             value=float(cached_rate),
                             is_default=True,
-                            valid_from=datetime.utcnow(),
+                            valid_from=datetime.now(UTC),
                             country_code=country_code,
                             is_active=True,
                         )
@@ -302,7 +301,7 @@ class VatService:
                 # Sort by valid_from date (most recent first)
                 default_rates.sort(
                     key=lambda r: r.valid_from
-                    or datetime.min.replace(tzinfo=timezone.utc),
+                    or datetime.min.replace(tzinfo=UTC),
                     reverse=True,
                 )
                 default_rate = default_rates[0]
@@ -367,9 +366,9 @@ class VatService:
     async def get_rate_by_id(
         self,
         rate_id: int,
-        country_code: Optional[str] = None,
+        country_code: str | None = None,
         force_refresh: bool = False,
-    ) -> Optional[VatRate]:
+    ) -> VatRate | None:
         """Get a specific VAT rate by ID, optionally filtered by country.
 
         Args:
@@ -388,12 +387,11 @@ class VatService:
         if not force_refresh:
             try:
                 cached_rate = await self._cache.get_vat_rate(rate_id)
-                if cached_rate:
-                    if (
-                        not country_code
-                        or cached_rate.countryCode == country_code.upper()
-                    ):
-                        return cached_rate
+                if cached_rate and (
+                    not country_code
+                    or cached_rate.countryCode == country_code.upper()
+                ):
+                    return cached_rate
             except Exception as e:
                 logger.warning(f"Error getting VAT rate from cache: {e!s}")
 
@@ -429,9 +427,9 @@ class VatService:
         self,
         country_code: str,
         active_only: bool = True,
-        effective_date: Optional[datetime] = None,
+        effective_date: datetime | None = None,
         force_refresh: bool = False,
-    ) -> List[VatRate]:
+    ) -> list[VatRate]:
         """Get all VAT rates for a country, optionally filtered by date.
 
         Args:
@@ -496,8 +494,8 @@ class VatService:
 
     async def refresh_vat_rates(
         self,
-        country_code: Optional[Union[str, List[str]]] = None,
-        rate_ids: Optional[List[int]] = None,
+        country_code: str | list[str] | None = None,
+        rate_ids: list[int] | None = None,
     ) -> None:
         """Force refresh the cached VAT rates for specific countries or rates.
 
@@ -538,9 +536,9 @@ class VatService:
 
     def _find_default_rate(
         self,
-        rates: Optional[List[VatRate]],
-        effective_date: Optional[datetime] = None,
-    ) -> Optional[VatRate]:
+        rates: list[VatRate] | None,
+        effective_date: datetime | None = None,
+    ) -> VatRate | None:
         """Find the default VAT rate active for the given effective date.
 
         Args:
@@ -555,7 +553,7 @@ class VatService:
             return None
 
         effective_date = self._ensure_timezone(
-            effective_date or datetime.now(timezone.utc)
+            effective_date or datetime.now(UTC)
         )
 
         active_defaults = [
@@ -570,7 +568,7 @@ class VatService:
         return max(
             active_defaults,
             key=lambda rate: self._ensure_timezone(rate.valid_from)
-            or datetime.min.replace(tzinfo=timezone.utc),
+            or datetime.min.replace(tzinfo=UTC),
         )
 
     def _is_rate_active(self, rate: VatRate, effective_date: datetime) -> bool:
@@ -580,28 +578,28 @@ class VatService:
             return False
 
         effective_date = self._ensure_timezone(
-            effective_date or datetime.now(timezone.utc)
+            effective_date or datetime.now(UTC)
         )
         valid_from = self._ensure_timezone(rate.valid_from) or datetime.min.replace(
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         )
         valid_until = self._ensure_timezone(rate.valid_until) or datetime.max.replace(
-            tzinfo=timezone.utc,
+            tzinfo=UTC,
         )
 
         return rate.is_active and valid_from <= effective_date <= valid_until
 
     @staticmethod
-    def _ensure_timezone(value: Optional[datetime]) -> Optional[datetime]:
+    def _ensure_timezone(value: datetime | None) -> datetime | None:
         """Ensure the provided datetime is timezone-aware in UTC."""
 
         if value is None:
             return None
 
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
 
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
 
     @classmethod
     async def get_instance(cls) -> "VatService":

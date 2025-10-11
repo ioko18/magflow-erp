@@ -3,7 +3,7 @@
 import os
 from urllib.parse import quote_plus
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
 
 
@@ -13,7 +13,7 @@ class DatabaseConfig:
     @staticmethod
     def get_database_url() -> str:
         """Get database URL with proper configuration for PgBouncer.
-        
+
         Returns:
             str: The database connection URL
         """
@@ -34,7 +34,7 @@ class DatabaseConfig:
     @classmethod
     def create_optimized_engine(cls) -> AsyncEngine:
         """Create database engine with performance optimizations for PgBouncer.
-        
+
         Returns:
             AsyncEngine: The configured SQLAlchemy async engine
         """
@@ -81,8 +81,12 @@ class DatabaseConfig:
                     "server_settings": {
                         "application_name": "magflow_app",
                         "work_mem": os.getenv("DB_WORK_MEM", "16MB"),
-                        "maintenance_work_mem": os.getenv("DB_MAINTENANCE_WORK_MEM", "128MB"),
-                        "effective_cache_size": os.getenv("DB_EFFECTIVE_CACHE_SIZE", "1GB"),
+                        "maintenance_work_mem": os.getenv(
+                            "DB_MAINTENANCE_WORK_MEM", "128MB"
+                        ),
+                        "effective_cache_size": os.getenv(
+                            "DB_EFFECTIVE_CACHE_SIZE", "1GB"
+                        ),
                         "random_page_cost": os.getenv("DB_RANDOM_PAGE_COST", "1.1"),
                     },
                 },

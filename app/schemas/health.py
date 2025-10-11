@@ -1,7 +1,7 @@
 """Health check response models."""
 
 from datetime import datetime
-from typing import Any, Dict, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -19,7 +19,7 @@ class HealthCheckResult(BaseModel):
         description="Type of health check (e.g., 'database', 'jwks')",
     )
     timestamp: datetime = Field(..., description="When the check was performed")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional check-specific metadata",
     )
@@ -30,11 +30,11 @@ class HealthCheckResponse(BaseModel):
 
     status: str = Field(..., description="Overall service status")
     timestamp: datetime = Field(..., description="When the health check was performed")
-    checks: Dict[str, HealthCheckResult] = Field(
+    checks: dict[str, HealthCheckResult] = Field(
         ...,
         description="Individual health check results",
     )
-    details: Dict[str, Any] = Field(
+    details: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional service details",
     )

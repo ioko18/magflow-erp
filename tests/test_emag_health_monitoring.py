@@ -10,8 +10,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.v1.endpoints.emag_integration import router
-from app.services.emag_integration_service import EmagApiConfig, EmagApiEnvironment
+from app.api.v1.endpoints.emag.emag_integration import router
+from app.services.emag.emag_integration_service import EmagApiConfig, EmagApiEnvironment
 
 
 class TestEmagHealthEndpoints:
@@ -171,7 +171,7 @@ class TestEmagHealthMonitoringIntegration:
 
     def test_config_validation_in_health_check(self, api_config):
         """Test that health check validates configuration properly."""
-        from app.services.emag_integration_service import EmagIntegrationService
+        from app.services.emag.emag_integration_service import EmagIntegrationService
 
         # Test with valid config
         service = EmagIntegrationService.__new__(EmagIntegrationService)

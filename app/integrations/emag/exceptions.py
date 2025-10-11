@@ -1,6 +1,6 @@
 """Exceptions for the eMAG integration."""
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 
 class EmagError(Exception):
@@ -9,8 +9,8 @@ class EmagError(Exception):
     def __init__(
         self,
         message: str = "An error occurred with the eMAG integration",
-        status_code: Optional[int] = None,
-        details: Optional[Dict[str, Any]] = None,
+        status_code: int | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.message = message
         self.status_code = status_code
@@ -25,8 +25,8 @@ class EmagAPIError(EmagError):
         self,
         message: str,
         status_code: int,
-        error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        error_code: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         self.error_code = error_code
         super().__init__(
@@ -91,7 +91,7 @@ class EmagValidationError(EmagError):
     def __init__(
         self,
         message: str = "Validation error",
-        errors: Optional[Dict[str, List[str]]] = None,
+        errors: dict[str, list[str]] | None = None,
     ):
         super().__init__(
             message=message,
@@ -102,8 +102,8 @@ class EmagValidationError(EmagError):
 
 def get_exception_for_status(
     status_code: int,
-    message: Optional[str] = None,
-) -> Type[EmagError]:
+    message: str | None = None,
+) -> type[EmagError]:
     """Get the appropriate exception class for an HTTP status code.
 
     Args:
@@ -162,8 +162,8 @@ class EmagRetryableError(EmagError):
     def __init__(
         self,
         message: str = "Operation failed but may succeed if retried",
-        status_code: Optional[int] = 503,
-        details: Optional[Dict[str, Any]] = None,
+        status_code: int | None = 503,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message=message, status_code=status_code, details=details)
 
@@ -174,7 +174,7 @@ class EmagNonRetryableError(EmagError):
     def __init__(
         self,
         message: str = "Operation failed and should not be retried",
-        status_code: Optional[int] = 400,
-        details: Optional[Dict[str, Any]] = None,
+        status_code: int | None = 400,
+        details: dict[str, Any] | None = None,
     ):
         super().__init__(message=message, status_code=status_code, details=details)

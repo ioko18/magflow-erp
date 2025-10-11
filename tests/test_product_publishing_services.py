@@ -12,9 +12,9 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from datetime import datetime, timedelta
 
-from app.services.emag_product_publishing_service import EmagProductPublishingService
-from app.services.emag_category_service import EmagCategoryService
-from app.services.emag_reference_data_service import EmagReferenceDataService
+from app.services.emag.emag_product_publishing_service import EmagProductPublishingService
+from app.services.emag.emag_category_service import EmagCategoryService
+from app.services.emag.emag_reference_data_service import EmagReferenceDataService
 from app.core.exceptions import ServiceError
 
 
@@ -33,7 +33,7 @@ class TestProductPublishingService:
     @pytest.fixture
     async def service(self, mock_client):
         """Create service instance with mocked client"""
-        with patch('app.services.emag_product_publishing_service.EmagApiClient', return_value=mock_client):
+        with patch('app.services.emag.emag_product_publishing_service.EmagApiClient', return_value=mock_client):
             service = EmagProductPublishingService("main")
             service.client = mock_client
             yield service
@@ -172,7 +172,7 @@ class TestProductPublishingService:
     async def test_api_error_handling(self, service, mock_client):
         """Test API error handling"""
         # Arrange
-        from app.services.emag_api_client import EmagApiError
+        from app.services.emag.emag_api_client import EmagApiError
         mock_client._request.side_effect = EmagApiError("API Error")
         
         # Act & Assert
@@ -200,7 +200,7 @@ class TestCategoryService:
     @pytest.fixture
     async def service(self, mock_client):
         """Create service instance with mocked client"""
-        with patch('app.services.emag_category_service.EmagApiClient', return_value=mock_client):
+        with patch('app.services.emag.emag_category_service.EmagApiClient', return_value=mock_client):
             service = EmagCategoryService("main")
             service.client = mock_client
             yield service
@@ -319,7 +319,7 @@ class TestReferenceDataService:
     @pytest.fixture
     async def service(self, mock_client):
         """Create service instance with mocked client"""
-        with patch('app.services.emag_reference_data_service.EmagApiClient', return_value=mock_client):
+        with patch('app.services.emag.emag_reference_data_service.EmagApiClient', return_value=mock_client):
             service = EmagReferenceDataService("main")
             service.client = mock_client
             yield service

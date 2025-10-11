@@ -9,8 +9,8 @@ import logging
 import random
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, cast
+from datetime import UTC, datetime, timedelta
+from typing import Any, Generic, TypeVar, cast
 from urllib.parse import urljoin
 
 import aiohttp
@@ -22,6 +22,7 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
+from .config import EmagAccountType, EmagSettings, get_settings
 from .exceptions import (
     EmagAPIError,
     EmagAuthError,
@@ -31,7 +32,6 @@ from .exceptions import (
     EmagRetryableError,
 )
 from .rate_limiting import RateLimiter
-from .config import EmagAccountType, EmagSettings, get_settings
 
 # Type variable for response data
 T = TypeVar("T")
@@ -45,7 +45,7 @@ class RetryConfig:
     initial_delay: float = 0.5  # seconds
     max_delay: float = 30.0  # seconds
     jitter: float = 0.1  # 10% jitter
-    retry_status_codes: Tuple[int, ...] = (429, 500, 502, 503, 504)
+    retry_status_codes: tuple[int, ...] = (429, 500, 502, 503, 504)
 
 
 class EmagAPIClient(Generic[T]):
@@ -64,8 +64,8 @@ class EmagAPIClient(Generic[T]):
     def __init__(
         self,
         account_type: EmagAccountType = EmagAccountType.MAIN,
-        settings: Optional[EmagSettings] = None,
-        retry_config: Optional[RetryConfig] = None,
+        settings: EmagSettings | None = None,
+        retry_config: RetryConfig | None = None,
     ):
         """Initialize the eMAG API client.
 
@@ -88,8 +88,8 @@ class EmagAPIClient(Generic[T]):
             ),
         )
 
-        self._session: Optional[aiohttp.ClientSession] = None
-        self._auth_token: Optional[str] = None
+        self._session: aiohttp.ClientSession | None = None
+        self._auth_token: str | None = None
         self._logger = logging.getLogger(f"emag.{account_type.value}")
         self._circuit_state = {
             "open": False,
@@ -153,7 +153,7 @@ class EmagAPIClient(Generic[T]):
         opened_at = self._circuit_state.get("opened_at")
         if opened_at:
             if opened_at.tzinfo is None:
-                opened_at = opened_at.replace(tzinfo=timezone.utc)
+                opened_at = opened_at.replace(tzinfo=UTC)
                 self._circuit_state["opened_at"] = opened_at
 
             retry_after = min(
@@ -161,9 +161,9 @@ class EmagAPIClient(Generic[T]):
                 2 ** (self._circuit_state["failure_count"] - 1),  # Exponential backoff
             )
 
-            if (
-                datetime.now(timezone.utc) - opened_at
-            ) < timedelta(seconds=retry_after):
+            if (datetime.now(UTC) - opened_at) < timedelta(
+                seconds=retry_after
+            ):
                 raise EmagNonRetryableError(
                     "Circuit breaker is open",
                     status_code=503,
@@ -176,12 +176,12 @@ class EmagAPIClient(Generic[T]):
     def _record_failure(self) -> None:
         """Record a failed request and update circuit breaker state."""
         self._circuit_state["failure_count"] += 1
-        self._circuit_state["last_failure"] = datetime.now(timezone.utc)
+        self._circuit_state["last_failure"] = datetime.now(UTC)
 
         # Trip the circuit if we've had too many failures
         if self._circuit_state["failure_count"] >= 5:  # Threshold configurable
             self._circuit_state["open"] = True
-            self._circuit_state["opened_at"] = datetime.now(timezone.utc)
+            self._circuit_state["opened_at"] = datetime.now(UTC)
 
     def _record_success(self) -> None:
         """Record a successful request and reset circuit breaker state."""
@@ -200,9 +200,9 @@ class EmagAPIClient(Generic[T]):
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
         **kwargs: Any,
     ) -> T:
@@ -269,7 +269,7 @@ class EmagAPIClient(Generic[T]):
         url = urljoin(self.base_url, endpoint.lstrip("/"))
 
         try:
-            start_time = datetime.now(timezone.utc)
+            start_time = datetime.now(UTC)
 
             async with self.session.request(
                 method,
@@ -280,7 +280,7 @@ class EmagAPIClient(Generic[T]):
                 **kwargs,
             ) as response:
                 # Log request metrics
-                duration = (datetime.now(timezone.utc) - start_time).total_seconds()
+                duration = (datetime.now(UTC) - start_time).total_seconds()
                 self._logger.debug(
                     "%s %s - %d (%.3fs)",
                     method.upper(),
@@ -316,11 +316,15 @@ class EmagAPIClient(Generic[T]):
                             if isinstance(error_messages, list) and error_messages:
                                 first_msg = error_messages[0]
                                 if isinstance(first_msg, dict):
-                                    error_msg = first_msg.get("message", "Unknown error")
+                                    error_msg = first_msg.get(
+                                        "message", "Unknown error"
+                                    )
                                 else:
                                     error_msg = str(first_msg)
                             elif isinstance(error_messages, dict):
-                                error_msg = error_messages.get("message", "Unknown error")
+                                error_msg = error_messages.get(
+                                    "message", "Unknown error"
+                                )
                             else:
                                 error_msg = str(error_messages)
                     except ValueError:
@@ -417,8 +421,8 @@ class EmagAPIClient(Generic[T]):
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a GET request."""
@@ -433,9 +437,9 @@ class EmagAPIClient(Generic[T]):
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a POST request."""
@@ -451,9 +455,9 @@ class EmagAPIClient(Generic[T]):
     async def put(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a PUT request."""
@@ -469,8 +473,8 @@ class EmagAPIClient(Generic[T]):
     async def delete(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a DELETE request."""
@@ -485,8 +489,8 @@ class EmagAPIClient(Generic[T]):
     async def get_paginated(
         self,
         endpoint: str,
-        response_model: Type[T],
-        cursor: Optional[str] = None,
+        response_model: type[T],
+        cursor: str | None = None,
         limit: int = 100,
         is_order_endpoint: bool = False,
         **kwargs: Any,
@@ -527,7 +531,7 @@ class EmagAPIClient(Generic[T]):
     async def iterate_all_pages(
         self,
         endpoint: str,
-        response_model: Type[T],
+        response_model: type[T],
         limit: int = 100,
         is_order_endpoint: bool = False,
         **kwargs: Any,

@@ -7,11 +7,10 @@ Rate limiting implementation conforming to eMAG API v4.4.8 specifications (Secti
 """
 
 import asyncio
-import time
-import random
-from typing import Dict, Optional
-from collections import deque
 import logging
+import random
+import time
+from collections import deque
 
 from app.core.emag_constants import RateLimits
 from app.core.emag_errors import RateLimitError
@@ -25,7 +24,7 @@ class TokenBucket:
     def __init__(self, rate: float, capacity: int):
         """
         Initialize token bucket.
-        
+
         Args:
             rate: Token refill rate (tokens per second)
             capacity: Maximum bucket capacity
@@ -39,10 +38,10 @@ class TokenBucket:
     async def acquire(self, tokens: int = 1) -> bool:
         """
         Acquire tokens from bucket.
-        
+
         Args:
             tokens: Number of tokens to acquire
-            
+
         Returns:
             True if tokens were acquired, False otherwise
         """
@@ -51,10 +50,7 @@ class TokenBucket:
             elapsed = now - self.last_update
 
             # Refill tokens based on elapsed time
-            self.tokens = min(
-                self.capacity,
-                self.tokens + elapsed * self.rate
-            )
+            self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
             self.last_update = now
 
             if self.tokens >= tokens:
@@ -63,14 +59,14 @@ class TokenBucket:
 
             return False
 
-    async def wait_for_token(self, tokens: int = 1, timeout: Optional[float] = None):
+    async def wait_for_token(self, tokens: int = 1, timeout: float | None = None):
         """
         Wait until tokens are available.
-        
+
         Args:
             tokens: Number of tokens needed
             timeout: Maximum wait time in seconds
-            
+
         Raises:
             RateLimitError: If timeout is exceeded
         """
@@ -84,7 +80,7 @@ class TokenBucket:
             if timeout and (time.time() - start_time) >= timeout:
                 raise RateLimitError(
                     remaining_seconds=int(tokens / self.rate),
-                    message="Rate limit timeout exceeded"
+                    message="Rate limit timeout exceeded",
                 )
 
             # Wait a bit before trying again
@@ -94,10 +90,7 @@ class TokenBucket:
         """Get current number of available tokens."""
         now = time.time()
         elapsed = now - self.last_update
-        return min(
-            self.capacity,
-            self.tokens + elapsed * self.rate
-        )
+        return min(self.capacity, self.tokens + elapsed * self.rate)
 
 
 class SlidingWindowCounter:
@@ -106,7 +99,7 @@ class SlidingWindowCounter:
     def __init__(self, window_size: int = 60):
         """
         Initialize sliding window counter.
-        
+
         Args:
             window_size: Window size in seconds
         """
@@ -138,7 +131,7 @@ class SlidingWindowCounter:
 class EmagRateLimiter:
     """
     Rate limiter conforming to eMAG API v4.4.8 specifications.
-    
+
     Implements:
     - 12 requests/second for orders (720/minute)
     - 3 requests/second for other operations (180/minute)
@@ -151,11 +144,11 @@ class EmagRateLimiter:
         # Token buckets for per-second limits
         self.orders_bucket = TokenBucket(
             rate=RateLimits.ORDERS_RPS,
-            capacity=RateLimits.ORDERS_RPS * 2  # Allow some burst
+            capacity=RateLimits.ORDERS_RPS * 2,  # Allow some burst
         )
         self.other_bucket = TokenBucket(
             rate=RateLimits.OTHER_RPS,
-            capacity=RateLimits.OTHER_RPS * 2  # Allow some burst
+            capacity=RateLimits.OTHER_RPS * 2,  # Allow some burst
         )
 
         # Sliding window counters for per-minute limits
@@ -172,17 +165,15 @@ class EmagRateLimiter:
         self._stats_lock = asyncio.Lock()
 
     async def acquire(
-        self,
-        operation_type: str = "other",
-        timeout: Optional[float] = 30.0
+        self, operation_type: str = "other", timeout: float | None = 30.0
     ):
         """
         Acquire rate limit token for an operation.
-        
+
         Args:
             operation_type: Type of operation ("orders" or "other")
             timeout: Maximum wait time in seconds
-            
+
         Raises:
             RateLimitError: If rate limit cannot be acquired within timeout
         """
@@ -206,7 +197,7 @@ class EmagRateLimiter:
             if timeout and wait_time > timeout:
                 raise RateLimitError(
                     remaining_seconds=int(wait_time),
-                    message=f"Per-minute rate limit exceeded for {operation_type}"
+                    message=f"Per-minute rate limit exceeded for {operation_type}",
                 )
 
             await asyncio.sleep(wait_time)
@@ -230,8 +221,7 @@ class EmagRateLimiter:
         await self._update_stats(operation_type, wait_time)
 
         logger.debug(
-            f"Rate limit acquired for {operation_type} "
-            f"(waited {wait_time:.3f}s)"
+            f"Rate limit acquired for {operation_type} (waited {wait_time:.3f}s)"
         )
 
     async def _update_stats(self, operation_type: str, wait_time: float):
@@ -248,10 +238,10 @@ class EmagRateLimiter:
         async with self._stats_lock:
             self.stats["rate_limit_hits"] += 1
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """
         Get rate limiter statistics.
-        
+
         Returns:
             Dictionary with statistics
         """
@@ -282,10 +272,10 @@ class EmagRateLimiter:
     def get_usage_percentage(self, operation_type: str = "other") -> float:
         """
         Get current usage percentage of rate limit.
-        
+
         Args:
             operation_type: Type of operation ("orders" or "other")
-            
+
         Returns:
             Usage percentage (0.0 to 1.0)
         """
@@ -299,13 +289,13 @@ class EmagRateLimiter:
 
 
 # Global rate limiter instance
-_rate_limiter: Optional[EmagRateLimiter] = None
+_rate_limiter: EmagRateLimiter | None = None
 
 
 def get_rate_limiter() -> EmagRateLimiter:
     """
     Get global rate limiter instance.
-    
+
     Returns:
         EmagRateLimiter instance
     """
@@ -318,11 +308,11 @@ def get_rate_limiter() -> EmagRateLimiter:
 async def rate_limited_request(operation_type: str = "other", timeout: float = 30.0):
     """
     Decorator/context manager for rate-limited requests.
-    
+
     Args:
         operation_type: Type of operation ("orders" or "other")
         timeout: Maximum wait time for rate limit
-        
+
     Example:
         await rate_limited_request("orders")
         result = await emag_api.get_orders()

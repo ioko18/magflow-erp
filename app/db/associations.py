@@ -17,7 +17,9 @@ role_permission = Table(
     "role_permission",
     Base.metadata,
     Column("role_id", Integer, ForeignKey("app.roles.id"), primary_key=True),
-    Column("permission_id", Integer, ForeignKey("app.permissions.id"), primary_key=True),
+    Column(
+        "permission_id", Integer, ForeignKey("app.permissions.id"), primary_key=True
+    ),
     schema="app",
     extend_existing=True,
 )

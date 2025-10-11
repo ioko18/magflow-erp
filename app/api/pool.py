@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 import asyncpg
 from fastapi import APIRouter
@@ -35,7 +35,7 @@ async def _get_pgb_connection() -> asyncpg.Connection:
 async def _execute_query_safe(
     conn: asyncpg.Connection,
     query: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Execute a PgBouncer query safely and return normalized results."""
     try:
         rows = await conn.fetch(query)

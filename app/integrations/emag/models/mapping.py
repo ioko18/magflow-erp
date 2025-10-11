@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -30,7 +30,7 @@ class ProductMapping(BaseModel):
 
     internal_id: str = Field(..., description="Internal product ID")
     emag_id: str = Field(..., description="eMAG product ID")
-    emag_offer_id: Optional[int] = Field(None, description="eMAG offer ID")
+    emag_offer_id: int | None = Field(None, description="eMAG offer ID")
     status: MappingStatus = Field(
         default=MappingStatus.ACTIVE,
         description="Mapping status",
@@ -43,11 +43,11 @@ class ProductMapping(BaseModel):
         default_factory=datetime.utcnow,
         description="Last update timestamp",
     )
-    last_synced_at: Optional[datetime] = Field(
+    last_synced_at: datetime | None = Field(
         None,
         description="Last successful sync timestamp",
     )
-    sync_errors: List[Dict[str, Any]] = Field(
+    sync_errors: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of sync errors",
     )
@@ -60,8 +60,8 @@ class ProductMapping(BaseModel):
 
     @field_serializer("last_synced_at", when_used="json")
     def serialize_optional_datetime(
-        self, value: Optional[datetime], _info
-    ) -> Optional[str]:
+        self, value: datetime | None, _info
+    ) -> str | None:
         return value.isoformat() if value else None
 
 
@@ -84,7 +84,7 @@ class CategoryIdMapping(BaseModel):
         default_factory=datetime.utcnow,
         description="Last update timestamp",
     )
-    parent_mapping: Optional[str] = Field(
+    parent_mapping: str | None = Field(
         None,
         description="Parent category mapping ID",
     )
@@ -159,16 +159,16 @@ class FieldMappingRule(BaseModel):
 
     internal_field: str = Field(..., description="Internal field name")
     emag_field: str = Field(..., description="eMAG field name")
-    transform_function: Optional[str] = Field(
+    transform_function: str | None = Field(
         None,
         description="Name of transform function to apply",
     )
-    default_value: Optional[Any] = Field(
+    default_value: Any | None = Field(
         None,
         description="Default value if field is missing",
     )
     required: bool = Field(default=True, description="Whether this field is required")
-    validation_rules: Dict[str, Any] = Field(
+    validation_rules: dict[str, Any] = Field(
         default_factory=dict,
         description="Validation rules",
     )
@@ -191,15 +191,15 @@ class ProductFieldMapping(BaseModel):
         ...,
         description="Characteristics mapping",
     )
-    part_number_mapping: Optional[FieldMappingRule] = Field(
+    part_number_mapping: FieldMappingRule | None = Field(
         None,
         description="Part number mapping",
     )
-    warranty_mapping: Optional[FieldMappingRule] = Field(
+    warranty_mapping: FieldMappingRule | None = Field(
         None,
         description="Warranty mapping",
     )
-    handling_time_mapping: Optional[FieldMappingRule] = Field(
+    handling_time_mapping: FieldMappingRule | None = Field(
         None,
         description="Handling time mapping",
     )
@@ -239,7 +239,7 @@ class MappingResult(BaseModel):
 
     mapping_type: MappingType = Field(..., description="Type of mapping")
     internal_id: str = Field(..., description="Internal ID")
-    emag_id: Optional[Union[str, int]] = Field(None, description="eMAG ID")
+    emag_id: str | int | None = Field(None, description="eMAG ID")
     success: bool = Field(..., description="Whether mapping was successful")
     created: bool = Field(
         default=False,
@@ -249,8 +249,8 @@ class MappingResult(BaseModel):
         default=False,
         description="Whether existing mapping was updated",
     )
-    errors: List[str] = Field(default_factory=list, description="List of errors if any")
-    metadata: Dict[str, Any] = Field(
+    errors: list[str] = Field(default_factory=list, description="List of errors if any")
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",
     )
@@ -267,11 +267,11 @@ class BulkMappingResult(BaseModel):
         ...,
         description="Number of existing mappings updated",
     )
-    results: List[MappingResult] = Field(
+    results: list[MappingResult] = Field(
         default_factory=list,
         description="Individual mapping results",
     )
-    errors: List[Dict[str, Any]] = Field(
+    errors: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Bulk operation errors",
     )
@@ -280,19 +280,19 @@ class BulkMappingResult(BaseModel):
 class ProductTransformationResult(BaseModel):
     """Result of transforming a product for eMAG."""
 
-    internal_product: Dict[str, Any] = Field(
+    internal_product: dict[str, Any] = Field(
         ...,
         description="Original internal product data",
     )
-    emag_product: Dict[str, Any] = Field(
+    emag_product: dict[str, Any] = Field(
         ...,
         description="Transformed eMAG product data",
     )
-    mappings_applied: List[str] = Field(
+    mappings_applied: list[str] = Field(
         default_factory=list,
         description="List of mappings applied",
     )
-    validation_errors: List[str] = Field(
+    validation_errors: list[str] = Field(
         default_factory=list,
         description="Validation errors",
     )

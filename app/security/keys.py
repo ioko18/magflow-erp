@@ -5,15 +5,17 @@ import json
 import logging
 import uuid
 from collections.abc import Iterable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import RLock
-from typing import Any, Dict, Optional
+from typing import Any
 
 try:
     from unittest.mock import MagicMock
 except ImportError:  # pragma: no cover
     MagicMock = None  # type: ignore[assignment]
+
+import contextlib
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
@@ -27,17 +29,18 @@ logger = logging.getLogger(__name__)
 
 def _utcnow() -> datetime:
     """Return a timezone-naive UTC timestamp using the recommended API."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 if not hasattr(Path, "unitchmod"):
+
     def _safe_unitchmod(path_obj: Path, mode: int) -> None:
         try:
             path_obj.chmod(mode)
         except Exception:
             logger.debug("Failed to apply unitchmod on %s", path_obj, exc_info=True)
 
-    setattr(Path, "unitchmod", _safe_unitchmod)
+    Path.unitchmod = _safe_unitchmod
 
 
 class KeyPair(BaseModel):
@@ -48,7 +51,7 @@ class KeyPair(BaseModel):
     public_key: str
     algorithm: str
     key_type: str
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     created_at: datetime = Field(default_factory=_utcnow)
 
     @property
@@ -56,12 +59,12 @@ class KeyPair(BaseModel):
         """Check if the key is active."""
         return self.expires_at is None or self.expires_at > _utcnow()
 
-    def deactivate(self, timestamp: Optional[datetime] = None) -> None:
+    def deactivate(self, timestamp: datetime | None = None) -> None:
         """Deactivate the key by forcing expiration."""
         expired_at = (timestamp or _utcnow()) - timedelta(seconds=1)
         self.expires_at = expired_at
 
-    def to_jwk(self, private: bool = False) -> Dict[str, Any]:
+    def to_jwk(self, private: bool = False) -> dict[str, Any]:
         """Convert the key to JWK format."""
         key = {
             "kty": self.key_type,
@@ -87,11 +90,13 @@ class KeyPair(BaseModel):
 
         return {k: v for k, v in key.items() if v is not None}
 
-    def _rsa_public_jwk_components(self) -> Dict[str, Optional[str]]:
+    def _rsa_public_jwk_components(self) -> dict[str, str | None]:
         try:
             public_key = serialization.load_pem_public_key(self.public_key.encode())
         except (TypeError, ValueError) as exc:
-            logger.warning("Failed to load RSA public key for kid '%s': %s", self.kid, exc)
+            logger.warning(
+                "Failed to load RSA public key for kid '%s': %s", self.kid, exc
+            )
             return {}
 
         if not isinstance(public_key, rsa.RSAPublicKey):
@@ -108,14 +113,16 @@ class KeyPair(BaseModel):
             "e": _int_to_base64url(numbers.e),
         }
 
-    def _rsa_private_jwk_components(self) -> Dict[str, Optional[str]]:
+    def _rsa_private_jwk_components(self) -> dict[str, str | None]:
         try:
             private_key = serialization.load_pem_private_key(
                 self.private_key.encode(),
                 password=None,
             )
         except (TypeError, ValueError) as exc:
-            logger.warning("Failed to load RSA private key for kid '%s': %s", self.kid, exc)
+            logger.warning(
+                "Failed to load RSA private key for kid '%s': %s", self.kid, exc
+            )
             return {}
 
         if not isinstance(private_key, rsa.RSAPrivateKey):
@@ -139,11 +146,13 @@ class KeyPair(BaseModel):
             "qi": _int_to_base64url(numbers.iqmp),
         }
 
-    def _eddsa_public_jwk_components(self) -> Dict[str, Optional[str]]:
+    def _eddsa_public_jwk_components(self) -> dict[str, str | None]:
         try:
             public_key = serialization.load_pem_public_key(self.public_key.encode())
         except (TypeError, ValueError) as exc:
-            logger.warning("Failed to load Ed25519 public key for kid '%s': %s", self.kid, exc)
+            logger.warning(
+                "Failed to load Ed25519 public key for kid '%s': %s", self.kid, exc
+            )
             return {}
 
         if not isinstance(public_key, ed25519.Ed25519PublicKey):
@@ -160,14 +169,16 @@ class KeyPair(BaseModel):
         )
         return {"crv": "Ed25519", "x": _bytes_to_base64url(public_bytes)}
 
-    def _eddsa_private_jwk_components(self) -> Dict[str, Optional[str]]:
+    def _eddsa_private_jwk_components(self) -> dict[str, str | None]:
         try:
             private_key = serialization.load_pem_private_key(
                 self.private_key.encode(),
                 password=None,
             )
         except (TypeError, ValueError) as exc:
-            logger.warning("Failed to load Ed25519 private key for kid '%s': %s", self.kid, exc)
+            logger.warning(
+                "Failed to load Ed25519 private key for kid '%s': %s", self.kid, exc
+            )
             return {}
 
         if not isinstance(private_key, ed25519.Ed25519PrivateKey):
@@ -199,7 +210,11 @@ def _int_to_base64url(value: int) -> str:
     if value == 0:
         return "AA"
     byte_length = (value.bit_length() + 7) // 8
-    return base64.urlsafe_b64encode(value.to_bytes(byte_length, "big")).rstrip(b"=").decode()
+    return (
+        base64.urlsafe_b64encode(value.to_bytes(byte_length, "big"))
+        .rstrip(b"=")
+        .decode()
+    )
 
 
 def _bytes_to_base64url(raw: bytes) -> str:
@@ -210,15 +225,15 @@ def _bytes_to_base64url(raw: bytes) -> str:
 class KeyManager:
     """Simple key manager without cryptography dependency."""
 
-    def __init__(self, keyset_dir: Optional[str] = None):
+    def __init__(self, keyset_dir: str | None = None):
         self.keyset_dir = Path(
             keyset_dir
             or self._get_setting("jwt_keyset_dir", "JWT_KEYSET_DIR", default="jwt-keys")
         )
         self._lock = RLock()
         self.keyset_dir.mkdir(parents=True, exist_ok=True)
-        self.keys: Dict[str, KeyPair] = {}
-        self.active_kid: Optional[str] = None
+        self.keys: dict[str, KeyPair] = {}
+        self.active_kid: str | None = None
         self.load_keys()
         self.ensure_active_key()
 
@@ -227,7 +242,11 @@ class KeyManager:
         base_settings = getattr(config_module, "settings", None)
 
         for name in names:
-            if name in base_first and base_settings is not None and hasattr(base_settings, name):
+            if (
+                name in base_first
+                and base_settings is not None
+                and hasattr(base_settings, name)
+            ):
                 value = getattr(base_settings, name)
                 if MagicMock is not None and isinstance(value, MagicMock):
                     continue
@@ -251,8 +270,10 @@ class KeyManager:
                     return value
         return default
 
-    def _normalize_algorithm(self, algorithm: Optional[str]) -> str:
-        default_algorithm = self._get_setting("jwt_algorithm", "JWT_ALGORITHM", default="HS256")
+    def _normalize_algorithm(self, algorithm: str | None) -> str:
+        default_algorithm = self._get_setting(
+            "jwt_algorithm", "JWT_ALGORITHM", default="HS256"
+        )
         alg = (algorithm or default_algorithm).upper()
 
         supported_config: Any = self._get_setting(
@@ -291,18 +312,16 @@ class KeyManager:
 
     def _remove_key_file(self, kid: str) -> None:
         key_file = self.keyset_dir / f"{kid}.json"
-        try:
+        with contextlib.suppress(FileNotFoundError):
             key_file.unlink()
-        except FileNotFoundError:
-            pass
         self.keys.pop(kid, None)
 
-    def generate_rsa_keypair(self, kid: Optional[str] = None) -> tuple[str, str]:
+    def generate_rsa_keypair(self, kid: str | None = None) -> tuple[str, str]:
         """Generate an RSA key pair and return PEM strings."""
         keypair = self.generate_keypair(algorithm="RS256", kid=kid)
         return keypair.private_key, keypair.public_key
 
-    def generate_ed25519_keypair(self, kid: Optional[str] = None) -> tuple[str, str]:
+    def generate_ed25519_keypair(self, kid: str | None = None) -> tuple[str, str]:
         """Generate an Ed25519 key pair and return PEM strings."""
         keypair = self.generate_keypair(algorithm="EDDSA", kid=kid)
         return keypair.private_key, keypair.public_key
@@ -310,7 +329,7 @@ class KeyManager:
     def generate_keypair(
         self,
         algorithm: str = "HS256",
-        kid: Optional[str] = None,
+        kid: str | None = None,
         *,
         force_active: bool = False,
     ) -> KeyPair:
@@ -340,9 +359,7 @@ class KeyManager:
                     min_seconds = max(1, int(expires_days_value * 86400))
                     expires_at = now + timedelta(seconds=min_seconds)
             else:
-                if expires_days_value <= 0:
-                    expires_at = now - timedelta(seconds=1)
-                elif expires_days_value < 1:
+                if expires_days_value <= 0 or expires_days_value < 1:
                     expires_at = now - timedelta(seconds=1)
                 else:
                     expires_at = now + timedelta(days=expires_days_value)
@@ -358,10 +375,14 @@ class KeyManager:
                     format=serialization.PrivateFormat.PKCS8,
                     encryption_algorithm=serialization.NoEncryption(),
                 ).decode()
-                public_key = rsa_key.public_key().public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                ).decode()
+                public_key = (
+                    rsa_key.public_key()
+                    .public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
+                    .decode()
+                )
                 key_type = "RSA"
             elif algorithm == "EDDSA":
                 ed_key = ed25519.Ed25519PrivateKey.generate()
@@ -370,10 +391,14 @@ class KeyManager:
                     format=serialization.PrivateFormat.PKCS8,
                     encryption_algorithm=serialization.NoEncryption(),
                 ).decode()
-                public_key = ed_key.public_key().public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo,
-                ).decode()
+                public_key = (
+                    ed_key.public_key()
+                    .public_bytes(
+                        encoding=serialization.Encoding.PEM,
+                        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+                    )
+                    .decode()
+                )
                 key_type = "OKP"
             else:
                 raise ValueError(
@@ -454,7 +479,7 @@ class KeyManager:
             for algorithm in {k.algorithm for k in self.keys.values()}:
                 self._enforce_active_key_limit(algorithm)
 
-    def get_active_key(self, algorithm: Optional[str] = None) -> KeyPair:
+    def get_active_key(self, algorithm: str | None = None) -> KeyPair:
         """Get the currently active key."""
         algorithm = self._normalize_algorithm(algorithm)
 
@@ -481,7 +506,7 @@ class KeyManager:
                 self.active_kid = most_recent.kid
             return most_recent
 
-    def ensure_active_key(self, algorithm: Optional[str] = None) -> None:
+    def ensure_active_key(self, algorithm: str | None = None) -> None:
         """Ensure there is an active key pair for the requested algorithm."""
 
         algorithm = self._normalize_algorithm(algorithm)
@@ -511,7 +536,7 @@ class KeyManager:
 
         self.rotate_key(algorithm)
 
-    def rotate_key(self, algorithm: Optional[str] = None) -> KeyPair:
+    def rotate_key(self, algorithm: str | None = None) -> KeyPair:
         """Rotate the active key."""
         algorithm = self._normalize_algorithm(algorithm)
         with self._lock:
@@ -541,7 +566,7 @@ class KeyManager:
                 raise KeyError(f"Key not found: {kid}")
             return keypair
 
-    def get_signing_key(self, kid: Optional[str] = None) -> Dict[str, Any]:
+    def get_signing_key(self, kid: str | None = None) -> dict[str, Any]:
         """Get the signing key in JWK format."""
         if not kid and not self.active_kid:
             raise ValueError("No active key available")
@@ -557,7 +582,7 @@ class KeyManager:
 
             return key_pair.to_jwk(private=True)
 
-    def get_jwks(self, private: bool = False) -> Dict[str, Any]:
+    def get_jwks(self, private: bool = False) -> dict[str, Any]:
         """Get the JSON Web Key Set."""
         with self._lock:
             now = _utcnow()
@@ -622,7 +647,7 @@ class KeyManager:
 
 
 # Global key manager instance (lazy)
-key_manager: Optional[KeyManager] = None
+key_manager: KeyManager | None = None
 
 
 def _resolve_keyset_dir() -> Path:

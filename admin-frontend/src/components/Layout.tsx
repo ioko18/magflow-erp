@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Layout as AntLayout, Menu, Button, Avatar, Dropdown, Badge, Switch, Tooltip, Tag } from 'antd'
+import { Layout as AntLayout, Menu, Button, Avatar, Dropdown, Badge, Switch, Tooltip } from 'antd'
 import {
   DashboardOutlined,
   ShoppingCartOutlined,
@@ -8,27 +8,31 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  LinkOutlined,
-  BarChartOutlined,
-  ReconciliationOutlined,
   TeamOutlined,
   SunOutlined,
   MoonOutlined,
   TruckOutlined,
   BarcodeOutlined,
-  FilePdfOutlined,
   EnvironmentOutlined,
-  PlusOutlined,
   AppstoreOutlined,
   CloudUploadOutlined,
   CloudSyncOutlined,
-  InboxOutlined,
+  FileExcelOutlined,
+  ShopOutlined,
+  UsergroupAddOutlined,
+  SafetyOutlined,
+  FileTextOutlined,
+  ShoppingOutlined,
+  DatabaseOutlined,
+  ApiOutlined,
+  BellOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useNotifications } from '../contexts/NotificationContext'
 import { useAuth } from '../contexts/AuthContext'
-import NotificationPanel from './NotificationPanel'
+import NotificationPanel from './dashboard/NotificationPanel'
 
 const { Header, Sider, Content } = AntLayout
 
@@ -37,7 +41,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [notificationPanelVisible, setNotificationPanelVisible] = useState(false)
   const location = useLocation()
   const { isDarkMode, toggleTheme } = useTheme()
@@ -53,12 +57,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     {
       key: '/dashboard',
-      icon: <DashboardOutlined />,
+      icon: <DashboardOutlined style={{ fontSize: '16px' }} />,
       label: <Link to="/dashboard">Dashboard</Link>,
     },
     {
       key: 'emag-group',
-      icon: <LinkOutlined />,
+      icon: <ApiOutlined style={{ fontSize: '16px' }} />,
       label: 'eMAG Integration',
       children: [
         {
@@ -67,13 +71,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           label: (
             <span>
               <Link to="/emag/sync-v2">Product Sync V2</Link>
-              <Tag color="success" style={{ marginLeft: 8, fontSize: '10px' }}>NEW</Tag>
             </span>
           ),
         },
         {
           key: '/emag/publishing',
-          icon: <PlusOutlined />,
+          icon: <CloudUploadOutlined />,
           label: <Link to="/emag/publishing">Product Publishing</Link>,
         },
         {
@@ -88,7 +91,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         },
         {
           key: '/emag/invoices',
-          icon: <FilePdfOutlined />,
+          icon: <FileTextOutlined />,
           label: <Link to="/emag/invoices">Invoices</Link>,
         },
         {
@@ -100,21 +103,29 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     },
     {
       key: 'products-group',
-      icon: <ShoppingCartOutlined />,
+      icon: <ShoppingOutlined style={{ fontSize: '16px' }} />,
       label: 'Products',
       children: [
         {
           key: '/products',
-          icon: <ShoppingCartOutlined />,
+          icon: <ShopOutlined />,
           label: <Link to="/products">Product Management</Link>,
         },
         {
           key: '/inventory',
-          icon: <InboxOutlined />,
+          icon: <DatabaseOutlined />,
           label: (
             <span>
               <Link to="/inventory">Inventory & Low Stock</Link>
-              <Tag color="warning" style={{ marginLeft: 8, fontSize: '10px' }}>NEW</Tag>
+            </span>
+          ),
+        },
+        {
+          key: '/low-stock-suppliers',
+          icon: <WarningOutlined />,
+          label: (
+            <span>
+              <Link to="/low-stock-suppliers">Low Stock Suppliers</Link>
             </span>
           ),
         },
@@ -127,17 +138,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     },
     {
       key: '/orders',
-      icon: <ReconciliationOutlined />,
+      icon: <ShoppingCartOutlined style={{ fontSize: '16px' }} />,
       label: <Link to="/orders">Orders</Link>,
     },
     {
       key: '/customers',
-      icon: <TeamOutlined />,
+      icon: <UsergroupAddOutlined style={{ fontSize: '16px' }} />,
       label: <Link to="/customers">Customers</Link>,
     },
     {
       key: 'suppliers-group',
-      icon: <TeamOutlined />,
+      icon: <TeamOutlined style={{ fontSize: '16px' }} />,
       label: 'Suppliers',
       children: [
         {
@@ -147,8 +158,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         },
         {
           key: '/suppliers/products',
-          icon: <ShoppingCartOutlined />,
+          icon: <ShopOutlined />,
           label: <Link to="/suppliers/products">Supplier Products</Link>,
+        },
+        {
+          key: '/suppliers/products-sheet',
+          icon: <FileExcelOutlined />,
+          label: <Link to="/suppliers/products-sheet">Products from Sheets</Link>,
         },
         {
           key: '/suppliers/matching',
@@ -159,12 +175,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     },
     {
       key: '/users',
-      icon: <UserOutlined />,
+      icon: <SafetyOutlined style={{ fontSize: '16px' }} />,
       label: <Link to="/users">Users</Link>,
     },
     {
       key: '/settings',
-      icon: <SettingOutlined />,
+      icon: <SettingOutlined style={{ fontSize: '16px' }} />,
       label: <Link to="/settings">Settings</Link>,
     },
   ]
@@ -252,7 +268,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Badge count={unreadCount} size="small">
                 <Button
                   type="text"
-                  icon={<BarChartOutlined style={{ fontSize: '18px', color: '#1890ff' }} />}
+                  icon={<BellOutlined style={{ fontSize: '18px', color: '#1890ff' }} />}
                   onClick={() => setNotificationPanelVisible(true)}
                 />
               </Badge>

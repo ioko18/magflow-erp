@@ -3,7 +3,7 @@
 import base64
 import json
 from datetime import UTC, datetime
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
 from uuid import UUID
 
 # import httpx
@@ -65,8 +65,8 @@ class CatalogService:
 
     def __init__(
         self,
-        http_client: Optional[Any] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        http_client: Any | None = None,
+        rate_limiter: RateLimiter | None = None,
     ):
         """Initialize the CatalogService.
 
@@ -96,10 +96,10 @@ class CatalogService:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """Make an HTTP request to the eMAG API with rate limiting and error handling.
 
         Args:
@@ -196,7 +196,7 @@ class CatalogService:
                 detail=f"HTTP error: {e!s}",
             ) from e
 
-    def _encode_cursor(self, cursor_data: Dict[str, Any]) -> str:
+    def _encode_cursor(self, cursor_data: dict[str, Any]) -> str:
         """Encode cursor data to base64 string.
 
         Args:
@@ -209,7 +209,7 @@ class CatalogService:
         cursor_str = json.dumps(cursor_data, sort_keys=True)
         return base64.urlsafe_b64encode(cursor_str.encode()).decode()
 
-    def _decode_cursor(self, cursor: str) -> Dict[str, Any]:
+    def _decode_cursor(self, cursor: str) -> dict[str, Any]:
         """Decode base64 cursor string to dictionary.
 
         Args:
@@ -477,7 +477,7 @@ class CatalogService:
         # for field, value in update_data.items():
         #     setattr(db_product, field, value)
         #
-        # db_product.updated_at = datetime.utcnow()
+        # db_product.updated_at = datetime.now(UTC)
         # db.commit()
         # db.refresh(db_product)
         # return db_product
@@ -530,9 +530,9 @@ class CatalogService:
     # Brand methods (similar structure as product methods)
     async def list_brands(
         self,
-        q: Optional[str] = None,
+        q: str | None = None,
         limit: int = 20,
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
     ) -> BrandListResponse:
         """List brands with optional filtering and pagination.
 
@@ -604,7 +604,7 @@ class CatalogService:
         self,
         category_id: int,
         limit: int = 20,
-        cursor: Optional[str] = None,
+        cursor: str | None = None,
     ) -> CharacteristicListResponse:
         """List characteristics for a category with pagination.
 
@@ -658,7 +658,7 @@ class CatalogService:
         self,
         category_id: int,
         characteristic_id: int,
-    ) -> List[CharacteristicValue]:
+    ) -> list[CharacteristicValue]:
         """Get values for a specific characteristic in a category.
 
         Args:

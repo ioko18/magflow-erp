@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 import pytest
 
-from app.services.emag_integration_service import (
+from app.services.emag.emag_integration_service import (
     EmagApiClient,
     EmagApiConfig,
     EmagApiEnvironment,
@@ -34,9 +34,18 @@ class TestEmagRetryLogic:
         )
 
     @pytest.fixture
-    def api_client(self, api_config):
+    async def api_client(self, api_config):
         """Create test API client."""
-        return EmagApiClient(api_config)
+        client = EmagApiClient(
+            username=api_config.api_username,
+            password=api_config.api_password,
+            base_url=api_config.base_url,
+            timeout=api_config.api_timeout,
+            max_retries=api_config.max_retries,
+        )
+        await client.start()
+        yield client
+        await client.close()
 
     @pytest.mark.asyncio
     async def test_successful_request_no_retry(self, api_client):
@@ -47,13 +56,13 @@ class TestEmagRetryLogic:
             "data": {"products": []},
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.json.return_value = success_response
             mock_response.status = 200
             mock_request.return_value.__aenter__.return_value = mock_response
 
-            result = await api_client._make_request("GET", "/test")
+            result = await api_client._request("GET", "/test")
 
             assert result == success_response
             assert mock_request.call_count == 1  # Only one attempt
@@ -88,11 +97,11 @@ class TestEmagRetryLogic:
             return mock_response
 
         with patch.object(
-            api_client.session, "request", side_effect=mock_request_side_effect
+            api_client._session, "request", side_effect=mock_request_side_effect
         ):
             with patch("asyncio.sleep") as mock_sleep:
                 asyncio.get_event_loop().time()
-                result = await api_client._make_request("GET", "/test")
+                result = await api_client._request("GET", "/test")
                 asyncio.get_event_loop().time()
 
                 assert result == success_response
@@ -140,10 +149,10 @@ class TestEmagRetryLogic:
             return mock_response
 
         with patch.object(
-            api_client.session, "request", side_effect=mock_request_side_effect
+            api_client._session, "request", side_effect=mock_request_side_effect
         ):
             with patch.object(api_client, "authenticate") as mock_auth:
-                result = await api_client._make_request("GET", "/test")
+                result = await api_client._request("GET", "/test")
 
                 assert result == success_response
                 assert call_count == 2  # Initial + 1 auth retry
@@ -158,7 +167,7 @@ class TestEmagRetryLogic:
             "data": None,
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.status = 429
             mock_response.json.return_value = error_response
@@ -166,7 +175,7 @@ class TestEmagRetryLogic:
 
             with patch("asyncio.sleep"):  # Prevent actual delays
                 with pytest.raises(EmagApiError) as exc_info:
-                    await api_client._make_request("GET", "/test")
+                    await api_client._request("GET", "/test")
 
                 assert "Rate limit exceeded" in str(exc_info.value)
                 assert mock_request.call_count == 4  # Initial + 3 retries
@@ -193,10 +202,10 @@ class TestEmagRetryLogic:
             return mock_response
 
         with patch.object(
-            api_client.session, "request", side_effect=mock_request_side_effect
+            api_client._session, "request", side_effect=mock_request_side_effect
         ):
             with patch("asyncio.sleep") as mock_sleep:
-                result = await api_client._make_request("GET", "/test")
+                result = await api_client._request("GET", "/test")
 
                 assert result == success_response
                 assert call_count == 2  # Initial + 1 retry
@@ -211,14 +220,14 @@ class TestEmagRetryLogic:
             "data": None,
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.status = 400
             mock_response.json.return_value = error_response
             mock_request.return_value.__aenter__.return_value = mock_response
 
             with pytest.raises(EmagApiError) as exc_info:
-                await api_client._make_request("GET", "/test")
+                await api_client._request("GET", "/test")
 
             assert "Bad request" in str(exc_info.value)
             assert mock_request.call_count == 1  # No retries for 400
@@ -226,14 +235,14 @@ class TestEmagRetryLogic:
     @pytest.mark.asyncio
     async def test_json_decode_error_handling(self, api_client):
         """Test handling of malformed JSON responses."""
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
             mock_response.status = 200
             mock_request.return_value.__aenter__.return_value = mock_response
 
             with pytest.raises(EmagApiError):
-                await api_client._make_request("GET", "/test")
+                await api_client._request("GET", "/test")
 
 
 class TestEmagErrorClassification:
@@ -258,7 +267,7 @@ class TestEmagErrorClassification:
             "data": None,
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.status = 429
             mock_response.json.return_value = error_response
@@ -267,7 +276,7 @@ class TestEmagErrorClassification:
             # Should trigger retry logic
             with patch("asyncio.sleep"):
                 with pytest.raises(EmagApiError) as exc_info:
-                    await api_client._make_request("GET", "/test")
+                    await api_client._request("GET", "/test")
 
                 assert "API rate limit exceeded" in str(exc_info.value)
                 # Verify it went through retry attempts
@@ -303,10 +312,10 @@ class TestEmagErrorClassification:
             return mock_response
 
         with patch.object(
-            api_client.session, "request", side_effect=mock_request_side_effect
+            api_client._session, "request", side_effect=mock_request_side_effect
         ):
             with patch.object(api_client, "authenticate") as mock_auth:
-                result = await api_client._make_request("GET", "/test")
+                result = await api_client._request("GET", "/test")
 
                 assert result == success_response
                 mock_auth.assert_called_once()
@@ -328,14 +337,14 @@ class TestEmagErrorClassification:
                 "data": None,
             }
 
-            with patch.object(api_client.session, "request") as mock_request:
+            with patch.object(api_client._session, "request") as mock_request:
                 mock_response = AsyncMock()
                 mock_response.status = status_code
                 mock_response.json.return_value = error_response
                 mock_request.return_value.__aenter__.return_value = mock_response
 
                 with pytest.raises(EmagApiError) as exc_info:
-                    await api_client._make_request("GET", "/test")
+                    await api_client._request("GET", "/test")
 
                 assert message in str(exc_info.value)
                 assert mock_request.call_count == 1  # No retries for 4xx errors
@@ -379,10 +388,10 @@ class TestEmagErrorRecoveryScenarios:
             return mock_response
 
         with patch.object(
-            api_client.session, "request", side_effect=mock_request_side_effect
+            api_client._session, "request", side_effect=mock_request_side_effect
         ):
             with patch("asyncio.sleep") as mock_sleep:
-                result = await api_client._make_request("GET", "/health")
+                result = await api_client._request("GET", "/health")
 
                 assert result == success_response
                 assert call_count == 3  # 2 failures + 1 success
@@ -403,13 +412,13 @@ class TestEmagErrorRecoveryScenarios:
             },
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.json.return_value = response_with_warnings
             mock_response.status = 200
             mock_request.return_value.__aenter__.return_value = mock_response
 
-            result = await api_client._make_request("GET", "/products")
+            result = await api_client._request("GET", "/products")
 
             assert result == response_with_warnings
             assert result["data"]["total_count"] == 2
@@ -441,10 +450,10 @@ class TestEmagErrorRecoveryScenarios:
             return mock_response
 
         with patch.object(
-            api_client.session, "request", side_effect=mock_request_side_effect
+            api_client._session, "request", side_effect=mock_request_side_effect
         ):
             with patch("asyncio.sleep"):
-                result = await api_client._make_request("GET", "/test")
+                result = await api_client._request("GET", "/test")
 
                 assert result == success_response
                 assert call_count == 2
@@ -462,7 +471,7 @@ class TestEmagErrorRecoveryScenarios:
         }
 
         # Simulate persistent 503 errors
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.status = 503
             mock_response.json.return_value = error_response
@@ -470,7 +479,7 @@ class TestEmagErrorRecoveryScenarios:
 
             with patch("asyncio.sleep"):
                 with pytest.raises(EmagApiError) as exc_info:
-                    await api_client._make_request("GET", "/test")
+                    await api_client._request("GET", "/test")
 
                 assert "Service temporarily unavailable" in str(exc_info.value)
                 # Verify all retry attempts were made
@@ -499,14 +508,14 @@ class TestEmagErrorMetricsAndLogging:
             "data": {"field_errors": ["name", "price"]},
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.status = 422
             mock_response.json.return_value = error_response
             mock_request.return_value.__aenter__.return_value = mock_response
 
             with pytest.raises(EmagApiError) as exc_info:
-                await api_client._make_request("POST", "/products")
+                await api_client._request("POST", "/products")
 
             error = exc_info.value
             assert error.status_code == 422
@@ -524,14 +533,14 @@ class TestEmagErrorMetricsAndLogging:
             "data": {"products": []},
         }
 
-        with patch.object(api_client.session, "request") as mock_request:
+        with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.json.return_value = success_response
             mock_response.status = 200
             mock_request.return_value.__aenter__.return_value = mock_response
 
             initial_count = api_client._request_count
-            await api_client._make_request("GET", "/products")
+            await api_client._request("GET", "/products")
 
             # Verify request count was incremented
             assert api_client._request_count == initial_count + 1

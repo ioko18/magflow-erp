@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import json
 import pickle
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 
 import redis.asyncio as redis
 from redis.asyncio import Redis
@@ -24,20 +25,20 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 # Global Redis client
-_redis_client: Optional[Redis] = None
+_redis_client: Redis | None = None
 
 
 async def get_redis() -> Redis:
     """
     Get or create Redis client.
-    
+
     Returns:
         Redis client instance
     """
     global _redis_client
 
     if _redis_client is None:
-        redis_url = getattr(settings, 'REDIS_URL', 'redis://redis:6379/0')
+        redis_url = getattr(settings, "REDIS_URL", "redis://redis:6379/0")
         _redis_client = await redis.from_url(
             redis_url,
             encoding="utf-8",
@@ -62,11 +63,11 @@ async def close_redis():
 def cache_key(*args, **kwargs) -> str:
     """
     Generate cache key from function arguments.
-    
+
     Args:
         *args: Positional arguments
         **kwargs: Keyword arguments
-        
+
     Returns:
         Cache key string
     """
@@ -76,23 +77,22 @@ def cache_key(*args, **kwargs) -> str:
 
 
 def cache_result(
-    ttl: int = 300,
-    prefix: str = "cache",
-    key_func: Optional[Callable] = None
+    ttl: int = 300, prefix: str = "cache", key_func: Callable | None = None
 ):
     """
     Decorator to cache function results in Redis.
-    
+
     Args:
         ttl: Time to live in seconds (default 5 minutes)
         prefix: Cache key prefix
         key_func: Optional function to generate cache key
-        
+
     Usage:
         @cache_result(ttl=300, prefix="products")
         async def get_products(category: str):
             return await fetch_products(category)
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -118,11 +118,7 @@ def cache_result(
                 result = await func(*args, **kwargs)
 
                 # Store in cache
-                await redis_client.setex(
-                    full_key,
-                    ttl,
-                    json.dumps(result, default=str)
-                )
+                await redis_client.setex(full_key, ttl, json.dumps(result, default=str))
 
                 return result
 
@@ -132,6 +128,7 @@ def cache_result(
                 return await func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
@@ -141,11 +138,12 @@ def cache_result_binary(
 ):
     """
     Decorator to cache function results using pickle (for complex objects).
-    
+
     Args:
         ttl: Time to live in seconds
         prefix: Cache key prefix
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -166,11 +164,7 @@ def cache_result_binary(
                 result = await func(*args, **kwargs)
 
                 # Store in cache
-                await redis_client.setex(
-                    full_key,
-                    ttl,
-                    pickle.dumps(result)
-                )
+                await redis_client.setex(full_key, ttl, pickle.dumps(result))
 
                 return result
 
@@ -179,13 +173,14 @@ def cache_result_binary(
                 return await func(*args, **kwargs)
 
         return wrapper
+
     return decorator
 
 
 async def invalidate_cache(pattern: str):
     """
     Invalidate cache entries matching a pattern.
-    
+
     Args:
         pattern: Redis key pattern (e.g., "products:*")
     """
@@ -209,7 +204,7 @@ async def invalidate_cache(pattern: str):
 async def set_cache(key: str, value: Any, ttl: int = 300):
     """
     Set a value in cache.
-    
+
     Args:
         key: Cache key
         value: Value to cache
@@ -217,22 +212,18 @@ async def set_cache(key: str, value: Any, ttl: int = 300):
     """
     try:
         redis_client = await get_redis()
-        await redis_client.setex(
-            key,
-            ttl,
-            json.dumps(value, default=str)
-        )
+        await redis_client.setex(key, ttl, json.dumps(value, default=str))
     except Exception as e:
         logger.error(f"Failed to set cache: {e}", exc_info=True)
 
 
-async def get_cache(key: str) -> Optional[Any]:
+async def get_cache(key: str) -> Any | None:
     """
     Get a value from cache.
-    
+
     Args:
         key: Cache key
-        
+
     Returns:
         Cached value or None
     """
@@ -250,7 +241,7 @@ async def get_cache(key: str) -> Optional[Any]:
 async def delete_cache(key: str):
     """
     Delete a value from cache.
-    
+
     Args:
         key: Cache key
     """
@@ -264,7 +255,7 @@ async def delete_cache(key: str):
 async def get_cache_stats() -> dict:
     """
     Get Redis cache statistics.
-    
+
     Returns:
         Dictionary with cache statistics
     """
@@ -279,8 +270,8 @@ async def get_cache_stats() -> dict:
             "hits": info.get("keyspace_hits", 0),
             "misses": info.get("keyspace_misses", 0),
             "hit_rate": (
-                info.get("keyspace_hits", 0) /
-                (info.get("keyspace_hits", 0) + info.get("keyspace_misses", 1))
+                info.get("keyspace_hits", 0)
+                / (info.get("keyspace_hits", 0) + info.get("keyspace_misses", 1))
                 * 100
             ),
         }
@@ -291,12 +282,13 @@ async def get_cache_stats() -> dict:
 
 # Specific cache utilities for eMAG integration
 
+
 async def cache_courier_accounts(account_type: str, data: list, ttl: int = 3600):
     """Cache courier accounts (1 hour TTL)."""
     await set_cache(f"emag:couriers:{account_type}", data, ttl)
 
 
-async def get_cached_courier_accounts(account_type: str) -> Optional[list]:
+async def get_cached_courier_accounts(account_type: str) -> list | None:
     """Get cached courier accounts."""
     return await get_cache(f"emag:couriers:{account_type}")
 
@@ -306,7 +298,7 @@ async def cache_product_categories(account_type: str, data: list, ttl: int = 864
     await set_cache(f"emag:categories:{account_type}", data, ttl)
 
 
-async def get_cached_categories(account_type: str) -> Optional[list]:
+async def get_cached_categories(account_type: str) -> list | None:
     """Get cached product categories."""
     return await get_cache(f"emag:categories:{account_type}")
 
@@ -316,15 +308,15 @@ async def cache_order_statistics(account_type: str, data: dict, ttl: int = 300):
     await set_cache(f"emag:stats:orders:{account_type}", data, ttl)
 
 
-async def get_cached_order_statistics(account_type: str) -> Optional[dict]:
+async def get_cached_order_statistics(account_type: str) -> dict | None:
     """Get cached order statistics."""
     return await get_cache(f"emag:stats:orders:{account_type}")
 
 
-async def invalidate_emag_cache(account_type: Optional[str] = None):
+async def invalidate_emag_cache(account_type: str | None = None):
     """
     Invalidate all eMAG-related cache.
-    
+
     Args:
         account_type: Optional account type to invalidate specific cache
     """

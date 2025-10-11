@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, TypeVar
 
 from sqlalchemy import Column, DateTime
 from sqlalchemy.orm import DeclarativeBase, declared_attr
@@ -15,10 +15,12 @@ class Base(DeclarativeBase):
     """
 
     @declared_attr
-    def __tablename__(cls) -> str:
+    def __tablename__(self) -> str:
         """Automatically generate snake_case table names."""
 
-        return "".join(["_" + c.lower() if c.isupper() else c for c in cls.__name__]).lstrip("_")
+        return "".join(
+            ["_" + c.lower() if c.isupper() else c for c in self.__name__]
+        ).lstrip("_")
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
@@ -28,11 +30,11 @@ class Base(DeclarativeBase):
         nullable=False,
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert model instance to a dictionary."""
 
         columns = self.__table__.columns.keys()
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for column in columns:
             if column.startswith("_"):
                 continue
@@ -43,14 +45,14 @@ class Base(DeclarativeBase):
         return result
 
     @classmethod
-    def from_dict(cls: Type[ModelType], data: Dict[str, Any]) -> ModelType:
+    def from_dict(cls: type[ModelType], data: dict[str, Any]) -> ModelType:
         """Create a model instance from a dictionary."""
 
         columns = cls.__table__.columns.keys()
         filtered_data = {k: v for k, v in data.items() if k in columns}
         return cls(**filtered_data)
 
-    def update_from_dict(self, data: Dict[str, Any]) -> None:
+    def update_from_dict(self, data: dict[str, Any]) -> None:
         """Update fields on the model instance from a dictionary."""
 
         for key, value in data.items():

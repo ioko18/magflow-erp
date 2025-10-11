@@ -4,7 +4,7 @@ This module defines application-specific exceptions that provide
 better error handling and debugging capabilities.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -15,15 +15,15 @@ class MagFlowBaseException(Exception):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
-        error_code: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        error_code: str | None = None,
     ):
         self.message = message
         self.details = details or {}
         self.error_code = error_code or self.__class__.__name__
         super().__init__(self.message)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary for API responses."""
         return {
             "error": self.error_code,
@@ -69,8 +69,7 @@ class ResourceNotFoundError(MagFlowBaseException):
 
 
 # HTTP status mappings for MagFlow exceptions
-STATUS_CODE_MAP: Dict[type[MagFlowBaseException], int]
-STATUS_CODE_MAP = {
+STATUS_CODE_MAP: dict[type[MagFlowBaseException], int] = {
     ValidationError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     ResourceNotFoundError: status.HTTP_404_NOT_FOUND,

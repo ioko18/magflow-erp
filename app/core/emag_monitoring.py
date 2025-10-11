@@ -8,12 +8,12 @@ according to Section 2.4 and 2.6 from the eMAG Full Sync Guide.
 import json
 import time
 from collections import deque
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Deque
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
-from app.core.logging import get_logger
 from app.core.emag_constants import MonitoringThresholds
+from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 @dataclass
 class RequestMetric:
     """Individual request metric."""
+
     timestamp: float
     endpoint: str
     method: str
@@ -28,13 +29,14 @@ class RequestMetric:
     response_time_ms: float
     account_type: str
     success: bool
-    error_message: Optional[str] = None
-    error_code: Optional[str] = None
+    error_message: str | None = None
+    error_code: str | None = None
 
 
 @dataclass
 class SyncMetrics:
     """Aggregated sync metrics."""
+
     total_requests: int = 0
     successful_requests: int = 0
     failed_requests: int = 0
@@ -43,8 +45,8 @@ class SyncMetrics:
     products_synced: int = 0
     offers_synced: int = 0
     orders_synced: int = 0
-    errors_by_code: Dict[str, int] = field(default_factory=dict)
-    requests_by_endpoint: Dict[str, int] = field(default_factory=dict)
+    errors_by_code: dict[str, int] = field(default_factory=dict)
+    requests_by_endpoint: dict[str, int] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
@@ -73,18 +75,18 @@ class EmagMonitor:
 
     def __init__(self, window_size_seconds: int = 300):
         """Initialize the monitor.
-        
+
         Args:
             window_size_seconds: Time window for metrics (default 5 minutes)
         """
         self.window_size = window_size_seconds
-        self._requests: Deque[RequestMetric] = deque()
-        self._sync_start_time: Optional[float] = None
-        self._current_sync_type: Optional[str] = None
+        self._requests: deque[RequestMetric] = deque()
+        self._sync_start_time: float | None = None
+        self._current_sync_type: str | None = None
 
     def start_sync(self, sync_type: str):
         """Mark the start of a sync operation.
-        
+
         Args:
             sync_type: Type of sync (products, offers, orders)
         """
@@ -96,9 +98,7 @@ class EmagMonitor:
         """Mark the end of a sync operation."""
         if self._sync_start_time:
             duration = time.time() - self._sync_start_time
-            logger.info(
-                f"Completed {self._current_sync_type} sync in {duration:.2f}s"
-            )
+            logger.info(f"Completed {self._current_sync_type} sync in {duration:.2f}s")
             self._sync_start_time = None
             self._current_sync_type = None
 
@@ -110,11 +110,11 @@ class EmagMonitor:
         response_time_ms: float,
         account_type: str,
         success: bool,
-        error_message: Optional[str] = None,
-        error_code: Optional[str] = None,
+        error_message: str | None = None,
+        error_code: str | None = None,
     ):
         """Record a single API request metric.
-        
+
         Args:
             endpoint: API endpoint called
             method: HTTP method (GET, POST, etc.)
@@ -173,7 +173,7 @@ class EmagMonitor:
 
     def get_metrics(self) -> SyncMetrics:
         """Get aggregated metrics for the current time window.
-        
+
         Returns:
             SyncMetrics object with aggregated data
         """
@@ -204,9 +204,9 @@ class EmagMonitor:
 
         return metrics
 
-    def get_health_status(self) -> Dict[str, Any]:
+    def get_health_status(self) -> dict[str, Any]:
         """Get current health status with alerts.
-        
+
         Returns:
             Dictionary with health status and alerts
         """
@@ -216,20 +216,24 @@ class EmagMonitor:
 
         # Check error rate (Section 2.6 threshold)
         if metrics.error_rate > MonitoringThresholds.HIGH_ERROR_RATE * 100:
-            alerts.append({
-                "level": "error",
-                "message": f"High error rate: {metrics.error_rate:.2f}%",
-                "threshold": f"{MonitoringThresholds.HIGH_ERROR_RATE * 100}%",
-            })
+            alerts.append(
+                {
+                    "level": "error",
+                    "message": f"High error rate: {metrics.error_rate:.2f}%",
+                    "threshold": f"{MonitoringThresholds.HIGH_ERROR_RATE * 100}%",
+                }
+            )
             status = "error"
 
         # Check response time
         if metrics.average_response_time_ms > MonitoringThresholds.SLOW_RESPONSE_MS:
-            alerts.append({
-                "level": "warning",
-                "message": f"Slow response time: {metrics.average_response_time_ms:.0f}ms",
-                "threshold": f"{MonitoringThresholds.SLOW_RESPONSE_MS}ms",
-            })
+            alerts.append(
+                {
+                    "level": "warning",
+                    "message": f"Slow response time: {metrics.average_response_time_ms:.0f}ms",
+                    "threshold": f"{MonitoringThresholds.SLOW_RESPONSE_MS}ms",
+                }
+            )
             if status == "healthy":
                 status = "warning"
 
@@ -240,26 +244,30 @@ class EmagMonitor:
             else 0
         )
         if rate_limit_rate > MonitoringThresholds.RATE_LIMIT_WARNING:
-            alerts.append({
-                "level": "warning",
-                "message": f"High rate limit hits: {rate_limit_rate * 100:.1f}%",
-                "threshold": f"{MonitoringThresholds.RATE_LIMIT_WARNING * 100}%",
-            })
+            alerts.append(
+                {
+                    "level": "warning",
+                    "message": f"High rate limit hits: {rate_limit_rate * 100:.1f}%",
+                    "threshold": f"{MonitoringThresholds.RATE_LIMIT_WARNING * 100}%",
+                }
+            )
             if status == "healthy":
                 status = "warning"
 
         # Check sync success rate
         if metrics.success_rate < MonitoringThresholds.SYNC_SUCCESS_RATE * 100:
-            alerts.append({
-                "level": "error",
-                "message": f"Low success rate: {metrics.success_rate:.2f}%",
-                "threshold": f"{MonitoringThresholds.SYNC_SUCCESS_RATE * 100}%",
-            })
+            alerts.append(
+                {
+                    "level": "error",
+                    "message": f"Low success rate: {metrics.success_rate:.2f}%",
+                    "threshold": f"{MonitoringThresholds.SYNC_SUCCESS_RATE * 100}%",
+                }
+            )
             status = "error"
 
         return {
             "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metrics": asdict(metrics),
             "alerts": alerts,
             "window_size_seconds": self.window_size,
@@ -267,7 +275,7 @@ class EmagMonitor:
 
     def get_request_rate(self) -> float:
         """Get current request rate (requests per second).
-        
+
         Returns:
             Requests per second in the current window
         """
@@ -281,12 +289,12 @@ class EmagMonitor:
 
         return len(self._requests) / time_span
 
-    def get_recent_errors(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_recent_errors(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get recent error details.
-        
+
         Args:
             limit: Maximum number of errors to return
-            
+
         Returns:
             List of recent error details
         """
@@ -295,15 +303,17 @@ class EmagMonitor:
         errors = []
         for req in reversed(self._requests):
             if not req.success:
-                errors.append({
-                    "timestamp": datetime.fromtimestamp(req.timestamp).isoformat(),
-                    "endpoint": req.endpoint,
-                    "method": req.method,
-                    "status_code": req.status_code,
-                    "error_message": req.error_message,
-                    "error_code": req.error_code,
-                    "account_type": req.account_type,
-                })
+                errors.append(
+                    {
+                        "timestamp": datetime.fromtimestamp(req.timestamp).isoformat(),
+                        "endpoint": req.endpoint,
+                        "method": req.method,
+                        "status_code": req.status_code,
+                        "error_message": req.error_message,
+                        "error_code": req.error_code,
+                        "account_type": req.account_type,
+                    }
+                )
                 if len(errors) >= limit:
                     break
 
@@ -311,7 +321,7 @@ class EmagMonitor:
 
     def export_metrics(self, filepath: str):
         """Export metrics to JSON file for analysis.
-        
+
         Args:
             filepath: Path to export file
         """
@@ -320,7 +330,7 @@ class EmagMonitor:
         recent_errors = self.get_recent_errors(50)
 
         export_data = {
-            "export_timestamp": datetime.utcnow().isoformat(),
+            "export_timestamp": datetime.now(UTC).isoformat(),
             "window_size_seconds": self.window_size,
             "health_status": health,
             "metrics": asdict(metrics),
@@ -328,19 +338,19 @@ class EmagMonitor:
             "request_rate_per_second": self.get_request_rate(),
         }
 
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(export_data, f, indent=2)
 
         logger.info(f"Exported metrics to {filepath}")
 
 
 # Global monitor instance
-_global_monitor: Optional[EmagMonitor] = None
+_global_monitor: EmagMonitor | None = None
 
 
 def get_monitor() -> EmagMonitor:
     """Get the global monitor instance.
-    
+
     Returns:
         Global EmagMonitor instance
     """

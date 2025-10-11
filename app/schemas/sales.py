@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,14 +19,14 @@ class CustomerBase(BaseModel):
 
     code: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[str] = Field(None, max_length=100)
-    phone: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = None
-    city: Optional[str] = Field(None, max_length=50)
-    country: Optional[str] = Field(None, max_length=50)
-    tax_id: Optional[str] = Field(None, max_length=50)
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    credit_limit: Optional[float] = None
+    email: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=20)
+    address: str | None = None
+    city: str | None = Field(None, max_length=50)
+    country: str | None = Field(None, max_length=50)
+    tax_id: str | None = Field(None, max_length=50)
+    payment_terms: str | None = Field(None, max_length=100)
+    credit_limit: float | None = None
     is_active: bool = True
 
 
@@ -38,25 +37,25 @@ class CustomerCreate(CustomerBase):
 class CustomerUpdate(BaseModel):
     """Schema for updating a customer."""
 
-    code: Optional[str] = Field(None, min_length=1, max_length=20)
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    email: Optional[str] = Field(None, max_length=100)
-    phone: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = None
-    city: Optional[str] = Field(None, max_length=50)
-    country: Optional[str] = Field(None, max_length=50)
-    tax_id: Optional[str] = Field(None, max_length=50)
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    credit_limit: Optional[float] = None
-    is_active: Optional[bool] = None
+    code: str | None = Field(None, min_length=1, max_length=20)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    email: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=20)
+    address: str | None = None
+    city: str | None = Field(None, max_length=50)
+    country: str | None = Field(None, max_length=50)
+    tax_id: str | None = Field(None, max_length=50)
+    payment_terms: str | None = Field(None, max_length=100)
+    credit_limit: float | None = None
+    is_active: bool | None = None
 
 
 class CustomerInDBBase(CustomerBase):
     """Base schema for customer data in database."""
 
-    id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -81,24 +80,24 @@ class SalesOrderBase(BaseModel):
 
     customer_id: int
     order_date: datetime
-    delivery_date: Optional[datetime] = None
+    delivery_date: datetime | None = None
     status: SalesOrderStatus = SalesOrderStatus.DRAFT
     currency: str = "RON"
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class SalesOrderCreate(SalesOrderBase):
     """Schema for creating a sales order."""
 
-    order_lines: List["SalesOrderLineCreate"] = Field(..., min_length=1)
+    order_lines: list["SalesOrderLineCreate"] = Field(..., min_length=1)
 
 
 class SalesOrderUpdate(BaseModel):
     """Schema for updating a sales order."""
 
-    delivery_date: Optional[datetime] = None
-    status: Optional[SalesOrderStatus] = None
-    notes: Optional[str] = None
+    delivery_date: datetime | None = None
+    status: SalesOrderStatus | None = None
+    notes: str | None = None
 
 
 class SalesOrderLineBase(BaseModel):
@@ -109,7 +108,7 @@ class SalesOrderLineBase(BaseModel):
     unit_price: float = Field(..., gt=0)
     discount_percent: float = Field(0, ge=0, le=100)
     tax_percent: float = Field(19, ge=0, le=100)
-    notes: Optional[str] = Field(None, max_length=255)
+    notes: str | None = Field(None, max_length=255)
 
 
 class SalesOrderLineCreate(SalesOrderLineBase):
@@ -119,11 +118,11 @@ class SalesOrderLineCreate(SalesOrderLineBase):
 class SalesOrderLineInDBBase(SalesOrderLineBase):
     """Base schema for sales order line data in database."""
 
-    id: Optional[int] = None
-    sales_order_id: Optional[int] = None
-    line_total: Optional[float] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    sales_order_id: int | None = None
+    line_total: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -135,16 +134,16 @@ class SalesOrderLine(SalesOrderLineInDBBase):
 class SalesOrderInDBBase(SalesOrderBase):
     """Base schema for sales order data in database."""
 
-    id: Optional[int] = None
-    order_number: Optional[str] = None
-    total_amount: Optional[float] = None
-    tax_amount: Optional[float] = None
-    discount_amount: Optional[float] = None
-    shipping_cost: Optional[float] = None
-    created_by: Optional[int] = None
-    approved_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    order_number: str | None = None
+    total_amount: float | None = None
+    tax_amount: float | None = None
+    discount_amount: float | None = None
+    shipping_cost: float | None = None
+    created_by: int | None = None
+    approved_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -152,8 +151,8 @@ class SalesOrderInDBBase(SalesOrderBase):
 class SalesOrder(SalesOrderInDBBase):
     """Schema for sales order data returned to clients."""
 
-    customer: Optional[Customer] = None
-    order_lines: List[SalesOrderLine] = []
+    customer: Customer | None = None
+    order_lines: list[SalesOrderLine] = []
 
 
 class InvoiceStatus(str, Enum):
@@ -170,27 +169,27 @@ class InvoiceBase(BaseModel):
     """Base invoice schema."""
 
     customer_id: int
-    sales_order_id: Optional[int] = None
+    sales_order_id: int | None = None
     invoice_date: datetime
     due_date: datetime
     currency: str = "RON"
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
+    payment_terms: str | None = Field(None, max_length=100)
+    notes: str | None = None
 
 
 class InvoiceCreate(InvoiceBase):
     """Schema for creating an invoice."""
 
-    invoice_lines: List["InvoiceLineCreate"] = Field(..., min_length=1)
+    invoice_lines: list["InvoiceLineCreate"] = Field(..., min_length=1)
 
 
 class InvoiceUpdate(BaseModel):
     """Schema for updating an invoice."""
 
-    due_date: Optional[datetime] = None
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
-    status: Optional[InvoiceStatus] = None
+    due_date: datetime | None = None
+    payment_terms: str | None = Field(None, max_length=100)
+    notes: str | None = None
+    status: InvoiceStatus | None = None
 
 
 class InvoiceLineBase(BaseModel):
@@ -207,17 +206,17 @@ class InvoiceLineBase(BaseModel):
 class InvoiceLineCreate(InvoiceLineBase):
     """Schema for creating an invoice line."""
 
-    sales_order_line_id: Optional[int] = None
+    sales_order_line_id: int | None = None
 
 
 class InvoiceLineInDBBase(InvoiceLineBase):
     """Base schema for invoice line data in database."""
 
-    id: Optional[int] = None
-    invoice_id: Optional[int] = None
-    line_total: Optional[float] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    invoice_id: int | None = None
+    line_total: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -229,16 +228,16 @@ class InvoiceLine(InvoiceLineInDBBase):
 class InvoiceInDBBase(InvoiceBase):
     """Base schema for invoice data in database."""
 
-    id: Optional[int] = None
-    invoice_number: Optional[str] = None
+    id: int | None = None
+    invoice_number: str | None = None
     status: InvoiceStatus = InvoiceStatus.DRAFT
-    subtotal_amount: Optional[float] = None
-    tax_amount: Optional[float] = None
-    discount_amount: Optional[float] = None
-    total_amount: Optional[float] = None
-    created_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    subtotal_amount: float | None = None
+    tax_amount: float | None = None
+    discount_amount: float | None = None
+    total_amount: float | None = None
+    created_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -246,10 +245,10 @@ class InvoiceInDBBase(InvoiceBase):
 class Invoice(InvoiceInDBBase):
     """Schema for invoice data returned to clients."""
 
-    customer: Optional[Customer] = None
-    sales_order: Optional[SalesOrder] = None
-    invoice_lines: List[InvoiceLine] = []
-    payments: List["Payment"] = []
+    customer: Customer | None = None
+    sales_order: SalesOrder | None = None
+    invoice_lines: list[InvoiceLine] = []
+    payments: list["Payment"] = []
 
 
 class PaymentMethod(str, Enum):
@@ -278,8 +277,8 @@ class PaymentBase(BaseModel):
     payment_date: datetime
     amount: float = Field(..., gt=0)
     payment_method: PaymentMethod
-    reference: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
+    reference: str | None = Field(None, max_length=100)
+    notes: str | None = None
 
 
 class PaymentCreate(PaymentBase):
@@ -289,24 +288,24 @@ class PaymentCreate(PaymentBase):
 class PaymentUpdate(BaseModel):
     """Schema for updating a payment."""
 
-    payment_date: Optional[datetime] = None
-    amount: Optional[float] = Field(None, gt=0)
-    payment_method: Optional[PaymentMethod] = None
-    reference: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
-    status: Optional[PaymentStatus] = None
-    processed_by: Optional[int] = None
+    payment_date: datetime | None = None
+    amount: float | None = Field(None, gt=0)
+    payment_method: PaymentMethod | None = None
+    reference: str | None = Field(None, max_length=100)
+    notes: str | None = None
+    status: PaymentStatus | None = None
+    processed_by: int | None = None
 
 
 class PaymentInDBBase(PaymentBase):
     """Base schema for payment data in database."""
 
-    id: Optional[int] = None
-    payment_number: Optional[str] = None
+    id: int | None = None
+    payment_number: str | None = None
     status: PaymentStatus = PaymentStatus.PENDING
-    processed_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    processed_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -314,7 +313,7 @@ class PaymentInDBBase(PaymentBase):
 class Payment(PaymentInDBBase):
     """Schema for payment data returned to clients."""
 
-    invoice: Optional[Invoice] = None
+    invoice: Invoice | None = None
 
 
 class SalesQuoteStatus(str, Enum):
@@ -333,21 +332,21 @@ class SalesQuoteBase(BaseModel):
     customer_id: int
     valid_until: datetime
     currency: str = "RON"
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class SalesQuoteCreate(SalesQuoteBase):
     """Schema for creating a sales quote."""
 
-    quote_lines: List["SalesQuoteLineCreate"] = Field(..., min_length=1)
+    quote_lines: list["SalesQuoteLineCreate"] = Field(..., min_length=1)
 
 
 class SalesQuoteUpdate(BaseModel):
     """Schema for updating a sales quote."""
 
-    valid_until: Optional[datetime] = None
-    notes: Optional[str] = None
-    status: Optional[SalesQuoteStatus] = None
+    valid_until: datetime | None = None
+    notes: str | None = None
+    status: SalesQuoteStatus | None = None
 
 
 class SalesQuoteLineBase(BaseModel):
@@ -368,11 +367,11 @@ class SalesQuoteLineCreate(SalesQuoteLineBase):
 class SalesQuoteLineInDBBase(SalesQuoteLineBase):
     """Base schema for sales quote line data in database."""
 
-    id: Optional[int] = None
-    sales_quote_id: Optional[int] = None
-    line_total: Optional[float] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    sales_quote_id: int | None = None
+    line_total: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -384,16 +383,16 @@ class SalesQuoteLine(SalesQuoteLineInDBBase):
 class SalesQuoteInDBBase(SalesQuoteBase):
     """Base schema for sales quote data in database."""
 
-    id: Optional[int] = None
-    quote_number: Optional[str] = None
+    id: int | None = None
+    quote_number: str | None = None
     status: SalesQuoteStatus = SalesQuoteStatus.DRAFT
-    subtotal_amount: Optional[float] = None
-    tax_amount: Optional[float] = None
-    discount_amount: Optional[float] = None
-    total_amount: Optional[float] = None
-    created_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    subtotal_amount: float | None = None
+    tax_amount: float | None = None
+    discount_amount: float | None = None
+    total_amount: float | None = None
+    created_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -401,8 +400,8 @@ class SalesQuoteInDBBase(SalesQuoteBase):
 class SalesQuote(SalesQuoteInDBBase):
     """Schema for sales quote data returned to clients."""
 
-    customer: Optional[Customer] = None
-    quote_lines: List[SalesQuoteLine] = []
+    customer: Customer | None = None
+    quote_lines: list[SalesQuoteLine] = []
 
 
 # Response schemas
@@ -414,8 +413,8 @@ class SalesSummary(BaseModel):
     pending_orders: int
     shipped_orders: int
     average_order_value: float
-    top_customers: List[Dict] = []
-    monthly_revenue: Dict[str, float] = {}
+    top_customers: list[dict] = []
+    monthly_revenue: dict[str, float] = {}
 
 
 class InvoiceSummary(BaseModel):

@@ -1,8 +1,8 @@
 """Conflict resolution service for handling data conflicts during import operations."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
 from app.models.emag_offers import EmagImportConflict, EmagProductOffer
 
@@ -39,8 +39,8 @@ class ConflictResolutionService:
     def detect_offer_conflicts(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-    ) -> List[Dict[str, Any]]:
+        new_offer_data: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Detect conflicts between existing offer and new offer data.
 
         Args:
@@ -86,8 +86,8 @@ class ConflictResolutionService:
     def _detect_price_conflict(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        new_offer_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Detect price conflicts."""
         existing_price = existing_offer.price
         new_price = new_offer_data.get("price")
@@ -108,7 +108,6 @@ class ConflictResolutionService:
             price_diff_percent >= self.conflict_thresholds["price_difference_percent"]
             or price_diff >= self.conflict_thresholds["price_difference_absolute"]
         ):
-
             return {
                 "type": self.PRICE_MISMATCH,
                 "severity": "high" if price_diff_percent >= 25 else "medium",
@@ -125,8 +124,8 @@ class ConflictResolutionService:
     def _detect_stock_conflict(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        new_offer_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Detect stock conflicts."""
         existing_stock = existing_offer.stock
         new_stock = new_offer_data.get("stock")
@@ -156,8 +155,8 @@ class ConflictResolutionService:
     def _detect_status_conflict(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        new_offer_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Detect status conflicts."""
         existing_status = existing_offer.status
         new_status = new_offer_data.get("status")
@@ -197,8 +196,8 @@ class ConflictResolutionService:
     def _detect_availability_conflict(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        new_offer_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Detect availability conflicts."""
         existing_available = existing_offer.is_available
         new_available = new_offer_data.get("is_available")
@@ -223,8 +222,8 @@ class ConflictResolutionService:
     def _detect_vat_conflict(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        new_offer_data: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Detect VAT rate conflicts."""
         existing_vat = existing_offer.vat_rate
         new_vat = new_offer_data.get("vat_rate")
@@ -250,9 +249,9 @@ class ConflictResolutionService:
 
     def resolve_conflicts(
         self,
-        conflicts: List[Dict[str, Any]],
+        conflicts: list[dict[str, Any]],
         strategy: str = STRATEGY_MANUAL,
-    ) -> Tuple[str, Dict[str, Any]]:
+    ) -> tuple[str, dict[str, Any]]:
         """Resolve a list of conflicts using the specified strategy.
 
         Args:
@@ -300,8 +299,8 @@ class ConflictResolutionService:
 
     def _resolve_merge_strategy(
         self,
-        conflicts: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        conflicts: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Resolve conflicts using merge strategy."""
         merge_details = {
             "reason": "Merged data from both sources",
@@ -361,8 +360,8 @@ class ConflictResolutionService:
     def create_conflict_record(
         self,
         existing_offer: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
-        conflicts: List[Dict[str, Any]],
+        new_offer_data: dict[str, Any],
+        conflicts: list[dict[str, Any]],
         sync_id: str,
     ) -> EmagImportConflict:
         """Create a conflict record for manual review.
@@ -382,14 +381,16 @@ class ConflictResolutionService:
         overall_severity = (
             "high"
             if "high" in severity_levels
-            else "medium" if "medium" in severity_levels else "low"
+            else "medium"
+            if "medium" in severity_levels
+            else "low"
         )
 
         # Create conflict summary
         conflict_summary = {
             "total_conflicts": len(conflicts),
             "severity": overall_severity,
-            "conflict_types": list(set(c["type"] for c in conflicts)),
+            "conflict_types": list({c["type"] for c in conflicts}),
             "fields_affected": [c["field"] for c in conflicts],
             "descriptions": [c["description"] for c in conflicts],
         }
@@ -416,8 +417,8 @@ class ConflictResolutionService:
 
     def get_resolution_recommendation(
         self,
-        conflicts: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        conflicts: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """Get resolution recommendation based on conflict analysis.
 
         Args:
@@ -477,9 +478,9 @@ class ConflictResolutionService:
     def apply_resolution_to_offer(
         self,
         offer_record: EmagProductOffer,
-        new_offer_data: Dict[str, Any],
+        new_offer_data: dict[str, Any],
         resolution: str,
-        merge_details: Optional[Dict[str, Any]] = None,
+        merge_details: dict[str, Any] | None = None,
     ) -> None:
         """Apply resolution strategy to update offer data.
 
@@ -510,7 +511,7 @@ class ConflictResolutionService:
                     setattr(offer_record, field, value)
 
         # Update metadata
-        offer_record.last_imported_at = datetime.now(timezone.utc)
+        offer_record.last_imported_at = datetime.now(UTC)
         if "emag_updated_at" in new_offer_data:
             offer_record.emag_updated_at = new_offer_data["emag_updated_at"]
         if "raw_data" in new_offer_data:

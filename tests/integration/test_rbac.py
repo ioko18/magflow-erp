@@ -5,7 +5,7 @@ from fastapi import status
 from jose import jwt
 
 from app.core.config import settings
-from app.api.v1.endpoints.auth import _get_current_user
+from app.api.v1.endpoints.system.auth import _get_current_user
 from app.main import app
 
 

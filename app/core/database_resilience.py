@@ -6,8 +6,9 @@ and implementing automatic retry logic for failed operations.
 
 import asyncio
 import logging
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -88,7 +89,14 @@ class DatabaseHealthChecker:
                 await session.commit()
 
             self._is_healthy = True
-            self._last_check = asyncio.get_event_loop().time()
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                import time
+
+                self._last_check = time.time()
+            else:
+                self._last_check = loop.time()
             self._detailed_health_info = {
                 "status": "healthy",
                 "postgres_version": pg_version,
@@ -100,7 +108,14 @@ class DatabaseHealthChecker:
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
             self._is_healthy = False
-            self._last_check = asyncio.get_event_loop().time()
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                import time
+
+                self._last_check = time.time()
+            else:
+                self._last_check = loop.time()
             self._detailed_health_info = {
                 "status": "unhealthy",
                 "error": str(e),

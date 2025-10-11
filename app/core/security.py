@@ -1,25 +1,25 @@
 import logging
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import ValidationError
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.schemas.auth import TokenPayload
-from app.models.user import User as UserModel
 from app.db.session import get_db
+from app.models.user import User as UserModel
+from app.schemas.auth import TokenPayload
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -36,8 +36,8 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a JWT access token.
 
@@ -49,7 +49,7 @@ def create_access_token(
         Encoded JWT token
 
     """
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     expire = now + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
@@ -74,8 +74,8 @@ def create_access_token(
 
 
 def create_refresh_token(
-    subject: Union[str, Any],
-    expires_delta: Optional[timedelta] = None,
+    subject: str | Any,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a JWT refresh token.
 
@@ -87,7 +87,7 @@ def create_refresh_token(
         Encoded JWT refresh token
 
     """
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     expire = now + (expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
 
     to_encode = {
@@ -123,10 +123,7 @@ def verify_token(token: str, *, is_refresh: bool = False) -> TokenPayload:
         HTTPException: If the token is invalid or expired
 
     """
-    if is_refresh:
-        secret_key = settings.refresh_secret_key
-    else:
-        secret_key = settings.JWT_SECRET_KEY
+    secret_key = settings.refresh_secret_key if is_refresh else settings.JWT_SECRET_KEY
 
     try:
         payload = jwt.decode(
@@ -159,7 +156,7 @@ def generate_password_reset_token(email: str) -> str:
         JWT token for password reset
 
     """
-    expires = datetime.now(tz=timezone.utc) + timedelta(
+    expires = datetime.now(tz=UTC) + timedelta(
         hours=settings.EMAIL_RESET_TOKEN_EXPIRE_HOURS,
     )
     to_encode = {
@@ -196,7 +193,7 @@ def get_public_key() -> str:
     return latest_key.read_text()
 
 
-def verify_password_reset_token(token: str) -> Optional[str]:
+def verify_password_reset_token(token: str) -> str | None:
     """Verify a password reset token.
 
     Args:
@@ -407,11 +404,41 @@ class SecurityValidator:
 
     @staticmethod
     def validate_sql_injection_risk(input_string: str, max_length: int = 1000) -> bool:
-        """Alias for validate_sql_injection to maintain backward compatibility."""
-        return SecurityValidator.validate_sql_injection(input_string, max_length)
+        """Check if a SQL query is safe from injection attacks.
+
+        Returns True if the query appears safe, False if it contains dangerous patterns.
+        This is different from validate_sql_injection which rejects all SQL keywords.
+        """
+        if not isinstance(input_string, str):
+            return False
+
+        if len(input_string) > max_length:
+            return False
+
+        # Check for dangerous SQL injection patterns
+        dangerous_patterns = [
+            r";\s*(DROP|DELETE|TRUNCATE|ALTER)\s+",  # Multiple statements with dangerous commands
+            r"\b(OR|AND)\s+1\s*=\s*1\b",  # Classic injection pattern
+            r"\bWHERE\s+1\s*=\s*1\b",  # WHERE 1=1 pattern
+            r"\bUNION\s+(ALL\s+)?SELECT\b",  # UNION-based injection
+            r"--\s*$",  # Comment at end (suspicious)
+            r"/\*.*\*/",  # SQL comments
+            r"\bEXEC(UTE)?\s*\(",  # Execute commands
+            r"\bxp_\w+",  # Extended stored procedures
+            r"\bsp_\w+",  # System stored procedures
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, input_string, re.IGNORECASE):
+                logger.warning(
+                    f"Potential security threat detected: {input_string[:100]}..."
+                )
+                return False
+
+        return True
 
     @staticmethod
-    def validate_password_strength(password: str) -> Dict[str, Any]:
+    def validate_password_strength(password: str) -> dict[str, Any]:
         """Validate password strength.
 
         Checks for minimum length and inclusion of uppercase, lowercase, digits, and special characters.
@@ -448,11 +475,17 @@ class SecurityValidator:
         else:
             feedback.append("Password must contain at least one special character")
 
-        return {"score": score, "feedback": feedback, "valid": score >= 4}
+        is_acceptable = score >= 4
+        return {
+            "score": score,
+            "feedback": feedback,
+            "valid": is_acceptable,
+            "is_acceptable": is_acceptable,  # Add for backward compatibility
+        }
 
     @staticmethod
     def sanitize_html(
-        html: str, allowed_tags: Optional[List[str]] = None, max_length: int = 1000
+        html: str, allowed_tags: list[str] | None = None, max_length: int = 1000
     ) -> str:
         """Basic HTML sanitization.
 

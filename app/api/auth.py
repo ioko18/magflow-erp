@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -11,15 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
 from ..core.database import get_async_session
+from ..core.security import (
+    create_access_token as core_create_access_token,
+)
+from ..core.security import (
+    create_refresh_token as core_create_refresh_token,
+)
 from ..db.models import User as UserModel
 from ..middleware.correlation_id import get_correlation_id
 from ..schemas.auth import LoginRequest, Token, TokenPayload, User, UserInDB
-from ..services.cache_service import CacheManager, get_cache_service
-from ..services.rbac_service import AuditService
-from ..core.security import (
-    create_access_token as core_create_access_token,
-    create_refresh_token as core_create_refresh_token,
-)
+from ..services.infrastructure.cache_service import CacheManager, get_cache_service
+from ..services.security.rbac_service import AuditService
 
 router = APIRouter(tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -44,7 +46,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(subject: str, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
     """Create a JWT access token."""
 
     return core_create_access_token(subject=subject, expires_delta=expires_delta)
@@ -52,13 +54,13 @@ def create_access_token(subject: str, expires_delta: Optional[timedelta] = None)
 
 def create_refresh_token(
     subject: str,
-    expires_delta: Optional[timedelta] = None,
+    expires_delta: timedelta | None = None,
 ) -> str:
     """Create a JWT refresh token."""
     return core_create_refresh_token(subject=subject, expires_delta=expires_delta)
 
 
-def decode_token(token: str) -> Dict[str, Any]:
+def decode_token(token: str) -> dict[str, Any]:
     """Decode a JWT token."""
     try:
         payload = jwt.decode(
@@ -168,7 +170,7 @@ async def login_for_access_token(
     login_data: LoginRequest,
     db: AsyncSession = Depends(get_async_session),
     cache: CacheManager = Depends(get_cache_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """OAuth2 compatible token login, get an access token for future requests.
 
     - **username**: Username for authentication
@@ -331,7 +333,7 @@ async def login_for_access_token(
         if db_user:
             # Reset failed login attempts
             db_user.failed_login_attempts = 0
-            db_user.last_login = datetime.utcnow()
+            db_user.last_login = datetime.now(UTC)
             await db.commit()
 
             # Invalidate user cache since data changed
@@ -388,9 +390,12 @@ async def login_for_access_token(
 async def simple_login_test(
     request: Request,
     login_data: LoginRequest,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Simple synchronous login test - no database, no dependencies."""
-    print(f"🚀 SIMPLE LOGIN CALLED with username: {login_data.username}")
+    logger.debug(
+        "Simple login test called",
+        extra={"username": login_data.username},
+    )
 
     # Create a fake successful response
     if login_data.username == "admin@magflow.local" and login_data.password == "secret":
@@ -411,12 +416,14 @@ async def simple_login_test(
 @router.post("/test-db")
 async def test_database(
     db: AsyncSession = Depends(get_async_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Test database connection."""
     try:
         # Simple query to test database connection
+        # Use parameterized schema name to prevent SQL injection
+        schema = settings.db_schema_safe
         result = await db.execute(
-            text(f"SELECT COUNT(*) FROM {settings.DB_SCHEMA}.users"),
+            text(f"SELECT COUNT(*) FROM {schema}.users"),
         )
         user_count = result.scalar()
         return {"status": "success", "users_count": user_count}
@@ -427,11 +434,11 @@ async def test_database(
 @router.post("/refresh-token", response_model=Token)
 async def refresh_token_endpoint(
     request: Request,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Issue new access/refresh tokens using the provided refresh token."""
 
     auth_header = request.headers.get("Authorization", "")
-    token: Optional[str] = None
+    token: str | None = None
 
     if auth_header.startswith("Bearer "):
         token = auth_header.removeprefix("Bearer ").strip()
@@ -496,7 +503,7 @@ async def read_users_me(
 async def logout(
     request: Request,
     current_user: UserInDB = Depends(get_current_active_user),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Log out the current user (invalidate token).
 
     In a real implementation, you would add the token to a blacklist
@@ -510,7 +517,7 @@ async def logout(
 @router.get("/cache/stats")
 async def get_cache_stats(
     cache: CacheManager = Depends(get_cache_service),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get cache service statistics.
 
     Returns cache connection status, memory usage, and other metrics.
@@ -523,7 +530,7 @@ async def get_cache_stats(
 async def invalidate_user_cache(
     user_id: int,
     cache: CacheManager = Depends(get_cache_service),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Invalidate all cache entries for a specific user.
 
     - **user_id**: User ID to invalidate cache for
@@ -540,7 +547,7 @@ async def invalidate_user_cache(
 @router.delete("/cache/flush")
 async def flush_cache(
     cache: CacheManager = Depends(get_cache_service),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Flush all cache entries. Use with caution!"""
     # This would require implementing a flush method in CacheService
     # For now, return a message indicating this feature is not implemented

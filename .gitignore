@@ -156,3 +156,14 @@ data/
 # Frontend dependencies
 admin-frontend/node_modules/
 service_account.json
+
+# Performance metrics and monitoring
+performance_metrics_*.json
+test_metrics_*.json
+*_metrics_*.json
+
+# Kubernetes configs (should be in deployment/)
+kubeconfig-*.yaml
+
+# Temporary Python wheels
+*.whl

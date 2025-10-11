@@ -1,5 +1,6 @@
 """Dependency injection container for the application."""
 
+from app.services.background_service import BackgroundTaskService
 from dependency_injector import containers, providers
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -12,7 +13,6 @@ from app.crud import (
     # Commented out inventory CRUDs due to circular import issues
     # CRUDWarehouse, CRUDInventoryItem, CRUDStockMovement, CRUDStockReservation, CRUDStockTransfer
 )
-from app.services.background_service import BackgroundTaskService
 from app.services.catalog_service import CatalogService
 
 

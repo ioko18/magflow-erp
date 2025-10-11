@@ -19,6 +19,13 @@ depends_on = None
 def upgrade() -> None:
     """Create emag_orders table in app schema."""
     
+    # Check if table already exists (idempotent - handles parallel branch merge)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    if 'emag_orders' in inspector.get_table_names(schema='app'):
+        print("⚠️  Table emag_orders already exists, skipping creation")
+        return
+    
     # Create emag_orders table
     op.create_table(
         'emag_orders',
@@ -117,10 +124,12 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop emag_orders table."""
-    op.drop_index('idx_emag_orders_customer_email', table_name='emag_orders', schema='app')
-    op.drop_index('idx_emag_orders_order_date', table_name='emag_orders', schema='app')
-    op.drop_index('idx_emag_orders_sync_status', table_name='emag_orders', schema='app')
-    op.drop_index('idx_emag_orders_status', table_name='emag_orders', schema='app')
-    op.drop_index('idx_emag_orders_account', table_name='emag_orders', schema='app')
-    op.drop_index('idx_emag_orders_emag_id_account', table_name='emag_orders', schema='app')
-    op.drop_table('emag_orders', schema='app')
+    # Idempotent downgrade
+    conn = op.get_bind()
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_orders_customer_email'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_orders_order_date'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_orders_sync_status'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_orders_status'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_orders_account'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_orders_emag_id_account'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS app.emag_orders CASCADE'))

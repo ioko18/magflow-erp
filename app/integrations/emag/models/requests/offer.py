@@ -1,7 +1,7 @@
 """Request models for product offer operations."""
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,16 +31,16 @@ class ProductOfferBase(BaseModel):
         description="Unique identifier of the product in your system",
     )
     product_name: str = Field(..., max_length=255, description="Name of the product")
-    part_number: Optional[str] = Field(
+    part_number: str | None = Field(
         None,
         max_length=100,
         description="Manufacturer part number",
     )
-    description: Optional[str] = Field(None, description="Detailed product description")
+    description: str | None = Field(None, description="Detailed product description")
     brand_id: int = Field(..., description="eMAG brand ID")
     brand_name: str = Field(..., max_length=100, description="Brand name")
     category_id: int = Field(..., description="eMAG category ID")
-    images: List[str] = Field(default_factory=list, description="List of image URLs")
+    images: list[str] = Field(default_factory=list, description="List of image URLs")
     status: OfferStatus = Field(default=OfferStatus.NEW, description="Offer status")
 
     model_config = ConfigDict(use_enum_values=True)
@@ -50,7 +50,7 @@ class ProductOfferCreate(ProductOfferBase):
     """Model for creating a new product offer."""
 
     price: float = Field(..., gt=0, description="Product price")
-    sale_price: Optional[float] = Field(
+    sale_price: float | None = Field(
         None,
         gt=0,
         description="Sale price if applicable",
@@ -66,6 +66,7 @@ class ProductOfferCreate(ProductOfferBase):
     warranty: int = Field(default=24, ge=0, description="Warranty period in months")
 
     @field_validator("sale_price")
+    @classmethod
     def validate_sale_price(cls, v, values):
         """Validate that sale price is less than regular price."""
         if v is not None and "price" in values.data and v >= values.data["price"]:
@@ -76,11 +77,11 @@ class ProductOfferCreate(ProductOfferBase):
 class ProductOfferUpdate(BaseModel):
     """Model for updating an existing product offer."""
 
-    price: Optional[float] = Field(None, gt=0, description="Updated price")
-    sale_price: Optional[float] = Field(None, ge=0, description="Updated sale price")
-    stock: Optional[int] = Field(None, ge=0, description="Updated stock quantity")
-    status: Optional[OfferStatus] = Field(None, description="Updated status")
-    handling_time: Optional[int] = Field(
+    price: float | None = Field(None, gt=0, description="Updated price")
+    sale_price: float | None = Field(None, ge=0, description="Updated sale price")
+    stock: int | None = Field(None, ge=0, description="Updated stock quantity")
+    status: OfferStatus | None = Field(None, description="Updated status")
+    handling_time: int | None = Field(
         None,
         ge=1,
         le=30,
@@ -90,6 +91,7 @@ class ProductOfferUpdate(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     @field_validator("sale_price")
+    @classmethod
     def validate_sale_price(cls, v, values):
         """Validate that sale price is less than regular price."""
         if v is not None and "price" in values.data and v >= values.data["price"]:
@@ -100,13 +102,14 @@ class ProductOfferUpdate(BaseModel):
 class ProductOfferBulkUpdate(BaseModel):
     """Model for bulk updating multiple product offers."""
 
-    offers: List[Dict[str, Any]] = Field(
+    offers: list[dict[str, Any]] = Field(
         ...,
         max_items=50,
         description="List of offer updates, max 50 items per request",
     )
 
     @field_validator("offers")
+    @classmethod
     def validate_offers(cls, v):
         """Validate that bulk update contains at most 50 items."""
         if len(v) > 50:
@@ -117,10 +120,10 @@ class ProductOfferBulkUpdate(BaseModel):
 class ProductOfferFilter(BaseModel):
     """Filter criteria for querying product offers."""
 
-    status: Optional[OfferStatus] = None
-    category_id: Optional[int] = None
-    brand_id: Optional[int] = None
-    in_stock: Optional[bool] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
+    status: OfferStatus | None = None
+    category_id: int | None = None
+    brand_id: int | None = None
+    in_stock: bool | None = None
+    min_price: float | None = None
+    max_price: float | None = None
     model_config = ConfigDict(use_enum_values=True)

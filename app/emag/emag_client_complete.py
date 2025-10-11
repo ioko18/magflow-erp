@@ -3,9 +3,9 @@
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 import aiohttp
 import backoff
@@ -29,7 +29,7 @@ class EmagAPIError(Exception):
         self,
         message: str,
         status_code: int = None,
-        response_data: Dict = None,
+        response_data: dict = None,
     ):
         super().__init__(message)
         self.status_code = status_code
@@ -47,7 +47,7 @@ class RateLimitTracker:
             "invoices": 3,
             "other": 3,
         }
-        self.buckets: Dict[str, Dict] = {}
+        self.buckets: dict[str, dict] = {}
 
     def can_make_request(self, endpoint: str) -> bool:
         """Check if we can make a request."""
@@ -57,11 +57,13 @@ class RateLimitTracker:
             else (
                 "offers"
                 if "offer" in endpoint or "product" in endpoint
-                else "invoices" if "invoice" in endpoint else "other"
+                else "invoices"
+                if "invoice" in endpoint
+                else "other"
             )
         )
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         bucket = self.buckets.setdefault(category, {"count": 0, "window_start": now})
 
         if now - bucket["window_start"] >= timedelta(seconds=1):
@@ -78,13 +80,15 @@ class RateLimitTracker:
             else (
                 "offers"
                 if "offer" in endpoint or "product" in endpoint
-                else "invoices" if "invoice" in endpoint else "other"
+                else "invoices"
+                if "invoice" in endpoint
+                else "other"
             )
         )
 
         bucket = self.buckets.setdefault(
             category,
-            {"count": 0, "window_start": datetime.utcnow()},
+            {"count": 0, "window_start": datetime.now(UTC)},
         )
         bucket["count"] += 1
 
@@ -95,7 +99,7 @@ class EmagClient:
     def __init__(self, account_type: EmagAccountType = EmagAccountType.MAIN):
         self.account_type = account_type
         self.base_url = "https://marketplace-api.emag.ro/api-3"
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.session: aiohttp.ClientSession | None = None
         self.rate_limiter = RateLimitTracker()
 
         # Load credentials from environment
@@ -141,9 +145,9 @@ class EmagClient:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
     ) -> T:
         """Make authenticated request to eMAG API."""
         if not self.session:
@@ -167,7 +171,6 @@ class EmagClient:
                 json=data,
                 params=params,
             ) as response:
-
                 self.rate_limiter.record_request(endpoint)
 
                 # Handle HTTP errors
@@ -201,8 +204,8 @@ class EmagClient:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
     ) -> T:
         """Make GET request."""
         return await self._make_request(
@@ -215,8 +218,8 @@ class EmagClient:
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        response_model: type[T] | None = None,
     ) -> T:
         """Make POST request."""
         return await self._make_request(
@@ -228,14 +231,14 @@ class EmagClient:
 
     async def fetch_product_offers(
         self,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Fetch product offers using correct eMAG API format."""
         # Use the correct payload format: {"id": "product_id"} or {"id": ""}
         payload = filters or {"id": ""}
         return await self.post("product_offer/read", data=payload)
 
-    async def get_product_details(self, product_id: str) -> Dict[str, Any]:
+    async def get_product_details(self, product_id: str) -> dict[str, Any]:
         """Get details for a specific product."""
         payload = {"id": product_id}
         response = await self.post("product_offer/read", data=payload)
@@ -244,7 +247,7 @@ class EmagClient:
             return response["results"][0]
         return {}
 
-    async def test_connection(self) -> Dict[str, Any]:
+    async def test_connection(self) -> dict[str, Any]:
         """Test connection to eMAG API."""
         try:
             # Try to get product offers with empty ID

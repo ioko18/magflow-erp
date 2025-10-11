@@ -4,13 +4,15 @@ This module provides a comprehensive dependency injection system that enables
 better separation of concerns, testability, and maintainability across the application.
 """
 
+import contextlib
 import inspect
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import wraps
-from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,10 +34,10 @@ class ServiceContext:
     """Context object for service initialization and configuration."""
 
     settings: Any
-    db_session: Optional[AsyncSession] = None
-    cache_service: Optional[Any] = None
-    health_checker: Optional[DatabaseHealthChecker] = None
-    environment: Optional[Dict[str, str]] = None
+    db_session: AsyncSession | None = None
+    cache_service: Any | None = None
+    health_checker: DatabaseHealthChecker | None = None
+    environment: dict[str, str] | None = None
 
     def __post_init__(self):
         """Validate context configuration and initialize environment."""
@@ -61,10 +63,10 @@ class ServiceContext:
 class ServiceProvider(Generic[T]):
     """Generic service provider that handles service creation and lifecycle."""
 
-    def __init__(self, service_class: Type[T], dependencies: Dict[str, Any] = None):
+    def __init__(self, service_class: type[T], dependencies: dict[str, Any] = None):
         self.service_class = service_class
         self.dependencies = dependencies or {}
-        self._instance: Optional[T] = None
+        self._instance: T | None = None
         self._singleton = False
 
     def singleton(self) -> "ServiceProvider[T]":
@@ -93,7 +95,7 @@ class ServiceProvider(Generic[T]):
             params = {}
 
             # Resolve dependencies
-            for param_name, param in sig.parameters.items():
+            for param_name, _param in sig.parameters.items():
                 if param_name == "self":
                     continue
 
@@ -105,10 +107,8 @@ class ServiceProvider(Generic[T]):
                     params[param_name] = getattr(context, param_name)
                 # Try to get from context dict-style
                 elif hasattr(context, "__getitem__"):
-                    try:
+                    with contextlib.suppress(KeyError):
                         params[param_name] = context[param_name]
-                    except KeyError:
-                        pass
                 else:
                     # Try to resolve automatically
                     params[param_name] = self._resolve_dependency(param_name, context)
@@ -138,15 +138,15 @@ class DependencyContainer:
     """Central dependency injection container."""
 
     def __init__(self):
-        self._providers: Dict[str, ServiceProvider] = {}
-        self._instances: Dict[str, Any] = {}
-        self._context: Optional[ServiceContext] = None
+        self._providers: dict[str, ServiceProvider] = {}
+        self._instances: dict[str, Any] = {}
+        self._context: ServiceContext | None = None
 
     def register(
         self,
         name: str,
-        service_class: Type[T],
-        dependencies: Dict[str, Any] = None,
+        service_class: type[T],
+        dependencies: dict[str, Any] = None,
     ) -> ServiceProvider[T]:
         """Register a service provider."""
         provider = ServiceProvider(service_class, dependencies)
@@ -161,8 +161,8 @@ class DependencyContainer:
     def singleton(
         self,
         name: str,
-        service_class: Type[T],
-        dependencies: Dict[str, Any] = None,
+        service_class: type[T],
+        dependencies: dict[str, Any] = None,
     ) -> ServiceProvider[T]:
         """Register a singleton service provider."""
         provider = ServiceProvider(service_class, dependencies).singleton()
@@ -283,28 +283,64 @@ class CacheService(ServiceBase):
 
     async def initialize(self):
         """Initialize cache service."""
-        # TODO: Initialize cache backend (Redis, Memcached, etc.)
-        self.logger.info("Cache service initialized")
+        from app.core.cache import get_redis
+
+        try:
+            self._redis = await get_redis()
+            self.logger.info("Cache service initialized with Redis")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize cache: {e}")
+            self._redis = None
 
     async def cleanup(self):
         """Cleanup cache resources."""
-        # TODO: Close cache connections
-        self.logger.info("Cache service cleaned up")
+        from app.core.cache import close_redis
+
+        try:
+            await close_redis()
+            self.logger.info("Cache service cleaned up")
+        except Exception as e:
+            self.logger.error(f"Error cleaning up cache: {e}")
 
     async def get(self, key: str) -> Any:
         """Get value from cache."""
-        # TODO: Implement cache retrieval
-        return None
+        if not self._redis:
+            return None
+        try:
+            import pickle
+
+            value = await self._redis.get(key)
+            if value:
+                return pickle.loads(value)
+            return None
+        except Exception as e:
+            self.logger.error(f"Cache get error for key {key}: {e}")
+            return None
 
     async def set(self, key: str, value: Any, ttl: int = 300) -> bool:
         """Set value in cache."""
-        # TODO: Implement cache storage
-        return True
+        if not self._redis:
+            return False
+        try:
+            import pickle
+
+            serialized = pickle.dumps(value)
+            await self._redis.setex(key, ttl, serialized)
+            return True
+        except Exception as e:
+            self.logger.error(f"Cache set error for key {key}: {e}")
+            return False
 
     async def delete(self, key: str) -> bool:
         """Delete value from cache."""
-        # TODO: Implement cache deletion
-        return True
+        if not self._redis:
+            return False
+        try:
+            await self._redis.delete(key)
+            return True
+        except Exception as e:
+            self.logger.error(f"Cache delete error for key {key}: {e}")
+            return False
 
 
 class AuthenticationService(ServiceBase):
@@ -322,17 +358,17 @@ class AuthenticationService(ServiceBase):
         """Cleanup authentication resources."""
         self.logger.info("Authentication service cleaned up")
 
-    async def authenticate_user(self, email: str, password: str) -> Dict[str, Any]:
+    async def authenticate_user(self, email: str, password: str) -> dict[str, Any]:
         """Authenticate user credentials."""
         # TODO: Implement user authentication logic
         return {"user_id": 1, "email": email, "authenticated": True}
 
-    async def generate_token(self, user_data: Dict[str, Any]) -> str:
+    async def generate_token(self, user_data: dict[str, Any]) -> str:
         """Generate JWT token for user."""
         # TODO: Implement JWT token generation
         return "jwt_token_here"
 
-    async def validate_token(self, token: str) -> Dict[str, Any]:
+    async def validate_token(self, token: str) -> dict[str, Any]:
         """Validate JWT token."""
         # TODO: Implement JWT token validation
         return {"user_id": 1, "valid": True}
@@ -355,8 +391,8 @@ class ReportingService(ServiceBase):
     async def generate_report(
         self,
         report_type: str,
-        filters: Dict[str, Any] = None,
-    ) -> Dict[str, Any]:
+        filters: dict[str, Any] = None,
+    ) -> dict[str, Any]:
         """Generate report data."""
         # TODO: Implement report generation logic
         return {
@@ -480,7 +516,7 @@ def with_transaction(func: Callable):
 class ServiceError(Exception):
     """Base exception for service-related errors."""
 
-    def __init__(self, message: str, details: Dict[str, Any] = None):
+    def __init__(self, message: str, details: dict[str, Any] = None):
         super().__init__(message)
         self.details = details or {}
 

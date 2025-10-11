@@ -1,16 +1,16 @@
 from datetime import datetime
-from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 
 # Shared properties
 class OrderBase(BaseModel):
-    customer_id: Optional[int] = None
-    order_date: Optional[datetime] = None
-    status: Optional[str] = "pending"
-    total_amount: Optional[float] = 0.0
-    external_id: Optional[str] = None
-    external_source: Optional[str] = None
+    customer_id: int | None = None
+    order_date: datetime | None = None
+    status: str | None = "pending"
+    total_amount: float | None = 0.0
+    external_id: str | None = None
+    external_source: str | None = None
 
 
 # Properties to receive on order creation
@@ -23,7 +23,7 @@ class OrderCreate(OrderBase):
 
 # Properties to receive on order update
 class OrderUpdate(OrderBase):
-    status: Optional[str] = None
+    status: str | None = None
 
 
 # Properties shared by models stored in DB
@@ -62,8 +62,8 @@ class OrderLineCreate(OrderLineBase):
 
 
 class OrderLineUpdate(OrderLineBase):
-    quantity: Optional[int] = 1
-    unit_price: Optional[float] = None
+    quantity: int | None = 1
+    unit_price: float | None = None
 
 
 class OrderLineInDBBase(OrderLineBase):
@@ -80,9 +80,9 @@ class OrderLine(OrderLineInDBBase):
 
 # Full order with order lines
 class OrderWithLines(Order):
-    order_lines: List[OrderLine] = []
+    order_lines: list[OrderLine] = []
 
 
 # For creating an order with lines
 class OrderCreateWithLines(OrderCreate):
-    order_lines: List[OrderLineCreate] = []
+    order_lines: list[OrderLineCreate] = []

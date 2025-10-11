@@ -1,6 +1,6 @@
 """Response models for eMAG category endpoints."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,7 +39,7 @@ class CategoryCharacteristic(BaseModel):
         alias="isVariant",
         description="Whether this characteristic can be used for variants",
     )
-    values: List[CategoryCharacteristicValue] = Field(
+    values: list[CategoryCharacteristicValue] = Field(
         default_factory=list,
         description="Possible values for this characteristic",
     )
@@ -50,7 +50,7 @@ class Category(BaseModel):
 
     id: int = Field(..., description="Category ID")
     name: str = Field(..., description="Category name")
-    parent_id: Optional[int] = Field(
+    parent_id: int | None = Field(
         None,
         alias="parentId",
         description="Parent category ID",
@@ -60,7 +60,7 @@ class Category(BaseModel):
         alias="isLeaf",
         description="Whether this is a leaf category",
     )
-    characteristics: List[CategoryCharacteristic] = Field(
+    characteristics: list[CategoryCharacteristic] = Field(
         default_factory=list,
         description="Category characteristics",
     )
@@ -76,11 +76,11 @@ class CategoryListResponse(BaseModel):
         alias="isError",
         description="Indicates if there was an error",
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of messages",
     )
-    results: List[Category] = Field(
+    results: list[Category] = Field(
         default_factory=list,
         description="List of categories",
     )
@@ -96,11 +96,11 @@ class CategoryCharacteristicsResponse(BaseModel):
         alias="isError",
         description="Indicates if there was an error",
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of messages",
     )
-    results: List[CategoryCharacteristic] = Field(
+    results: list[CategoryCharacteristic] = Field(
         default_factory=list,
         description="List of category characteristics",
     )

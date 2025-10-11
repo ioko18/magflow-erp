@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_serializer
@@ -24,14 +24,14 @@ class CategoryBase(BaseModel):
     """Base category DTO."""
 
     name: str = Field(..., min_length=1, max_length=100)
-    description: Optional[str] = None
-    slug: Optional[str] = Field(
+    description: str | None = None
+    slug: str | None = Field(
         None,
         min_length=1,
         max_length=150,
         pattern=r"^[a-z0-9-]+$",
     )
-    parent_id: Optional[int] = Field(None, alias="parentId")
+    parent_id: int | None = Field(None, alias="parentId")
     is_active: bool = Field(default=True, alias="isActive")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -69,8 +69,8 @@ class PaginationMeta(BaseModel):
     per_page: int = Field(..., alias="perPage", ge=1, le=100)
     has_next: bool = Field(..., alias="hasNext")
     has_prev: bool = Field(..., alias="hasPrev")
-    next_cursor: Optional[str] = Field(None, alias="nextCursor")
-    prev_cursor: Optional[str] = Field(None, alias="prevCursor")
+    next_cursor: str | None = Field(None, alias="nextCursor")
+    prev_cursor: str | None = Field(None, alias="prevCursor")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -88,7 +88,7 @@ class ProductImage(BaseModel):
     url: HttpUrl
     is_main: bool = Field(default=False, alias="isMain")
     position: int = 0
-    alt: Optional[str] = None
+    alt: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -98,32 +98,32 @@ class ProductCharacteristicValue(BaseModel):
 
     id: int
     name: str
-    value: Union[str, int, float, bool]
-    unit: Optional[str] = None
+    value: str | int | float | bool
+    unit: str | None = None
 
 
 class ProductBase(BaseModel):
     """Base product DTO."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
+    description: str | None = None
     sku: str = Field(..., min_length=1, max_length=100)
-    ean: Optional[str] = Field(None, min_length=8, max_length=13)
+    ean: str | None = Field(None, min_length=8, max_length=13)
     price: float = Field(..., gt=0)
-    sale_price: Optional[float] = Field(None, gt=0)
+    sale_price: float | None = Field(None, gt=0)
     currency: str = Field(default="RON", min_length=3, max_length=3)
     status: ProductStatus = ProductStatus.DRAFT
     is_active: bool = Field(default=True, alias="isActive")
     stock_quantity: int = Field(default=0, ge=0, alias="stockQuantity")
-    weight: Optional[float] = Field(None, gt=0)  # in kg
-    length: Optional[float] = Field(None, gt=0)  # in cm
-    width: Optional[float] = Field(None, gt=0)  # in cm
-    height: Optional[float] = Field(None, gt=0)  # in cm
-    brand_id: Optional[int] = Field(None, alias="brandId")
+    weight: float | None = Field(None, gt=0)  # in kg
+    length: float | None = Field(None, gt=0)  # in cm
+    width: float | None = Field(None, gt=0)  # in cm
+    height: float | None = Field(None, gt=0)  # in cm
+    brand_id: int | None = Field(None, alias="brandId")
     category_id: int = Field(..., alias="categoryId")
-    images: List[ProductImage] = []
-    characteristics: List[ProductCharacteristicValue] = []
-    metadata: Dict[str, Any] = {}
+    images: list[ProductImage] = []
+    characteristics: list[ProductCharacteristicValue] = []
+    metadata: dict[str, Any] = {}
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -135,25 +135,25 @@ class ProductCreate(ProductBase):
 class ProductUpdate(BaseModel):
     """DTO for updating an existing product."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    sku: Optional[str] = Field(None, min_length=1, max_length=100)
-    ean: Optional[str] = Field(None, min_length=8, max_length=13)
-    price: Optional[float] = Field(None, gt=0)
-    sale_price: Optional[float] = Field(None, gt=0)
-    currency: Optional[str] = Field(None, min_length=3, max_length=3)
-    status: Optional[ProductStatus] = None
-    is_active: Optional[bool] = Field(None, alias="isActive")
-    stock_quantity: Optional[int] = Field(None, ge=0, alias="stockQuantity")
-    weight: Optional[float] = Field(None, gt=0)
-    length: Optional[float] = Field(None, gt=0)
-    width: Optional[float] = Field(None, gt=0)
-    height: Optional[float] = Field(None, gt=0)
-    brand_id: Optional[int] = Field(None, alias="brandId")
-    category_id: Optional[int] = Field(None, alias="categoryId")
-    images: Optional[List[ProductImage]] = None
-    characteristics: Optional[List[ProductCharacteristicValue]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    sku: str | None = Field(None, min_length=1, max_length=100)
+    ean: str | None = Field(None, min_length=8, max_length=13)
+    price: float | None = Field(None, gt=0)
+    sale_price: float | None = Field(None, gt=0)
+    currency: str | None = Field(None, min_length=3, max_length=3)
+    status: ProductStatus | None = None
+    is_active: bool | None = Field(None, alias="isActive")
+    stock_quantity: int | None = Field(None, ge=0, alias="stockQuantity")
+    weight: float | None = Field(None, gt=0)
+    length: float | None = Field(None, gt=0)
+    width: float | None = Field(None, gt=0)
+    height: float | None = Field(None, gt=0)
+    brand_id: int | None = Field(None, alias="brandId")
+    category_id: int | None = Field(None, alias="categoryId")
+    images: list[ProductImage] | None = None
+    characteristics: list[ProductCharacteristicValue] | None = None
+    metadata: dict[str, Any] | None = None
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -163,8 +163,8 @@ class Product(ProductBase):
     id: UUID
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
-    emag_id: Optional[int] = Field(None, alias="emagId")
-    url: Optional[HttpUrl] = None
+    emag_id: int | None = Field(None, alias="emagId")
+    url: HttpUrl | None = None
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -172,7 +172,7 @@ class Product(ProductBase):
 class ProductListResponse(BaseModel):
     """Response model for product listing with pagination."""
 
-    data: List[Product]
+    data: list[Product]
     meta: PaginationMeta
 
 
@@ -181,9 +181,9 @@ class BrandBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     slug: str = Field(..., min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
-    description: Optional[str] = None
-    website: Optional[HttpUrl] = None
-    logo_url: Optional[HttpUrl] = Field(None, alias="logoUrl")
+    description: str | None = None
+    website: HttpUrl | None = None
+    logo_url: HttpUrl | None = Field(None, alias="logoUrl")
     is_active: bool = Field(default=True, alias="isActive")
     model_config = ConfigDict(populate_by_name=True)
 
@@ -195,17 +195,17 @@ class BrandCreate(BrandBase):
 class BrandUpdate(BaseModel):
     """DTO for updating an existing brand."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    slug: Optional[str] = Field(
+    name: str | None = Field(None, min_length=1, max_length=100)
+    slug: str | None = Field(
         None,
         min_length=1,
         max_length=100,
         pattern=r"^[a-z0-9-]+$",
     )
-    description: Optional[str] = None
-    website: Optional[HttpUrl] = None
-    logo_url: Optional[HttpUrl] = Field(None, alias="logoUrl")
-    is_active: Optional[bool] = Field(None, alias="isActive")
+    description: str | None = None
+    website: HttpUrl | None = None
+    logo_url: HttpUrl | None = Field(None, alias="logoUrl")
+    is_active: bool | None = Field(None, alias="isActive")
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -215,7 +215,7 @@ class Brand(BrandBase):
     id: int
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
-    emag_id: Optional[int] = Field(None, alias="emagId")
+    emag_id: int | None = Field(None, alias="emagId")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -223,7 +223,7 @@ class Brand(BrandBase):
 class BrandListResponse(BaseModel):
     """Response model for brand listing with pagination."""
 
-    data: List[Brand]
+    data: list[Brand]
     meta: PaginationMeta
 
 
@@ -256,7 +256,7 @@ class CharacteristicBase(BaseModel):
     is_required: bool = Field(False, alias="isRequired")
     is_filterable: bool = Field(False, alias="isFilterable")
     is_variant: bool = Field(False, alias="isVariant")
-    values: List[CharacteristicValue] = []
+    values: list[CharacteristicValue] = []
     category_id: int = Field(..., alias="categoryId")
     model_config = ConfigDict(populate_by_name=True)
 
@@ -268,19 +268,19 @@ class CharacteristicCreate(CharacteristicBase):
 class CharacteristicUpdate(BaseModel):
     """DTO for updating an existing characteristic."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    code: Optional[str] = Field(
+    name: str | None = Field(None, min_length=1, max_length=100)
+    code: str | None = Field(
         None,
         min_length=1,
         max_length=50,
         pattern=r"^[a-z0-9_]+$",
     )
-    type: Optional[CharacteristicType] = None
-    is_required: Optional[bool] = Field(None, alias="isRequired")
-    is_filterable: Optional[bool] = Field(None, alias="isFilterable")
-    is_variant: Optional[bool] = Field(None, alias="isVariant")
-    values: Optional[List[CharacteristicValue]] = None
-    category_id: Optional[int] = Field(None, alias="categoryId")
+    type: CharacteristicType | None = None
+    is_required: bool | None = Field(None, alias="isRequired")
+    is_filterable: bool | None = Field(None, alias="isFilterable")
+    is_variant: bool | None = Field(None, alias="isVariant")
+    values: list[CharacteristicValue] | None = None
+    category_id: int | None = Field(None, alias="categoryId")
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -290,7 +290,7 @@ class Characteristic(CharacteristicBase):
     id: int
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: datetime = Field(..., alias="updatedAt")
-    emag_id: Optional[int] = Field(None, alias="emagId")
+    emag_id: int | None = Field(None, alias="emagId")
 
     model_config = ConfigDict(populate_by_name=True, from_attributes=True)
 
@@ -298,25 +298,25 @@ class Characteristic(CharacteristicBase):
 class CharacteristicListResponse(BaseModel):
     """Response model for characteristic listing with pagination."""
 
-    data: List[Characteristic]
+    data: list[Characteristic]
     meta: PaginationMeta
 
 
 class ProductFilter(BaseModel):
     """Filter criteria for product listing."""
 
-    q: Optional[str] = None
-    category_id: Optional[int] = Field(None, alias="categoryId")
-    brand_id: Optional[int] = Field(None, alias="brandId")
-    status: Optional[ProductStatus] = None
-    min_price: Optional[float] = Field(None, alias="minPrice", gt=0)
-    max_price: Optional[float] = Field(None, alias="maxPrice", gt=0)
-    in_stock: Optional[bool] = Field(None, alias="inStock")
-    created_after: Optional[datetime] = Field(None, alias="createdAfter")
-    updated_after: Optional[datetime] = Field(None, alias="updatedAfter")
+    q: str | None = None
+    category_id: int | None = Field(None, alias="categoryId")
+    brand_id: int | None = Field(None, alias="brandId")
+    status: ProductStatus | None = None
+    min_price: float | None = Field(None, alias="minPrice", gt=0)
+    max_price: float | None = Field(None, alias="maxPrice", gt=0)
+    in_stock: bool | None = Field(None, alias="inStock")
+    created_after: datetime | None = Field(None, alias="createdAfter")
+    updated_after: datetime | None = Field(None, alias="updatedAfter")
 
     # Cursor-based pagination
-    cursor: Optional[str] = None
+    cursor: str | None = None
     limit: int = Field(20, ge=1, le=100)
     sort_by: SortField = Field(SortField.CREATED_AT, alias="sortBy")
     sort_direction: SortDirection = Field(SortDirection.DESC, alias="sortDirection")
@@ -325,11 +325,11 @@ class ProductFilter(BaseModel):
 
     @field_serializer("created_after", "updated_after", when_used="json")
     def serialize_optional_datetime(
-        self, value: Optional[datetime], _info
-    ) -> Optional[str]:
+        self, value: datetime | None, _info
+    ) -> str | None:
         return value.isoformat() if value else None
 
-    def to_query_params(self) -> Dict[str, str]:
+    def to_query_params(self) -> dict[str, str]:
         """Convert filter to query parameters."""
         params = {}
         if self.q:

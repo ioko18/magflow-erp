@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,13 +29,13 @@ class ProductMappingBase(BaseModel):
     """Base schema for product mappings."""
 
     internal_id: str = Field(..., description="Internal product ID")
-    emag_id: Optional[str] = Field(None, description="eMAG product ID")
-    emag_offer_id: Optional[int] = Field(None, description="eMAG offer ID")
+    emag_id: str | None = Field(None, description="eMAG product ID")
+    emag_offer_id: int | None = Field(None, description="eMAG offer ID")
     status: MappingStatus = Field(
         default=MappingStatus.PENDING,
         description="Mapping status",
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",
     )
@@ -48,10 +48,10 @@ class ProductMappingCreate(ProductMappingBase):
 class ProductMappingUpdate(BaseModel):
     """Schema for updating a product mapping."""
 
-    emag_id: Optional[str] = Field(None, description="eMAG product ID")
-    emag_offer_id: Optional[int] = Field(None, description="eMAG offer ID")
-    status: Optional[MappingStatus] = Field(None, description="Mapping status")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    emag_id: str | None = Field(None, description="eMAG product ID")
+    emag_offer_id: int | None = Field(None, description="eMAG offer ID")
+    status: MappingStatus | None = Field(None, description="Mapping status")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
 
 
 class ProductMappingResponse(ProductMappingBase):
@@ -60,7 +60,7 @@ class ProductMappingResponse(ProductMappingBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    last_synced_at: Optional[datetime] = None
+    last_synced_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -70,10 +70,10 @@ class MappingResult(BaseModel):
 
     success: bool = Field(..., description="Whether the operation was successful")
     internal_id: str = Field(..., description="Internal product ID")
-    emag_id: Optional[str] = Field(None, description="eMAG product ID")
-    emag_offer_id: Optional[int] = Field(None, description="eMAG offer ID")
-    message: Optional[str] = Field(None, description="Status message")
-    errors: List[str] = Field(
+    emag_id: str | None = Field(None, description="eMAG product ID")
+    emag_offer_id: int | None = Field(None, description="eMAG offer ID")
+    message: str | None = Field(None, description="Status message")
+    errors: list[str] = Field(
         default_factory=list,
         description="List of error messages if any",
     )
@@ -85,7 +85,7 @@ class BulkMappingResult(BaseModel):
     total: int = Field(0, description="Total number of items processed")
     successful: int = Field(0, description="Number of successful operations")
     failed: int = Field(0, description="Number of failed operations")
-    results: List[MappingResult] = Field(
+    results: list[MappingResult] = Field(
         default_factory=list,
         description="Individual operation results",
     )
@@ -99,11 +99,11 @@ class SyncHistoryBase(BaseModel):
     items_processed: int = Field(0, description="Number of items processed")
     items_succeeded: int = Field(0, description="Number of items succeeded")
     items_failed: int = Field(0, description="Number of items failed")
-    errors: List[Dict[str, Any]] = Field(
+    errors: list[dict[str, Any]] = Field(
         default_factory=list,
         description="List of errors if any",
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",
     )
@@ -112,7 +112,7 @@ class SyncHistoryBase(BaseModel):
 class SyncHistoryCreate(SyncHistoryBase):
     """Schema for creating a new sync history entry."""
 
-    product_mapping_id: Optional[int] = Field(
+    product_mapping_id: int | None = Field(
         None,
         description="ID of the product mapping this sync is for",
     )
@@ -122,7 +122,7 @@ class SyncHistoryResponse(SyncHistoryBase):
     """Schema for sync history response."""
 
     id: int
-    product_mapping_id: Optional[int]
+    product_mapping_id: int | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -133,16 +133,16 @@ class FieldMappingRule(BaseModel):
 
     internal_field: str = Field(..., description="Internal field name")
     emag_field: str = Field(..., description="eMAG field name")
-    transform_function: Optional[str] = Field(
+    transform_function: str | None = Field(
         None,
         description="Name of the transform function to apply",
     )
-    default_value: Optional[Any] = Field(
+    default_value: Any | None = Field(
         None,
         description="Default value if field is missing",
     )
     is_required: bool = Field(True, description="Whether the field is required")
-    validation_rules: Dict[str, Any] = Field(
+    validation_rules: dict[str, Any] = Field(
         default_factory=dict,
         description="Validation rules for the field",
     )
@@ -165,12 +165,12 @@ class ProductFieldMappingSchema(BaseModel):
         ...,
         description="Characteristics mapping",
     )
-    part_number: Optional[FieldMappingRule] = Field(
+    part_number: FieldMappingRule | None = Field(
         None,
         description="Part number mapping",
     )
-    warranty: Optional[FieldMappingRule] = Field(None, description="Warranty mapping")
-    handling_time: Optional[FieldMappingRule] = Field(
+    warranty: FieldMappingRule | None = Field(None, description="Warranty mapping")
+    handling_time: FieldMappingRule | None = Field(
         None,
         description="Handling time mapping",
     )
@@ -181,7 +181,7 @@ class MappingConfigurationBase(BaseModel):
 
     name: str = Field(..., description="Name of the configuration")
     is_active: bool = Field(True, description="Whether the configuration is active")
-    description: Optional[str] = Field(
+    description: str | None = Field(
         None,
         description="Description of the configuration",
     )
@@ -189,7 +189,7 @@ class MappingConfigurationBase(BaseModel):
         ...,
         description="Field mapping configuration",
     )
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Additional metadata",
     )
@@ -202,20 +202,20 @@ class MappingConfigurationCreate(MappingConfigurationBase):
 class MappingConfigurationUpdate(BaseModel):
     """Schema for updating a mapping configuration."""
 
-    name: Optional[str] = Field(None, description="Name of the configuration")
-    is_active: Optional[bool] = Field(
+    name: str | None = Field(None, description="Name of the configuration")
+    is_active: bool | None = Field(
         None,
         description="Whether the configuration is active",
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         None,
         description="Description of the configuration",
     )
-    product_field_mapping: Optional[ProductFieldMappingSchema] = Field(
+    product_field_mapping: ProductFieldMappingSchema | None = Field(
         None,
         description="Field mapping configuration",
     )
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
 
 
 class MappingConfigurationResponse(MappingConfigurationBase):

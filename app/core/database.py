@@ -1,40 +1,50 @@
-"""Database utilities with real PostgreSQL connection."""
+"""Database utilities with real PostgreSQL connection.
 
-from typing import AsyncGenerator
+COMPATIBILITY LAYER: This module now re-exports from app.db.session to ensure
+a single source of truth for database connections. This prevents multiple
+connection pools and memory leaks.
+
+For new code, prefer importing directly from app.db.session:
+    from app.db.session import get_async_db, AsyncSessionLocal
+"""
+
+from collections.abc import AsyncGenerator
 
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-from ..core.database_resilience import DatabaseConfig, DatabaseHealthChecker
-from ..core.exceptions import DatabaseError
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import declarative_base
+
+from ..core.database_resilience import DatabaseHealthChecker
+from ..core.exceptions import DatabaseError
+from ..db.session import (
+    AsyncSessionLocal as async_session_factory,
+)
+
+# Import from the canonical source
+from ..db.session import (
+    async_engine as engine,  # noqa: F401 - Re-exported for compatibility
+)
+from ..db.session import (
+    get_async_db,  # noqa: F401 - Re-exported for compatibility
+)
 
 # Declarative base for ORM models
 Base = declarative_base()
 
-# Create the async engine
-engine = DatabaseConfig.create_optimized_engine()
-
-# Create async session factory
-async_session_factory = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
-
-# Create health checker
+# Create health checker with the shared session factory
 health_checker = DatabaseHealthChecker(async_session_factory)
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """Async database session dependency.
     Yields a session and ensures proper cleanup.
+
+    Note: The async context manager (async with) automatically handles session
+    cleanup, so we don't need to manually call session.close() in finally.
     """
-    """Get an async database session."""
-    # TODO: Re-enable health check after fixing the issue
+    # Note: Health check is disabled to avoid circular dependency issues
+    # Consider implementing a separate health check endpoint if needed
     # await health_checker.ensure_healthy()
 
     async with async_session_factory() as session:
@@ -50,17 +60,11 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
-        finally:
-            await session.close()
 
 
 # Alias for compatibility with existing imports in tests
 get_db = get_async_session
 
-# Test database engine for development/testing
-test_engine = DatabaseConfig.create_test_engine()
-test_session_factory = async_sessionmaker(
-    test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+# Test database utilities are now available from app.db.session
+# For test engine, import directly: from app.db.session import async_engine
+# This prevents creating duplicate connection pools

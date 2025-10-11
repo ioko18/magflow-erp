@@ -1,7 +1,7 @@
 """Caching for eMAG API responses with TTL and invalidation support."""
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from app.core.logging import get_logger
 from app.integrations.emag.models.responses.vat import VatResponse
@@ -20,7 +20,7 @@ VAT_RATES_KEY = "emag:vat:rates:{country_code}"
 DEFAULT_RATE_KEY = "emag:vat:default:{country_code}"
 
 
-async def get_vat_cache(key: str) -> Optional[Any]:
+async def get_vat_cache(key: str) -> Any | None:
     """Get a value from the cache.
 
     Args:
@@ -37,7 +37,7 @@ async def get_vat_cache(key: str) -> Optional[Any]:
         return None
 
 
-async def set_vat_cache(key: str, value: Any, ttl: Optional[int] = None) -> bool:
+async def set_vat_cache(key: str, value: Any, ttl: int | None = None) -> bool:
     """Set a value in the cache.
 
     Args:
@@ -53,7 +53,7 @@ async def set_vat_cache(key: str, value: Any, ttl: Optional[int] = None) -> bool
         # Add timestamp to the cached value
         cached_data = {
             "data": value,
-            "cached_at": datetime.now(timezone.utc).isoformat(),
+            "cached_at": datetime.now(UTC).isoformat(),
             "ttl": ttl,
         }
         return await cache.set(key, cached_data, ttl=ttl)
@@ -62,7 +62,7 @@ async def set_vat_cache(key: str, value: Any, ttl: Optional[int] = None) -> bool
         return False
 
 
-async def invalidate_vat_cache(country_code: Optional[str] = None) -> None:
+async def invalidate_vat_cache(country_code: str | None = None) -> None:
     """Invalidate VAT rate cache for a specific country or all countries.
 
     Args:
@@ -100,7 +100,7 @@ class VatCache:
     async def get_vat_rates(
         country_code: str = "RO",
         force_refresh: bool = False,
-    ) -> Optional[VatResponse]:
+    ) -> VatResponse | None:
         """Get VAT rates for a specific country.
 
         Args:
@@ -126,7 +126,7 @@ class VatCache:
     async def set_vat_rates(
         country_code: str,
         rates: VatResponse,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """Cache VAT rates for a specific country.
 
@@ -147,7 +147,7 @@ class VatCache:
     async def get_default_rate(
         country_code: str = "RO",
         force_refresh: bool = False,
-    ) -> Optional[float]:
+    ) -> float | None:
         """Get the default VAT rate for a specific country.
 
         Args:
@@ -173,7 +173,7 @@ class VatCache:
     async def set_default_rate(
         country_code: str,
         rate: float,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """Cache the default VAT rate for a specific country.
 

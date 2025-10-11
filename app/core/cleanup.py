@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -34,7 +34,7 @@ async def idem_cleanup_loop(
 
     while True:
         try:
-            start_time = datetime.utcnow()
+            start_time = datetime.now(UTC)
 
             async with engine.begin() as conn:
                 # Log before deletion
@@ -84,7 +84,7 @@ async def idem_cleanup_loop(
                             f"Still found {remaining} expired keys after cleanup",
                         )
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(UTC) - start_time).total_seconds()
 
             if count > 0:
                 logger.info(

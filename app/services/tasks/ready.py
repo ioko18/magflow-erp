@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/ready")
-async def tasks_readiness() -> Dict[str, Any]:
+async def tasks_readiness() -> dict[str, Any]:
     """Check Celery readiness by running a trivial echo task.
 
     This endpoint is intentionally implemented to be easy to mock in tests.
@@ -30,7 +30,7 @@ async def tasks_readiness() -> Dict[str, Any]:
                 detail={
                     "status": "unready",
                     "message": f"Celery worker not responding within timeout: {e!s}",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
@@ -39,7 +39,7 @@ async def tasks_readiness() -> Dict[str, Any]:
             "message": "Celery worker is responsive",
             "test_result": result,
             "task_id": getattr(task, "id", "unknown"),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except HTTPException:
         # Re-raise structured HTTP exceptions
@@ -51,6 +51,6 @@ async def tasks_readiness() -> Dict[str, Any]:
             detail={
                 "status": "unready",
                 "message": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )

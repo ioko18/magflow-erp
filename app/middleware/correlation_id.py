@@ -5,7 +5,7 @@ This module provides middleware to add and track correlation IDs for requests.
 
 import contextvars
 import uuid
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -14,7 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 _correlation_id_ctx_var = contextvars.ContextVar("correlation_id", default=None)
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get the current correlation ID from the context.
 
     Returns:

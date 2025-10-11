@@ -1,8 +1,8 @@
 """Enhanced offer service with product mapping integration."""
 
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional, TypeVar
+from datetime import UTC, datetime
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from ..exceptions import EmagAPIError
@@ -40,8 +40,8 @@ class OfferServiceWithMapping(OfferService):
         self,
         http_client,
         rate_limiter,
-        mapping_service: Optional[ProductMappingService] = None,
-        mapping_config: Optional[MappingConfiguration] = None,
+        mapping_service: ProductMappingService | None = None,
+        mapping_config: MappingConfiguration | None = None,
     ):
         """Initialize the enhanced offer service.
 
@@ -88,7 +88,7 @@ class OfferServiceWithMapping(OfferService):
 
     async def create_offer_with_mapping(
         self,
-        internal_product: Dict[str, Any],
+        internal_product: dict[str, Any],
         auto_create_mappings: bool = True,
     ) -> ProductOfferResponse:
         """Create a product offer using mapping transformation.
@@ -137,7 +137,7 @@ class OfferServiceWithMapping(OfferService):
     async def update_offer_with_mapping(
         self,
         internal_product_id: str,
-        internal_product: Dict[str, Any],
+        internal_product: dict[str, Any],
     ) -> ProductOfferResponse:
         """Update a product offer using mapping transformation.
 
@@ -184,8 +184,8 @@ class OfferServiceWithMapping(OfferService):
 
     async def sync_products_with_mapping(
         self,
-        internal_products: List[Dict[str, Any]],
-        batch_size: Optional[int] = None,
+        internal_products: list[dict[str, Any]],
+        batch_size: int | None = None,
     ) -> ProductOfferSyncResponse:
         """Synchronize multiple products using mapping transformations.
 
@@ -310,8 +310,8 @@ class OfferServiceWithMapping(OfferService):
             status=status,
             processed_items=processed,
             total_items=total_products,
-            started_at=datetime.utcnow(),
-            completed_at=datetime.utcnow(),
+            started_at=datetime.now(UTC),
+            completed_at=datetime.now(UTC),
             errors=sync_errors,
         )
 
@@ -378,7 +378,7 @@ class OfferServiceWithMapping(OfferService):
         self,
         internal_id: str,
         emag_id: str,
-        emag_offer_id: Optional[int] = None,
+        emag_offer_id: int | None = None,
     ) -> None:
         """Add a product ID mapping.
 
@@ -436,7 +436,7 @@ class OfferServiceWithMapping(OfferService):
             emag_name,
         )
 
-    def get_mapping_statistics(self) -> Dict[str, int]:
+    def get_mapping_statistics(self) -> dict[str, int]:
         """Get statistics about current mappings.
 
         Returns:
@@ -447,7 +447,7 @@ class OfferServiceWithMapping(OfferService):
 
     def transform_product_preview(
         self,
-        internal_product: Dict[str, Any],
+        internal_product: dict[str, Any],
     ) -> ProductTransformationResult:
         """Preview how an internal product would be transformed.
 

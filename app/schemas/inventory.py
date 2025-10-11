@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,9 +19,9 @@ class WarehouseBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     code: str = Field(..., min_length=1, max_length=20)
-    address: Optional[str] = None
-    city: Optional[str] = Field(None, max_length=50)
-    country: Optional[str] = Field(None, max_length=50)
+    address: str | None = None
+    city: str | None = Field(None, max_length=50)
+    country: str | None = Field(None, max_length=50)
     is_active: bool = True
 
 
@@ -33,20 +32,20 @@ class WarehouseCreate(WarehouseBase):
 class WarehouseUpdate(BaseModel):
     """Schema for updating a warehouse."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    code: Optional[str] = Field(None, min_length=1, max_length=20)
-    address: Optional[str] = None
-    city: Optional[str] = Field(None, max_length=50)
-    country: Optional[str] = Field(None, max_length=50)
-    is_active: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    code: str | None = Field(None, min_length=1, max_length=20)
+    address: str | None = None
+    city: str | None = Field(None, max_length=50)
+    country: str | None = Field(None, max_length=50)
+    is_active: bool | None = None
 
 
 class WarehouseInDBBase(WarehouseBase):
     """Base schema for warehouse data in database."""
 
-    id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -64,12 +63,12 @@ class InventoryItemBase(BaseModel):
     reserved_quantity: int = 0
     available_quantity: int = 0
     minimum_stock: int = 0
-    maximum_stock: Optional[int] = None
+    maximum_stock: int | None = None
     reorder_point: int = 0
-    unit_cost: Optional[float] = None
-    location: Optional[str] = Field(None, max_length=100)
-    batch_number: Optional[str] = Field(None, max_length=50)
-    expiry_date: Optional[datetime] = None
+    unit_cost: float | None = None
+    location: str | None = Field(None, max_length=100)
+    batch_number: str | None = Field(None, max_length=50)
+    expiry_date: datetime | None = None
     is_active: bool = True
 
 
@@ -80,24 +79,24 @@ class InventoryItemCreate(InventoryItemBase):
 class InventoryItemUpdate(BaseModel):
     """Schema for updating an inventory item."""
 
-    quantity: Optional[int] = None
-    reserved_quantity: Optional[int] = None
-    minimum_stock: Optional[int] = None
-    maximum_stock: Optional[int] = None
-    reorder_point: Optional[int] = None
-    unit_cost: Optional[float] = None
-    location: Optional[str] = Field(None, max_length=100)
-    batch_number: Optional[str] = Field(None, max_length=50)
-    expiry_date: Optional[datetime] = None
-    is_active: Optional[bool] = None
+    quantity: int | None = None
+    reserved_quantity: int | None = None
+    minimum_stock: int | None = None
+    maximum_stock: int | None = None
+    reorder_point: int | None = None
+    unit_cost: float | None = None
+    location: str | None = Field(None, max_length=100)
+    batch_number: str | None = Field(None, max_length=50)
+    expiry_date: datetime | None = None
+    is_active: bool | None = None
 
 
 class InventoryItemInDBBase(InventoryItemBase):
     """Base schema for inventory item data in database."""
 
-    id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -105,7 +104,7 @@ class InventoryItemInDBBase(InventoryItemBase):
 class InventoryItem(InventoryItemInDBBase):
     """Schema for inventory item data returned to clients."""
 
-    warehouse: Optional[Warehouse] = None
+    warehouse: Warehouse | None = None
 
 
 class StockMovementType(str, Enum):
@@ -124,11 +123,11 @@ class StockMovementBase(BaseModel):
     warehouse_id: int
     movement_type: StockMovementType
     quantity: int
-    reference_type: Optional[str] = Field(None, max_length=50)
-    reference_id: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
-    unit_cost: Optional[float] = None
-    total_value: Optional[float] = None
+    reference_type: str | None = Field(None, max_length=50)
+    reference_id: str | None = Field(None, max_length=100)
+    notes: str | None = None
+    unit_cost: float | None = None
+    total_value: float | None = None
 
 
 class StockMovementCreate(StockMovementBase):
@@ -138,12 +137,12 @@ class StockMovementCreate(StockMovementBase):
 class StockMovementInDBBase(StockMovementBase):
     """Base schema for stock movement data in database."""
 
-    id: Optional[int] = None
-    previous_quantity: Optional[int] = None
-    new_quantity: Optional[int] = None
-    performed_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    previous_quantity: int | None = None
+    new_quantity: int | None = None
+    performed_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -156,35 +155,35 @@ class StockReservationBase(BaseModel):
     """Base stock reservation schema."""
 
     inventory_item_id: int
-    order_id: Optional[str] = Field(None, max_length=100)
+    order_id: str | None = Field(None, max_length=100)
     quantity: int
-    expires_at: Optional[datetime] = None
-    notes: Optional[str] = None
+    expires_at: datetime | None = None
+    notes: str | None = None
 
 
 class StockReservationCreate(StockReservationBase):
     """Schema for creating a stock reservation."""
 
-    reserved_at: Optional[datetime] = None
+    reserved_at: datetime | None = None
 
 
 class StockReservationUpdate(BaseModel):
     """Schema for updating a stock reservation."""
 
-    quantity: Optional[int] = None
-    expires_at: Optional[datetime] = None
-    notes: Optional[str] = None
-    is_active: Optional[bool] = None
+    quantity: int | None = None
+    expires_at: datetime | None = None
+    notes: str | None = None
+    is_active: bool | None = None
 
 
 class StockReservationInDBBase(StockReservationBase):
     """Base schema for stock reservation data in database."""
 
-    id: Optional[int] = None
-    reserved_at: Optional[datetime] = None
+    id: int | None = None
+    reserved_at: datetime | None = None
     is_active: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -209,39 +208,39 @@ class StockTransferBase(BaseModel):
     to_warehouse_id: int
     inventory_item_id: int
     quantity: int
-    expected_arrival_date: Optional[datetime] = None
-    tracking_number: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
+    expected_arrival_date: datetime | None = None
+    tracking_number: str | None = Field(None, max_length=100)
+    notes: str | None = None
 
 
 class StockTransferCreate(StockTransferBase):
     """Schema for creating a stock transfer."""
 
-    transfer_date: Optional[datetime] = None
+    transfer_date: datetime | None = None
 
 
 class StockTransferUpdate(BaseModel):
     """Schema for updating a stock transfer."""
 
-    quantity: Optional[int] = None
-    expected_arrival_date: Optional[datetime] = None
-    tracking_number: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
-    status: Optional[StockTransferStatus] = None
-    approved_by: Optional[int] = None
+    quantity: int | None = None
+    expected_arrival_date: datetime | None = None
+    tracking_number: str | None = Field(None, max_length=100)
+    notes: str | None = None
+    status: StockTransferStatus | None = None
+    approved_by: int | None = None
 
 
 class StockTransferInDBBase(StockTransferBase):
     """Base schema for stock transfer data in database."""
 
-    id: Optional[int] = None
-    transfer_number: Optional[str] = None
-    transfer_date: Optional[datetime] = None
+    id: int | None = None
+    transfer_number: str | None = None
+    transfer_date: datetime | None = None
     status: StockTransferStatus = StockTransferStatus.PENDING
-    created_by: Optional[int] = None
-    approved_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_by: int | None = None
+    approved_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -249,8 +248,8 @@ class StockTransferInDBBase(StockTransferBase):
 class StockTransfer(StockTransferInDBBase):
     """Schema for stock transfer data returned to clients."""
 
-    from_warehouse: Optional[Warehouse] = None
-    to_warehouse: Optional[Warehouse] = None
+    from_warehouse: Warehouse | None = None
+    to_warehouse: Warehouse | None = None
 
 
 # Response schemas

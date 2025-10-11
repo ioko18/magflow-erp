@@ -1,6 +1,6 @@
 """Product repository for database operations."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,12 +15,12 @@ class ProductRepository(BaseRepository):
     def __init__(self, db_session: AsyncSession):
         super().__init__(Product, db_session)
 
-    async def get_by_sku(self, sku: str) -> Optional[Product]:
+    async def get_by_sku(self, sku: str) -> Product | None:
         """Get a product by SKU."""
         result = await self.db.execute(select(Product).where(Product.sku == sku))
         return result.scalars().first()
 
-    async def get_by_emag_id(self, emag_id: str) -> Optional[Product]:
+    async def get_by_emag_id(self, emag_id: str) -> Product | None:
         """Get a product by eMAG ID."""
         result = await self.db.execute(
             select(Product).where(Product.emag_id == emag_id)
@@ -28,7 +28,7 @@ class ProductRepository(BaseRepository):
         return result.scalars().first()
 
     async def bulk_upsert(
-        self, products: List[Dict[str, Any]], update_fields: Optional[List[str]] = None
+        self, products: list[dict[str, Any]], update_fields: list[str] | None = None
     ) -> int:
         """Bulk upsert products.
 
@@ -85,13 +85,13 @@ class ProductRepository(BaseRepository):
         await self.db.commit()
         return result.rowcount
 
-    async def get_all(self) -> List[Product]:
+    async def get_all(self) -> list[Product]:
         """Return all products."""
 
         result = await self.db.execute(select(Product))
         return result.scalars().all()
 
-    async def update_by_sku(self, sku: str, values: Dict[str, Any]) -> int:
+    async def update_by_sku(self, sku: str, values: dict[str, Any]) -> int:
         """Update a product identified by SKU."""
 
         stmt = update(Product).where(Product.sku == sku).values(**values)
@@ -102,7 +102,7 @@ class ProductRepository(BaseRepository):
 
 
 # Factory function to get a product repository instance
-def get_product_repository(db_session: Optional[AsyncSession] = None):
+def get_product_repository(db_session: AsyncSession | None = None):
     """Get a product repository instance.
 
     Args:

@@ -10,8 +10,8 @@ import asyncio
 import base64
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from datetime import UTC, datetime, timedelta
+from typing import Any, TypeVar
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ValidationError
@@ -59,8 +59,8 @@ class EmagBaseClient:
         base_url: str,
         username: str,
         password: str,
-        rate_limiter: Optional[EmagRateLimiter] = None,
-        session: Optional[Any] = None,
+        rate_limiter: EmagRateLimiter | None = None,
+        session: Any | None = None,
         timeout: int = 30,
         max_retries: int = 3,
         retry_delay: float = 1.0,
@@ -116,15 +116,15 @@ class EmagBaseClient:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    def _get_auth_headers(self) -> Dict[str, str]:
+    def _get_auth_headers(self) -> dict[str, str]:
         """Get authentication headers with the current token."""
         if not self._auth_token or (
-            self._token_expiry and datetime.now(timezone.utc) >= self._token_expiry
+            self._token_expiry and datetime.now(UTC) >= self._token_expiry
         ):
             return self._get_basic_auth_headers()
         return {"Authorization": f"Bearer {self._auth_token}"}
 
-    def _get_basic_auth_headers(self) -> Dict[str, str]:
+    def _get_basic_auth_headers(self) -> dict[str, str]:
         """Get Basic Auth headers."""
         auth_str = f"{self.username}:{self.password}"
         encoded = base64.b64encode(auth_str.encode()).decode()
@@ -135,12 +135,31 @@ class EmagBaseClient:
         if (
             self._auth_token
             and self._token_expiry
-            and datetime.now(timezone.utc) < self._token_expiry
+            and datetime.now(UTC) < self._token_expiry
         ):
             return
 
-        # TODO: Implement OAuth2 token flow if needed
-        # For now, we'll use Basic Auth for all requests
+        # Implement OAuth2 token flow if OAuth is enabled
+        use_oauth = getattr(self.config, "use_oauth", False)
+        if use_oauth:
+            try:
+                from app.db.session import AsyncSessionLocal
+                from app.integrations.emag.services.oauth2_client import (
+                    emag_oauth_client,
+                )
+
+                async with AsyncSessionLocal() as db:
+                    self._auth_token = await emag_oauth_client.get_valid_access_token(
+                        db=db
+                    )
+                    # OAuth tokens typically expire in 1 hour
+                    self._token_expiry = datetime.now(UTC) + timedelta(hours=1)
+                    logger.info("OAuth2 token refreshed successfully")
+            except Exception as e:
+                logger.warning(
+                    f"OAuth2 token refresh failed, falling back to Basic Auth: {e}"
+                )
+                # Fall back to Basic Auth if OAuth fails
 
     def _get_endpoint_from_url(self, url: str) -> str:
         """Extract the endpoint from a full URL.
@@ -164,12 +183,12 @@ class EmagBaseClient:
         self,
         method: str,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         bypass_rate_limit: bool = False,
-    ) -> Union[Dict[str, Any], T]:
+    ) -> dict[str, Any] | T:
         """Make an HTTP request to the eMAG API with rate limiting.
 
         Args:
@@ -229,7 +248,7 @@ class EmagBaseClient:
                     )
                     return response_data
 
-            except (Exception, asyncio.TimeoutError) as e:
+            except (TimeoutError, Exception) as e:
                 if attempt < self.max_retries:
                     retry_delay = self.retry_delay * (2**attempt)  # Exponential backoff
                     logger.warning(
@@ -251,8 +270,8 @@ class EmagBaseClient:
     async def _handle_response(
         self,
         response: Any,
-        response_model: Optional[Type[T]] = None,
-    ) -> Union[Dict[str, Any], T]:
+        response_model: type[T] | None = None,
+    ) -> dict[str, Any] | T:
         """Handle the response from the API.
 
         Args:
@@ -338,11 +357,11 @@ class EmagBaseClient:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         bypass_rate_limit: bool = False,
-    ) -> Union[Dict[str, Any], T]:
+    ) -> dict[str, Any] | T:
         """Make a GET request to the eMAG API.
 
         Args:
@@ -368,11 +387,11 @@ class EmagBaseClient:
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         bypass_rate_limit: bool = False,
-    ) -> Union[Dict[str, Any], T]:
+    ) -> dict[str, Any] | T:
         """Make a POST request to the eMAG API.
 
         Args:
@@ -398,11 +417,11 @@ class EmagBaseClient:
     async def put(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         bypass_rate_limit: bool = False,
-    ) -> Union[Dict[str, Any], T]:
+    ) -> dict[str, Any] | T:
         """Make a PUT request to the eMAG API.
 
         Args:
@@ -428,11 +447,11 @@ class EmagBaseClient:
     async def delete(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         bypass_rate_limit: bool = False,
-    ) -> Union[Dict[str, Any], T]:
+    ) -> dict[str, Any] | T:
         """Make a DELETE request to the eMAG API.
 
         Args:
@@ -462,8 +481,8 @@ class EmagClient(EmagBaseClient):
     def __init__(
         self,
         account_type: str,
-        rate_limiter: Optional[EmagRateLimiter] = None,
-        session: Optional[Any] = None,
+        rate_limiter: EmagRateLimiter | None = None,
+        session: Any | None = None,
         enable_rate_limiting: bool = True,
         **kwargs,
     ):

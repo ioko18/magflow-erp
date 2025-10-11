@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 
 def get_utc_now() -> datetime:
@@ -8,10 +7,10 @@ def get_utc_now() -> datetime:
     Returns:
         datetime: Current UTC time with timezone info
     """
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-def format_utc_datetime(dt: Optional[datetime] = None) -> str:
+def format_utc_datetime(dt: datetime | None = None) -> str:
     """Format a datetime to ISO format with timezone info.
 
     Args:

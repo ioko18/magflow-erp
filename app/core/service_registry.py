@@ -6,8 +6,9 @@ lifecycle, and dependency injection throughout the application.
 
 import inspect
 import logging
-from datetime import datetime
-from typing import Any, Dict, List, Optional, TypeVar
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any, Optional, TypeVar
 
 from app.core.dependency_injection import (
     AuthenticationService,
@@ -54,8 +55,9 @@ class ServiceRegistry:
             return
 
         # Lazily populated during `initialize()`
-        self._services: Dict[str, ServiceBase] = {}
-        self._repository_factory: Optional[RepositoryFactory] = None
+        self._services: dict[str, ServiceBase] = {}
+        self._repository_factory: RepositoryFactory | None = None
+        self._context: ServiceContext | None = None
         self._initialized = False
         self._constructed = True
 
@@ -66,6 +68,9 @@ class ServiceRegistry:
             return
 
         try:
+            # Store context for later use
+            self._context = context
+
             # Create core services
             db_service = DatabaseService(context)
             cache_service = CacheService(context)
@@ -84,7 +89,7 @@ class ServiceRegistry:
             self._repository_factory = RepositoryFactory(db_service)
 
             # Initialize all services (await async initializers if needed)
-            for name, service in self._services.items():
+            for _name, service in self._services.items():
                 initializer = service.initialize()
                 if inspect.isawaitable(initializer):
                     await initializer
@@ -105,11 +110,12 @@ class ServiceRegistry:
             return
 
         try:
-            for name, service in self._services.items():
+            for _name, service in self._services.items():
                 await service.cleanup()
 
             self._services.clear()
             self._repository_factory = None
+            self._context = None
             self._initialized = False
 
             logger.info("Service registry cleaned up")
@@ -272,7 +278,7 @@ class _InMemoryOrderRepository:  # pragma: no cover - simple fallback
     """Minimal in-memory OrderRepository used for tests without a DB."""
 
     def __init__(self):
-        self._orders: Dict[str, Any] = {}
+        self._orders: dict[str, Any] = {}
 
     async def get_session(self):  # mimic async interface of real repositories
         raise RuntimeError("In-memory repository has no database session")
@@ -296,7 +302,7 @@ class _InMemoryOrderRepository:  # pragma: no cover - simple fallback
         filtered = [o for o in self._orders.values() if o.get("status") == status]
         return filtered[skip : skip + limit]
 
-    async def create(self, data: Dict[str, Any]):
+    async def create(self, data: dict[str, Any]):
         order_id = data.get("id")
         if order_id is None:
             order_id = str(len(self._orders) + 1)
@@ -304,7 +310,7 @@ class _InMemoryOrderRepository:  # pragma: no cover - simple fallback
         self._orders[order_id] = stored
         return stored
 
-    async def update(self, order_id: Any, data: Dict[str, Any]):
+    async def update(self, order_id: Any, data: dict[str, Any]):
         if order_id not in self._orders:
             return None
         self._orders[order_id].update(data)
@@ -334,7 +340,7 @@ def get_audit_log_repository() -> AuditLogRepository:
 
 
 # Service health check utilities
-async def check_service_health() -> Dict[str, Any]:
+async def check_service_health() -> dict[str, Any]:
     """Check health of all services."""
     if not _service_registry.is_initialized:
         return {"status": "error", "message": "Service registry not initialized"}
@@ -360,12 +366,12 @@ async def check_service_health() -> Dict[str, Any]:
 
 
 # Service metrics collection
-def collect_service_metrics() -> Dict[str, Any]:
+def collect_service_metrics() -> dict[str, Any]:
     """Collect metrics from all services."""
     if not _service_registry.is_initialized:
         return {"error": "Service registry not initialized"}
 
-    metrics = {"timestamp": datetime.utcnow().isoformat(), "services": {}}
+    metrics = {"timestamp": datetime.now(UTC).isoformat(), "services": {}}
 
     # Collect metrics from each service
     for service_name, service in _service_registry._services.items():
@@ -382,14 +388,14 @@ class ServiceLifecycleManager:
     """Manager for handling service lifecycle events."""
 
     def __init__(self):
-        self._listeners: Dict[str, List[callable]] = {
+        self._listeners: dict[str, list[Callable]] = {
             "before_startup": [],
             "after_startup": [],
             "before_shutdown": [],
             "after_shutdown": [],
         }
 
-    def add_listener(self, event: str, listener: callable):
+    def add_listener(self, event: str, listener: Callable):
         """Add listener for service lifecycle event."""
         if event not in self._listeners:
             raise ValueError(f"Unknown lifecycle event: {event}")

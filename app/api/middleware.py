@@ -5,8 +5,8 @@ for consistent API error responses across all endpoints.
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -55,7 +55,7 @@ class ErrorHandlerMiddleware:
                 },
             )
 
-    async def handle_exception(self, exc: Exception, scope: Dict) -> JSONResponse:
+    async def handle_exception(self, exc: Exception, scope: dict) -> JSONResponse:
         """Handle different types of exceptions and return formatted responses."""
         request = Request(scope, {})
 
@@ -94,7 +94,7 @@ class ErrorHandlerMiddleware:
                 "message": exc.detail,
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -124,7 +124,7 @@ class ErrorHandlerMiddleware:
                 "details": errors,
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -148,7 +148,7 @@ class ErrorHandlerMiddleware:
                 "details": exc.details if hasattr(exc, "details") else {},
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -168,7 +168,7 @@ class ErrorHandlerMiddleware:
                 "details": exc.details if hasattr(exc, "details") else {},
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -188,7 +188,7 @@ class ErrorHandlerMiddleware:
                 "details": exc.details if hasattr(exc, "details") else {},
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -212,7 +212,7 @@ class ErrorHandlerMiddleware:
                 "details": exc.details if hasattr(exc, "details") else {},
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -231,7 +231,7 @@ class ErrorHandlerMiddleware:
                 "message": "An unexpected error occurred",
                 "path": str(request.url.path),
                 "method": request.method,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -244,14 +244,14 @@ class ErrorResponse:
         self,
         error: str,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         self.error = error
         self.message = message
         self.details = details or {}
-        self.timestamp = datetime.now(timezone.utc).isoformat()
+        self.timestamp = datetime.now(UTC).isoformat()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "error": self.error,
@@ -264,28 +264,28 @@ class ErrorResponse:
 class DatabaseErrorResponse(ErrorResponse):
     """Database error response."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__("DatabaseError", message, details)
 
 
 class ValidationErrorResponse(ErrorResponse):
     """Validation error response."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__("ValidationError", message, details)
 
 
 class ServiceErrorResponse(ErrorResponse):
     """Service error response."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__("ServiceError", message, details)
 
 
 class ConfigurationErrorResponse(ErrorResponse):
     """Configuration error response."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__("ConfigurationError", message, details)
 
 
@@ -294,7 +294,7 @@ def create_error_response(
     error_type: str,
     message: str,
     status_code: int = 500,
-    details: Optional[Dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
 ) -> JSONResponse:
     """Create a standardized error response."""
     return JSONResponse(

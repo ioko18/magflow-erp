@@ -1,6 +1,5 @@
 """Pydantic models for role and permission data validation and serialization."""
 
-from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,7 +8,7 @@ class PermissionBase(BaseModel):
     """Base permission schema with common fields."""
 
     name: str = Field(..., min_length=1, max_length=50)
-    description: Optional[str] = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=255)
 
 
 class PermissionCreate(PermissionBase):
@@ -19,14 +18,14 @@ class PermissionCreate(PermissionBase):
 class PermissionUpdate(PermissionBase):
     """Schema for updating a permission."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=50)
-    description: Optional[str] = Field(None, max_length=255)
+    name: str | None = Field(None, min_length=1, max_length=50)
+    description: str | None = Field(None, max_length=255)
 
 
 class PermissionInDBBase(PermissionBase):
     """Base schema for permission data in the database."""
 
-    id: Optional[int] = None
+    id: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -43,7 +42,7 @@ class RoleBase(BaseModel):
     """Base role schema with common fields."""
 
     name: str = Field(..., min_length=1, max_length=50)
-    description: Optional[str] = Field(None, max_length=255)
+    description: str | None = Field(None, max_length=255)
     is_active: bool = True
 
 
@@ -54,15 +53,15 @@ class RoleCreate(RoleBase):
 class RoleUpdate(RoleBase):
     """Schema for updating a role."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=50)
-    description: Optional[str] = Field(None, max_length=255)
-    is_active: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=50)
+    description: str | None = Field(None, max_length=255)
+    is_active: bool | None = None
 
 
 class RoleInDBBase(RoleBase):
     """Base schema for role data in the database."""
 
-    id: Optional[int] = None
+    id: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -78,10 +77,10 @@ class RoleInDB(RoleInDBBase):
 class RoleWithPermissions(Role):
     """Role schema with permissions included."""
 
-    permissions: List[Permission] = []
+    permissions: list[Permission] = []
 
 
 class PermissionWithRoles(Permission):
     """Permission schema with roles included."""
 
-    roles: List[Role] = []
+    roles: list[Role] = []

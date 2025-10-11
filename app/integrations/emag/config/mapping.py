@@ -16,7 +16,7 @@ the public API:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Optional, TypeVar
+from typing import Any, TypeVar
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -71,17 +71,17 @@ class FieldMappingConfig(BaseModel):
         description="Field data type (string, number, boolean, etc.)",
         json_schema_extra={"example": "string"},
     )
-    transform: Optional[str] = Field(
+    transform: str | None = Field(
         default=None,
         description="Transformation to apply to the field value (e.g., 'uppercase', 'lowercase')",
         json_schema_extra={"example": "uppercase"},
     )
-    min_value: Optional[float] = Field(
+    min_value: float | None = Field(
         default=None,
         description="Minimum allowed value for numeric fields",
         json_schema_extra={"example": 0},
     )
-    default: Optional[Any] = Field(
+    default: Any | None = Field(
         default=None,
         description="Default value if field is missing",
         json_schema_extra={"example": None},
@@ -103,17 +103,17 @@ class ProductDefaultsConfig(BaseModel):
             }
         }
     )
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default=None,
         description="Default product status in the system",
         json_schema_extra={"example": "active"},
     )
-    marketplace_status: Optional[str] = Field(
+    marketplace_status: str | None = Field(
         default=None,
         description="Default status in the eMAG marketplace",
         json_schema_extra={"example": "enabled"},
     )
-    warranty_months: Optional[int] = Field(
+    warranty_months: int | None = Field(
         default=None,
         description="Default warranty period in months",
         json_schema_extra={"example": 24},
@@ -187,7 +187,7 @@ class CharacteristicMappingConfig(BaseModel):
         description="Type of the characteristic (e.g., 'dropdown', 'text')",
         json_schema_extra={"example": "dropdown"},
     )
-    values: List[CharacteristicValueConfig] = Field(
+    values: list[CharacteristicValueConfig] = Field(
         ..., description="List of possible values for this characteristic"
     )
     model_config = ConfigDict(
@@ -236,7 +236,7 @@ class CategoryMappingConfig(BaseModel):
         description="Human-readable category name",
         json_schema_extra={"example": "Laptops"},
     )
-    parent_id: Optional[int] = Field(
+    parent_id: int | None = Field(
         None,
         description="Parent category ID in eMAG's hierarchy (None for root categories)",
         json_schema_extra={"example": 1000},
@@ -259,17 +259,17 @@ class ProductMappingConfig(BaseModel):
     This is the root model that contains all mapping configurations.
     """
 
-    field_mappings: List[FieldMappingConfig] = Field(
+    field_mappings: list[FieldMappingConfig] = Field(
         ..., description="List of field mappings between internal and eMAG fields"
     )
-    category_mappings: List[CategoryMappingConfig] = Field(
+    category_mappings: list[CategoryMappingConfig] = Field(
         ...,
         description="List of category mappings between internal and eMAG categories",
     )
-    brand_mappings: List[BrandMappingConfig] = Field(
+    brand_mappings: list[BrandMappingConfig] = Field(
         ..., description="List of brand mappings between internal and eMAG brands"
     )
-    characteristic_mappings: List[CharacteristicMappingConfig] = Field(
+    characteristic_mappings: list[CharacteristicMappingConfig] = Field(
         default_factory=list,
         description="List of characteristic mappings for product specifications",
     )
@@ -436,7 +436,7 @@ def load_mapping_config(file_path: str | Path) -> ProductMappingConfig:
         MappingConfigError: If the configuration is invalid
     """
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             config_data = yaml.safe_load(f) or {}
 
         # Convert the raw data to a ProductMappingConfig instance

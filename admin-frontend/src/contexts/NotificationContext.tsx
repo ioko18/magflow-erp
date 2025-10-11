@@ -6,6 +6,8 @@ import {
   InfoCircleOutlined, 
   CloseCircleOutlined
 } from '@ant-design/icons';
+import { notificationService, Notification as ApiNotification } from '../services/system/notificationService';
+import { useAuth } from './AuthContext';
 
 export interface NotificationItem {
   id: string;
@@ -14,7 +16,7 @@ export interface NotificationItem {
   message: string;
   timestamp: Date;
   read: boolean;
-  category: 'system' | 'emag' | 'orders' | 'users' | 'inventory';
+  category: 'system' | 'emag' | 'orders' | 'users' | 'inventory' | 'sync' | 'payment' | 'shipping';
   priority: 'low' | 'medium' | 'high' | 'critical';
   actions?: Array<{
     label: string;
@@ -51,72 +53,73 @@ interface NotificationProviderProps {
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [api, contextHolder] = notification.useNotification();
+  const { isAuthenticated } = useAuth();
 
-  // Load notifications from localStorage on mount
+  // Convert API notification to NotificationItem
+  const convertApiNotification = (apiNotif: ApiNotification): NotificationItem => ({
+    id: apiNotif.id.toString(),
+    type: apiNotif.type,
+    title: apiNotif.title,
+    message: apiNotif.message,
+    timestamp: new Date(apiNotif.created_at),
+    read: apiNotif.read,
+    category: apiNotif.category,
+    priority: apiNotif.priority,
+  });
+
+  // Load notifications from API when authenticated
   useEffect(() => {
-    const saved = localStorage.getItem('magflow-notifications');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setNotifications(parsed.map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp)
-        })));
-      } catch (error) {
-        console.error('Error loading notifications:', error);
-      }
+    if (!isAuthenticated) {
+      setNotifications([]); // Clear notifications when not authenticated
+      return;
     }
-  }, []);
 
-  // Save notifications to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('magflow-notifications', JSON.stringify(notifications));
-  }, [notifications]);
-
-  // Simulate real-time notifications
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate random notifications for demo
-      const randomNotifications = [
-        {
-          type: 'info' as const,
-          title: 'eMAG Sync Complete',
-          message: '1,275 products synchronized successfully',
-          category: 'emag' as const,
-          priority: 'medium' as const,
-        },
-        {
-          type: 'warning' as const,
-          title: 'Low Stock Alert',
-          message: '3 products are running low on stock',
-          category: 'inventory' as const,
-          priority: 'high' as const,
-        },
-        {
-          type: 'success' as const,
-          title: 'New Order Received',
-          message: 'Order #000123 from John Doe - 299.99 RON',
-          category: 'orders' as const,
-          priority: 'medium' as const,
-        },
-        {
-          type: 'error' as const,
-          title: 'System Error',
-          message: 'Database connection timeout detected',
-          category: 'system' as const,
-          priority: 'critical' as const,
+    const loadNotifications = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          console.log('No token available, skipping notification load');
+          return;
         }
-      ];
+        
+        const apiNotifications = await notificationService.getNotifications({ limit: 50 });
+        setNotifications(apiNotifications.map(convertApiNotification));
+      } catch (error: any) {
+        // Only log if it's not an authentication error
+        if (error?.response?.status !== 401) {
+          console.error('Error loading notifications:', error);
+        }
+        // Silently fail - don't interrupt user experience
+      }
+    };
 
-      // 10% chance to add a notification every 30 seconds
-      if (Math.random() < 0.1) {
-        const randomNotification = randomNotifications[Math.floor(Math.random() * randomNotifications.length)];
-        addNotification(randomNotification);
+    // Small delay to ensure token is available
+    const timer = setTimeout(loadNotifications, 100);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
+
+  // Poll for new notifications every 30 seconds (only when authenticated)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        if (!token) return; // Skip if no token
+        
+        const apiNotifications = await notificationService.getNotifications({ limit: 50 });
+        setNotifications(apiNotifications.map(convertApiNotification));
+      } catch (error: any) {
+        // Only log if it's not an authentication error
+        if (error?.response?.status !== 401) {
+          console.error('Error polling notifications:', error);
+        }
+        // Silently fail - don't interrupt user experience
       }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
 
   const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: NotificationItem = {
@@ -132,28 +135,48 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     showToast(newNotification.type, newNotification.title, newNotification.message);
   }, []);
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
+  const markAsRead = useCallback(async (id: string) => {
+    try {
+      await notificationService.markAsRead(parseInt(id));
+      setNotifications(prev => 
+        prev.map(notification => 
+          notification.id === id 
+            ? { ...notification, read: true }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   }, []);
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, read: true }))
-    );
+  const markAllAsRead = useCallback(async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications(prev => 
+        prev.map(notification => ({ ...notification, read: true }))
+      );
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   }, []);
 
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
+  const removeNotification = useCallback(async (id: string) => {
+    try {
+      await notificationService.deleteNotification(parseInt(id));
+      setNotifications(prev => prev.filter(notification => notification.id !== id));
+    } catch (error) {
+      console.error('Error removing notification:', error);
+    }
   }, []);
 
-  const clearAll = useCallback(() => {
-    setNotifications([]);
+  const clearAll = useCallback(async () => {
+    try {
+      await notificationService.deleteAllNotifications();
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error clearing all notifications:', error);
+    }
   }, []);
 
   const showToast = useCallback((type: 'success' | 'info' | 'warning' | 'error', title: string, message?: string) => {

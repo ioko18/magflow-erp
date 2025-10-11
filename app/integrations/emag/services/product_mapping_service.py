@@ -1,20 +1,20 @@
 """Service for managing product mappings between internal system and eMAG."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.integrations.emag.models.mapping import (
+from app.core import generate_uuid
+from app.models.mapping import (
     MappingConfiguration,
     MappingStatus,
     ProductMapping,
     SyncHistory,
 )
-from app.utils import generate_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ class MappingResult(BaseModel):
 
     success: bool = Field(..., description="Whether the mapping was successful")
     internal_id: str = Field(..., description="Internal product ID")
-    emag_id: Optional[str] = Field(None, description="eMAG product ID if mapped")
-    emag_offer_id: Optional[int] = Field(None, description="eMAG offer ID if mapped")
-    message: Optional[str] = Field(None, description="Status message")
-    errors: List[str] = Field(default_factory=list, description="List of errors if any")
+    emag_id: str | None = Field(None, description="eMAG product ID if mapped")
+    emag_offer_id: int | None = Field(None, description="eMAG offer ID if mapped")
+    message: str | None = Field(None, description="Status message")
+    errors: list[str] = Field(default_factory=list, description="List of errors if any")
 
 
 class BulkMappingResult(BaseModel):
@@ -40,7 +40,7 @@ class BulkMappingResult(BaseModel):
     total: int = Field(0, description="Total number of items processed")
     successful: int = Field(0, description="Number of successful mappings")
     failed: int = Field(0, description="Number of failed mappings")
-    results: List[MappingResult] = Field(
+    results: list[MappingResult] = Field(
         default_factory=list,
         description="Individual mapping results",
     )
@@ -61,7 +61,7 @@ class ProductMappingService:
     async def get_mapping_configuration(
         self,
         name: str = "default",
-    ) -> Optional[MappingConfiguration]:
+    ) -> MappingConfiguration | None:
         """Get mapping configuration by name.
 
         Args:
@@ -82,7 +82,7 @@ class ProductMappingService:
     async def create_product_mapping(
         self,
         internal_id: str,
-        emag_id: Optional[str] = None,
+        emag_id: str | None = None,
         **kwargs,
     ) -> ProductMapping:
         """Create a new product mapping.
@@ -109,9 +109,9 @@ class ProductMappingService:
 
     async def get_product_mapping(
         self,
-        internal_id: Optional[str] = None,
-        emag_id: Optional[str] = None,
-    ) -> Optional[ProductMapping]:
+        internal_id: str | None = None,
+        emag_id: str | None = None,
+    ) -> ProductMapping | None:
         """Get a product mapping by internal ID or eMAG ID.
 
         Args:
@@ -149,7 +149,7 @@ class ProductMappingService:
         self,
         mapping_id: int,
         **update_data,
-    ) -> Optional[ProductMapping]:
+    ) -> ProductMapping | None:
         """Update a product mapping.
 
         Args:
@@ -170,14 +170,14 @@ class ProductMappingService:
         for key, value in update_data.items():
             setattr(mapping, key, value)
 
-        mapping.updated_at = datetime.now(timezone.utc)
+        mapping.updated_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(mapping)
         return mapping
 
     async def sync_product_to_emag(
         self,
-        product_data: Dict[str, Any],
+        product_data: dict[str, Any],
         force_update: bool = False,
     ) -> MappingResult:
         """Synchronize a product to eMAG.
@@ -219,7 +219,7 @@ class ProductMappingService:
 
                 # TODO: Implement actual eMAG API call to update product
                 # For now, just update the mapping
-                mapping.last_synced_at = datetime.now(timezone.utc)
+                mapping.last_synced_at = datetime.now(UTC)
                 mapping.status = MappingStatus.ACTIVE
                 await self.db.commit()
 
@@ -238,7 +238,7 @@ class ProductMappingService:
                 internal_id=internal_id,
                 emag_id=emag_id,
                 status=MappingStatus.ACTIVE,
-                last_synced_at=datetime.now(timezone.utc),
+                last_synced_at=datetime.now(UTC),
             )
 
             return MappingResult(
@@ -260,7 +260,7 @@ class ProductMappingService:
                 mapping.sync_errors = mapping.sync_errors or []
                 mapping.sync_errors.append(
                     {
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                         "error": str(e),
                         "product_data": product_data,
                     },
@@ -277,7 +277,7 @@ class ProductMappingService:
 
     async def bulk_sync_products(
         self,
-        products_data: List[Dict[str, Any]],
+        products_data: list[dict[str, Any]],
         batch_size: int = 50,
     ) -> BulkMappingResult:
         """Synchronize multiple products to eMAG in batches.
@@ -316,40 +316,111 @@ class ProductMappingService:
                 await self.db.commit()
             except Exception as e:
                 await self.db.rollback()
-                logger.error(f"Error committing batch {i//batch_size + 1}: {e!s}")
+                logger.error(f"Error committing batch {i // batch_size + 1}: {e!s}")
 
         result.total = len(products_data)
         return result
 
-    def _has_product_changed(
+    async def _has_product_changed(
         self,
-        mapping: ProductMapping,
-        product_data: Dict[str, Any],
+        local_product: dict[str, Any],
+        emag_product: dict[str, Any],
     ) -> bool:
-        """Check if product data has changed since last sync.
+        """Check if a product has changed since last sync using intelligent comparison.
 
         Args:
-            mapping: Product mapping
-            product_data: Current product data
+            local_product: Local product data
+            emag_product: eMAG product data
 
         Returns:
             bool: True if product has changed, False otherwise
 
         """
-        # TODO: Implement actual change detection logic
-        # For now, always return True to force update
-        return True
+        # Define critical fields that should trigger sync
+        critical_fields = [
+            "name",
+            "price",
+            "sale_price",
+            "stock",
+            "status",
+            "description",
+            "brand",
+            "ean",
+            "part_number",
+        ]
+
+        # Define fields with tolerance (for floating point comparison)
+        price_fields = ["price", "sale_price", "recommended_price"]
+        price_tolerance = 0.01  # 1 cent tolerance
+
+        # Check critical fields
+        for field in critical_fields:
+            local_value = local_product.get(field)
+            emag_value = emag_product.get(field)
+
+            # Handle None values
+            if local_value is None and emag_value is None:
+                continue
+            if local_value is None or emag_value is None:
+                return True
+
+            # Price fields with tolerance
+            if field in price_fields:
+                try:
+                    local_float = float(local_value)
+                    emag_float = float(emag_value)
+                    if abs(local_float - emag_float) > price_tolerance:
+                        logger.debug(
+                            f"Price field '{field}' changed: {local_float} -> {emag_float}"
+                        )
+                        return True
+                except (ValueError, TypeError):
+                    if local_value != emag_value:
+                        return True
+            else:
+                # String comparison (case-insensitive for text fields)
+                if isinstance(local_value, str) and isinstance(emag_value, str):
+                    if local_value.strip().lower() != emag_value.strip().lower():
+                        logger.debug(
+                            f"Field '{field}' changed: '{local_value}' -> '{emag_value}'"
+                        )
+                        return True
+                elif local_value != emag_value:
+                    logger.debug(
+                        f"Field '{field}' changed: {local_value} -> {emag_value}"
+                    )
+                    return True
+
+        # Check images if present
+        local_images = local_product.get("images", [])
+        emag_images = emag_product.get("images", [])
+        if len(local_images) != len(emag_images):
+            logger.debug(
+                f"Image count changed: {len(local_images)} -> {len(emag_images)}"
+            )
+            return True
+
+        # Check specifications/attributes if present
+        local_specs = local_product.get("specifications", {})
+        emag_specs = emag_product.get("specifications", {})
+        if set(local_specs.keys()) != set(emag_specs.keys()):
+            logger.debug("Specifications keys changed")
+            return True
+
+        # No significant changes detected
+        logger.debug("No significant changes detected")
+        return False
 
     async def log_sync_operation(
         self,
         operation: str,
         status: str,
-        product_mapping_id: Optional[int] = None,
+        product_mapping_id: int | None = None,
         items_processed: int = 0,
         items_succeeded: int = 0,
         items_failed: int = 0,
-        errors: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        errors: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> SyncHistory:
         """Log a synchronization operation.
 

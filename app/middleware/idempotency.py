@@ -2,8 +2,8 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, Tuple
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import asyncpg
 from fastapi import Request, Response
@@ -27,7 +27,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         self.ttl_hours = ttl_hours
         self.redis_client = redis_client
         # In tests, use an in-memory store to avoid DB requirements
-        self._memory_store: Dict[str, Dict[str, Any]] = {}
+        self._memory_store: dict[str, dict[str, Any]] = {}
 
     async def _get_db_connection(self):
         """Get async database connection."""
@@ -46,7 +46,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         content = f"{method}:{path}:{body.decode('utf-8', errors='ignore')}"
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    def _validate_key(self, key: str) -> Tuple[bool, str]:
+    def _validate_key(self, key: str) -> tuple[bool, str]:
         """Validate idempotency key format.
 
         Args:
@@ -82,13 +82,13 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     async def _get_existing_record(
         self,
         idempotency_key: str,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Check if idempotency key exists in database."""
         # In testing environment, check memory store first
         if settings.TESTING and idempotency_key in self._memory_store:
             record = self._memory_store[idempotency_key]
             # TTL check
-            if record.get("ttl_at") and record["ttl_at"] > datetime.utcnow():
+            if record.get("ttl_at") and record["ttl_at"] > datetime.now(UTC):
                 return record
             return None
         conn = None
@@ -116,8 +116,8 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         method: str,
         path: str,
         req_hash: str,
-        status_code: Optional[int] = None,
-        response_body: Optional[str] = None,
+        status_code: int | None = None,
+        response_body: str | None = None,
     ) -> bool:
         """Store or update idempotency record in database."""
         # In testing environment, write to memory store and return
@@ -129,8 +129,8 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     "method": method,
                     "path": path,
                     "req_hash": req_hash,
-                    "created_at": datetime.utcnow(),
-                    "ttl_at": datetime.utcnow() + timedelta(hours=self.ttl_hours),
+                    "created_at": datetime.now(UTC),
+                    "ttl_at": datetime.now(UTC) + timedelta(hours=self.ttl_hours),
                     "status_code": None,
                     "response_body": None,
                 },
@@ -156,7 +156,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     method,
                     path,
                     req_hash,
-                    datetime.utcnow() + timedelta(hours=self.ttl_hours),
+                    datetime.now(UTC) + timedelta(hours=self.ttl_hours),
                 )
             else:
                 # Update with response data

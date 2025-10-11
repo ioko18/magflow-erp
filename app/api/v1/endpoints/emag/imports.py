@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,15 +21,15 @@ router = APIRouter()
 
 @router.post(
     "/import/offers",
-    response_model=Dict[str, Any],
+    response_model=dict[str, Any],
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def import_emag_offers(
     background_tasks: BackgroundTasks,
     account_type: str = "main",
     conflict_strategy: str = "update",
-    max_offers: Optional[int] = None,
-    filters: Optional[Dict[str, Any]] = None,
+    max_offers: int | None = None,
+    filters: dict[str, Any] | None = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -87,7 +87,7 @@ async def import_emag_offers(
     }
 
 
-@router.get("/import/status/{sync_id}", response_model=Dict[str, Any])
+@router.get("/import/status/{sync_id}", response_model=dict[str, Any])
 async def get_import_status(
     sync_id: str,
     db: AsyncSession = Depends(deps.get_db),
@@ -147,10 +147,10 @@ async def get_import_status(
     return response
 
 
-@router.get("/import/history", response_model=List[Dict[str, Any]])
+@router.get("/import/history", response_model=list[dict[str, Any]])
 async def list_import_operations(
-    account_type: Optional[str] = None,
-    status: Optional[str] = None,
+    account_type: str | None = None,
+    status: str | None = None,
     limit: int = 50,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -195,7 +195,7 @@ async def list_import_operations(
     ]
 
 
-@router.get("/import/statistics", response_model=Dict[str, Any])
+@router.get("/import/statistics", response_model=dict[str, Any])
 async def get_import_statistics(
     account_type: str = "main",
     days: int = 30,
@@ -221,9 +221,9 @@ async def get_import_statistics(
     return stats
 
 
-@router.get("/import/conflicts", response_model=List[Dict[str, Any]])
+@router.get("/import/conflicts", response_model=list[dict[str, Any]])
 async def list_import_conflicts(
-    sync_id: Optional[str] = None,
+    sync_id: str | None = None,
     status: str = "pending",
     limit: int = 50,
     db: AsyncSession = Depends(deps.get_db),
@@ -280,11 +280,11 @@ async def list_import_conflicts(
     ]
 
 
-@router.put("/import/conflicts/{conflict_id}", response_model=Dict[str, Any])
+@router.put("/import/conflicts/{conflict_id}", response_model=dict[str, Any])
 async def resolve_import_conflict(
     conflict_id: int,
     resolution: str,
-    notes: Optional[str] = None,
+    notes: str | None = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -355,10 +355,10 @@ async def resolve_import_conflict(
     }
 
 
-@router.get("/import/dashboard", response_model=Dict[str, Any])
+@router.get("/import/dashboard", response_model=dict[str, Any])
 async def get_import_dashboard(
     days: int = 7,
-    account_type: Optional[str] = None,
+    account_type: str | None = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -460,9 +460,9 @@ async def get_import_dashboard(
     }
 
 
-@router.get("/import/health", response_model=Dict[str, Any])
+@router.get("/import/health", response_model=dict[str, Any])
 async def get_import_health_status(
-    account_type: Optional[str] = None,
+    account_type: str | None = None,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Any:
@@ -497,12 +497,12 @@ async def get_import_health_status(
 
 @router.post(
     "/import/saleable",
-    response_model=Dict[str, Any],
+    response_model=dict[str, Any],
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def import_saleable_emag_offers(
     background_tasks: BackgroundTasks,
-    max_offers: Optional[int] = None,
+    max_offers: int | None = None,
     account_type: str = "main",
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -558,10 +558,10 @@ async def import_saleable_emag_offers(
     }
 
 
-@router.patch("/offers/{offer_id}/stock", response_model=Dict[str, Any])
+@router.patch("/offers/{offer_id}/stock", response_model=dict[str, Any])
 async def update_offer_stock(
     offer_id: int,
-    stock_data: Dict[str, Any],
+    stock_data: dict[str, Any],
     account_type: str = "main",
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -630,9 +630,9 @@ async def update_offer_stock(
         )
 
 
-@router.post("/offers/schedule-update", response_model=Dict[str, Any])
+@router.post("/offers/schedule-update", response_model=dict[str, Any])
 async def schedule_offer_update(
-    update_data: Dict[str, Any],
+    update_data: dict[str, Any],
     account_type: str = "main",
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -720,9 +720,9 @@ async def schedule_offer_update(
         )
 
 
-@router.post("/campaigns/proposals", response_model=Dict[str, Any])
+@router.post("/campaigns/proposals", response_model=dict[str, Any])
 async def create_campaign_proposal(
-    campaign_data: Dict[str, Any],
+    campaign_data: dict[str, Any],
     account_type: str = "main",
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -779,10 +779,10 @@ async def create_campaign_proposal(
         )
 
 
-@router.post("/import/cleanup", response_model=Dict[str, Any])
+@router.post("/import/cleanup", response_model=dict[str, Any])
 async def cleanup_old_import_data(
     days_to_keep: int = 90,
-    account_type: Optional[str] = None,
+    account_type: str | None = None,
     dry_run: bool = True,
     db: AsyncSession = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
@@ -868,9 +868,9 @@ async def cleanup_old_import_data(
 
 async def _calculate_sync_health_metrics(
     db: AsyncSession,
-    account_type: Optional[str],
+    account_type: str | None,
     days: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Calculate sync health metrics.
 
     Args:
@@ -956,10 +956,10 @@ async def _run_import_task(
     import_service: EmagOfferImportService,
     account_type: str,
     conflict_strategy: str,
-    max_offers: Optional[int],
-    filters: Optional[Dict[str, Any]],
-    user_id: Optional[int],
-    user_name: Optional[str],
+    max_offers: int | None,
+    filters: dict[str, Any] | None,
+    user_id: int | None,
+    user_name: str | None,
 ) -> None:
     """Background task to run the import operation.
 
@@ -1011,9 +1011,9 @@ async def _run_import_task(
 async def _run_saleable_import_task(
     import_service: EmagOfferImportService,
     account_type: str,
-    max_offers: Optional[int],
-    user_id: Optional[int],
-    user_name: Optional[str],
+    max_offers: int | None,
+    user_id: int | None,
+    user_name: str | None,
 ) -> None:
     """Background task to run saleable offers import.
 

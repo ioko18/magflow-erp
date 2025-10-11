@@ -1,6 +1,5 @@
 """Admin dashboard API endpoints for MagFlow ERP."""
 
-from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,14 +38,14 @@ async def get_dashboard_stats(
     return DashboardStats(**stats)
 
 
-@router.get("/users", response_model=List[UserSummary])
+@router.get("/users", response_model=list[UserSummary])
 async def get_users(
     skip: int = Query(0, ge=0, description="Number of users to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of users to return"),
-    search: Optional[str] = Query(None, description="Search term for email or name"),
+    search: str | None = Query(None, description="Search term for email or name"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> List[UserSummary]:
+) -> list[UserSummary]:
     """Get list of users for admin management.
 
     - **skip**: Number of users to skip
@@ -204,7 +203,7 @@ async def delete_user(
     user_id: int,
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Delete a user.
 
     - **user_id**: User ID to delete
@@ -222,16 +221,16 @@ async def delete_user(
     return {"message": f"User {user_id} deleted successfully"}
 
 
-@router.get("/audit-logs", response_model=List[AuditLogSummary])
+@router.get("/audit-logs", response_model=list[AuditLogSummary])
 async def get_audit_logs(
     skip: int = Query(0, ge=0, description="Number of logs to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of logs to return"),
-    action: Optional[str] = Query(None, description="Filter by action"),
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
-    resource: Optional[str] = Query(None, description="Filter by resource"),
+    action: str | None = Query(None, description="Filter by action"),
+    user_id: int | None = Query(None, description="Filter by user ID"),
+    resource: str | None = Query(None, description="Filter by resource"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> List[AuditLogSummary]:
+) -> list[AuditLogSummary]:
     """Get audit logs for admin review.
 
     - **skip**: Number of logs to skip
@@ -286,13 +285,13 @@ async def get_system_health(
     return SystemHealth(**health)
 
 
-@router.get("/roles", response_model=List[RoleSummary])
+@router.get("/roles", response_model=list[RoleSummary])
 async def get_roles(
     skip: int = Query(0, ge=0, description="Number of roles to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of roles to return"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> List[RoleSummary]:
+) -> list[RoleSummary]:
     """Get list of roles.
 
     - **skip**: Number of roles to skip
@@ -323,13 +322,13 @@ async def get_roles(
     return result
 
 
-@router.get("/permissions", response_model=List[PermissionSummary])
+@router.get("/permissions", response_model=list[PermissionSummary])
 async def get_permissions(
     skip: int = Query(0, ge=0, description="Number of permissions to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of permissions to return"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> List[PermissionSummary]:
+) -> list[PermissionSummary]:
     """Get list of permissions.
 
     - **skip**: Number of permissions to skip
@@ -359,13 +358,13 @@ async def get_permissions(
     return result
 
 
-@router.get("/activities", response_model=List[AdminActivityLog])
+@router.get("/activities", response_model=list[AdminActivityLog])
 async def get_admin_activities(
     skip: int = Query(0, ge=0, description="Number of activities to skip"),
     limit: int = Query(50, ge=1, le=100, description="Number of activities to return"),
     current_user: UserModel = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_session),
-) -> List[AdminActivityLog]:
+) -> list[AdminActivityLog]:
     """Get admin activities for tracking admin actions.
 
     - **skip**: Number of activities to skip

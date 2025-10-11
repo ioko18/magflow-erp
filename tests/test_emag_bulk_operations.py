@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.emag_integration_service import (
+from app.services.emag.emag_integration_service import (
     EmagApiConfig,
     EmagApiEnvironment,
     EmagIntegrationService,
@@ -238,7 +238,7 @@ class TestEmagChunkingLogic:
 
     def test_chunking_edge_cases(self):
         """Test chunking with edge cases."""
-        from app.services.emag_integration_service import EmagIntegrationService
+        from app.services.emag.emag_integration_service import EmagIntegrationService
 
         # Create a mock service just to test the chunking logic
         _service = EmagIntegrationService.__new__(EmagIntegrationService)

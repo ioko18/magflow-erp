@@ -1,8 +1,9 @@
 """Enhanced Role-Based Access Control (RBAC) system."""
 
 import functools
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, List, Union
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -82,17 +83,17 @@ def has_permission(user: UserInDB, permission: str) -> bool:
     return False
 
 
-def has_any_permission(user: UserInDB, permissions: List[str]) -> bool:
+def has_any_permission(user: UserInDB, permissions: list[str]) -> bool:
     """Check if a user has any of the specified permissions."""
     return any(has_permission(user, perm) for perm in permissions)
 
 
-def has_all_permissions(user: UserInDB, permissions: List[str]) -> bool:
+def has_all_permissions(user: UserInDB, permissions: list[str]) -> bool:
     """Check if a user has all of the specified permissions."""
     return all(has_permission(user, perm) for perm in permissions)
 
 
-def require_permission(permission: Union[str, List[str]]):
+def require_permission(permission: str | list[str]):
     """Decorator to require specific permission(s) for an endpoint."""
 
     def decorator(func: Callable) -> Callable:
@@ -135,7 +136,7 @@ def require_permission(permission: Union[str, List[str]]):
     return decorator
 
 
-def require_all_permissions(permissions: List[str]):
+def require_all_permissions(permissions: list[str]):
     """Decorator to require all specified permissions."""
 
     def decorator(func: Callable) -> Callable:
@@ -170,7 +171,7 @@ def require_all_permissions(permissions: List[str]):
     return decorator
 
 
-async def get_user_permissions(user: UserInDB) -> List[str]:
+async def get_user_permissions(user: UserInDB) -> list[str]:
     """Get all permissions for a user."""
     if user.is_superuser:
         # Superusers have all permissions
@@ -187,7 +188,7 @@ async def get_user_permissions(user: UserInDB) -> List[str]:
     return list(permissions)
 
 
-async def get_user_roles(user: UserInDB) -> List[str]:
+async def get_user_roles(user: UserInDB) -> list[str]:
     """Get all role names for a user."""
     return [role.name for role in user.roles if role.is_active]
 
@@ -195,7 +196,7 @@ async def get_user_roles(user: UserInDB) -> List[str]:
 class RBACMiddleware:
     """Middleware for Role-Based Access Control."""
 
-    def __init__(self, app, exclude_paths: List[str] = None):
+    def __init__(self, app, exclude_paths: list[str] = None):
         self.app = app
         self.exclude_paths = exclude_paths or [
             "/health",

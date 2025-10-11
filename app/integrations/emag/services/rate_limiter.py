@@ -19,7 +19,7 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 from ..exceptions import EmagRateLimitError
 
@@ -37,7 +37,7 @@ class RateLimitMetrics:
     total_requests: int = 0
     rate_limited_requests: int = 0
     retry_attempts: int = 0
-    errors: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
+    errors: dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
 
 @dataclass
@@ -59,7 +59,7 @@ class RateLimit:
     reset_time: float = 0.0
     metrics: RateLimitMetrics = field(default_factory=RateLimitMetrics)
 
-    def is_exceeded(self) -> Tuple[bool, float]:
+    def is_exceeded(self) -> tuple[bool, float]:
         """Check if the rate limit has been exceeded.
 
         Returns:
@@ -137,7 +137,7 @@ class EmagRateLimiter:
             retry_delay: Initial delay between retries in seconds
 
         """
-        self.rate_limits: Dict[str, RateLimit] = {}
+        self.rate_limits: dict[str, RateLimit] = {}
         self.lock = asyncio.Lock()
         self.max_retries = max_retries or self.DEFAULT_MAX_RETRIES
         self.retry_delay = retry_delay or self.DEFAULT_RETRY_DELAY
@@ -180,8 +180,8 @@ class EmagRateLimiter:
     async def acquire(
         self,
         endpoint: str,
-        max_retries: Optional[int] = None,
-        retry_delay: Optional[float] = None,
+        max_retries: int | None = None,
+        retry_delay: float | None = None,
     ) -> float:
         """Acquire a rate limit token for the given endpoint with retry logic.
 
@@ -274,7 +274,7 @@ class EmagRateLimiter:
         if wait_time > 0:
             await asyncio.sleep(wait_time)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current rate limiting metrics.
 
         Returns:
@@ -302,7 +302,7 @@ class EmagRateLimiter:
 
         return metrics
 
-    def update_rate_limits(self, headers: Dict[str, str]) -> None:
+    def update_rate_limits(self, headers: dict[str, str]) -> None:
         """Update rate limits based on API response headers.
 
         Args:
@@ -312,7 +312,7 @@ class EmagRateLimiter:
         # eMAG API might include rate limit headers in the future
         # This is a placeholder for when that happens
 
-    def get_status(self) -> Dict[str, Dict[str, int]]:
+    def get_status(self) -> dict[str, dict[str, int]]:
         """Get the current rate limit status.
 
         Returns:

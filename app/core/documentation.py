@@ -4,7 +4,7 @@ This module provides tools for generating comprehensive API documentation,
 including OpenAPI schema enhancements and interactive documentation.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
@@ -14,7 +14,7 @@ class APIDocGenerator:
     """Generate enhanced API documentation."""
 
     @staticmethod
-    def generate_enhanced_openapi_schema(app: FastAPI) -> Dict[str, Any]:
+    def generate_enhanced_openapi_schema(app: FastAPI) -> dict[str, Any]:
         """Generate enhanced OpenAPI schema with examples and detailed descriptions."""
 
         def custom_openapi():
@@ -80,7 +80,7 @@ class APIDocGenerator:
         return custom_openapi
 
     @staticmethod
-    def generate_api_examples() -> Dict[str, Any]:
+    def generate_api_examples() -> dict[str, Any]:
         """Generate API usage examples."""
         return {
             "authentication": {
@@ -275,8 +275,8 @@ class {module_name}Service:
         endpoint: str,
         method: str,
         description: str,
-        parameters: Dict[str, Any] = None,
-        responses: Dict[str, Any] = None,
+        parameters: dict[str, Any] = None,
+        responses: dict[str, Any] = None,
     ) -> str:
         """Generate docstring for API endpoint."""
         return f'''    @router.{method.lower()}("{endpoint}")

@@ -1,53 +1,96 @@
 """SQLAlchemy models for the application."""
 
-from typing import Any, List, Type
+from typing import Any
 
 from sqlalchemy.orm import registry
 
+from app.models.associations import product_categories
+from app.models.audit_log import AuditLog
+from app.models.cancellation import (
+    CancellationItem,
+    CancellationRefund,
+    CancellationRequest,
+    EmagCancellationIntegration,
+)
+from app.models.category import Category
+
+# eMAG product models
+from app.models.emag_models import EmagProductV2
+from app.models.emag_offers import EmagOfferSync, EmagProductOffer
+from app.models.inventory import InventoryItem, StockMovement, Warehouse
+from app.models.invoice import Invoice, InvoiceItem
+
 # Import all models here so they are properly registered with SQLAlchemy
 from app.models.mixins import SoftDeleteMixin, TimestampMixin
-from app.models.user import User, RefreshToken, UserRole
-from app.models.user_session import UserSession
-from app.models.role import Role, user_roles, role_permissions
+from app.models.notification import (
+    Notification,
+    NotificationCategory,
+    NotificationPriority,
+    NotificationSettings,
+    NotificationType,
+)
+from app.models.order import Order, OrderLine
 from app.models.permission import Permission
 from app.models.product import Product
-from app.models.category import Category
-from app.models.inventory import Warehouse, StockMovement, InventoryItem
+
+# Product mapping models (Google Sheets integration)
+from app.models.product_mapping import GoogleSheetsProductMapping, ImportLog
+
+# Product relationship models
+from app.models.product_relationships import (
+    ProductCompetitionLog,
+    ProductGenealogy,
+    ProductPNKTracking,
+    ProductVariant,
+)
+from app.models.product_supplier_sheet import ProductSupplierSheet
+
+# Purchase models (purchase order management)
+from app.models.purchase import (
+    PurchaseOrder,
+    PurchaseOrderItem,  # New - maps to existing purchase_order_items table
+    # PurchaseOrderLine,  # DISABLED - commented out to avoid mapper conflicts
+    PurchaseOrderHistory,  # New - audit trail
+    PurchaseOrderUnreceivedItem,  # New - track unreceived items
+    PurchaseReceipt,
+    PurchaseReceiptLine,
+    PurchaseRequisition,
+    PurchaseRequisitionLine,
+    SupplierPayment,
+    SupplierProductPurchase,
+)
+from app.models.rma import (
+    EmagReturnIntegration,
+    RefundTransaction,
+    ReturnItem,
+    ReturnRequest,
+)
+from app.models.role import Role, role_permissions, user_roles
 from app.models.sales import Customer
+
 # Supplier models (NEW - comprehensive supplier management)
 from app.models.supplier import (
     Supplier,
-    SupplierProduct,
     SupplierPerformance,
-    PurchaseOrder,
-    PurchaseOrderItem,
+    SupplierProduct,
 )
+
 # Supplier matching models (NEW - 1688.com product matching)
 from app.models.supplier_matching import (
-    SupplierRawProduct,
+    MatchingStatus,
     ProductMatchingGroup,
     ProductMatchingScore,
     SupplierPriceHistory,
-    MatchingStatus,
+    SupplierRawProduct,
 )
-from app.models.invoice import Invoice, InvoiceItem
-from app.models.cancellation import (
-    CancellationRequest,
-    CancellationItem,
-    CancellationRefund,
-    EmagCancellationIntegration,
-)
-from app.models.rma import ReturnRequest, ReturnItem, RefundTransaction, EmagReturnIntegration
-from app.models.emag_offers import EmagProductOffer, EmagOfferSync
-from app.models.order import Order, OrderLine
-from app.models.audit_log import AuditLog
-from app.models.associations import product_categories
+from app.models.user import RefreshToken, User, UserRole
+from app.models.user_session import UserSession
 
 # Create a mapper registry
 mapper_registry = registry()
 
 # List of all model classes for easy iteration and metadata access
-MODEL_CLASSES: List[Type[Any]] = [
+MODEL_CLASSES: list[type[Any]] = [
     User,
     Role,
     Permission,
@@ -63,7 +106,14 @@ MODEL_CLASSES: List[Type[Any]] = [
     SupplierProduct,
     SupplierPerformance,
     PurchaseOrder,
-    PurchaseOrderItem,
+    PurchaseOrderItem,  # Using new model instead of PurchaseOrderLine
+    # PurchaseOrderLine,  # DISABLED
+    PurchaseReceipt,
+    PurchaseReceiptLine,
+    SupplierPayment,
+    PurchaseRequisition,
+    PurchaseRequisitionLine,
+    SupplierProductPurchase,
     # Supplier matching models
     SupplierRawProduct,
     ProductMatchingGroup,
@@ -82,6 +132,19 @@ MODEL_CLASSES: List[Type[Any]] = [
     EmagOfferSync,
     UserSession,
     AuditLog,
+    Notification,
+    NotificationSettings,
+    # Product mapping models
+    GoogleSheetsProductMapping,
+    ImportLog,
+    ProductSupplierSheet,
+    # eMAG product models
+    EmagProductV2,
+    # Product relationship models
+    ProductVariant,
+    ProductPNKTracking,
+    ProductCompetitionLog,
+    ProductGenealogy,
 ]
 
 __all__ = [
@@ -112,7 +175,13 @@ __all__ = [
     "SupplierProduct",
     "SupplierPerformance",
     "PurchaseOrder",
-    "PurchaseOrderItem",
+    "PurchaseOrderLine",
+    "PurchaseReceipt",
+    "PurchaseReceiptLine",
+    "SupplierPayment",
+    "PurchaseRequisition",
+    "PurchaseRequisitionLine",
+    "SupplierProductPurchase",
     # Supplier matching models
     "SupplierRawProduct",
     "ProductMatchingGroup",
@@ -135,6 +204,23 @@ __all__ = [
     # eMAG models
     "EmagProductOffer",
     "EmagOfferSync",
+    # Notification models
+    "Notification",
+    "NotificationSettings",
+    "NotificationType",
+    "NotificationCategory",
+    "NotificationPriority",
+    # Product mapping models
+    "GoogleSheetsProductMapping",
+    "ImportLog",
+    "ProductSupplierSheet",
+    # eMAG product models
+    "EmagProductV2",
+    # Product relationship models
+    "ProductVariant",
+    "ProductPNKTracking",
+    "ProductCompetitionLog",
+    "ProductGenealogy",
     # Enums
     "UserRole",
     # Association tables

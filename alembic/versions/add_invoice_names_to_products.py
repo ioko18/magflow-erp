@@ -1,7 +1,7 @@
 """add invoice names to products
 
 Revision ID: add_invoice_names
-Revises: 
+Revises: c8e960008812
 Create Date: 2025-10-01 15:05:00
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'add_invoice_names'
-down_revision = None
+down_revision = 'c8e960008812'  # Links to add_shipping_tax_voucher_split_to_orders
 branch_labels = None
 depends_on = None
 

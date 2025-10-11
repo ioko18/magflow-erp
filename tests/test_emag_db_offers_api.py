@@ -44,7 +44,7 @@ def override_dependencies():
     app.dependency_overrides[deps.get_current_active_user] = fake_user
 
     # Override DB session with static data
-    from app.api.v1.endpoints import emag_db_offers as db_ep
+    from app.core import database as db_module
 
     sample_rows = [
         {
@@ -74,7 +74,7 @@ def override_dependencies():
     async def fake_session_gen():
         yield FakeAsyncSession(sample_rows)
 
-    app.dependency_overrides[db_ep.get_db_session] = fake_session_gen
+    app.dependency_overrides[db_module.get_async_session] = fake_session_gen
     yield
     app.dependency_overrides.clear()
 

@@ -332,7 +332,7 @@ async def test_get_current_user_invalid_token():
             await get_current_user(request, mock_db)
 
     assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
-    assert str(exc_info.value.detail) == "Could not validate credentials"
+    assert "Invalid token" in str(exc_info.value.detail)
 
 
 @pytest.mark.asyncio

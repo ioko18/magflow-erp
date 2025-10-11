@@ -4,7 +4,49 @@ Prometheus metrics for eMAG synchronization operations.
 This module provides custom metrics for monitoring eMAG product and order synchronization.
 """
 
-from prometheus_client import Counter, Histogram, Gauge
+import logging
+
+logger = logging.getLogger(__name__)
+
+try:
+    from prometheus_client import Counter, Gauge, Histogram
+
+    METRICS_AVAILABLE = True
+except ImportError:
+    logger.warning("prometheus_client not available, metrics will be disabled")
+    METRICS_AVAILABLE = False
+
+    # Create dummy classes
+    class Counter:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def labels(self, *args, **kwargs):
+            return self
+
+        def inc(self, *args, **kwargs):
+            pass
+
+    class Histogram:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def labels(self, *args, **kwargs):
+            return self
+
+        def observe(self, *args, **kwargs):
+            pass
+
+    class Gauge:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def labels(self, *args, **kwargs):
+            return self
+
+        def set(self, *args, **kwargs):
+            pass
+
 
 # Sync duration metrics
 EMAG_SYNC_DURATION = Histogram(
@@ -80,6 +122,7 @@ EMAG_SYNC_TIMEOUTS_TOTAL = Counter(
 
 # Helper functions for recording metrics
 
+
 def record_sync_duration(
     account_type: str,
     sync_type: str,
@@ -125,7 +168,7 @@ def record_api_request(
         endpoint=endpoint,
         status_code=status_code,
     ).inc()
-    
+
     EMAG_API_REQUEST_DURATION.labels(
         account_type=account_type,
         endpoint=endpoint,
@@ -138,7 +181,7 @@ def record_rate_limit_hit(account_type: str, operation_type: str, wait_time: flo
         account_type=account_type,
         operation_type=operation_type,
     ).inc()
-    
+
     EMAG_RATE_LIMIT_WAIT_TIME.labels(
         account_type=account_type,
         operation_type=operation_type,

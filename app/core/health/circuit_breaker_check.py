@@ -1,11 +1,11 @@
 """Circuit breaker health check."""
 
-from typing import Any, Dict
+from typing import Any
 
 from app.core.circuit_breaker import _registry
 
 
-async def check_circuit_breakers() -> Dict[str, Any]:
+async def check_circuit_breakers() -> dict[str, Any]:
     """Check the status of all circuit breakers."""
     circuit_breakers = {}
 

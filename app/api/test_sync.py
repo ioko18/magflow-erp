@@ -1,12 +1,13 @@
 """Test sync endpoints without authentication for development."""
 
+from typing import Any
+
 from fastapi import APIRouter
-from typing import Dict, Any
 
 router = APIRouter(prefix="/sync", tags=["test-sync"])
 
 
-@router.post("/sync", response_model=Dict[str, Any])
+@router.post("/sync", response_model=dict[str, Any])
 async def test_sync_emag_offers():
     """Test synchronization endpoint (no auth required for development)."""
     # Return mock sync response
@@ -16,12 +17,12 @@ async def test_sync_emag_offers():
         "data": {
             "sync_id": "test-sync-001",
             "started_at": "2024-01-15T10:30:00Z",
-            "status": "running"
-        }
+            "status": "running",
+        },
     }
 
 
-@router.get("/status", response_model=Dict[str, Any])
+@router.get("/status", response_model=dict[str, Any])
 async def test_get_emag_sync_status():
     """Get test eMAG synchronization status (no auth required)."""
     return {
@@ -36,7 +37,7 @@ async def test_get_emag_sync_status():
                     "offers_processed": 42,
                     "started_at": "2024-01-15T10:30:00Z",
                     "completed_at": "2024-01-15T10:32:15Z",
-                    "duration_seconds": 135
+                    "duration_seconds": 135,
                 },
                 {
                     "sync_id": "test-sync-002",
@@ -44,8 +45,8 @@ async def test_get_emag_sync_status():
                     "offers_processed": 15,
                     "started_at": "2024-01-15T11:00:00Z",
                     "completed_at": None,
-                    "duration_seconds": None
-                }
-            ]
-        }
+                    "duration_seconds": None,
+                },
+            ],
+        },
     }

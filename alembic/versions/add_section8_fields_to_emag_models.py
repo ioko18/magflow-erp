@@ -32,7 +32,12 @@ def upgrade():
     
     # Part Number Key (for attaching to existing products)
     op.add_column('emag_products_v2', sa.Column('part_number_key', sa.String(50), nullable=True))
-    op.create_index('idx_emag_products_v2_part_number_key', 'emag_products_v2', ['part_number_key'])
+    # Create index with IF NOT EXISTS to avoid conflicts
+    conn = op.get_bind()
+    conn.execute(sa.text("""
+        CREATE INDEX IF NOT EXISTS idx_emag_products_v2_part_number_key 
+        ON emag_products_v2(part_number_key)
+    """))
     
     # Additional Product Fields from Section 8
     op.add_column('emag_products_v2', sa.Column('url', sa.String(1024), nullable=True))
@@ -47,85 +52,142 @@ def upgrade():
     op.add_column('emag_products_v2', sa.Column('doc_errors', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
     op.add_column('emag_products_v2', sa.Column('vendor_category_id', sa.String(50), nullable=True))
     
-    # Add new fields to emag_product_offers_v2
-    op.add_column('emag_product_offers_v2', sa.Column('offer_validation_status', sa.Integer(), nullable=True))
-    op.add_column('emag_product_offers_v2', sa.Column('offer_validation_status_description', sa.String(255), nullable=True))
-    op.add_column('emag_product_offers_v2', sa.Column('vat_id', sa.Integer(), nullable=True))
-    op.add_column('emag_product_offers_v2', sa.Column('warranty', sa.Integer(), nullable=True))
+    # Add new fields to emag_product_offers (note: warranty already exists)
+    # Check if columns exist before adding them
+    conn = op.get_bind()
     
-    # Create new tables for categories, VAT rates, and handling times
-    op.create_table(
-        'emag_categories',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(255), nullable=False),
-        sa.Column('is_allowed', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('parent_id', sa.Integer(), nullable=True),
-        sa.Column('is_ean_mandatory', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('is_warranty_mandatory', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('characteristics', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('family_types', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-        sa.Column('language', sa.String(5), nullable=False, server_default='ro'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('last_synced_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('idx_emag_categories_parent', 'emag_categories', ['parent_id'])
-    op.create_index('idx_emag_categories_allowed', 'emag_categories', ['is_allowed'])
-    op.create_index('idx_emag_categories_name', 'emag_categories', ['name'])
+    # Check and add offer_validation_status
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'app' AND table_name = 'emag_product_offers' 
+        AND column_name = 'offer_validation_status'
+    """))
+    if not result.fetchone():
+        op.add_column('emag_product_offers', sa.Column('offer_validation_status', sa.Integer(), nullable=True))
     
-    op.create_table(
-        'emag_vat_rates',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(100), nullable=False),
-        sa.Column('rate', sa.Float(), nullable=False),
-        sa.Column('country', sa.String(2), nullable=False, server_default='RO'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('last_synced_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('idx_emag_vat_country', 'emag_vat_rates', ['country'])
-    op.create_index('idx_emag_vat_active', 'emag_vat_rates', ['is_active'])
+    # Check and add offer_validation_status_description
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'app' AND table_name = 'emag_product_offers' 
+        AND column_name = 'offer_validation_status_description'
+    """))
+    if not result.fetchone():
+        op.add_column('emag_product_offers', sa.Column('offer_validation_status_description', sa.String(255), nullable=True))
     
-    op.create_table(
-        'emag_handling_times',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('value', sa.Integer(), nullable=False),
-        sa.Column('name', sa.String(100), nullable=False),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
-        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('last_synced_at', sa.DateTime(), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index('idx_emag_handling_time_value', 'emag_handling_times', ['value'])
-    op.create_index('idx_emag_handling_time_active', 'emag_handling_times', ['is_active'])
+    # Check and add vat_id
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'app' AND table_name = 'emag_product_offers' 
+        AND column_name = 'vat_id'
+    """))
+    if not result.fetchone():
+        op.add_column('emag_product_offers', sa.Column('vat_id', sa.Integer(), nullable=True))
+    
+    # Note: warranty column already exists in emag_product_offers, skip adding it
+    
+    # Create new tables for categories, VAT rates, and handling times (idempotent)
+    # These tables are also created in add_emag_reference_data_tables.py
+    # Using raw SQL with IF NOT EXISTS to avoid conflicts
+    conn = op.get_bind()
+    
+    # Create emag_categories table if not exists
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS app.emag_categories (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            is_allowed INTEGER NOT NULL DEFAULT 0,
+            parent_id INTEGER,
+            is_ean_mandatory INTEGER NOT NULL DEFAULT 0,
+            is_warranty_mandatory INTEGER NOT NULL DEFAULT 0,
+            characteristics JSONB,
+            family_types JSONB,
+            language VARCHAR(5) NOT NULL DEFAULT 'ro',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_synced_at TIMESTAMP
+        )
+    """))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_categories_parent ON app.emag_categories(parent_id)"))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_categories_allowed ON app.emag_categories(is_allowed)"))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_categories_name ON app.emag_categories(name)"))
+    
+    # Create emag_vat_rates table if not exists
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS app.emag_vat_rates (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            rate FLOAT NOT NULL,
+            country VARCHAR(2) NOT NULL DEFAULT 'RO',
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_synced_at TIMESTAMP
+        )
+    """))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_vat_country ON app.emag_vat_rates(country)"))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_vat_active ON app.emag_vat_rates(is_active)"))
+    
+    # Create emag_handling_times table if not exists
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS app.emag_handling_times (
+            id INTEGER PRIMARY KEY,
+            value INTEGER NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_synced_at TIMESTAMP
+        )
+    """))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_handling_time_value ON app.emag_handling_times(value)"))
+    conn.execute(sa.text("CREATE INDEX IF NOT EXISTS idx_emag_handling_time_active ON app.emag_handling_times(is_active)"))
 
 
 def downgrade():
     """Remove Section 8 fields from eMAG models."""
     
-    # Drop new tables
-    op.drop_index('idx_emag_handling_time_active', 'emag_handling_times')
-    op.drop_index('idx_emag_handling_time_value', 'emag_handling_times')
-    op.drop_table('emag_handling_times')
+    # Drop new tables (idempotent)
+    conn = op.get_bind()
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_handling_time_active'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_handling_time_value'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS app.emag_handling_times'))
     
-    op.drop_index('idx_emag_vat_active', 'emag_vat_rates')
-    op.drop_index('idx_emag_vat_country', 'emag_vat_rates')
-    op.drop_table('emag_vat_rates')
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_vat_active'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_vat_country'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS app.emag_vat_rates'))
     
-    op.drop_index('idx_emag_categories_name', 'emag_categories')
-    op.drop_index('idx_emag_categories_allowed', 'emag_categories')
-    op.drop_index('idx_emag_categories_parent', 'emag_categories')
-    op.drop_table('emag_categories')
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_categories_name'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_categories_allowed'))
+    conn.execute(sa.text('DROP INDEX IF EXISTS app.idx_emag_categories_parent'))
+    conn.execute(sa.text('DROP TABLE IF EXISTS app.emag_categories'))
     
-    # Remove fields from emag_product_offers_v2
-    op.drop_column('emag_product_offers_v2', 'warranty')
-    op.drop_column('emag_product_offers_v2', 'vat_id')
-    op.drop_column('emag_product_offers_v2', 'offer_validation_status_description')
-    op.drop_column('emag_product_offers_v2', 'offer_validation_status')
+    # Remove fields from emag_product_offers (skip warranty as it existed before)
+    conn = op.get_bind()
+    
+    # Drop columns if they exist
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'app' AND table_name = 'emag_product_offers' 
+        AND column_name = 'vat_id'
+    """))
+    if result.fetchone():
+        op.drop_column('emag_product_offers', 'vat_id')
+    
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'app' AND table_name = 'emag_product_offers' 
+        AND column_name = 'offer_validation_status_description'
+    """))
+    if result.fetchone():
+        op.drop_column('emag_product_offers', 'offer_validation_status_description')
+    
+    result = conn.execute(sa.text("""
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_schema = 'app' AND table_name = 'emag_product_offers' 
+        AND column_name = 'offer_validation_status'
+    """))
+    if result.fetchone():
+        op.drop_column('emag_product_offers', 'offer_validation_status')
     
     # Remove fields from emag_products_v2
     op.drop_column('emag_products_v2', 'vendor_category_id')

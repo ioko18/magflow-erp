@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import socket
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from celery import shared_task
 
@@ -17,7 +17,7 @@ def heartbeat() -> dict:
         "status": "ok",
         "service": "celery-beat",
         "host": socket.gethostname(),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "env": {
             "TZ": os.getenv("TZ", "UTC"),
         },

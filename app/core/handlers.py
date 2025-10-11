@@ -5,7 +5,7 @@ into RFC 9457 Problem Details responses.
 """
 
 import logging
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import HTTPException, RequestValidationError
@@ -36,7 +36,7 @@ DEFAULT_PROBLEM_BASE_URL = "https://example.com/probs/"
 def create_problem_response(
     problem: Problem,
     status_code: int,
-    headers: Optional[Dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     """Create a JSON response for a problem.
 
@@ -70,10 +70,10 @@ def create_problem_response(
 
 
 def create_problem(
-    problem_type: Type[ProblemTypeT],
+    problem_type: type[ProblemTypeT],
     detail: str,
     status_code: int,
-    instance: Optional[str] = None,
+    instance: str | None = None,
     **kwargs: Any,
 ) -> JSONResponse:
     """Create a problem response from a problem type.
@@ -113,7 +113,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
     """
     # Get the problem type based on the status code
-    problem_type: Type[Problem]
+    problem_type: type[Problem]
 
     if exc.status_code == status.HTTP_400_BAD_REQUEST:
         problem_type = ValidationProblem

@@ -1,7 +1,6 @@
 """Middleware for adding cache-related headers to responses."""
 
 import hashlib
-from typing import Optional
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -59,18 +58,17 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         response.headers["Cache-Control"] = self.default_cache_control
 
         # Generate ETag if not present
-        if "ETag" not in response.headers:
-            if hasattr(response, "body"):
-                etag = self._generate_etag(response.body)
-                response.headers["ETag"] = etag
+        if "ETag" not in response.headers and hasattr(response, "body"):
+            etag = self._generate_etag(response.body)
+            response.headers["ETag"] = etag
 
-                # Handle If-None-Match
-                if_none_match = request.headers.get("If-None-Match")
-                if if_none_match and if_none_match == etag:
-                    return Response(
-                        status_code=304,
-                        headers=dict(response.headers),
-                    )
+            # Handle If-None-Match
+            if_none_match = request.headers.get("If-None-Match")
+            if if_none_match and if_none_match == etag:
+                return Response(
+                    status_code=304,
+                    headers=dict(response.headers),
+                )
 
         return response
 
@@ -87,8 +85,8 @@ def cache_control(
     no_cache: bool = False,
     no_store: bool = False,
     must_revalidate: bool = False,
-    stale_while_revalidate: Optional[int] = None,
-    stale_if_error: Optional[int] = None,
+    stale_while_revalidate: int | None = None,
+    stale_if_error: int | None = None,
 ):
     """Decorator to add Cache-Control headers to route responses.
 

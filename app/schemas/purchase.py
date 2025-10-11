@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,17 +20,17 @@ class SupplierBase(BaseModel):
 
     code: str = Field(..., min_length=1, max_length=20)
     name: str = Field(..., min_length=1, max_length=100)
-    email: Optional[str] = Field(None, max_length=100)
-    phone: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = None
-    city: Optional[str] = Field(None, max_length=50)
-    country: Optional[str] = Field(None, max_length=50)
-    tax_id: Optional[str] = Field(None, max_length=50)
-    payment_terms: Optional[str] = Field(None, max_length=100)
+    email: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=20)
+    address: str | None = None
+    city: str | None = Field(None, max_length=50)
+    country: str | None = Field(None, max_length=50)
+    tax_id: str | None = Field(None, max_length=50)
+    payment_terms: str | None = Field(None, max_length=100)
     lead_time_days: int = 7
-    minimum_order_value: Optional[float] = None
+    minimum_order_value: float | None = None
     is_active: bool = True
-    rating: Optional[int] = Field(None, ge=1, le=5)
+    rating: int | None = Field(None, ge=1, le=5)
 
 
 class SupplierCreate(SupplierBase):
@@ -41,27 +40,27 @@ class SupplierCreate(SupplierBase):
 class SupplierUpdate(BaseModel):
     """Schema for updating a supplier."""
 
-    code: Optional[str] = Field(None, min_length=1, max_length=20)
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    email: Optional[str] = Field(None, max_length=100)
-    phone: Optional[str] = Field(None, max_length=20)
-    address: Optional[str] = None
-    city: Optional[str] = Field(None, max_length=50)
-    country: Optional[str] = Field(None, max_length=50)
-    tax_id: Optional[str] = Field(None, max_length=50)
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    lead_time_days: Optional[int] = None
-    minimum_order_value: Optional[float] = None
-    is_active: Optional[bool] = None
-    rating: Optional[int] = Field(None, ge=1, le=5)
+    code: str | None = Field(None, min_length=1, max_length=20)
+    name: str | None = Field(None, min_length=1, max_length=100)
+    email: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=20)
+    address: str | None = None
+    city: str | None = Field(None, max_length=50)
+    country: str | None = Field(None, max_length=50)
+    tax_id: str | None = Field(None, max_length=50)
+    payment_terms: str | None = Field(None, max_length=100)
+    lead_time_days: int | None = None
+    minimum_order_value: float | None = None
+    is_active: bool | None = None
+    rating: int | None = Field(None, ge=1, le=5)
 
 
 class SupplierInDBBase(SupplierBase):
     """Base schema for supplier data in database."""
 
-    id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -75,13 +74,13 @@ class SupplierProductBase(BaseModel):
 
     supplier_id: int
     product_id: int
-    supplier_product_code: Optional[str] = Field(None, max_length=50)
-    supplier_product_name: Optional[str] = Field(None, max_length=100)
+    supplier_product_code: str | None = Field(None, max_length=50)
+    supplier_product_name: str | None = Field(None, max_length=100)
     unit_cost: float = Field(..., gt=0)
     minimum_order_quantity: int = 1
     lead_time_days: int = 7
     is_preferred: bool = False
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class SupplierProductCreate(SupplierProductBase):
@@ -91,21 +90,21 @@ class SupplierProductCreate(SupplierProductBase):
 class SupplierProductUpdate(BaseModel):
     """Schema for updating a supplier product."""
 
-    supplier_product_code: Optional[str] = Field(None, max_length=50)
-    supplier_product_name: Optional[str] = Field(None, max_length=100)
-    unit_cost: Optional[float] = Field(None, gt=0)
-    minimum_order_quantity: Optional[int] = Field(None, gt=0)
-    lead_time_days: Optional[int] = Field(None, gt=0)
-    is_preferred: Optional[bool] = None
-    notes: Optional[str] = None
+    supplier_product_code: str | None = Field(None, max_length=50)
+    supplier_product_name: str | None = Field(None, max_length=100)
+    unit_cost: float | None = Field(None, gt=0)
+    minimum_order_quantity: int | None = Field(None, gt=0)
+    lead_time_days: int | None = Field(None, gt=0)
+    is_preferred: bool | None = None
+    notes: str | None = None
 
 
 class SupplierProductInDBBase(SupplierProductBase):
     """Base schema for supplier product data in database."""
 
-    id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -113,7 +112,7 @@ class SupplierProductInDBBase(SupplierProductBase):
 class SupplierProduct(SupplierProductInDBBase):
     """Schema for supplier product data returned to clients."""
 
-    supplier: Optional[Supplier] = None
+    supplier: Supplier | None = None
 
 
 class PurchaseOrderStatus(str, Enum):
@@ -131,38 +130,38 @@ class PurchaseOrderBase(BaseModel):
 
     supplier_id: int
     order_date: datetime
-    expected_delivery_date: Optional[datetime] = None
+    expected_delivery_date: datetime | None = None
     status: PurchaseOrderStatus = PurchaseOrderStatus.DRAFT
     currency: str = "RON"
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
+    payment_terms: str | None = Field(None, max_length=100)
+    notes: str | None = None
 
 
 class PurchaseOrderCreate(PurchaseOrderBase):
     """Schema for creating a purchase order."""
 
-    order_lines: List["PurchaseOrderLineCreate"] = Field(..., min_length=1)
+    order_lines: list["PurchaseOrderLineCreate"] = Field(..., min_length=1)
 
 
 class PurchaseOrderUpdate(BaseModel):
     """Schema for updating a purchase order."""
 
-    expected_delivery_date: Optional[datetime] = None
-    status: Optional[PurchaseOrderStatus] = None
-    payment_terms: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
+    expected_delivery_date: datetime | None = None
+    status: PurchaseOrderStatus | None = None
+    payment_terms: str | None = Field(None, max_length=100)
+    notes: str | None = None
 
 
 class PurchaseOrderLineBase(BaseModel):
-    """Base purchase order line schema."""
+    """Base purchase order line schema - adapted to PurchaseOrderItem."""
 
-    product_id: int
-    supplier_product_id: Optional[int] = None
-    quantity: int = Field(..., gt=0)
-    unit_cost: float = Field(..., gt=0)
-    discount_percent: float = Field(0, ge=0, le=100)
-    tax_percent: float = Field(19, ge=0, le=100)
-    notes: Optional[str] = Field(None, max_length=255)
+    product_id: int  # Will map to local_product_id
+    quantity: int = Field(..., gt=0)  # Will map to quantity_ordered
+    unit_cost: float = Field(..., gt=0)  # Will map to unit_price
+    discount_percent: float = Field(0, ge=0, le=100)  # Not in DB, calculated
+    tax_percent: float = Field(19, ge=0, le=100)  # Not in DB, calculated
+    line_total: float = Field(..., gt=0)  # Will map to total_price
+    notes: str | None = Field(None, max_length=255)  # Not in purchase_order_items
 
 
 class PurchaseOrderLineCreate(PurchaseOrderLineBase):
@@ -172,33 +171,30 @@ class PurchaseOrderLineCreate(PurchaseOrderLineBase):
 class PurchaseOrderLineInDBBase(PurchaseOrderLineBase):
     """Base schema for purchase order line data in database."""
 
-    id: Optional[int] = None
-    purchase_order_id: Optional[int] = None
-    line_total: Optional[float] = None
-    received_quantity: Optional[int] = 0
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    purchase_order_id: int | None = None
+    received_quantity: int = 0  # Will map to quantity_received
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PurchaseOrderLine(PurchaseOrderLineInDBBase):
-    """Schema for purchase order line data returned to clients."""
+    """Schema for purchase order line data returned to clients - uses PurchaseOrderItem model."""
 
 
 class PurchaseOrderInDBBase(PurchaseOrderBase):
     """Base schema for purchase order data in database."""
 
-    id: Optional[int] = None
-    order_number: Optional[str] = None
-    total_amount: Optional[float] = None
-    tax_amount: Optional[float] = None
-    discount_amount: Optional[float] = None
-    shipping_cost: Optional[float] = None
-    created_by: Optional[int] = None
-    approved_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    order_number: str | None = None
+    total_amount: float | None = None
+    tax_amount: float | None = None
+    discount_amount: float | None = None
+    shipping_cost: float | None = None
+    created_by: int | None = None
+    approved_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -206,8 +202,8 @@ class PurchaseOrderInDBBase(PurchaseOrderBase):
 class PurchaseOrder(PurchaseOrderInDBBase):
     """Schema for purchase order data returned to clients."""
 
-    supplier: Optional[Supplier] = None
-    order_lines: List[PurchaseOrderLine] = []
+    supplier: Supplier | None = None
+    order_lines: list[PurchaseOrderLine] = []
 
 
 class PurchaseReceiptStatus(str, Enum):
@@ -224,10 +220,10 @@ class PurchaseReceiptBase(BaseModel):
 
     purchase_order_id: int
     receipt_date: datetime
-    supplier_invoice_number: Optional[str] = Field(None, max_length=50)
-    supplier_invoice_date: Optional[datetime] = None
+    supplier_invoice_number: str | None = Field(None, max_length=50)
+    supplier_invoice_date: datetime | None = None
     currency: str = "RON"
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class PurchaseReceiptCreate(PurchaseReceiptBase):
@@ -237,11 +233,11 @@ class PurchaseReceiptCreate(PurchaseReceiptBase):
 class PurchaseReceiptUpdate(BaseModel):
     """Schema for updating a purchase receipt."""
 
-    supplier_invoice_number: Optional[str] = Field(None, max_length=50)
-    supplier_invoice_date: Optional[datetime] = None
-    notes: Optional[str] = None
-    status: Optional[PurchaseReceiptStatus] = None
-    quality_checked_by: Optional[int] = None
+    supplier_invoice_number: str | None = Field(None, max_length=50)
+    supplier_invoice_date: datetime | None = None
+    notes: str | None = None
+    status: PurchaseReceiptStatus | None = None
+    quality_checked_by: int | None = None
 
 
 class PurchaseReceiptLineBase(BaseModel):
@@ -253,8 +249,8 @@ class PurchaseReceiptLineBase(BaseModel):
     rejected_quantity: int = 0
     unit_cost: float = Field(..., gt=0)
     quality_status: str = "pending"  # pending, accepted, rejected, partial
-    rejection_reason: Optional[str] = Field(None, max_length=255)
-    notes: Optional[str] = Field(None, max_length=255)
+    rejection_reason: str | None = Field(None, max_length=255)
+    notes: str | None = Field(None, max_length=255)
 
 
 class PurchaseReceiptLineCreate(PurchaseReceiptLineBase):
@@ -264,11 +260,11 @@ class PurchaseReceiptLineCreate(PurchaseReceiptLineBase):
 class PurchaseReceiptLineInDBBase(PurchaseReceiptLineBase):
     """Base schema for purchase receipt line data in database."""
 
-    id: Optional[int] = None
-    purchase_receipt_id: Optional[int] = None
-    line_total: Optional[float] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    purchase_receipt_id: int | None = None
+    line_total: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -276,21 +272,21 @@ class PurchaseReceiptLineInDBBase(PurchaseReceiptLineBase):
 class PurchaseReceiptLine(PurchaseReceiptLineInDBBase):
     """Schema for purchase receipt line data returned to clients."""
 
-    purchase_order_line: Optional[PurchaseOrderLine] = None
+    purchase_order_line: PurchaseOrderLine | None = None
 
 
 class PurchaseReceiptInDBBase(PurchaseReceiptBase):
     """Base schema for purchase receipt data in database."""
 
-    id: Optional[int] = None
-    receipt_number: Optional[str] = None
+    id: int | None = None
+    receipt_number: str | None = None
     status: PurchaseReceiptStatus = PurchaseReceiptStatus.DRAFT
-    total_received_quantity: Optional[int] = None
-    total_amount: Optional[float] = None
-    received_by: Optional[int] = None
-    quality_checked_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    total_received_quantity: int | None = None
+    total_amount: float | None = None
+    received_by: int | None = None
+    quality_checked_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -298,8 +294,8 @@ class PurchaseReceiptInDBBase(PurchaseReceiptBase):
 class PurchaseReceipt(PurchaseReceiptInDBBase):
     """Schema for purchase receipt data returned to clients."""
 
-    purchase_order: Optional[PurchaseOrder] = None
-    receipt_lines: List[PurchaseReceiptLine] = []
+    purchase_order: PurchaseOrder | None = None
+    receipt_lines: list[PurchaseReceiptLine] = []
 
 
 class SupplierPaymentMethod(str, Enum):
@@ -323,12 +319,12 @@ class SupplierPaymentBase(BaseModel):
     """Base supplier payment schema."""
 
     supplier_id: int
-    purchase_receipt_id: Optional[int] = None
+    purchase_receipt_id: int | None = None
     payment_date: datetime
     amount: float = Field(..., gt=0)
     payment_method: SupplierPaymentMethod
-    reference: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
+    reference: str | None = Field(None, max_length=100)
+    notes: str | None = None
 
 
 class SupplierPaymentCreate(SupplierPaymentBase):
@@ -338,24 +334,24 @@ class SupplierPaymentCreate(SupplierPaymentBase):
 class SupplierPaymentUpdate(BaseModel):
     """Schema for updating a supplier payment."""
 
-    payment_date: Optional[datetime] = None
-    amount: Optional[float] = Field(None, gt=0)
-    payment_method: Optional[SupplierPaymentMethod] = None
-    reference: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = None
-    status: Optional[SupplierPaymentStatus] = None
-    processed_by: Optional[int] = None
+    payment_date: datetime | None = None
+    amount: float | None = Field(None, gt=0)
+    payment_method: SupplierPaymentMethod | None = None
+    reference: str | None = Field(None, max_length=100)
+    notes: str | None = None
+    status: SupplierPaymentStatus | None = None
+    processed_by: int | None = None
 
 
 class SupplierPaymentInDBBase(SupplierPaymentBase):
     """Base schema for supplier payment data in database."""
 
-    id: Optional[int] = None
-    payment_number: Optional[str] = None
+    id: int | None = None
+    payment_number: str | None = None
     status: SupplierPaymentStatus = SupplierPaymentStatus.PENDING
-    processed_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    processed_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -363,8 +359,8 @@ class SupplierPaymentInDBBase(SupplierPaymentBase):
 class SupplierPayment(SupplierPaymentInDBBase):
     """Schema for supplier payment data returned to clients."""
 
-    supplier: Optional[Supplier] = None
-    purchase_receipt: Optional[PurchaseReceipt] = None
+    supplier: Supplier | None = None
+    purchase_receipt: PurchaseReceipt | None = None
 
 
 class PurchaseRequisitionPriority(str, Enum):
@@ -390,32 +386,32 @@ class PurchaseRequisitionBase(BaseModel):
     """Base purchase requisition schema."""
 
     requested_by: int
-    department: Optional[str] = Field(None, max_length=50)
+    department: str | None = Field(None, max_length=50)
     required_date: datetime
     status: PurchaseRequisitionStatus = PurchaseRequisitionStatus.DRAFT
     priority: PurchaseRequisitionPriority = PurchaseRequisitionPriority.NORMAL
     currency: str = "RON"
-    justification: Optional[str] = None
-    notes: Optional[str] = None
+    justification: str | None = None
+    notes: str | None = None
 
 
 class PurchaseRequisitionCreate(PurchaseRequisitionBase):
     """Schema for creating a purchase requisition."""
 
-    requisition_lines: List["PurchaseRequisitionLineCreate"] = Field(..., min_length=1)
+    requisition_lines: list["PurchaseRequisitionLineCreate"] = Field(..., min_length=1)
 
 
 class PurchaseRequisitionUpdate(BaseModel):
     """Schema for updating a purchase requisition."""
 
-    department: Optional[str] = Field(None, max_length=50)
-    required_date: Optional[datetime] = None
-    priority: Optional[PurchaseRequisitionPriority] = None
-    justification: Optional[str] = None
-    notes: Optional[str] = None
-    status: Optional[PurchaseRequisitionStatus] = None
-    approved_by: Optional[int] = None
-    approved_at: Optional[datetime] = None
+    department: str | None = Field(None, max_length=50)
+    required_date: datetime | None = None
+    priority: PurchaseRequisitionPriority | None = None
+    justification: str | None = None
+    notes: str | None = None
+    status: PurchaseRequisitionStatus | None = None
+    approved_by: int | None = None
+    approved_at: datetime | None = None
 
 
 class PurchaseRequisitionLineBase(BaseModel):
@@ -425,8 +421,8 @@ class PurchaseRequisitionLineBase(BaseModel):
     description: str = Field(..., max_length=255)
     quantity: int = Field(..., gt=0)
     estimated_unit_cost: float = Field(..., gt=0)
-    supplier_preference: Optional[str] = Field(None, max_length=100)
-    justification: Optional[str] = None
+    supplier_preference: str | None = Field(None, max_length=100)
+    justification: str | None = None
 
 
 class PurchaseRequisitionLineCreate(PurchaseRequisitionLineBase):
@@ -436,12 +432,12 @@ class PurchaseRequisitionLineCreate(PurchaseRequisitionLineBase):
 class PurchaseRequisitionLineInDBBase(PurchaseRequisitionLineBase):
     """Base schema for purchase requisition line data in database."""
 
-    id: Optional[int] = None
-    purchase_requisition_id: Optional[int] = None
-    estimated_total_cost: Optional[float] = None
+    id: int | None = None
+    purchase_requisition_id: int | None = None
+    estimated_total_cost: float | None = None
     status: str = "pending"  # pending, ordered, received, cancelled
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -453,13 +449,13 @@ class PurchaseRequisitionLine(PurchaseRequisitionLineInDBBase):
 class PurchaseRequisitionInDBBase(PurchaseRequisitionBase):
     """Base schema for purchase requisition data in database."""
 
-    id: Optional[int] = None
-    requisition_number: Optional[str] = None
-    total_estimated_cost: Optional[float] = None
-    approved_by: Optional[int] = None
-    approved_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    id: int | None = None
+    requisition_number: str | None = None
+    total_estimated_cost: float | None = None
+    approved_by: int | None = None
+    approved_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -467,7 +463,7 @@ class PurchaseRequisitionInDBBase(PurchaseRequisitionBase):
 class PurchaseRequisition(PurchaseRequisitionInDBBase):
     """Schema for purchase requisition data returned to clients."""
 
-    requisition_lines: List[PurchaseRequisitionLine] = []
+    requisition_lines: list[PurchaseRequisitionLine] = []
 
 
 # Response schemas
@@ -479,8 +475,8 @@ class PurchaseSummary(BaseModel):
     received_orders: int
     total_spent: float
     pending_amount: float
-    top_suppliers: List[Dict] = []
-    monthly_spending: Dict[str, float] = {}
+    top_suppliers: list[dict] = []
+    monthly_spending: dict[str, float] = {}
 
 
 class SupplierPerformance(BaseModel):

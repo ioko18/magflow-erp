@@ -5,8 +5,8 @@ providing a clean abstraction layer between business logic and database operatio
 """
 
 import logging
-from datetime import date, datetime
-from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
+from datetime import UTC, date, datetime
+from typing import Any, Generic, TypeVar
 
 from sqlalchemy import and_, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class RepositoryBase(Generic[ModelType]):
     """Base repository class providing common database operations."""
 
-    def __init__(self, model_class: Type[ModelType], db_service: DatabaseService):
+    def __init__(self, model_class: type[ModelType], db_service: DatabaseService):
         self.model_class = model_class
         self.db_service = db_service
         self.logger = logging.getLogger(f"{self.__class__.__name__}")
@@ -35,7 +35,7 @@ class RepositoryBase(Generic[ModelType]):
         """Get database session from service."""
         return await self.db_service.get_session()
 
-    async def get_by_id(self, id: Union[int, str]) -> Optional[ModelType]:
+    async def get_by_id(self, id: int | str) -> ModelType | None:
         """Get entity by ID."""
         try:
             session = await self.get_session()
@@ -53,7 +53,7 @@ class RepositoryBase(Generic[ModelType]):
                 f"Failed to retrieve {self.model_class.__name__}",
             )
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> List[ModelType]:
+    async def get_all(self, skip: int = 0, limit: int = 100) -> list[ModelType]:
         """Get all entities with pagination."""
         try:
             session = await self.get_session()
@@ -66,7 +66,7 @@ class RepositoryBase(Generic[ModelType]):
                 f"Failed to retrieve {self.model_class.__name__} list",
             )
 
-    async def create(self, data: Dict[str, Any]) -> ModelType:
+    async def create(self, data: dict[str, Any]) -> ModelType:
         """Create new entity."""
         try:
             session = await self.get_session()
@@ -87,15 +87,15 @@ class RepositoryBase(Generic[ModelType]):
 
     async def update(
         self,
-        id: Union[int, str],
-        data: Dict[str, Any],
-    ) -> Optional[ModelType]:
+        id: int | str,
+        data: dict[str, Any],
+    ) -> ModelType | None:
         """Update existing entity."""
         try:
             session = await self.get_session()
             # Add updated_at timestamp if field exists
             if hasattr(self.model_class, "updated_at"):
-                data["updated_at"] = datetime.utcnow()
+                data["updated_at"] = datetime.now(UTC)
 
             stmt = (
                 update(self.model_class)
@@ -120,7 +120,7 @@ class RepositoryBase(Generic[ModelType]):
             )
             raise DatabaseServiceError(f"Failed to update {self.model_class.__name__}")
 
-    async def delete(self, id: Union[int, str]) -> bool:
+    async def delete(self, id: int | str) -> bool:
         """Delete entity by ID."""
         try:
             session = await self.get_session()
@@ -142,7 +142,7 @@ class RepositoryBase(Generic[ModelType]):
             )
             raise DatabaseServiceError(f"Failed to delete {self.model_class.__name__}")
 
-    async def exists(self, id: Union[int, str]) -> bool:
+    async def exists(self, id: int | str) -> bool:
         """Check if entity exists."""
         try:
             session = await self.get_session()
@@ -164,7 +164,7 @@ class RepositoryBase(Generic[ModelType]):
                 f"Failed to check {self.model_class.__name__} existence",
             )
 
-    async def count(self, filters: Dict[str, Any] = None) -> int:
+    async def count(self, filters: dict[str, Any] = None) -> int:
         """Count entities with optional filters."""
         try:
             session = await self.get_session()
@@ -191,7 +191,7 @@ class UserRepository(RepositoryBase[User]):
     def __init__(self, db_service: DatabaseService):
         super().__init__(User, db_service)
 
-    async def get_by_email(self, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> User | None:
         """Get user by email address."""
         try:
             session = await self.get_session()
@@ -202,7 +202,7 @@ class UserRepository(RepositoryBase[User]):
             self.logger.error("Failed to get user by email %s: %s", email, e)
             raise DatabaseServiceError("Failed to retrieve user by email")
 
-    async def get_by_username(self, username: str) -> Optional[User]:
+    async def get_by_username(self, username: str) -> User | None:
         """Get user by username."""
         try:
             session = await self.get_session()
@@ -213,7 +213,7 @@ class UserRepository(RepositoryBase[User]):
             self.logger.error("Failed to get user by username %s: %s", username, e)
             raise DatabaseServiceError("Failed to retrieve user by username")
 
-    async def get_active_users(self, skip: int = 0, limit: int = 100) -> List[User]:
+    async def get_active_users(self, skip: int = 0, limit: int = 100) -> list[User]:
         """Get active users with pagination."""
         try:
             session = await self.get_session()
@@ -229,7 +229,7 @@ class UserRepository(RepositoryBase[User]):
         role: str,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[User]:
+    ) -> list[User]:
         """Get users by role."""
         try:
             session = await self.get_session()
@@ -245,7 +245,7 @@ class UserRepository(RepositoryBase[User]):
         search_term: str,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[User]:
+    ) -> list[User]:
         """Search users by name or email."""
         try:
             session = await self.get_session()
@@ -274,7 +274,7 @@ class ProductRepository(RepositoryBase[Product]):
     def __init__(self, db_service: DatabaseService):
         super().__init__(Product, db_service)
 
-    async def get_by_sku(self, sku: str) -> Optional[Product]:
+    async def get_by_sku(self, sku: str) -> Product | None:
         """Get product by SKU."""
         try:
             session = await self.get_session()
@@ -289,7 +289,7 @@ class ProductRepository(RepositoryBase[Product]):
         self,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Product]:
+    ) -> list[Product]:
         """Get active products with pagination."""
         try:
             session = await self.get_session()
@@ -305,7 +305,7 @@ class ProductRepository(RepositoryBase[Product]):
         category_id: int,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Product]:
+    ) -> list[Product]:
         """Get products by category."""
         try:
             session = await self.get_session()
@@ -325,7 +325,7 @@ class ProductRepository(RepositoryBase[Product]):
             )
             raise DatabaseServiceError("Failed to retrieve products by category")
 
-    async def get_low_stock_products(self, threshold: int = 10) -> List[Product]:
+    async def get_low_stock_products(self, threshold: int = 10) -> list[Product]:
         """Get products with low stock."""
         try:
             session = await self.get_session()
@@ -340,7 +340,7 @@ class ProductRepository(RepositoryBase[Product]):
         self,
         product_id: int,
         quantity_change: int,
-    ) -> Optional[Product]:
+    ) -> Product | None:
         """Update product stock quantity."""
         try:
             # First get current product
@@ -369,7 +369,7 @@ class OrderRepository(RepositoryBase[Order]):
         self,
         external_id: str,
         external_source: str,
-    ) -> Optional[Order]:
+    ) -> Order | None:
         """Get order by external identifier and source."""
 
         try:
@@ -393,8 +393,8 @@ class OrderRepository(RepositoryBase[Order]):
         self,
         external_id: str,
         external_source: str,
-        create_data: Dict[str, Any],
-        update_data: Optional[Dict[str, Any]] = None,
+        create_data: dict[str, Any],
+        update_data: dict[str, Any] | None = None,
     ) -> Order:
         """Create or update an order identified by external ID."""
 
@@ -448,7 +448,7 @@ class OrderRepository(RepositoryBase[Order]):
         customer_id: int,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Order]:
+    ) -> list[Order]:
         """Get orders by customer ID."""
         try:
             session = await self.get_session()
@@ -469,7 +469,7 @@ class OrderRepository(RepositoryBase[Order]):
         status: str,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Order]:
+    ) -> list[Order]:
         """Get orders by status."""
         try:
             session = await self.get_session()
@@ -486,7 +486,7 @@ class OrderRepository(RepositoryBase[Order]):
         end_date: date,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[Order]:
+    ) -> list[Order]:
         """Get orders within date range."""
         try:
             session = await self.get_session()
@@ -509,7 +509,7 @@ class OrderRepository(RepositoryBase[Order]):
             )
             raise DatabaseServiceError("Failed to retrieve orders by date range")
 
-    async def get_order_total(self, order_id: int) -> Optional[float]:
+    async def get_order_total(self, order_id: int) -> float | None:
         """Calculate order total from order lines."""
         try:
             session = await self.get_session()
@@ -534,7 +534,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
         user_id: int,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[AuditLog]:
+    ) -> list[AuditLog]:
         """Get audit logs by user ID."""
         try:
             session = await self.get_session()
@@ -555,7 +555,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
         action: str,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[AuditLog]:
+    ) -> list[AuditLog]:
         """Get audit logs by action type."""
         try:
             session = await self.get_session()
@@ -577,7 +577,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
         end_date: datetime,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[AuditLog]:
+    ) -> list[AuditLog]:
         """Get audit logs within date range."""
         try:
             session = await self.get_session()
@@ -603,11 +603,11 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
             )
             raise DatabaseServiceError("Failed to retrieve audit logs by date range")
 
-    async def get_failed_logins(self, hours: int = 24) -> List[AuditLog]:
+    async def get_failed_logins(self, hours: int = 24) -> list[AuditLog]:
         """Get failed login attempts within specified hours."""
         try:
             session = await self.get_session()
-            cutoff_time = datetime.utcnow() - datetime.timedelta(hours=hours)
+            cutoff_time = datetime.now(UTC) - datetime.timedelta(hours=hours)
             stmt = select(AuditLog).where(
                 and_(
                     AuditLog.action == "login_failed",
@@ -626,7 +626,7 @@ class RepositoryFactory:
 
     def __init__(self, db_service: DatabaseService):
         self.db_service = db_service
-        self._repositories: Dict[str, RepositoryBase] = {}
+        self._repositories: dict[str, RepositoryBase] = {}
 
     def get_user_repository(self) -> UserRepository:
         """Get user repository instance."""

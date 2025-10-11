@@ -4,7 +4,7 @@ This module provides a base class that all service classes should inherit from.
 It includes common functionality like logging, error handling, and service context.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.core.logging import get_logger
 from app.services.service_context import ServiceContext
@@ -16,7 +16,7 @@ class BaseService:
     Provides common functionality and utilities that all services might need.
     """
 
-    def __init__(self, context: Optional[ServiceContext] = None):
+    def __init__(self, context: ServiceContext | None = None):
         """Initialize the base service with an optional service context.
 
         Args:
@@ -51,8 +51,8 @@ class BaseService:
         await self.close()
 
     def _format_error(
-        self, message: str, error: Optional[Exception] = None, **kwargs
-    ) -> Dict[str, Any]:
+        self, message: str, error: Exception | None = None, **kwargs
+    ) -> dict[str, Any]:
         """Format an error message with additional context.
 
         Args:

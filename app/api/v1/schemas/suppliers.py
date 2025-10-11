@@ -1,8 +1,9 @@
 """Pydantic schemas for supplier management API."""
 
-from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class SupplierBase(BaseModel):
@@ -10,10 +11,10 @@ class SupplierBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     country: str = Field(default="China", min_length=2, max_length=100)
-    contact_person: Optional[str] = Field(None, max_length=255)
-    email: Optional[str] = Field(None, max_length=255)
-    phone: Optional[str] = Field(None, max_length=50)
-    website: Optional[str] = Field(None, max_length=500)
+    contact_person: str | None = Field(None, max_length=255)
+    email: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    website: str | None = Field(None, max_length=500)
 
     lead_time_days: int = Field(default=30, ge=1, le=365)
     min_order_value: float = Field(default=0.0, ge=0)
@@ -21,51 +22,53 @@ class SupplierBase(BaseModel):
     currency: str = Field(default="USD", min_length=3, max_length=3)
     payment_terms: str = Field(default="30 days", max_length=255)
 
-    specializations: Optional[Dict[str, Any]] = None
-    product_categories: Optional[List[str]] = None
+    specializations: dict[str, Any] | None = None
+    product_categories: list[str] | None = None
 
-    notes: Optional[str] = None
-    tags: Optional[List[str]] = None
+    notes: str | None = None
+    tags: list[str] | None = None
 
 
 class SupplierCreate(SupplierBase):
     """Schema for creating a new supplier."""
 
-    @validator('email')
+    @field_validator("email")
+    @classmethod
     def validate_email(cls, v):
-        if v and '@' not in v:
-            raise ValueError('Invalid email format')
+        if v and "@" not in v:
+            raise ValueError("Invalid email format")
         return v
 
 
 class SupplierUpdate(BaseModel):
     """Schema for updating supplier data."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    country: Optional[str] = Field(None, min_length=2, max_length=100)
-    contact_person: Optional[str] = Field(None, max_length=255)
-    email: Optional[str] = Field(None, max_length=255)
-    phone: Optional[str] = Field(None, max_length=50)
-    website: Optional[str] = Field(None, max_length=500)
+    name: str | None = Field(None, min_length=1, max_length=255)
+    country: str | None = Field(None, min_length=2, max_length=100)
+    contact_person: str | None = Field(None, max_length=255)
+    email: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    website: str | None = Field(None, max_length=500)
 
-    lead_time_days: Optional[int] = Field(None, ge=1, le=365)
-    min_order_value: Optional[float] = Field(None, ge=0)
-    min_order_qty: Optional[int] = Field(None, ge=1)
-    currency: Optional[str] = Field(None, min_length=3, max_length=3)
-    payment_terms: Optional[str] = Field(None, max_length=255)
+    lead_time_days: int | None = Field(None, ge=1, le=365)
+    min_order_value: float | None = Field(None, ge=0)
+    min_order_qty: int | None = Field(None, ge=1)
+    currency: str | None = Field(None, min_length=3, max_length=3)
+    payment_terms: str | None = Field(None, max_length=255)
 
-    specializations: Optional[Dict[str, Any]] = None
-    product_categories: Optional[List[str]] = None
+    specializations: dict[str, Any] | None = None
+    product_categories: list[str] | None = None
 
-    rating: Optional[float] = Field(None, ge=0.0, le=5.0)
-    is_active: Optional[bool] = None
-    notes: Optional[str] = None
-    tags: Optional[List[str]] = None
+    rating: float | None = Field(None, ge=0.0, le=5.0)
+    is_active: bool | None = None
+    notes: str | None = None
+    tags: list[str] | None = None
 
-    @validator('email')
+    @field_validator("email")
+    @classmethod
     def validate_email(cls, v):
-        if v and '@' not in v:
-            raise ValueError('Invalid email format')
+        if v and "@" not in v:
+            raise ValueError("Invalid email format")
         return v
 
 
@@ -78,8 +81,8 @@ class SupplierResponse(SupplierBase):
     on_time_delivery_rate: float = 0.0
     quality_score: float = 5.0
     is_active: bool = True
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -93,7 +96,7 @@ class SupplierProductBase(BaseModel):
     supplier_image_url: str = Field(..., max_length=1000)
     supplier_price: float = Field(..., ge=0)
     supplier_currency: str = Field(default="CNY", min_length=3, max_length=3)
-    supplier_specifications: Optional[Dict[str, Any]] = None
+    supplier_specifications: dict[str, Any] | None = None
 
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
     manual_confirmed: bool = False
@@ -111,12 +114,12 @@ class SupplierProductResponse(SupplierProductBase):
     id: int
     supplier_id: int
     local_product_id: int
-    confirmed_by: Optional[int] = None
-    confirmed_at: Optional[datetime] = None
+    confirmed_by: int | None = None
+    confirmed_at: datetime | None = None
     is_active: bool = True
-    last_price_update: Optional[datetime] = None
-    price_history: Optional[List[Dict[str, Any]]] = None
-    created_at: Optional[datetime] = None
+    last_price_update: datetime | None = None
+    price_history: list[dict[str, Any]] | None = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -125,15 +128,17 @@ class SupplierProductResponse(SupplierProductBase):
 class PurchaseOrderBase(BaseModel):
     """Base schema for purchase orders."""
 
-    status: str = Field(default="draft", regex="^(draft|sent|confirmed|shipped|delivered|cancelled)$")
-    expected_delivery_date: Optional[datetime] = None
+    status: str = Field(
+        default="draft", regex="^(draft|sent|confirmed|shipped|delivered|cancelled)$"
+    )
+    expected_delivery_date: datetime | None = None
     total_value: float = Field(default=0.0, ge=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
     exchange_rate: float = Field(default=1.0, ge=0)
-    order_items: Optional[List[Dict[str, Any]]] = None
-    supplier_confirmation: Optional[str] = Field(None, max_length=1000)
-    internal_notes: Optional[str] = None
-    attachments: Optional[List[str]] = None
+    order_items: list[dict[str, Any]] | None = None
+    supplier_confirmation: str | None = Field(None, max_length=1000)
+    internal_notes: str | None = None
+    attachments: list[str] | None = None
 
 
 class PurchaseOrderCreate(PurchaseOrderBase):
@@ -149,11 +154,11 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     order_number: str
     supplier_id: int
     order_date: datetime
-    actual_delivery_date: Optional[datetime] = None
-    quality_check_passed: Optional[bool] = None
-    quality_notes: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    actual_delivery_date: datetime | None = None
+    quality_check_passed: bool | None = None
+    quality_notes: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -163,19 +168,21 @@ class PurchaseOrderItemBase(BaseModel):
     """Base schema for purchase order items."""
 
     quantity_ordered: int = Field(..., gt=0)
-    quantity_received: Optional[int] = Field(None, ge=0)
+    quantity_received: int | None = Field(None, ge=0)
     unit_price: float = Field(..., ge=0)
     total_price: float = Field(..., ge=0)
-    expected_delivery_date: Optional[datetime] = None
-    actual_delivery_date: Optional[datetime] = None
-    quality_status: str = Field(default="pending", regex="^(pending|passed|failed|partial)$")
-    quality_notes: Optional[str] = None
+    expected_delivery_date: datetime | None = None
+    actual_delivery_date: datetime | None = None
+    quality_status: str = Field(
+        default="pending", regex="^(pending|passed|failed|partial)$"
+    )
+    quality_notes: str | None = None
 
 
 class PurchaseOrderItemCreate(PurchaseOrderItemBase):
     """Schema for creating purchase order items."""
 
-    supplier_product_id: Optional[int] = None
+    supplier_product_id: int | None = None
     local_product_id: int
 
 
@@ -184,10 +191,10 @@ class PurchaseOrderItemResponse(PurchaseOrderItemBase):
 
     id: int
     purchase_order_id: int
-    supplier_product_id: Optional[int] = None
+    supplier_product_id: int | None = None
     local_product_id: int
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -198,8 +205,8 @@ class SupplierPerformanceBase(BaseModel):
 
     metric_type: str = Field(..., min_length=1, max_length=50)
     metric_value: float = Field(...)
-    order_id: Optional[int] = None
-    notes: Optional[str] = Field(None, max_length=500)
+    order_id: int | None = None
+    notes: str | None = Field(None, max_length=500)
 
 
 class SupplierPerformanceResponse(SupplierPerformanceBase):
@@ -207,7 +214,7 @@ class SupplierPerformanceResponse(SupplierPerformanceBase):
 
     id: int
     supplier_id: int
-    created_at: Optional[datetime] = None
+    created_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -224,8 +231,8 @@ class SupplierAnalyticsResponse(BaseModel):
     on_time_delivery_rate: float
     avg_lead_time: float
     quality_score: float
-    last_order_date: Optional[datetime] = None
-    performance_trend: List[Dict[str, Any]]
+    last_order_date: datetime | None = None
+    performance_trend: list[dict[str, Any]]
 
     class Config:
         from_attributes = True
@@ -235,10 +242,10 @@ class SupplierComparisonResponse(BaseModel):
     """Schema for comparing suppliers."""
 
     product_id: int
-    suppliers: List[Dict[str, Any]]
-    best_supplier: Dict[str, Any]
-    price_range: Dict[str, float]
-    delivery_time_range: Dict[str, int]
+    suppliers: list[dict[str, Any]]
+    best_supplier: dict[str, Any]
+    price_range: dict[str, float]
+    delivery_time_range: dict[str, int]
 
     class Config:
         from_attributes = True

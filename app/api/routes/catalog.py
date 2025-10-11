@@ -3,12 +3,9 @@
 Provides product, brand, and characteristic endpoints used by integration tests.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-
-from typing import Optional
 from uuid import UUID
 
-from app.security.jwt import get_current_active_user
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.schemas.auth import UserInDB
 from app.schemas.catalog import (
@@ -20,6 +17,7 @@ from app.schemas.catalog import (
     ProductListResponse,
     ProductUpdate,
 )
+from app.security.jwt import get_current_active_user
 from app.services.catalog_service import CatalogService
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
@@ -33,16 +31,16 @@ def get_service() -> CatalogService:
 @router.get("/products", response_model=ProductListResponse)
 async def list_products(
     current_user: UserInDB = Depends(get_current_active_user),
-    q: Optional[str] = None,
-    category_id: Optional[int] = None,
-    brand_id: Optional[int] = None,
-    status: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    in_stock: Optional[bool] = None,
+    q: str | None = None,
+    category_id: int | None = None,
+    brand_id: int | None = None,
+    status: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    in_stock: bool | None = None,
     limit: int = 20,
-    sort_by: Optional[str] = None,
-    sort_direction: Optional[str] = None,
+    sort_by: str | None = None,
+    sort_direction: str | None = None,
     service: CatalogService = Depends(get_service),
 ) -> ProductListResponse:
     # Forward parameters via schema the service expects
@@ -117,9 +115,9 @@ async def delete_product(
 
 @router.get("/brands", response_model=BrandListResponse)
 async def list_brands(
-    q: Optional[str] = None,
+    q: str | None = None,
     limit: int = 20,
-    cursor: Optional[str] = None,
+    cursor: str | None = None,
     service: CatalogService = Depends(get_service),
 ) -> BrandListResponse:
     return await service.list_brands(q=q, limit=limit, cursor=cursor)
@@ -137,7 +135,7 @@ async def get_brand(
 async def list_characteristics(
     category_id: int,
     limit: int = 20,
-    cursor: Optional[str] = None,
+    cursor: str | None = None,
     service: CatalogService = Depends(get_service),
 ) -> CharacteristicListResponse:
     return await service.list_characteristics(

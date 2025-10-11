@@ -1,7 +1,7 @@
 """merge heads
 
 Revision ID: 1519392e1e24
-Revises: 86f7456767fd, initial_schema
+Revises: 86f7456767fd
 Create Date: 2025-09-24 09:08:58.357004
 
 """

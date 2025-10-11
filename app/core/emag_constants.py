@@ -6,11 +6,11 @@ from eMAG Marketplace API v4.4.8 specification.
 """
 
 from enum import Enum
-from typing import Dict
 
 
 class OrderStatus(Enum):
     """Order processing status codes."""
+
     CANCELED = 0
     NEW = 1
     IN_PROGRESS = 2
@@ -21,18 +21,21 @@ class OrderStatus(Enum):
 
 class OrderCompleteness(Enum):
     """Order completeness status."""
+
     INCOMPLETE = 0
     COMPLETE = 1
 
 
 class FulfillmentType(Enum):
     """Order fulfillment type."""
+
     FBE = 2  # Fulfilled by eMAG
     FBS = 3  # Fulfilled by Seller
 
 
 class PaymentMode(Enum):
     """Payment method codes."""
+
     COD = 1  # Cash on Delivery
     BANK_TRANSFER = 2
     CARD_ONLINE = 3
@@ -40,18 +43,20 @@ class PaymentMode(Enum):
 
 class PaymentStatus(Enum):
     """Payment status for online payments."""
+
     NOT_PAID = 0
     PAID = 1
 
 
 class DeliveryMode(Enum):
     """Delivery method types."""
+
     COURIER = "courier"  # Home delivery
     PICKUP = "pickup"  # Locker/pickup point
 
 
 # Order Cancellation Reasons (Section 5.1.6 from guide)
-CANCELLATION_REASONS: Dict[int, str] = {
+CANCELLATION_REASONS: dict[int, str] = {
     1: "Lipsă stoc",
     2: "Anulat de client",
     3: "Clientul nu poate fi contactat",
@@ -86,6 +91,7 @@ CANCELLATION_REASONS: Dict[int, str] = {
 # eMAG API Error Codes (Section 2.3 from guide)
 class EmagErrorCode(Enum):
     """eMAG API error codes."""
+
     # Authentication errors
     AUTH_INVALID_CREDENTIALS = "AUTH_INVALID_CREDENTIALS"
     AUTH_IP_NOT_WHITELISTED = "AUTH_IP_NOT_WHITELISTED"
@@ -103,7 +109,7 @@ class EmagErrorCode(Enum):
     BUSINESS_INSUFFICIENT_STOCK = "BUSINESS_INSUFFICIENT_STOCK"
 
 
-ERROR_CODE_MESSAGES: Dict[str, str] = {
+ERROR_CODE_MESSAGES: dict[str, str] = {
     "AUTH_INVALID_CREDENTIALS": "Credentiale invalide",
     "AUTH_IP_NOT_WHITELISTED": "IP neautorizat",
     "VALIDATION_MISSING_FIELD": "Câmp obligatoriu lipsă",
@@ -118,6 +124,7 @@ ERROR_CODE_MESSAGES: Dict[str, str] = {
 # Rate Limiting Configuration (Section 2.1 from guide)
 class RateLimits:
     """eMAG API rate limits per resource type."""
+
     ORDERS_RPS = 12  # Requests per second for orders
     ORDERS_RPM = 720  # Requests per minute for orders
     OTHER_RPS = 3  # Requests per second for other resources
@@ -128,6 +135,7 @@ class RateLimits:
 # HTTP Status Codes
 class HttpStatus:
     """HTTP status codes used by eMAG API."""
+
     OK = 200
     BAD_REQUEST = 400
     UNAUTHORIZED = 401
@@ -140,6 +148,7 @@ class HttpStatus:
 # Sync Configuration
 class SyncConfig:
     """Default synchronization configuration."""
+
     MAX_PAGES_PER_SYNC = 100
     ITEMS_PER_PAGE = 100
     DEFAULT_DELAY_BETWEEN_REQUESTS = 1.2  # seconds
@@ -152,6 +161,7 @@ class SyncConfig:
 # Product Status
 class ProductStatus(Enum):
     """Product status codes."""
+
     INACTIVE = 0
     ACTIVE = 1
 
@@ -159,6 +169,7 @@ class ProductStatus(Enum):
 # Monitoring Thresholds (Section 2.6 from guide)
 class MonitoringThresholds:
     """Thresholds for monitoring and alerting."""
+
     HIGH_ERROR_RATE = 0.05  # 5% error rate
     SLOW_RESPONSE_MS = 2000  # 2 seconds
     RATE_LIMIT_WARNING = 0.8  # 80% of rate limit
@@ -167,10 +178,10 @@ class MonitoringThresholds:
 
 def get_cancellation_reason_text(code: int) -> str:
     """Get human-readable text for cancellation reason code.
-    
+
     Args:
         code: Cancellation reason code (1-39)
-        
+
     Returns:
         Human-readable description of the cancellation reason
     """
@@ -179,10 +190,10 @@ def get_cancellation_reason_text(code: int) -> str:
 
 def get_order_status_text(status: int) -> str:
     """Get human-readable text for order status code.
-    
+
     Args:
         status: Order status code (0-5)
-        
+
     Returns:
         Human-readable description of the order status
     """
@@ -199,10 +210,10 @@ def get_order_status_text(status: int) -> str:
 
 def get_payment_mode_text(mode: int) -> str:
     """Get human-readable text for payment mode.
-    
+
     Args:
         mode: Payment mode code (1-3)
-        
+
     Returns:
         Human-readable description of the payment mode
     """

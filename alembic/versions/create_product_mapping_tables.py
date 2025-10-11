@@ -1,7 +1,7 @@
 """create product mapping tables
 
 Revision ID: create_product_mapping
-Revises: 
+Revises: 20251001_034500
 Create Date: 2025-10-01 10:55:00.000000
 
 """

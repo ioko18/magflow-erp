@@ -1,6 +1,5 @@
 from datetime import datetime
 from enum import Enum
-from typing import List, Optional
 
 from fastapi import Form
 from pydantic import (
@@ -10,7 +9,7 @@ from pydantic import (
     Field,
     HttpUrl,
     field_serializer,
-    validator,
+    field_validator,
 )
 
 
@@ -25,8 +24,8 @@ class TokenBase(BaseModel):
     token: str
     token_type: TokenType
     expires_in: int = Field(default=3600, description="Token lifetime in seconds")
-    refresh_token: Optional[str] = None
-    refresh_token_expires_in: Optional[int] = Field(
+    refresh_token: str | None = None
+    refresh_token_expires_in: int | None = Field(
         default=2592000,
         description="Refresh token lifetime in seconds",  # 30 days
     )
@@ -49,7 +48,7 @@ class TokenData(BaseModel):
 
     sub: str = Field(..., description="Subject (user identifier)")
     username: str
-    roles: List[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
     is_active: bool = True
     exp: datetime
     iat: datetime = Field(default_factory=datetime.utcnow)
@@ -85,13 +84,13 @@ class UserBase(BaseModel):
         example="johndoe",
     )
     email: EmailStr = Field(..., example="user@example.com")
-    full_name: Optional[str] = Field(
+    full_name: str | None = Field(
         None,
         min_length=1,
         max_length=100,
         example="John Doe",
     )
-    avatar_url: Optional[HttpUrl] = Field(
+    avatar_url: HttpUrl | None = Field(
         None,
         description="URL to user's avatar image",
     )
@@ -115,10 +114,10 @@ class UserInDB(UserBase):
 
     id: int
     hashed_password: str
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
     failed_login_attempts: int = 0
-    last_failed_login: Optional[datetime] = None
-    password_changed_at: Optional[datetime] = None
+    last_failed_login: datetime | None = None
+    password_changed_at: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -135,8 +134,8 @@ class UserInDB(UserBase):
         when_used="json",
     )
     def serialize_optional_datetime(
-        self, value: Optional[datetime], _info
-    ) -> Optional[str]:
+        self, value: datetime | None, _info
+    ) -> str | None:
         return value.isoformat() if value else None
 
 
@@ -146,7 +145,7 @@ class User(UserBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
     is_verified: bool = False
 
     model_config = ConfigDict(from_attributes=True)
@@ -157,8 +156,8 @@ class User(UserBase):
 
     @field_serializer("last_login", when_used="json")
     def serialize_optional_datetime(
-        self, value: Optional[datetime], _info
-    ) -> Optional[str]:
+        self, value: datetime | None, _info
+    ) -> str | None:
         return value.isoformat() if value else None
 
 
@@ -180,14 +179,15 @@ class UserCreate(BaseModel):
         description="Must be at least 12 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character",
         example="Str0ngP@ssword!",
     )
-    full_name: Optional[str] = Field(
+    full_name: str | None = Field(
         None,
         min_length=1,
         max_length=100,
         example="John Doe",
     )
 
-    @validator("password")
+    @field_validator("password")
+    @classmethod
     def validate_password_strength(cls, v):
         if len(v) < 12:
             raise ValueError("Password must be at least 12 characters long")
@@ -205,18 +205,19 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """User update schema"""
 
-    email: Optional[EmailStr] = None
-    full_name: Optional[str] = None
-    avatar_url: Optional[HttpUrl] = None
-    current_password: Optional[str] = None
-    new_password: Optional[str] = Field(
+    email: EmailStr | None = None
+    full_name: str | None = None
+    avatar_url: HttpUrl | None = None
+    current_password: str | None = None
+    new_password: str | None = Field(
         None,
         min_length=12,
         max_length=128,
         description="New password (if changing)",
     )
 
-    @validator("new_password")
+    @field_validator("new_password")
+    @classmethod
     def validate_new_password(cls, v, values):
         if v is not None and "current_password" not in values:
             raise ValueError("Current password is required to set a new password")
@@ -239,12 +240,12 @@ class OAuth2TokenRequestForm:
     def __init__(
         self,
         grant_type: str = Form(..., regex="password|refresh_token|client_credentials"),
-        username: Optional[str] = Form(None),
-        password: Optional[str] = Form(None),
-        refresh_token: Optional[str] = Form(None),
+        username: str | None = Form(None),
+        password: str | None = Form(None),
+        refresh_token: str | None = Form(None),
         scope: str = Form(""),
-        client_id: Optional[str] = Form(None),
-        client_secret: Optional[str] = Form(None),
+        client_id: str | None = Form(None),
+        client_secret: str | None = Form(None),
     ):
         self.grant_type = grant_type
         self.username = username

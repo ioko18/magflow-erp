@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.emag_integration_service import (
+from app.services.emag.emag_integration_service import (
     EmagApiConfig,
     EmagApiEnvironment,
     EmagIntegrationService,

@@ -1,8 +1,8 @@
 import base64
 import json
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic.generics import GenericModel
 
 T = TypeVar("T")
@@ -17,12 +17,13 @@ class CursorParams(BaseModel):
         le=100,
         description="Maximum number of items to return (1-100)",
     )
-    after: Optional[str] = Field(
+    after: str | None = Field(
         default=None,
         description="Cursor for pagination (base64-encoded JSON with 'created_at' and 'id')",
     )
 
-    @validator("after")
+    @field_validator("after")
+    @classmethod
     def validate_cursor(cls, v):
         if v is None:
             return None
@@ -38,8 +39,8 @@ class CursorParams(BaseModel):
 class CursorPagination(GenericModel, Generic[T]):
     """Cursor-based pagination response model."""
 
-    items: List[T]
-    next_cursor: Optional[str] = Field(
+    items: list[T]
+    next_cursor: str | None = Field(
         None,
         description="Base64-encoded cursor for the next page, or None if this is the last page",
     )
@@ -48,7 +49,7 @@ class CursorPagination(GenericModel, Generic[T]):
     @classmethod
     def from_results(
         cls,
-        items: List[T],
+        items: list[T],
         limit: int,
         cursor_field: str = "created_at",
         cursor_id_field: str = "id",
@@ -86,7 +87,7 @@ class CursorPagination(GenericModel, Generic[T]):
         return cls(items=items, next_cursor=next_cursor, has_more=has_more)
 
 
-def decode_cursor(cursor: Optional[str]) -> Optional[Dict[str, Any]]:
+def decode_cursor(cursor: str | None) -> dict[str, Any] | None:
     """Decode a base64-encoded cursor to its original data.
 
     Args:

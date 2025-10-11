@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.emag_integration_service import EmagRateLimiter
+from app.services.emag.emag_integration_service import EmagRateLimiter
 
 
 class TestEmagRateLimiter:
@@ -168,7 +168,7 @@ class TestEmagRateLimiterIntegration:
     @pytest.mark.asyncio
     async def test_rate_limiter_integration(self):
         """Test rate limiter integration with API client."""
-        from app.services.emag_integration_service import EmagApiClient, EmagApiConfig
+        from app.services.emag.emag_integration_service import EmagApiClient, EmagApiConfig
 
         config = EmagApiConfig(
             environment="sandbox",
@@ -187,7 +187,7 @@ class TestEmagRateLimiterIntegration:
     @pytest.mark.asyncio
     async def test_resource_type_detection(self):
         """Test that API client properly detects resource types."""
-        from app.services.emag_integration_service import EmagApiClient, EmagApiConfig
+        from app.services.emag.emag_integration_service import EmagApiClient, EmagApiConfig
 
         config = EmagApiConfig(
             environment="sandbox",

@@ -8,11 +8,11 @@ This service generates customized Excel files for supplier orders based on:
 
 import io
 import logging
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any
 
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from app.models.supplier import Supplier, SupplierProduct
@@ -24,13 +24,15 @@ class ExcelGeneratorService:
     """Service for generating Excel files for supplier orders."""
 
     def __init__(self):
-        self.templates_dir = "supplier_templates"  # Directory for supplier-specific templates
+        self.templates_dir = (
+            "supplier_templates"  # Directory for supplier-specific templates
+        )
 
     async def generate_supplier_order_excel(
         self,
         supplier: Supplier,
-        supplier_products: List[SupplierProduct],
-        order_metadata: Optional[Dict[str, Any]] = None
+        supplier_products: list[SupplierProduct],
+        order_metadata: dict[str, Any] | None = None,
     ) -> bytes:
         """Generate Excel file for supplier order."""
 
@@ -60,46 +62,62 @@ class ExcelGeneratorService:
         wb.save(excel_buffer)
         excel_buffer.seek(0)
 
-        logger.info(f"Generated Excel order for supplier {supplier.name} with {len(supplier_products)} products")
+        logger.info(
+            f"Generated Excel order for supplier {supplier.name} with {len(supplier_products)} products"
+        )
         return excel_buffer.getvalue()
 
-    def _add_order_header(self, sheet, supplier: Supplier, metadata: Optional[Dict[str, Any]] = None):
+    def _add_order_header(
+        self, sheet, supplier: Supplier, metadata: dict[str, Any] | None = None
+    ):
         """Add order header information."""
 
         # Company info (would be configurable)
-        sheet['A1'] = "MAGFLOW ELECTRONICS SRL"
-        sheet['A2'] = "Order către furnizor"
-        sheet['A3'] = f"Furnizor: {supplier.name}"
-        sheet['A4'] = f"Țară: {supplier.country}"
-        sheet['A5'] = f"Data comandă: {datetime.now().strftime('%Y-%m-%d')}"
+        sheet["A1"] = "MAGFLOW ELECTRONICS SRL"
+        sheet["A2"] = "Order către furnizor"
+        sheet["A3"] = f"Furnizor: {supplier.name}"
+        sheet["A4"] = f"Țară: {supplier.country}"
+        sheet["A5"] = f"Data comandă: {datetime.now().strftime('%Y-%m-%d')}"
 
         if metadata:
-            if 'order_number' in metadata:
-                sheet['A6'] = f"Număr comandă: {metadata['order_number']}"
-            if 'contact_person' in metadata:
-                sheet['A7'] = f"Persoană contact: {metadata['contact_person']}"
+            if "order_number" in metadata:
+                sheet["A6"] = f"Număr comandă: {metadata['order_number']}"
+            if "contact_person" in metadata:
+                sheet["A7"] = f"Persoană contact: {metadata['contact_person']}"
 
         # Style header
         header_font = Font(bold=True, size=12)
         for row in range(1, 8):
-            cell = sheet[f'A{row}']
+            cell = sheet[f"A{row}"]
             cell.font = header_font
 
-    def _add_products_table(self, sheet, supplier_products: List[SupplierProduct], start_row: int):
+    def _add_products_table(
+        self, sheet, supplier_products: list[SupplierProduct], start_row: int
+    ):
         """Add products table with supplier mappings."""
 
         # Table headers
         headers = [
-            'Nr.', 'Nume Produs Local', 'SKU Local', 'Nume Chinezesc',
-            'Cantitate', 'Preț Furnizor', 'Monedă', 'Valoare Totală',
-            'Link 1688', 'Imagine', 'Note'
+            "Nr.",
+            "Nume Produs Local",
+            "SKU Local",
+            "Nume Chinezesc",
+            "Cantitate",
+            "Preț Furnizor",
+            "Monedă",
+            "Valoare Totală",
+            "Link 1688",
+            "Imagine",
+            "Note",
         ]
 
         # Add headers
         for col, header in enumerate(headers, 1):
             cell = sheet.cell(row=start_row, column=col, value=header)
             cell.font = Font(bold=True)
-            cell.fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
+            cell.fill = PatternFill(
+                start_color="CCCCCC", end_color="CCCCCC", fill_type="solid"
+            )
 
         # Add product data
         for idx, supplier_product in enumerate(supplier_products, 1):
@@ -118,7 +136,9 @@ class ExcelGeneratorService:
             sheet.cell(row=row, column=5, value=100)  # Quantity (would be calculated)
             sheet.cell(row=row, column=6, value=supplier_product.supplier_price)
             sheet.cell(row=row, column=7, value=supplier_product.supplier_currency)
-            sheet.cell(row=row, column=8, value=f"=E{row}*F{row}")  # Total value formula
+            sheet.cell(
+                row=row, column=8, value=f"=E{row}*F{row}"
+            )  # Total value formula
             sheet.cell(row=row, column=9, value=supplier_product.supplier_product_url)
             sheet.cell(row=row, column=10, value=supplier_product.supplier_image_url)
 
@@ -128,9 +148,9 @@ class ExcelGeneratorService:
             sheet.column_dimensions[column_letter].width = 15
 
         # Make URL and image columns wider
-        sheet.column_dimensions['I'].width = 30
-        sheet.column_dimensions['J'].width = 30
-        sheet.column_dimensions['K'].width = 20
+        sheet.column_dimensions["I"].width = 30
+        sheet.column_dimensions["J"].width = 30
+        sheet.column_dimensions["K"].width = 20
 
     def _add_order_footer(self, sheet, supplier: Supplier, product_count: int):
         """Add order summary and footer."""
@@ -168,19 +188,37 @@ class ExcelGeneratorService:
         sheet.cell(row=terms_row, column=1).font = Font(bold=True)
 
         terms_row += 1
-        sheet.cell(row=terms_row, column=1, value="1. Calitatea produselor trebuie să corespundă specificațiilor.")
+        sheet.cell(
+            row=terms_row,
+            column=1,
+            value="1. Calitatea produselor trebuie să corespundă specificațiilor.",
+        )
         terms_row += 1
-        sheet.cell(row=terms_row, column=1, value="2. Livrarea trebuie efectuată în termenul specificat.")
+        sheet.cell(
+            row=terms_row,
+            column=1,
+            value="2. Livrarea trebuie efectuată în termenul specificat.",
+        )
         terms_row += 1
-        sheet.cell(row=terms_row, column=1, value="3. Factura trebuie emisă în termen de 3 zile de la livrare.")
+        sheet.cell(
+            row=terms_row,
+            column=1,
+            value="3. Factura trebuie emisă în termen de 3 zile de la livrare.",
+        )
         terms_row += 1
-        sheet.cell(row=terms_row, column=1, value="4. Orice problemă de calitate va fi comunicată în maxim 7 zile.")
+        sheet.cell(
+            row=terms_row,
+            column=1,
+            value="4. Orice problemă de calitate va fi comunicată în maxim 7 zile.",
+        )
 
     def _apply_formatting(self, sheet):
         """Apply consistent formatting to the sheet."""
 
         # Header styling
-        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        header_fill = PatternFill(
+            start_color="4F81BD", end_color="4F81BD", fill_type="solid"
+        )
         header_font = Font(bold=True, color="FFFFFF")
 
         for row in range(1, 20):  # First 20 rows for header area
@@ -191,14 +229,14 @@ class ExcelGeneratorService:
                 elif row == 10:  # Header row
                     cell.fill = header_fill
                     cell.font = header_font
-                    cell.alignment = Alignment(horizontal='center')
+                    cell.alignment = Alignment(horizontal="center")
 
         # Border for product table
         thin_border = Border(
-            left=Side(style='thin'),
-            right=Side(style='thin'),
-            top=Side(style='thin'),
-            bottom=Side(style='thin')
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
         )
 
         for row in range(10, sheet.max_row + 1):
@@ -206,9 +244,7 @@ class ExcelGeneratorService:
                 sheet.cell(row=row, column=col).border = thin_border
 
     async def generate_custom_template(
-        self,
-        supplier_id: int,
-        template_config: Dict[str, Any]
+        self, supplier_id: int, template_config: dict[str, Any]
     ) -> str:
         """Generate a custom Excel template for a supplier."""
 
@@ -230,7 +266,9 @@ class ExcelGeneratorService:
 
         return template_path
 
-    async def validate_excel_format(self, file_path: str, supplier_id: int) -> Dict[str, Any]:
+    async def validate_excel_format(
+        self, file_path: str, supplier_id: int
+    ) -> dict[str, Any]:
         """Validate if uploaded Excel matches supplier template."""
 
         # Load and validate Excel structure
@@ -240,7 +278,7 @@ class ExcelGeneratorService:
             "valid": True,
             "errors": [],
             "warnings": [],
-            "column_mapping": {}
+            "column_mapping": {},
         }
 
         # Placeholder validation logic

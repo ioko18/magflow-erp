@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, TypeVar
 
 import yaml
 
@@ -29,7 +29,7 @@ class ConfigurationSection:
         """Validate configuration section."""
         return True
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
@@ -294,7 +294,7 @@ class AppConfig:
             self.debug = True
             self.logging.level = "DEBUG"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary."""
         result = {
             "environment": self.environment,
@@ -318,7 +318,7 @@ class AppConfig:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "AppConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "AppConfig":
         """Create configuration from dictionary."""
         config = cls()
 
@@ -396,19 +396,16 @@ class ConfigurationManager:
     """Manager for handling configuration loading and validation."""
 
     def __init__(self):
-        self._config: Optional[AppConfig] = None
-        self._config_files: Dict[str, str] = {
+        self._config: AppConfig | None = None
+        self._config_files: dict[str, str] = {
             "development": "config/development.yaml",
             "production": "config/production.yaml",
             "testing": "config/testing.yaml",
         }
 
-    def load_configuration(self, environment: Optional[str] = None) -> AppConfig:
+    def load_configuration(self, environment: str | None = None) -> AppConfig:
         """Load configuration for specified environment."""
-        if environment:
-            env = environment
-        else:
-            env = os.getenv("APP_ENV", "development")
+        env = environment or os.getenv("APP_ENV", "development")
 
         config = AppConfig.from_env()
 
@@ -429,7 +426,7 @@ class ConfigurationManager:
 
         return config
 
-    def _load_config_file(self, file_path: str) -> Dict[str, Any]:
+    def _load_config_file(self, file_path: str) -> dict[str, Any]:
         """Load configuration from file."""
         path = Path(file_path)
 
@@ -464,7 +461,7 @@ class ConfigurationManager:
         env = os.getenv("APP_ENV", "development")
         return self.load_configuration(env)
 
-    def update_config(self, updates: Dict[str, Any]):
+    def update_config(self, updates: dict[str, Any]):
         """Update configuration at runtime."""
         if not self._config:
             raise ConfigurationError("Configuration not loaded")
@@ -505,7 +502,7 @@ def get_config() -> AppConfig:
     return _config_manager.get_config()
 
 
-def load_config(environment: Optional[str] = None) -> AppConfig:
+def load_config(environment: str | None = None) -> AppConfig:
     """Load application configuration."""
     return _config_manager.load_configuration(environment)
 
@@ -515,7 +512,7 @@ def reload_config() -> AppConfig:
     return _config_manager.reload_config()
 
 
-def update_config(updates: Dict[str, Any]):
+def update_config(updates: dict[str, Any]):
     """Update configuration at runtime."""
     _config_manager.update_config(updates)
 

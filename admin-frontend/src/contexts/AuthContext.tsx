@@ -9,13 +9,16 @@ export interface User {
   full_name: string;
   is_active: boolean;
   is_superuser: boolean;
+  role: string; // 'admin' | 'manager' | 'operator' | 'viewer'
   roles?: Array<{ id: number; name: string }>;
+  permissions?: string[];
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  loading: boolean; // Alias for isLoading
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
@@ -127,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         isLoading,
+        loading: isLoading, // Alias
         login,
         logout,
         checkAuth,

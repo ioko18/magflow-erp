@@ -12,9 +12,9 @@ import logging
 import os
 import socket
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import Filter, LogRecord
-from typing import Any, Dict
+from typing import Any
 
 import structlog
 from opentelemetry import trace
@@ -66,7 +66,7 @@ class RequestIdFilter(Filter):
 request_context = {}
 
 
-def get_request_context() -> Dict[str, Any]:
+def get_request_context() -> dict[str, Any]:
     """Get the current request context."""
     return request_context.copy()
 
@@ -83,7 +83,7 @@ def clear_request_context() -> None:
     request_context = {}
 
 
-def get_trace_info() -> Dict[str, str]:
+def get_trace_info() -> dict[str, str]:
     """Get OpenTelemetry trace and span IDs if available."""
     span = trace.get_current_span()
     if not span or not span.get_span_context().is_valid:
@@ -103,8 +103,8 @@ def get_trace_info() -> Dict[str, str]:
 def add_request_context(
     logger: logging.Logger,
     method_name: str,
-    event_dict: Dict[str, Any],
-) -> Dict[str, Any]:
+    event_dict: dict[str, Any],
+) -> dict[str, Any]:
     """Add request context to log records."""
     # Add request context if available
     request_ctx = get_request_context()
@@ -125,7 +125,7 @@ def add_request_context(
     # Add standard fields
     event_dict.update(
         {
-            "@timestamp": datetime.now(timezone.utc).isoformat(),
+            "@timestamp": datetime.now(UTC).isoformat(),
             "logger": logger.name,
             "level": method_name.upper(),
             "service": "magflow-api",
