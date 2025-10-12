@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'perf_idx_20251010'
-down_revision = 'bd898485abe9'  # Latest migration
+down_revision = '4242d9721c62'  # Latest migration
 branch_labels = None
 depends_on = None
 

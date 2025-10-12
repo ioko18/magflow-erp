@@ -1,10 +1,11 @@
 """Add enhanced eMAG integration models
 
 Revision ID: 20250929_add_enhanced_emag_models
-Revises: 20250928_add_external_id
+Revises: 4242d9721c62
 Create Date: 2025-09-29 16:10:00.000000
 
 """
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -13,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20250929_add_enhanced_emag_models"
-down_revision = "20250928_add_external_id"
+down_revision = "4242d9721c62"
 branch_labels = None
 depends_on = None
 

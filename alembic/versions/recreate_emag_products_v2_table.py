@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'recreate_emag_v2'
-down_revision = 'fix_emag_v2_cols'
+down_revision = '4242d9721c62'
 branch_labels = None
 depends_on = None
 

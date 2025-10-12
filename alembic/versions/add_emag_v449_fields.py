@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_emag_v449_fields'
-down_revision = 'c8e960008812'  # Links to add_shipping_tax_voucher_split_to_orders
+down_revision = '86f7456767fd'  # Links to add_shipping_tax_voucher_split_to_orders
 branch_labels = None
 depends_on = None
 

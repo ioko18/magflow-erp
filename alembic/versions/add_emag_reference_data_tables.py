@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_emag_reference_data'
-down_revision = '3880b6b52d31'  # merge_emag_v449_heads
+down_revision = '4242d9721c62'  # merge_emag_v449_heads
 branch_labels = None
 depends_on = None
 

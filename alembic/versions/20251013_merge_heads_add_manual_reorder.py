@@ -1,7 +1,7 @@
 """Merge multiple heads and add manual_reorder_quantity column
 
 Revision ID: 20251013_merge_heads
-Revises: 20251001_add_unique_constraint_sync_progress, 20251011_enhanced_po_adapted, add_emag_orders_v2, add_emag_reference_data, add_emag_v449_fields, add_invoice_names, create_product_mapping, create_supplier_sheets, perf_idx_20251010, recreate_emag_v2, supplier_matching_001
+Revises: 20251011_enhanced_po_adapted, add_emag_orders_v2, add_emag_reference_data, add_emag_v449_fields, create_product_mapping, create_supplier_sheets, perf_idx_20251010, recreate_emag_v2, supplier_matching_001
 Create Date: 2025-10-13 01:25:00.000000
 
 """
@@ -14,12 +14,10 @@ from alembic import op
 # revision identifiers, used by Alembic.
 revision: str = '20251013_merge_heads'
 down_revision: str | Sequence[str] | None = (
-    '20251001_add_unique_constraint_sync_progress',
     '20251011_enhanced_po_adapted',
     'add_emag_orders_v2',
     'add_emag_reference_data',
     'add_emag_v449_fields',
-    'add_invoice_names',
     'create_product_mapping',
     'create_supplier_sheets',
     'perf_idx_20251010',
@@ -291,7 +289,7 @@ def upgrade() -> None:
         if 'display_order' not in products_columns:
             op.add_column(
                 'products',
-                sa.Column('display_order', sa.Integer(), nullable=True, 
+                sa.Column('display_order', sa.Integer(), nullable=True,
                          comment='Custom display order for product listing (lower numbers appear first)'),
                 schema='app'
             )
@@ -365,12 +363,12 @@ def upgrade() -> None:
     try:
         if 'emag_sync_logs' in inspector.get_table_names(schema='app'):
             sync_logs_columns = [col['name'] for col in inspector.get_columns('emag_sync_logs', schema='app')]
-            
+
             if 'created_at' not in sync_logs_columns:
-                op.add_column('emag_sync_logs', sa.Column('created_at', sa.DateTime(), nullable=False, 
+                op.add_column('emag_sync_logs', sa.Column('created_at', sa.DateTime(), nullable=False,
                              server_default=sa.text('CURRENT_TIMESTAMP')), schema='app')
                 print("✅ Added created_at to emag_sync_logs")
-            
+
             if 'updated_at' not in sync_logs_columns:
                 op.add_column('emag_sync_logs', sa.Column('updated_at', sa.DateTime(), nullable=False,
                              server_default=sa.text('CURRENT_TIMESTAMP')), schema='app')
@@ -384,7 +382,7 @@ def upgrade() -> None:
     try:
         if 'orders' in inspector.get_table_names(schema='app'):
             orders_columns = [col['name'] for col in inspector.get_columns('orders', schema='app')]
-            
+
             if 'external_id' not in orders_columns:
                 op.add_column('orders', sa.Column('external_id', sa.String(length=100), nullable=True), schema='app')
                 op.add_column('orders', sa.Column('external_source', sa.String(length=50), nullable=True), schema='app')
@@ -400,7 +398,7 @@ def upgrade() -> None:
     try:
         if 'emag_products_v2' in inspector.get_table_names(schema='app'):
             v2_columns = [col['name'] for col in inspector.get_columns('emag_products_v2', schema='app')]
-            
+
             if 'emag_id' not in v2_columns:
                 op.add_column('emag_products_v2', sa.Column('emag_id', sa.String(50), nullable=True), schema='app')
                 op.create_index('idx_emag_products_v2_emag_id', 'emag_products_v2', ['emag_id'], schema='app')
@@ -423,8 +421,8 @@ def downgrade() -> None:
             try:
                 op.drop_index('ix_emag_product_offers_part_number_key', table_name='emag_product_offers', schema='app')
                 print("✅ Removed index on emag_product_offers.part_number_key")
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"ℹ️  Index removal skipped: {ex}")
 
             # Drop column
             op.drop_column('emag_product_offers', 'part_number_key', schema='app')
@@ -440,8 +438,8 @@ def downgrade() -> None:
         try:
             op.drop_index('ix_app_products_chinese_name', table_name='products', schema='app')
             print("✅ Removed index on products.chinese_name")
-        except Exception:
-            pass
+        except Exception as ex:
+            print(f"ℹ️  Index removal skipped: {ex}")
 
         # Drop column
         op.drop_column('products', 'chinese_name', schema='app')
@@ -457,8 +455,8 @@ def downgrade() -> None:
         try:
             op.drop_index('ix_app_products_display_order', table_name='products', schema='app')
             print("✅ Removed index on products.display_order")
-        except Exception:
-            pass
+        except Exception as ex:
+            print(f"ℹ️  Index removal skipped: {ex}")
 
         # Drop column
         op.drop_column('products', 'display_order', schema='app')
@@ -475,8 +473,8 @@ def downgrade() -> None:
             try:
                 op.drop_index('ix_emag_products_part_number_key', table_name='emag_products', schema='app')
                 print("✅ Removed index on emag_products.part_number_key")
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"ℹ️  Index removal skipped: {ex}")
 
             # Drop column
             op.drop_column('emag_products', 'part_number_key', schema='app')
@@ -492,16 +490,16 @@ def downgrade() -> None:
         try:
             op.drop_index(op.f('ix_app_suppliers_code'), table_name='suppliers', schema='app')
             print("✅ Removed index on suppliers.code")
-        except Exception:
-            pass
+        except Exception as ex:
+            print(f"ℹ️  Index removal skipped: {ex}")
 
         # Drop columns
         for col_name in ['tax_id', 'city', 'address', 'code']:
             try:
                 op.drop_column('suppliers', col_name, schema='app')
                 print(f"✅ Removed {col_name} column from suppliers")
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"ℹ️  Index removal skipped: {ex}")
     except Exception as e:
         print(f"ℹ️  Supplier columns removal skipped: {e}")
 
@@ -529,8 +527,8 @@ def downgrade() -> None:
             try:
                 op.drop_index('ix_app_suppliers_display_order', table_name='suppliers', schema='app')
                 print("✅ Removed index on suppliers.display_order")
-            except Exception:
-                pass
+            except Exception as ex:
+                print(f"ℹ️  Index removal skipped: {ex}")
 
             # Drop column
             op.drop_column('suppliers', 'display_order', schema='app')

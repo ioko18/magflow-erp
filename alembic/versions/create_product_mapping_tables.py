@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'create_product_mapping'
-down_revision = '20251001_034500'
+down_revision = '86f7456767fd'
 branch_labels = None
 depends_on = None
 

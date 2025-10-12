@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'supplier_matching_001'
-down_revision = 'c8e960008812'  # Links to add_shipping_tax_voucher_split_to_orders
+down_revision = '4242d9721c62'  # Links to add_shipping_tax_voucher_split_to_orders
 branch_labels = None
 depends_on = None
 

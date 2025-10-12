@@ -1,7 +1,7 @@
 """Add fulfillment_channel to sales_orders
 
 Revision ID: 20250928_add_fulfillment_channel
-Revises: 20250928_add_external_id
+Revises: 4242d9721c62
 Create Date: 2025-09-28 17:50:00.000000
 """
 
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "20250928_add_fulfillment_channel"
-down_revision: str | Sequence[str] | None = "20250928_add_external_id"
+down_revision: str | Sequence[str] | None = "4242d9721c62"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
