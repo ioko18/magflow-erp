@@ -171,9 +171,32 @@ Aceste migrații nu fac nimic, doar unifică heads:
 
 ---
 
+#### **4. Migrații Consolidate Suplimentare (Safe to Delete)**
+
+```bash
+# c8e960008812_add_shipping_tax_voucher_split_to_orders.py
+# - 35 linii
+# - Funcționalitatea a fost mutată în merge-ul principal
+# - Poate fi șters după ce merge-ul principal este aplicat
+
+# 14b0e514876f_add_missing_supplier_columns.py
+# - 43 linii
+# - Funcționalitatea a fost mutată în merge-ul principal
+# - Poate fi șters după ce merge-ul principal este aplicat
+
+# 069bd2ae6d01_add_part_number_key_to_emag_products.py
+# - 45 linii
+# - Funcționalitatea a fost mutată în merge-ul principal
+# - Poate fi șters după ce merge-ul principal este aplicat
+```
+
+**Economie:** 123 linii, 3 fișiere
+
+---
+
 ### **Total Economie Potențială:**
-- **8 fișiere** pot fi șterse (4 merge goale + 4 consolidate)
-- **~264 linii** de cod reduse
+- **11 fișiere** pot fi șterse (4 merge goale + 7 consolidate)
+- **~387 linii** de cod reduse
 - **Istoric mai curat** și mai ușor de gestionat
 
 ---
@@ -216,11 +239,14 @@ rm 1519392e1e24_merge_heads.py
 rm 3880b6b52d31_merge_emag_v449_heads.py
 rm 7e1f429f9a5b_merge_multiple_heads.py
 
-# Șterge migrațiile consolidate (4 fișiere)
+# Șterge migrațiile consolidate (7 fișiere)
 rm 20251001_add_unique_constraint_sync_progress.py
 rm add_invoice_names_to_products.py
 rm ee01e67b1bcc_add_ean_column_to_emag_products_v2.py
 rm bd898485abe9_add_display_order_to_suppliers.py
+rm c8e960008812_add_shipping_tax_voucher_split_to_orders.py
+rm 14b0e514876f_add_missing_supplier_columns.py
+rm 069bd2ae6d01_add_part_number_key_to_emag_products.py
 ```
 
 ### **Pas 5: Verifică Alembic**
@@ -261,15 +287,16 @@ alembic heads
 Total fișiere: 44
 Heads: 11 (CONFLICT!)
 Migrații goale: 4
-Migrații consolidate: 4
+Migrații consolidate: 7
 ```
 
 ### **După (când ștergi):**
 ```
-Total fișiere: 36 (-8)
+Total fișiere: 33 (-11)
 Heads: 1 (UNIFIED!)
 Migrații goale: 0
 Migrații consolidate: 0
+Reducere: -25%
 ```
 
 ---

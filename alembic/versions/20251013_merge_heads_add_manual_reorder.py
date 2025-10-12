@@ -40,6 +40,9 @@ def upgrade() -> None:
     4. Invoice name columns (from add_invoice_names_to_products)
     5. EAN column and index (from ee01e67b1bcc_add_ean_column_to_emag_products_v2)
     6. Display order for suppliers (from bd898485abe9_add_display_order_to_suppliers)
+    7. Shipping tax voucher split (from c8e960008812_add_shipping_tax_voucher_split_to_orders)
+    8. Missing supplier columns (from 14b0e514876f_add_missing_supplier_columns)
+    9. Part number key for emag_products (from 069bd2ae6d01_add_part_number_key_to_emag_products)
     """
 
     # Get connection and inspector
@@ -185,11 +188,145 @@ def upgrade() -> None:
     except Exception as e:
         print(f"ℹ️  Display order operation skipped: {e}")
 
+    # ========================================================================
+    # 6. Add shipping_tax_voucher_split to emag_orders (from c8e960008812)
+    # ========================================================================
+    try:
+        if 'emag_orders' in inspector.get_table_names(schema='app'):
+            emag_orders_columns = [
+                col['name']
+                for col in inspector.get_columns('emag_orders', schema='app')
+            ]
+
+            if 'shipping_tax_voucher_split' not in emag_orders_columns:
+                op.add_column(
+                    'emag_orders',
+                    sa.Column('shipping_tax_voucher_split', sa.dialects.postgresql.JSONB(), nullable=True),
+                    schema='app'
+                )
+                print("✅ Added shipping_tax_voucher_split column to emag_orders")
+            else:
+                print("ℹ️  Column shipping_tax_voucher_split already exists, skipping")
+        else:
+            print("ℹ️  Table emag_orders not found, skipping")
+    except Exception as e:
+        print(f"ℹ️  Shipping tax voucher split operation skipped: {e}")
+
+    # ========================================================================
+    # 7. Add missing supplier columns (from 14b0e514876f)
+    # ========================================================================
+    try:
+        suppliers_columns = [
+            col['name']
+            for col in inspector.get_columns('suppliers', schema='app')
+        ]
+
+        columns_to_add = {
+            'code': sa.Column('code', sa.String(length=20), nullable=True),
+            'address': sa.Column('address', sa.Text(), nullable=True),
+            'city': sa.Column('city', sa.String(length=50), nullable=True),
+            'tax_id': sa.Column('tax_id', sa.String(length=50), nullable=True)
+        }
+
+        for col_name, col_def in columns_to_add.items():
+            if col_name not in suppliers_columns:
+                op.add_column('suppliers', col_def, schema='app')
+                print(f"✅ Added {col_name} column to suppliers")
+            else:
+                print(f"ℹ️  Column {col_name} already exists in suppliers, skipping")
+
+        # Create unique index on code if it doesn't exist
+        existing_indexes = [idx['name'] for idx in inspector.get_indexes('suppliers', schema='app')]
+        if 'ix_app_suppliers_code' not in existing_indexes:
+            op.create_index(op.f('ix_app_suppliers_code'), 'suppliers', ['code'], unique=True, schema='app')
+            print("✅ Created unique index on suppliers.code")
+        else:
+            print("ℹ️  Index ix_app_suppliers_code already exists, skipping")
+    except Exception as e:
+        print(f"ℹ️  Supplier columns operation skipped: {e}")
+
+    # ========================================================================
+    # 8. Add part_number_key to emag_products (from 069bd2ae6d01)
+    # ========================================================================
+    try:
+        if 'emag_products' in inspector.get_table_names(schema='app'):
+            emag_products_columns = [
+                col['name']
+                for col in inspector.get_columns('emag_products', schema='app')
+            ]
+
+            if 'part_number_key' not in emag_products_columns:
+                op.add_column(
+                    'emag_products',
+                    sa.Column('part_number_key', sa.String(length=50), nullable=True),
+                    schema='app'
+                )
+                print("✅ Added part_number_key column to emag_products")
+
+                # Create index
+                op.create_index('ix_emag_products_part_number_key', 'emag_products', ['part_number_key'], schema='app')
+                print("✅ Created index on emag_products.part_number_key")
+            else:
+                print("ℹ️  Column part_number_key already exists in emag_products, skipping")
+        else:
+            print("ℹ️  Table emag_products not found, skipping")
+    except Exception as e:
+        print(f"ℹ️  Part number key operation skipped: {e}")
+
 
 def downgrade() -> None:
     """Downgrade schema - reverse all operations."""
     conn = op.get_bind()
     inspector = sa.inspect(conn)
+
+    # ========================================================================
+    # 8. Remove part_number_key from emag_products
+    # ========================================================================
+    try:
+        if 'emag_products' in inspector.get_table_names(schema='app'):
+            # Drop index first
+            try:
+                op.drop_index('ix_emag_products_part_number_key', table_name='emag_products', schema='app')
+                print("✅ Removed index on emag_products.part_number_key")
+            except Exception:
+                pass
+
+            # Drop column
+            op.drop_column('emag_products', 'part_number_key', schema='app')
+            print("✅ Removed part_number_key column from emag_products")
+    except Exception as e:
+        print(f"ℹ️  Part number key removal skipped: {e}")
+
+    # ========================================================================
+    # 7. Remove missing supplier columns
+    # ========================================================================
+    try:
+        # Drop index first
+        try:
+            op.drop_index(op.f('ix_app_suppliers_code'), table_name='suppliers', schema='app')
+            print("✅ Removed index on suppliers.code")
+        except Exception:
+            pass
+
+        # Drop columns
+        for col_name in ['tax_id', 'city', 'address', 'code']:
+            try:
+                op.drop_column('suppliers', col_name, schema='app')
+                print(f"✅ Removed {col_name} column from suppliers")
+            except Exception:
+                pass
+    except Exception as e:
+        print(f"ℹ️  Supplier columns removal skipped: {e}")
+
+    # ========================================================================
+    # 6. Remove shipping_tax_voucher_split from emag_orders
+    # ========================================================================
+    try:
+        if 'emag_orders' in inspector.get_table_names(schema='app'):
+            op.drop_column('emag_orders', 'shipping_tax_voucher_split', schema='app')
+            print("✅ Removed shipping_tax_voucher_split column from emag_orders")
+    except Exception as e:
+        print(f"ℹ️  Shipping tax voucher split removal skipped: {e}")
 
     # ========================================================================
     # 5. Remove display_order from suppliers
