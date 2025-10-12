@@ -30,6 +30,7 @@ from app.models.inventory import InventoryItem, Warehouse
 from app.models.product import Product
 from app.models.supplier import SupplierProduct
 from app.models.user import User
+from app.schemas.inventory import InventoryItemUpdate
 from app.security.jwt import get_current_user
 
 router = APIRouter(prefix="/inventory", tags=["inventory-management"])
@@ -544,5 +545,135 @@ async def get_inventory_statistics(
                 ((in_stock + overstock) / total_items * 100) if total_items > 0 else 0,
                 2,
             ),
+        },
+    }
+
+
+@router.patch("/items/{inventory_item_id}")
+async def update_inventory_item(
+    inventory_item_id: int,
+    update_data: InventoryItemUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update inventory item settings.
+
+    Allows manual adjustment of:
+    - reorder_point: Threshold for low stock alerts
+    - minimum_stock: Critical stock level
+    - maximum_stock: Maximum stock capacity
+    - unit_cost: Cost per unit
+    - location: Physical location in warehouse
+    """
+
+    # Get inventory item
+    query = select(InventoryItem).where(InventoryItem.id == inventory_item_id)
+    result = await db.execute(query)
+    inventory_item = result.scalar_one_or_none()
+
+    if not inventory_item:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Inventory item with ID {inventory_item_id} not found"
+        )
+
+    # Update fields if provided
+    update_dict = update_data.model_dump(exclude_unset=True)
+
+    for field, value in update_dict.items():
+        setattr(inventory_item, field, value)
+
+    # Recalculate available quantity if quantity or reserved_quantity changed
+    if "quantity" in update_dict or "reserved_quantity" in update_dict:
+        inventory_item.available_quantity = (
+            inventory_item.quantity - inventory_item.reserved_quantity
+        )
+
+    await db.commit()
+    await db.refresh(inventory_item)
+
+    # Calculate current status
+    stock_status = calculate_stock_status(inventory_item)
+    reorder_qty = calculate_reorder_quantity(inventory_item)
+
+    return {
+        "status": "success",
+        "message": "Inventory item updated successfully",
+        "data": {
+            "inventory_item_id": inventory_item.id,
+            "product_id": inventory_item.product_id,
+            "warehouse_id": inventory_item.warehouse_id,
+            "quantity": inventory_item.quantity,
+            "reserved_quantity": inventory_item.reserved_quantity,
+            "available_quantity": inventory_item.available_quantity,
+            "minimum_stock": inventory_item.minimum_stock,
+            "reorder_point": inventory_item.reorder_point,
+            "maximum_stock": inventory_item.maximum_stock,
+            "unit_cost": inventory_item.unit_cost,
+            "location": inventory_item.location,
+            "stock_status": stock_status,
+            "reorder_quantity": reorder_qty,
+            "updated_at": inventory_item.updated_at,
+        },
+    }
+
+
+@router.get("/items/{inventory_item_id}")
+async def get_inventory_item(
+    inventory_item_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get detailed information about a specific inventory item."""
+
+    query = (
+        select(InventoryItem, Product, Warehouse)
+        .join(Product, InventoryItem.product_id == Product.id)
+        .join(Warehouse, InventoryItem.warehouse_id == Warehouse.id)
+        .where(InventoryItem.id == inventory_item_id)
+    )
+
+    result = await db.execute(query)
+    item_data = result.first()
+
+    if not item_data:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Inventory item with ID {inventory_item_id} not found"
+        )
+
+    inventory_item, product, warehouse = item_data
+
+    available_qty = inventory_item.quantity - inventory_item.reserved_quantity
+    stock_status = calculate_stock_status(inventory_item)
+    reorder_qty = calculate_reorder_quantity(inventory_item)
+
+    return {
+        "status": "success",
+        "data": {
+            "inventory_item_id": inventory_item.id,
+            "product_id": product.id,
+            "product_sku": product.sku,
+            "product_name": product.name,
+            "chinese_name": product.chinese_name,
+            "warehouse_id": warehouse.id,
+            "warehouse_name": warehouse.name,
+            "warehouse_code": warehouse.code,
+            "quantity": inventory_item.quantity,
+            "reserved_quantity": inventory_item.reserved_quantity,
+            "available_quantity": available_qty,
+            "minimum_stock": inventory_item.minimum_stock,
+            "reorder_point": inventory_item.reorder_point,
+            "maximum_stock": inventory_item.maximum_stock,
+            "unit_cost": inventory_item.unit_cost,
+            "location": inventory_item.location,
+            "batch_number": inventory_item.batch_number,
+            "expiry_date": inventory_item.expiry_date,
+            "stock_status": stock_status,
+            "reorder_quantity": reorder_qty,
+            "is_active": inventory_item.is_active,
+            "created_at": inventory_item.created_at,
+            "updated_at": inventory_item.updated_at,
         },
     }

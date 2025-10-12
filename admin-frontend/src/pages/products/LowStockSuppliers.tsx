@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Row, Col, Table, Button, Space, Tag, Typography, Select, Statistic,
-  Empty, message as antMessage, Badge, Checkbox, Image, Alert, Tooltip, notification, Modal
+  Empty, message as antMessage, Badge, Checkbox, Image, Alert, Tooltip, notification, Modal, InputNumber
 } from 'antd';
 import {
   WarningOutlined, DownloadOutlined, ReloadOutlined,
   CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined,
   ShopOutlined, DollarOutlined, LinkOutlined, FilterOutlined,
-  CloudSyncOutlined, FileAddOutlined
+  CloudSyncOutlined, FileAddOutlined, EditOutlined, SaveOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../../services/api';
@@ -100,6 +100,8 @@ const LowStockSuppliersPage: React.FC = () => {
   const [selectedSuppliers, setSelectedSuppliers] = useState<Map<number, SelectedSupplier>>(new Map());
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
   const [showOnlyVerified, setShowOnlyVerified] = useState(true);
+  const [editingReorder, setEditingReorder] = useState<Map<number, number>>(new Map());
+  const [savingReorder, setSavingReorder] = useState<Set<number>>(new Set());
 
   // ============================================================================
   // Data Loading
@@ -149,6 +151,49 @@ const LowStockSuppliersPage: React.FC = () => {
       setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ============================================================================
+  // Reorder Point Management
+  // ============================================================================
+
+  const handleUpdateReorderPoint = async (inventoryItemId: number, newValue: number) => {
+    try {
+      setSavingReorder(prev => new Set(prev).add(inventoryItemId));
+      
+      const response = await api.patch(`/inventory/items/${inventoryItemId}`, {
+        reorder_point: newValue
+      });
+      
+      if (response.data?.status === 'success') {
+        antMessage.success('Reorder point updated successfully!');
+        
+        // Update local state
+        setProducts(prevProducts => 
+          prevProducts.map(p => 
+            p.inventory_item_id === inventoryItemId 
+              ? { ...p, reorder_point: newValue }
+              : p
+          )
+        );
+        
+        // Clear editing state
+        setEditingReorder(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(inventoryItemId);
+          return newMap;
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating reorder point:', error);
+      antMessage.error(error.response?.data?.detail || 'Failed to update reorder point');
+    } finally {
+      setSavingReorder(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(inventoryItemId);
+        return newSet;
+      });
     }
   };
 
@@ -628,20 +673,86 @@ const LowStockSuppliersPage: React.FC = () => {
     {
       title: 'Stock Status',
       key: 'stock',
-      width: 180,
-      render: (_, record) => (
-        <Space direction="vertical" size="small">
-          <Tag color={getStockStatusColor(record.stock_status)}>
-            {getStockStatusText(record.stock_status)}
-          </Tag>
-          <Text style={{ fontSize: 12 }}>
-            Available: <strong>{record.available_quantity}</strong> / Min: {record.minimum_stock}
-          </Text>
-          <Text style={{ fontSize: 12 }}>
-            Reorder: <strong style={{ color: '#cf1322' }}>{record.reorder_quantity}</strong>
-          </Text>
-        </Space>
-      ),
+      width: 240,
+      render: (_, record) => {
+        const isEditing = editingReorder.has(record.inventory_item_id);
+        const isSaving = savingReorder.has(record.inventory_item_id);
+        const editValue = editingReorder.get(record.inventory_item_id) ?? record.reorder_point;
+        
+        return (
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Tag color={getStockStatusColor(record.stock_status)}>
+              {getStockStatusText(record.stock_status)}
+            </Tag>
+            <Text style={{ fontSize: 12 }}>
+              Available: <strong>{record.available_quantity}</strong> / Min: {record.minimum_stock}
+            </Text>
+            
+            {/* Editable Reorder Point */}
+            <Space size={4} style={{ width: '100%' }}>
+              <Text style={{ fontSize: 12 }}>Reorder Point:</Text>
+              {isEditing ? (
+                <>
+                  <InputNumber
+                    size="small"
+                    min={0}
+                    max={10000}
+                    value={editValue}
+                    onChange={(value) => {
+                      if (value !== null) {
+                        setEditingReorder(prev => new Map(prev).set(record.inventory_item_id, value));
+                      }
+                    }}
+                    style={{ width: 70 }}
+                    disabled={isSaving}
+                  />
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<SaveOutlined />}
+                    onClick={() => handleUpdateReorderPoint(record.inventory_item_id, editValue)}
+                    loading={isSaving}
+                    style={{ padding: '0 8px' }}
+                  />
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setEditingReorder(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(record.inventory_item_id);
+                        return newMap;
+                      });
+                    }}
+                    disabled={isSaving}
+                    style={{ padding: '0 8px' }}
+                  >
+                    ✕
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text strong style={{ color: '#1890ff' }}>{record.reorder_point}</Text>
+                  <Tooltip title="Click to edit reorder point">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => {
+                        setEditingReorder(prev => new Map(prev).set(record.inventory_item_id, record.reorder_point));
+                      }}
+                      style={{ padding: '0 4px' }}
+                    />
+                  </Tooltip>
+                </>
+              )}
+            </Space>
+            
+            <Text style={{ fontSize: 12 }}>
+              Reorder Qty: <strong style={{ color: '#cf1322' }}>{record.reorder_quantity}</strong>
+            </Text>
+          </Space>
+        );
+      },
     },
     {
       title: 'Suppliers',
