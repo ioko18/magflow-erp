@@ -59,6 +59,39 @@ op.create_unique_constraint(
 )
 ```
 
+#### **4. Invoice Name Columns (din add_invoice_names_to_products)** ✅
+```python
+op.add_column('products',
+    sa.Column('invoice_name_ro', sa.String(200), nullable=True),
+    schema='app'
+)
+op.add_column('products',
+    sa.Column('invoice_name_en', sa.String(200), nullable=True),
+    schema='app'
+)
+```
+
+#### **5. EAN Column and Index (din ee01e67b1bcc_add_ean_column_to_emag_products_v2)** ✅
+```python
+op.execute("""
+    ALTER TABLE app.emag_products_v2
+    ADD COLUMN IF NOT EXISTS ean JSONB
+""")
+op.execute("""
+    CREATE INDEX IF NOT EXISTS idx_emag_products_ean
+    ON app.emag_products_v2 USING gin (ean)
+""")
+```
+
+#### **6. Display Order for Suppliers (din bd898485abe9_add_display_order_to_suppliers)** ✅
+```python
+op.add_column('suppliers',
+    sa.Column('display_order', sa.Integer(), nullable=False, server_default='999'),
+    schema='app'
+)
+op.create_index('ix_app_suppliers_display_order', 'suppliers', ['display_order'], schema='app')
+```
+
 ---
 
 ## 🗑️ Migrații Care Pot Fi Șterse (În Viitor)
@@ -115,9 +148,32 @@ Aceste migrații nu fac nimic, doar unifică heads:
 
 ---
 
+#### **3. Migrații Consolidate (Safe to Delete)**
+
+```bash
+# add_invoice_names_to_products.py
+# - 37 linii
+# - Funcționalitatea a fost mutată în merge-ul principal
+# - Poate fi șters după ce merge-ul principal este aplicat
+
+# ee01e67b1bcc_add_ean_column_to_emag_products_v2.py
+# - 41 linii
+# - Funcționalitatea a fost mutată în merge-ul principal
+# - Poate fi șters după ce merge-ul principal este aplicat
+
+# bd898485abe9_add_display_order_to_suppliers.py
+# - 44 linii
+# - Funcționalitatea a fost mutată în merge-ul principal
+# - Poate fi șters după ce merge-ul principal este aplicat
+```
+
+**Economie:** 122 linii, 3 fișiere
+
+---
+
 ### **Total Economie Potențială:**
-- **5 fișiere** pot fi șterse
-- **~142 linii** de cod reduse
+- **8 fișiere** pot fi șterse (4 merge goale + 4 consolidate)
+- **~264 linii** de cod reduse
 - **Istoric mai curat** și mai ușor de gestionat
 
 ---
@@ -154,14 +210,17 @@ pg_dump -U username -d database_name > backup_before_cleanup.sql
 ```bash
 cd alembic/versions
 
-# Șterge migrațiile de merge goale
+# Șterge migrațiile de merge goale (4 fișiere)
 rm 0eae9be5122f_merge_heads_for_emag_v2.py
 rm 1519392e1e24_merge_heads.py
 rm 3880b6b52d31_merge_emag_v449_heads.py
 rm 7e1f429f9a5b_merge_multiple_heads.py
 
-# Șterge migrația consolidată
+# Șterge migrațiile consolidate (4 fișiere)
 rm 20251001_add_unique_constraint_sync_progress.py
+rm add_invoice_names_to_products.py
+rm ee01e67b1bcc_add_ean_column_to_emag_products_v2.py
+rm bd898485abe9_add_display_order_to_suppliers.py
 ```
 
 ### **Pas 5: Verifică Alembic**
@@ -202,15 +261,15 @@ alembic heads
 Total fișiere: 44
 Heads: 11 (CONFLICT!)
 Migrații goale: 4
-Migrații duplicate: 1
+Migrații consolidate: 4
 ```
 
 ### **După (când ștergi):**
 ```
-Total fișiere: 39 (-5)
+Total fișiere: 36 (-8)
 Heads: 1 (UNIFIED!)
 Migrații goale: 0
-Migrații duplicate: 0
+Migrații consolidate: 0
 ```
 
 ---
