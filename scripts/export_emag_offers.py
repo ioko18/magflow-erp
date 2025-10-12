@@ -11,10 +11,11 @@ The script resolves DB connection from:
   2) DATABASE_URL (converts postgresql+asyncpg -> postgresql)
   3) DB_* parts (defaults: 127.0.0.1:5432/magflow)
 """
-import os
-import csv
 import argparse
+import csv
+import os
 from urllib.parse import urlparse, urlunparse
+
 from sqlalchemy import create_engine, text
 
 # Load .env if available, to mirror app behavior

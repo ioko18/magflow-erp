@@ -3,7 +3,8 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, TypeVar
+
 from pydantic import BaseModel, Field, HttpUrl
 
 T = TypeVar("T")  # Generic type variable for response models
@@ -65,7 +66,7 @@ class ProductOfferCharacteristic(BaseModel):
     id: int = Field(..., description="Characteristic ID")
     name: str = Field(..., description="Characteristic name")
     value: str = Field(..., description="Characteristic value")
-    group_name: Optional[str] = Field(None, description="Characteristic group name")
+    group_name: str | None = Field(None, description="Characteristic group name")
 
 
 class ProductOfferResponse(BaseModel):
@@ -74,7 +75,7 @@ class ProductOfferResponse(BaseModel):
     id: int = Field(..., description="eMAG offer ID")
     product_id: str = Field(..., description="Your product ID")
     emag_id: int = Field(..., description="eMAG product ID")
-    part_number: Optional[str] = Field(None, description="Manufacturer part number")
+    part_number: str | None = Field(None, description="Manufacturer part number")
     name: str = Field(..., description="Product name")
     category_id: int = Field(..., description="eMAG category ID")
     brand_id: int = Field(..., description="eMAG brand ID")
@@ -82,13 +83,13 @@ class ProductOfferResponse(BaseModel):
     price: ProductOfferPrice = Field(..., description="Price information")
     stock: ProductOfferStock = Field(..., description="Stock information")
     status: OfferStatus = Field(..., description="Offer status")
-    images: List[ProductOfferImage] = Field(
+    images: list[ProductOfferImage] = Field(
         default_factory=list, description="Product images"
     )
-    characteristics: List[ProductOfferCharacteristic] = Field(
+    characteristics: list[ProductOfferCharacteristic] = Field(
         default_factory=list, description="Product characteristics"
     )
-    url: Optional[HttpUrl] = Field(None, description="Product URL on eMAG marketplace")
+    url: HttpUrl | None = Field(None, description="Product URL on eMAG marketplace")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
@@ -99,10 +100,10 @@ class ProductOfferListResponse(BaseModel):
     is_error: bool = Field(
         False, alias="isError", description="Indicates if there was an error"
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list, description="List of messages"
     )
-    results: List[ProductOfferResponse] = Field(
+    results: list[ProductOfferResponse] = Field(
         default_factory=list, description="List of product offers"
     )
     current_page: int = Field(1, alias="currentPage", description="Current page number")
@@ -118,9 +119,9 @@ class ProductOfferBulkResponseItem(BaseModel):
 
     product_id: str = Field(..., description="Your product ID")
     success: bool = Field(..., description="Whether the operation was successful")
-    message: Optional[str] = Field(None, description="Operation message")
-    emag_id: Optional[int] = Field(None, description="eMAG product ID if created")
-    errors: List[Dict[str, Any]] = Field(
+    message: str | None = Field(None, description="Operation message")
+    emag_id: int | None = Field(None, description="eMAG product ID if created")
+    errors: list[dict[str, Any]] = Field(
         default_factory=list, description="List of errors if any"
     )
 
@@ -131,10 +132,10 @@ class ProductOfferBulkResponse(BaseModel):
     is_error: bool = Field(
         False, alias="isError", description="Indicates if there was an error"
     )
-    messages: List[Dict[str, Any]] = Field(
+    messages: list[dict[str, Any]] = Field(
         default_factory=list, description="List of messages"
     )
-    results: List[ProductOfferBulkResponseItem] = Field(
+    results: list[ProductOfferBulkResponseItem] = Field(
         default_factory=list, description="Results of bulk operation"
     )
 
@@ -156,10 +157,10 @@ class ProductOfferSyncResponse(BaseModel):
     processed_items: int = Field(0, description="Number of processed items")
     total_items: int = Field(0, description="Total number of items to process")
     started_at: datetime = Field(..., description="Synchronization start time")
-    completed_at: Optional[datetime] = Field(
+    completed_at: datetime | None = Field(
         None, description="Synchronization completion time"
     )
-    errors: List[Dict[str, Any]] = Field(
+    errors: list[dict[str, Any]] = Field(
         default_factory=list, description="List of errors if any"
     )
 
@@ -171,14 +172,14 @@ class ProductOfferBase(BaseModel):
         ..., description="Unique identifier of the product in your system"
     )
     product_name: str = Field(..., max_length=255, description="Name of the product")
-    part_number: Optional[str] = Field(
+    part_number: str | None = Field(
         None, max_length=100, description="Manufacturer part number"
     )
-    description: Optional[str] = Field(None, description="Detailed product description")
+    description: str | None = Field(None, description="Detailed product description")
     brand_id: int = Field(..., description="eMAG brand ID")
     brand_name: str = Field(..., max_length=100, description="Brand name")
     category_id: int = Field(..., description="eMAG category ID")
-    images: List[str] = Field(default_factory=list, description="List of image URLs")
+    images: list[str] = Field(default_factory=list, description="List of image URLs")
     status: OfferStatus = Field(default=OfferStatus.NEW, description="Offer status")
 
 
@@ -186,7 +187,7 @@ class ProductOfferCreate(ProductOfferBase):
     """Model for creating a new product offer."""
 
     price: float = Field(..., gt=0, description="Product price")
-    sale_price: Optional[float] = Field(
+    sale_price: float | None = Field(
         None, gt=0, description="Sale price if applicable"
     )
     vat_rate: float = Field(
@@ -200,11 +201,11 @@ class ProductOfferCreate(ProductOfferBase):
 class ProductOfferUpdate(BaseModel):
     """Model for updating an existing product offer."""
 
-    price: Optional[float] = Field(None, gt=0, description="Updated price")
-    sale_price: Optional[float] = Field(None, ge=0, description="Updated sale price")
-    stock: Optional[int] = Field(None, ge=0, description="Updated stock quantity")
-    status: Optional[OfferStatus] = Field(None, description="Updated status")
-    handling_time: Optional[int] = Field(
+    price: float | None = Field(None, gt=0, description="Updated price")
+    sale_price: float | None = Field(None, ge=0, description="Updated sale price")
+    stock: int | None = Field(None, ge=0, description="Updated stock quantity")
+    status: OfferStatus | None = Field(None, description="Updated status")
+    handling_time: int | None = Field(
         None, ge=1, le=30, description="Updated handling time"
     )
 
@@ -212,7 +213,7 @@ class ProductOfferUpdate(BaseModel):
 class ProductOfferBulkUpdate(BaseModel):
     """Model for bulk updating multiple product offers."""
 
-    offers: List[Dict[str, Any]] = Field(
+    offers: list[dict[str, Any]] = Field(
         ..., max_items=50, description="List of offer updates, max 50 items per request"
     )
 
@@ -220,12 +221,12 @@ class ProductOfferBulkUpdate(BaseModel):
 class ProductOfferFilter(BaseModel):
     """Filter criteria for querying product offers."""
 
-    status: Optional[OfferStatus] = None
-    category_id: Optional[int] = None
-    brand_id: Optional[int] = None
-    in_stock: Optional[bool] = None
-    min_price: Optional[float] = None
-    max_price: Optional[float] = None
+    status: OfferStatus | None = None
+    category_id: int | None = None
+    brand_id: int | None = None
+    in_stock: bool | None = None
+    min_price: float | None = None
+    max_price: float | None = None
 
 
 # Mock HTTP client for testing
@@ -455,7 +456,7 @@ class MockHttpClient:
                 self.offers[offer["id"]] = offer
             self._create_offer(offer)
 
-    def _create_offer(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_offer(self, data: dict[str, Any]) -> dict[str, Any]:
         """Create a new offer in the mock database."""
         offer_id = self.next_id
         self.next_id += 1
@@ -493,9 +494,9 @@ class MockHttpClient:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         response_model: Any = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Mock GET request."""
         return await self.request(
             "GET", endpoint, params=params, response_model=response_model
@@ -504,9 +505,9 @@ class MockHttpClient:
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         response_model: Any = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Mock POST request."""
         return await self.request(
             "POST", endpoint, data=data, response_model=response_model
@@ -516,10 +517,10 @@ class MockHttpClient:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
         response_model: Any = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Mock HTTP request method."""
         # Simulate network delay
         await asyncio.sleep(0.1)
@@ -601,7 +602,7 @@ class MockHttpClient:
     async def put(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock PUT request."""
@@ -610,7 +611,7 @@ class MockHttpClient:
     async def delete(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock DELETE request."""
@@ -629,7 +630,7 @@ class MockHttpClient:
 
         return self._error_response(f"Unknown endpoint: {endpoint}", 404)
 
-    def _error_response(self, message: str, status_code: int) -> Dict[str, Any]:
+    def _error_response(self, message: str, status_code: int) -> dict[str, Any]:
         """Create an error response."""
         return {
             "isError": True,
@@ -637,7 +638,7 @@ class MockHttpClient:
             "status_code": status_code,
         }
 
-    def _to_response_model(self, data: Dict[str, Any], response_model: Any) -> Any:
+    def _to_response_model(self, data: dict[str, Any], response_model: Any) -> Any:
         """Convert data to the specified response model."""
         if response_model is None:
             return data
@@ -676,8 +677,8 @@ class OfferService:
         self,
         endpoint: str,
         method: str = "GET",
-        data: Optional[Dict[str, Any]] = None,
-        response_model: Optional[Type[Any]] = None,
+        data: dict[str, Any] | None = None,
+        response_model: type[Any] | None = None,
         is_order_endpoint: bool = False,
         retries: int = 3,
     ) -> Any:
@@ -841,7 +842,6 @@ class OfferService:
         self, product_id: str, update_data: ProductOfferUpdate
     ) -> ProductOfferResponse:
         """Update an existing product offer."""
-        endpoint = "product_offer/save"
 
         # First, get the current offer to preserve existing data
         current_offer = await self.get_offer(product_id)
@@ -968,7 +968,7 @@ class OfferService:
         self,
         page: int = 1,
         per_page: int = 50,
-        filters: Optional[ProductOfferFilter] = None,
+        filters: ProductOfferFilter | None = None,
     ) -> ProductOfferListResponse:
         """List product offers with optional filtering and pagination."""
         endpoint = "product_offer/read"
@@ -1091,7 +1091,7 @@ class OfferService:
         response = await self._make_request(
             endpoint=endpoint,
             method="POST",
-            data={"offers": [offer for offer in updates.offers]},
+            data={"offers": list(updates.offers)},
             response_model=ProductOfferBulkResponse,
         )
 
@@ -1159,7 +1159,7 @@ class OfferService:
         return response
 
     async def sync_offers(
-        self, offers: List[Dict[str, Any]], batch_size: int = 50
+        self, offers: list[dict[str, Any]], batch_size: int = 50
     ) -> ProductOfferSyncResponse:
         """Synchronize multiple offers with eMAG's system."""
         sync_id = str(hash(tuple(str(o) for o in offers)))

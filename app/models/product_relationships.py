@@ -9,7 +9,7 @@ This module handles complex product relationships including:
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -82,9 +82,9 @@ class ProductVariant(Base):
     last_competitor_check = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
     deactivated_at = Column(DateTime, nullable=True)
 
@@ -153,8 +153,8 @@ class ProductPNKTracking(Base):
     )  # pending, consistent, inconsistent, missing
 
     # Timestamps
-    first_detected = Column(DateTime, nullable=False, default=datetime.utcnow)
-    last_checked = Column(DateTime, nullable=False, default=datetime.utcnow)
+    first_detected = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    last_checked = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     resolved_at = Column(DateTime, nullable=True)
 
     # Resolution tracking
@@ -205,7 +205,7 @@ class ProductCompetitionLog(Base):
     your_price = Column(Float, nullable=True)
 
     # Detection
-    detected_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    detected_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     previous_offer_count = Column(Integer, nullable=True)
     new_competitors = Column(
         Integer, nullable=True
@@ -285,9 +285,9 @@ class ProductGenealogy(Base):
     supersede_reason = Column(Text, nullable=True)  # Why was this product replaced?
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
 
     # Metadata

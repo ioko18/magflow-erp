@@ -10,21 +10,22 @@ Enhancements:
 - Maximum page limits and safety checks
 """
 
-import aiohttp
-import asyncio
 import argparse
-import os
+import asyncio
 import json
-from datetime import datetime, timedelta, timezone
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from contextlib import contextmanager
 import logging
-from tenacity import retry, stop_after_attempt, wait_exponential
-from prometheus_client import Counter, Histogram, Gauge, start_http_server
+import os
 import signal
 import socket
 import sys
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
+
+import aiohttp
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 # Configure logging
 logging.basicConfig(
@@ -225,7 +226,7 @@ def _extract_part_number_key_from_url(url):
 
 
 def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def signal_handler(signum, frame):
@@ -1479,9 +1480,7 @@ def process_offers_batch(offers, sync_id):
                 chunk = offers_batch
                 chunk_size = 100  # Reducem dimensiunea lotului pentru a evita problemele de memorie
                 logger.info(
-                    "Processing {} offers in chunks of {}".format(
-                        len(chunk), chunk_size
-                    )
+                    f"Processing {len(chunk)} offers in chunks of {chunk_size}"
                 )
                 for i in range(0, len(chunk), chunk_size):
                     batch = chunk[i : i + chunk_size]
@@ -1901,10 +1900,10 @@ async def sync_both_accounts():
     # Summary
     logger.info("🏁 Multi-account sync completed!")
     logger.info(
-        "📊 Summary: {} successful, {} failed".format(successful_syncs, failed_syncs)
+        f"📊 Summary: {successful_syncs} successful, {failed_syncs} failed"
     )
     logger.info(
-        "📦 Total offers processed across all accounts: {}".format(total_processed)
+        f"📦 Total offers processed across all accounts: {total_processed}"
     )
 
     return total_processed

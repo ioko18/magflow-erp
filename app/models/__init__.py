@@ -48,9 +48,9 @@ from app.models.product_supplier_sheet import ProductSupplierSheet
 # Purchase models (purchase order management)
 from app.models.purchase import (
     PurchaseOrder,
-    PurchaseOrderItem,  # New - maps to existing purchase_order_items table
     # PurchaseOrderLine,  # DISABLED - commented out to avoid mapper conflicts
     PurchaseOrderHistory,  # New - audit trail
+    PurchaseOrderItem,  # New - maps to existing purchase_order_items table
     PurchaseOrderUnreceivedItem,  # New - track unreceived items
     PurchaseReceipt,
     PurchaseReceiptLine,

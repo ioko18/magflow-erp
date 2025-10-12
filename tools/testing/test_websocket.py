@@ -4,20 +4,21 @@ Test WebSocket connection for real-time sync progress.
 """
 
 import asyncio
-import websockets
 import json
+
+import websockets
 
 
 async def test_websocket():
     """Test WebSocket connection."""
     uri = "ws://localhost:8000/api/v1/emag/enhanced/ws/sync-progress"
-    
-    print("Connecting to {}...".format(uri))
-    
+
+    print(f"Connecting to {uri}...")
+
     try:
         async with websockets.connect(uri) as websocket:
             print("✅ Connected successfully!")
-            
+
             # Receive initial message
             message = await websocket.recv()
             data = json.loads(message)
@@ -25,14 +26,14 @@ async def test_websocket():
             print("  Status: {}".format(data.get('status')))
             print("  Is Running: {}".format(data.get('is_running')))
             print("  Active Syncs: {}".format(data.get('total_active')))
-            
+
             # Listen for updates for 10 seconds
             print("\n🔄 Listening for updates (10 seconds)...")
             for i in range(10):
                 try:
                     message = await asyncio.wait_for(websocket.recv(), timeout=1.5)
                     data = json.loads(message)
-                    
+
                     if data.get('is_running'):
                         syncs = data.get('active_syncs', [])
                         if syncs:
@@ -41,16 +42,16 @@ async def test_websocket():
                                   f"({sync.get('processed_items')}/{sync.get('total_items')} items)")
                     else:
                         print(f"  [{i+1}] No active syncs")
-                
-                except asyncio.TimeoutError:
+
+                except TimeoutError:
                     print(f"  [{i+1}] No update (timeout)")
-            
+
             print("\n✅ WebSocket test completed successfully!")
-    
+
     except Exception as e:
         print(f"\n❌ WebSocket test failed: {e}")
         return False
-    
+
     return True
 
 

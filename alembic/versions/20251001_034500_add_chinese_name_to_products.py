@@ -5,9 +5,9 @@ Revises: 069bd2ae6d01
 Create Date: 2025-10-01 03:45:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '20251001_034500'
@@ -29,7 +29,7 @@ def upgrade() -> None:
         ),
         schema='app'
     )
-    
+
     # Add index for better search performance
     op.create_index(
         'ix_app_products_chinese_name',
@@ -44,6 +44,6 @@ def downgrade() -> None:
     """Remove chinese_name column from products table."""
     # Drop index first
     op.drop_index('ix_app_products_chinese_name', table_name='products', schema='app')
-    
+
     # Drop column
     op.drop_column('products', 'chinese_name', schema='app')

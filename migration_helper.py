@@ -14,17 +14,15 @@ Usage:
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 # Add the app directory to the Python path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.core.schema_validator import validate_sync_environment, print_validation_report
 from app.core.database_resilience import DatabaseConfig
+from app.core.schema_validator import print_validation_report, validate_sync_environment
 
 # Configure logging
 logging.basicConfig(
@@ -117,7 +115,7 @@ class MigrationHelper:
         self.db_config = DatabaseConfig()
         self.migration_dir = Path(__file__).parent.parent / "migrations"
 
-    def generate_migration_sql(self, missing_columns: Dict[str, List[str]]) -> str:
+    def generate_migration_sql(self, missing_columns: dict[str, list[str]]) -> str:
         """
         Generate SQL migration script for missing columns.
 
@@ -219,7 +217,7 @@ COMMIT;
 -- Rollback completed!"""
 
     def save_migration_file(
-        self, sql_content: str, filename: Optional[str] = None
+        self, sql_content: str, filename: str | None = None
     ) -> str:
         """
         Save migration SQL to a file.
@@ -265,7 +263,7 @@ COMMIT;
                 raise ValueError("Failed to create database engine")
 
             # For schema validation, we need to create a session factory
-            from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
             async_session_factory = async_sessionmaker(
                 engine, class_=AsyncSession, expire_on_commit=False
@@ -441,7 +439,7 @@ def main():
             logger.info("🔍 Running schema validation only...")
             # We need to create a session factory for validation
             engine = helper.db_config.create_optimized_engine()
-            from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
             async_session_factory = async_sessionmaker(
                 engine, class_=AsyncSession, expire_on_commit=False

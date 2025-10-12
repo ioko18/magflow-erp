@@ -11,15 +11,15 @@ This script analyzes usage patterns and provides recommendations for scaling:
 
 import asyncio
 import logging
-import psutil
-from datetime import datetime
-from typing import Dict, List, Any
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
+import psutil
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
 
 from app.core.config import settings
 
@@ -80,7 +80,7 @@ class UsagePatternAnalyzer:
             ScalingMetric.ERROR_RATE: 5,  # 5% error rate triggers scaling
         }
 
-    def analyze_system_metrics(self) -> Dict[str, Any]:
+    def analyze_system_metrics(self) -> dict[str, Any]:
         """Analyze current system metrics."""
         logger.info("Analyzing system metrics...")
 
@@ -127,7 +127,7 @@ class UsagePatternAnalyzer:
 
         return metrics
 
-    async def analyze_database_metrics(self) -> Dict[str, Any]:
+    async def analyze_database_metrics(self) -> dict[str, Any]:
         """Analyze database performance metrics."""
         logger.info("Analyzing database metrics...")
 
@@ -196,7 +196,7 @@ class UsagePatternAnalyzer:
                 logger.error(f"Database metrics analysis error: {str(e)}")
                 return {"error": str(e)}
 
-    async def analyze_api_metrics(self) -> Dict[str, Any]:
+    async def analyze_api_metrics(self) -> dict[str, Any]:
         """Analyze API performance metrics."""
         logger.info("Analyzing API metrics...")
 
@@ -225,7 +225,7 @@ class UsagePatternAnalyzer:
         else:
             return LoadLevel.LOW
 
-    def generate_scaling_recommendations(self, metrics: Dict[str, Any]) -> List[ScalingRecommendation]:
+    def generate_scaling_recommendations(self, metrics: dict[str, Any]) -> list[ScalingRecommendation]:
         """Generate scaling recommendations based on metrics."""
         logger.info("Generating scaling recommendations...")
 
@@ -297,7 +297,7 @@ class UsagePatternAnalyzer:
 
         return recommendations
 
-    async def generate_scaling_strategy(self) -> Dict[str, Any]:
+    async def generate_scaling_strategy(self) -> dict[str, Any]:
         """Generate comprehensive scaling strategy."""
         logger.info("Generating comprehensive scaling strategy...")
 
@@ -328,7 +328,7 @@ class UsagePatternAnalyzer:
 
         return strategy
 
-    def _calculate_overall_load(self, metrics: Dict[str, Any]) -> LoadLevel:
+    def _calculate_overall_load(self, metrics: dict[str, Any]) -> LoadLevel:
         """Calculate overall system load level."""
         load_scores = []
 
@@ -363,7 +363,7 @@ class UsagePatternAnalyzer:
         else:
             return LoadLevel.LOW
 
-    def _get_immediate_actions(self, recommendations: List[ScalingRecommendation]) -> List[str]:
+    def _get_immediate_actions(self, recommendations: list[ScalingRecommendation]) -> list[str]:
         """Get immediate actions that should be taken."""
         actions = []
 
@@ -382,7 +382,7 @@ class UsagePatternAnalyzer:
 
         return actions
 
-    def _get_monitoring_suggestions(self, recommendations: List[ScalingRecommendation]) -> List[str]:
+    def _get_monitoring_suggestions(self, recommendations: list[ScalingRecommendation]) -> list[str]:
         """Get monitoring suggestions."""
         suggestions = [
             "Monitor CPU usage trends over the next 24 hours",
@@ -394,7 +394,7 @@ class UsagePatternAnalyzer:
 
         return suggestions
 
-    def _get_cost_optimization_tips(self, recommendations: List[ScalingRecommendation]) -> List[str]:
+    def _get_cost_optimization_tips(self, recommendations: list[ScalingRecommendation]) -> list[str]:
         """Get cost optimization tips."""
         tips = [
             "Consider auto-scaling based on CPU usage to reduce costs during low traffic",
@@ -406,7 +406,7 @@ class UsagePatternAnalyzer:
 
         return tips
 
-    def generate_scaling_report(self, strategy: Dict[str, Any]) -> str:
+    def generate_scaling_report(self, strategy: dict[str, Any]) -> str:
         """Generate human-readable scaling report."""
         report = []
         report.append("=" * 60)

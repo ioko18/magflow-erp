@@ -9,11 +9,13 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+from datetime import timedelta
+
+from sqlalchemy import select
+
 from app.core.database import get_async_session
 from app.core.security import create_access_token, verify_password
 from app.models.user import User
-from sqlalchemy import select
-from datetime import timedelta
 
 
 async def test_login():

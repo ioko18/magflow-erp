@@ -3,6 +3,7 @@ Minimal FastAPI demo runner for MagFlow
 Bypasses complex initialization for demo purposes
 """
 from fastapi import FastAPI
+
 from app.api.v1.api import api_router
 
 app = FastAPI(

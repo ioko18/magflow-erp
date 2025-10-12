@@ -604,11 +604,11 @@ class EmagProductSyncService:
             ean=product_data.get("ean"),
             # Sync tracking
             sync_status="synced",
-            last_synced_at=datetime.now(UTC),
+            last_synced_at=datetime.now(UTC).replace(tzinfo=None),
             sync_attempts=0,
             # Timestamps
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            created_at=datetime.now(UTC).replace(tzinfo=None),
+            updated_at=datetime.now(UTC).replace(tzinfo=None),
             emag_created_at=self._parse_datetime(product_data.get("created")),
             emag_modified_at=self._parse_datetime(product_data.get("modified")),
             # Raw data for debugging
@@ -673,8 +673,8 @@ class EmagProductSyncService:
 
         # Sync tracking
         product.sync_status = "synced"
-        product.last_synced_at = datetime.now(UTC)
-        product.updated_at = datetime.now(UTC)
+        product.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
+        product.updated_at = datetime.now(UTC).replace(tzinfo=None)
         product.emag_modified_at = self._parse_datetime(product_data.get("modified"))
         product.raw_emag_data = product_data
 
@@ -688,7 +688,7 @@ class EmagProductSyncService:
             account_type=self.account_type,
             operation=f"{mode}_sync",
             status="running",
-            started_at=datetime.now(UTC),
+            started_at=datetime.now(UTC).replace(tzinfo=None),
         )
         self.db.add(sync_log)
         await self.db.flush()  # Flush instead of commit to keep transaction open
@@ -703,7 +703,7 @@ class EmagProductSyncService:
     ):
         """Complete the sync log entry."""
         sync_log.status = status
-        completed_at = datetime.now(UTC)
+        completed_at = datetime.now(UTC).replace(tzinfo=None)
         sync_log.completed_at = completed_at
 
         # Calculate duration safely
@@ -722,11 +722,11 @@ class EmagProductSyncService:
 
         if error:
             sync_log.errors = [
-                {"error": error, "timestamp": datetime.now(UTC).isoformat()}
+                {"error": error, "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat()}
             ]
         elif self._sync_stats["errors"]:
             sync_log.errors = [
-                {"error": err, "timestamp": datetime.now(UTC).isoformat()}
+                {"error": err, "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat()}
                 for err in self._sync_stats["errors"]
             ]
 

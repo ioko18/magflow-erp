@@ -3,11 +3,10 @@
 Analyze performance test results and generate a report.
 """
 
-import json
 import argparse
-from pathlib import Path
-from typing import Dict, List, Optional
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -29,10 +28,10 @@ class TestResult:
         )
 
 
-def parse_stats_file(file_path: Path) -> Optional[TestResult]:
+def parse_stats_file(file_path: Path) -> TestResult | None:
     """Parse a single Locust stats file."""
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             data = json.load(f)
 
         # Extract test name and prepared statements setting from filename
@@ -58,13 +57,13 @@ def parse_stats_file(file_path: Path) -> Optional[TestResult]:
         return None
 
 
-def analyze_pgbouncer_metrics(before: Path, after: Path) -> Dict[str, float]:
+def analyze_pgbouncer_metrics(before: Path, after: Path) -> dict[str, float]:
     """Compare PgBouncer metrics before and after test."""
 
-    def parse_metrics(file_path: Path) -> Dict[str, float]:
+    def parse_metrics(file_path: Path) -> dict[str, float]:
         metrics = {}
         try:
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 for line in f:
                     if line.startswith("#") or not line.strip():
                         continue
@@ -86,7 +85,7 @@ def analyze_pgbouncer_metrics(before: Path, after: Path) -> Dict[str, float]:
     return deltas
 
 
-def generate_report(results: List[TestResult], results_dir: Path):
+def generate_report(results: list[TestResult], results_dir: Path):
     """Generate a performance test report."""
     if not results:
         print("No test results to analyze.")

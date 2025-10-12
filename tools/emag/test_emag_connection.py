@@ -5,8 +5,9 @@ Test script pentru conectivitatea cu API-ul eMAG real.
 
 import asyncio
 import os
-from dotenv import load_dotenv
+
 from app.services.emag_api_client import EmagApiClient, EmagApiError
+from dotenv import load_dotenv
 
 
 async def test_emag_connection():

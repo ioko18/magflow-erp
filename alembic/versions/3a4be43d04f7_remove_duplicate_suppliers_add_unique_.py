@@ -5,17 +5,15 @@ Revises: 1bf2989cb727
 Create Date: 2025-10-03 00:40:59.359371
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
-import sqlalchemy as sa
-
 
 # revision identifiers, used by Alembic.
 revision: str = '3a4be43d04f7'
-down_revision: Union[str, Sequence[str], None] = '1bf2989cb727'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '1bf2989cb727'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -38,7 +36,7 @@ def upgrade() -> None:
             AND sp.id != duplicates.min_id
         )
     """)
-    
+
     # Step 2: Add UNIQUE constraint to prevent future duplicates
     op.create_unique_constraint(
         'uq_supplier_products_supplier_product',

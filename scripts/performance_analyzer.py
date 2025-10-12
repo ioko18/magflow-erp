@@ -11,13 +11,13 @@ This script analyzes usage patterns and provides optimization recommendations:
 
 import asyncio
 import logging
-import psutil
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Any
 
+import psutil
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
 
 from app.core.config import settings
 
@@ -33,7 +33,7 @@ class PerformanceAnalyzer:
         self.engine = create_async_engine(settings.DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def analyze_database_performance(self) -> Dict[str, Any]:
+    async def analyze_database_performance(self) -> dict[str, Any]:
         """Analyze database performance metrics."""
         logger.info("Analyzing database performance...")
 
@@ -119,7 +119,7 @@ class PerformanceAnalyzer:
                 logger.error(f"Database analysis error: {str(e)}")
                 return {"error": str(e)}
 
-    async def analyze_api_performance(self) -> Dict[str, Any]:
+    async def analyze_api_performance(self) -> dict[str, Any]:
         """Analyze API performance metrics."""
         logger.info("Analyzing API performance...")
 
@@ -137,7 +137,7 @@ class PerformanceAnalyzer:
             "emag_api_response_time": "200ms"
         }
 
-    async def analyze_emag_integration_performance(self) -> Dict[str, Any]:
+    async def analyze_emag_integration_performance(self) -> dict[str, Any]:
         """Analyze eMAG integration specific performance."""
         logger.info("Analyzing eMAG integration performance...")
 
@@ -197,7 +197,7 @@ class PerformanceAnalyzer:
                 logger.error(f"eMAG integration analysis error: {str(e)}")
                 return {"error": str(e)}
 
-    def analyze_system_resources(self) -> Dict[str, Any]:
+    def analyze_system_resources(self) -> dict[str, Any]:
         """Analyze system resource usage."""
         logger.info("Analyzing system resources...")
 
@@ -216,7 +216,7 @@ class PerformanceAnalyzer:
             }
         }
 
-    async def generate_optimization_recommendations(self, metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def generate_optimization_recommendations(self, metrics: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate optimization recommendations based on metrics."""
         logger.info("Generating optimization recommendations...")
 
@@ -287,7 +287,7 @@ class PerformanceAnalyzer:
 
         return recommendations
 
-    async def run_full_analysis(self) -> Dict[str, Any]:
+    async def run_full_analysis(self) -> dict[str, Any]:
         """Run complete performance analysis."""
         logger.info("Starting comprehensive performance analysis...")
 
@@ -310,7 +310,7 @@ class PerformanceAnalyzer:
 
         return results
 
-    def generate_performance_report(self, analysis_results: Dict[str, Any]) -> str:
+    def generate_performance_report(self, analysis_results: dict[str, Any]) -> str:
         """Generate human-readable performance report."""
         report = []
         report.append("=" * 60)

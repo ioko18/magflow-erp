@@ -3,8 +3,10 @@
 Display 5 products from eMAG Marketplace
 """
 
-import requests
 import os
+
+import requests
+
 
 def display_emag_products():
     """Display 5 products from eMAG Marketplace"""

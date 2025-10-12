@@ -53,6 +53,7 @@ interface LowStockProduct {
   minimum_stock: number;
   reorder_point: number;
   maximum_stock: number | null;
+  manual_reorder_quantity: number | null;
   unit_cost: number | null;
   stock_status: string;
   reorder_quantity: number;
@@ -102,6 +103,8 @@ const LowStockSuppliersPage: React.FC = () => {
   const [showOnlyVerified, setShowOnlyVerified] = useState(true);
   const [editingReorder, setEditingReorder] = useState<Map<number, number>>(new Map());
   const [savingReorder, setSavingReorder] = useState<Set<number>>(new Set());
+  const [editingReorderQty, setEditingReorderQty] = useState<Map<number, number>>(new Map());
+  const [savingReorderQty, setSavingReorderQty] = useState<Set<number>>(new Set());
 
   // ============================================================================
   // Data Loading
@@ -190,6 +193,51 @@ const LowStockSuppliersPage: React.FC = () => {
       antMessage.error(error.response?.data?.detail || 'Failed to update reorder point');
     } finally {
       setSavingReorder(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(inventoryItemId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleUpdateReorderQty = async (inventoryItemId: number, newValue: number | null) => {
+    try {
+      setSavingReorderQty(prev => new Set(prev).add(inventoryItemId));
+      
+      const response = await api.patch(`/inventory/items/${inventoryItemId}`, {
+        manual_reorder_quantity: newValue
+      });
+      
+      if (response.data?.status === 'success') {
+        antMessage.success(newValue === null 
+          ? 'Reorder quantity reset to automatic calculation!' 
+          : 'Reorder quantity updated successfully!');
+        
+        // Update local state
+        setProducts(prevProducts => 
+          prevProducts.map(p => 
+            p.inventory_item_id === inventoryItemId 
+              ? { 
+                  ...p, 
+                  manual_reorder_quantity: newValue,
+                  reorder_quantity: response.data.data.reorder_quantity
+                }
+              : p
+          )
+        );
+        
+        // Clear editing state
+        setEditingReorderQty(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(inventoryItemId);
+          return newMap;
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating reorder quantity:', error);
+      antMessage.error(error.response?.data?.detail || 'Failed to update reorder quantity');
+    } finally {
+      setSavingReorderQty(prev => {
         const newSet = new Set(prev);
         newSet.delete(inventoryItemId);
         return newSet;
@@ -747,9 +795,89 @@ const LowStockSuppliersPage: React.FC = () => {
               )}
             </Space>
             
-            <Text style={{ fontSize: 12 }}>
-              Reorder Qty: <strong style={{ color: '#cf1322' }}>{record.reorder_quantity}</strong>
-            </Text>
+            {/* Editable Reorder Quantity */}
+            <Space size={4} style={{ width: '100%' }}>
+              <Text style={{ fontSize: 12 }}>Reorder Qty:</Text>
+              {editingReorderQty.has(record.inventory_item_id) ? (
+                <>
+                  <InputNumber
+                    size="small"
+                    min={0}
+                    max={10000}
+                    value={editingReorderQty.get(record.inventory_item_id) ?? record.reorder_quantity}
+                    onChange={(value) => {
+                      if (value !== null) {
+                        setEditingReorderQty(prev => new Map(prev).set(record.inventory_item_id, value));
+                      }
+                    }}
+                    style={{ width: 70 }}
+                    disabled={savingReorderQty.has(record.inventory_item_id)}
+                  />
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<SaveOutlined />}
+                    onClick={() => handleUpdateReorderQty(
+                      record.inventory_item_id, 
+                      editingReorderQty.get(record.inventory_item_id) ?? record.reorder_quantity
+                    )}
+                    loading={savingReorderQty.has(record.inventory_item_id)}
+                    style={{ padding: '0 8px' }}
+                  />
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setEditingReorderQty(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(record.inventory_item_id);
+                        return newMap;
+                      });
+                    }}
+                    disabled={savingReorderQty.has(record.inventory_item_id)}
+                    style={{ padding: '0 8px' }}
+                  >
+                    ✕
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Text strong style={{ color: '#cf1322' }}>{record.reorder_quantity}</Text>
+                  {record.manual_reorder_quantity !== null && (
+                    <Tag color="blue" style={{ fontSize: 10 }}>Manual</Tag>
+                  )}
+                  <Tooltip title={record.manual_reorder_quantity !== null 
+                    ? "Edit manual quantity or reset to automatic" 
+                    : "Set manual reorder quantity"}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => {
+                        setEditingReorderQty(prev => new Map(prev).set(
+                          record.inventory_item_id, 
+                          record.manual_reorder_quantity ?? record.reorder_quantity
+                        ));
+                      }}
+                      style={{ padding: '0 4px' }}
+                    />
+                  </Tooltip>
+                  {record.manual_reorder_quantity !== null && (
+                    <Tooltip title="Reset to automatic calculation">
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        onClick={() => handleUpdateReorderQty(record.inventory_item_id, null)}
+                        loading={savingReorderQty.has(record.inventory_item_id)}
+                        style={{ padding: '0 4px', fontSize: 12 }}
+                      >
+                        🔄
+                      </Button>
+                    </Tooltip>
+                  )}
+                </>
+              )}
+            </Space>
           </Space>
         );
       },

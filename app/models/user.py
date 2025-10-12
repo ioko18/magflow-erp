@@ -195,7 +195,7 @@ class RefreshToken(Base, TimestampMixin):
     def revoke(self) -> None:
         """Revoke the refresh token."""
         self.is_revoked = True
-        self.updated_at = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
 
 # The role_permission table is now defined in role.py

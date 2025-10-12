@@ -44,42 +44,49 @@ async def get_orders(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(
             f"Fetching orders from eMAG - account: {account_type}, "
             f"status: {status_filter}, days_back: {days_back}"
         )
 
-        # Calculate date range
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+        try:
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
 
-        # Get orders from eMAG API
-        orders = await service.get_orders(
-            start_date=start_date,
-            end_date=end_date,
-            status=status_filter,
-            limit=limit,
-        )
+            # Get orders from eMAG API
+            orders = await service.get_orders(
+                start_date=start_date,
+                end_date=end_date,
+                status=status_filter,
+                limit=limit,
+            )
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "count": len(orders),
-            "filters": {
-                "status": status_filter,
-                "days_back": days_back,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-            },
-            "orders": orders,
-        }
+            return {
+                "success": True,
+                "account_type": account_type,
+                "count": len(orders),
+                "filters": {
+                    "status": status_filter,
+                    "days_back": days_back,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                },
+                "orders": orders,
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Error fetching orders: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch orders: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/{order_id}")
@@ -103,21 +110,28 @@ async def get_order_by_id(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(f"Fetching order {order_id} from eMAG - account: {account_type}")
 
-        order = await service.get_order_by_id(order_id)
+        try:
+            order = await service.get_order_by_id(order_id)
 
-        if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Order {order_id} not found",
-            )
+            if not order:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Order {order_id} not found",
+                )
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "order": order,
-        }
+            return {
+                "success": True,
+                "account_type": account_type,
+                "order": order,
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except HTTPException:
         raise
@@ -126,7 +140,7 @@ async def get_order_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch order: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/count")
@@ -152,34 +166,41 @@ async def get_orders_count(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(
             f"Getting orders count from eMAG - account: {account_type}, "
             f"status: {status_filter}, days_back: {days_back}"
         )
 
-        # Calculate date range
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days_back)
+        try:
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days_back)
 
-        count = await service.get_orders_count(
-            start_date=start_date,
-            end_date=end_date,
-            status=status_filter,
-        )
+            count = await service.get_orders_count(
+                start_date=start_date,
+                end_date=end_date,
+                status=status_filter,
+            )
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "total_count": count,
-            "filters": {
-                "status": status_filter,
-                "days_back": days_back,
-            },
-        }
+            return {
+                "success": True,
+                "account_type": account_type,
+                "total_count": count,
+                "filters": {
+                    "status": status_filter,
+                    "days_back": days_back,
+                },
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Error getting orders count: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get orders count: {str(e)}",
-        )
+        ) from e

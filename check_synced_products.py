@@ -3,10 +3,11 @@
 Check which products have been synced from eMAG to our database
 """
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
 import argparse
 import logging
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -35,7 +36,7 @@ def get_latest_syncs(session, account_type=None, limit=5):
         ORDER BY started_at DESC
         LIMIT :limit
     """)
-    
+
     params = {"limit": limit}
     if account_type:
         query = text("""
@@ -46,7 +47,7 @@ def get_latest_syncs(session, account_type=None, limit=5):
             LIMIT :limit
         """)
         params["account_type"] = account_type
-    
+
     result = session.execute(query, params)
     return result.fetchall()
 
@@ -54,7 +55,7 @@ def get_latest_syncs(session, account_type=None, limit=5):
 def get_products_for_sync(session, sync_id):
     """Get products synced in a specific sync operation"""
     result = session.execute(text("""
-        SELECT p.emag_id, p.name, p.part_number, p.is_active, 
+        SELECT p.emag_id, p.name, p.part_number, p.is_active,
                o.stock, o.price, o.sale_price
         FROM app.emag_products p
         JOIN app.emag_product_offers o ON p.emag_id = o.emag_product_id
@@ -65,7 +66,7 @@ def get_products_for_sync(session, sync_id):
         )
         ORDER BY p.name
     """), {"sync_id": sync_id})
-    
+
     return result.fetchall()
 
 
@@ -77,10 +78,10 @@ def format_timestamp(ts):
 def main():
     """Main function"""
     parser = argparse.ArgumentParser(description='Check synced eMAG products')
-    parser.add_argument('--account', choices=['main', 'fbe'], 
+    parser.add_argument('--account', choices=['main', 'fbe'],
                         help='Filter by account type (main or fbe)')
     parser.add_argument('--sync-id', help='Show products for a specific sync ID')
-    parser.add_argument('--limit', type=int, default=5, 
+    parser.add_argument('--limit', type=int, default=5,
                         help='Number of sync records to show (default: 5)')
     args = parser.parse_args()
 

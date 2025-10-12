@@ -4,17 +4,18 @@ Revision ID: b1234f5d6c78
 Revises: 6d303f2068d4
 Create Date: 2025-09-25 07:24:20.000000
 """
-from typing import Optional, Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 # revision identifiers, used by Alembic.
 revision: str = "b1234f5d6c78"
-down_revision: Union[str, Sequence[str], None] = "6d303f2068d4"
-branch_labels: Optional[Sequence[str]] = None
-depends_on: Optional[Sequence[str]] = None
+down_revision: str | Sequence[str] | None = "6d303f2068d4"
+branch_labels: Sequence[str] | None = None
+depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:

@@ -3,12 +3,12 @@
 Script to generate test traffic for SLO alert testing.
 """
 
+import asyncio
+import logging
 import random
 import time
-import asyncio
+
 import aiohttp
-import logging
-from typing import Dict
 
 # Configure logging
 logging.basicConfig(
@@ -41,7 +41,7 @@ class TrafficGenerator:
         if self.session:
             await self.session.close()
 
-    async def make_request(self, endpoint: str, method: str = "GET", **kwargs) -> Dict:
+    async def make_request(self, endpoint: str, method: str = "GET", **kwargs) -> dict:
         """Make an HTTP request and return the status code and response time."""
         if not self.session:
             await self.start()

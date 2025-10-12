@@ -142,7 +142,7 @@ const Login: React.FC = () => {
               Email: <strong>admin@magflow.com</strong>
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
-              Password: <strong>secret</strong>
+              Password: <strong>admin123</strong>
             </div>
           </Space>
         </div>

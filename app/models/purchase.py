@@ -8,12 +8,12 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Float,
     ForeignKey,
     Integer,
-    JSON,
     Numeric,
     String,
     Text,

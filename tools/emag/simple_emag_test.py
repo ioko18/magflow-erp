@@ -6,9 +6,9 @@ This script tests the eMAG configuration and API connectivity without
 requiring the full application stack.
 """
 
+import asyncio
 import os
 import sys
-import asyncio
 from pathlib import Path
 
 # Add project root to path
@@ -35,7 +35,7 @@ def test_config():
     main_username = os.getenv("EMAG_MAIN_USERNAME")
     main_password = os.getenv("EMAG_MAIN_PASSWORD")
 
-    print(f"MAIN Account:")
+    print("MAIN Account:")
     print(f"  Username: {main_username}")
     print(f"  Password: {'*' * len(main_password) if main_password else 'NOT SET'}")
     print(
@@ -46,7 +46,7 @@ def test_config():
     fbe_username = os.getenv("EMAG_FBE_USERNAME")
     fbe_password = os.getenv("EMAG_FBE_PASSWORD")
 
-    print(f"\nFBE Account:")
+    print("\nFBE Account:")
     print(f"  Username: {fbe_username}")
     print(f"  Password: {'*' * len(fbe_password) if fbe_password else 'NOT SET'}")
     print(
@@ -54,14 +54,14 @@ def test_config():
     )
 
     # Test rate limiting settings
-    print(f"\nRate Limiting Settings:")
+    print("\nRate Limiting Settings:")
     print(f"  MAIN Orders RPS: {os.getenv('EMAG_MAIN_ORDERS_RPS', '12')}")
     print(f"  MAIN Other RPS: {os.getenv('EMAG_MAIN_OTHER_RPS', '3')}")
     print(f"  FBE Orders RPS: {os.getenv('EMAG_FBE_ORDERS_RPS', '12')}")
     print(f"  FBE Other RPS: {os.getenv('EMAG_FBE_OTHER_RPS', '3')}")
 
     # Test API settings
-    print(f"\nAPI Settings:")
+    print("\nAPI Settings:")
     print(
         f"  Base URL: {os.getenv('EMAG_MAIN_BASE_URL', 'https://marketplace-api.emag.ro/api-3')}"
     )

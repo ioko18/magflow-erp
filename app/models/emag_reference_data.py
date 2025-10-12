@@ -5,7 +5,7 @@ Models for caching eMAG reference data (categories, VAT rates, handling times).
 This data changes infrequently and is cached to improve performance.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -63,9 +63,9 @@ class EmagCategory(Base):
     )
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
     last_synced_at = Column(
         DateTime, nullable=True, comment="Last time synced from eMAG API"
@@ -106,9 +106,9 @@ class EmagVatRate(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
     last_synced_at = Column(
         DateTime, nullable=True, comment="Last time synced from eMAG API"
@@ -146,9 +146,9 @@ class EmagHandlingTime(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
     last_synced_at = Column(
         DateTime, nullable=True, comment="Last time synced from eMAG API"

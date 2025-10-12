@@ -65,6 +65,7 @@ class InventoryItemBase(BaseModel):
     minimum_stock: int = 0
     maximum_stock: int | None = None
     reorder_point: int = 0
+    manual_reorder_quantity: int | None = None
     unit_cost: float | None = None
     location: str | None = Field(None, max_length=100)
     batch_number: str | None = Field(None, max_length=50)
@@ -84,6 +85,7 @@ class InventoryItemUpdate(BaseModel):
     minimum_stock: int | None = None
     maximum_stock: int | None = None
     reorder_point: int | None = None
+    manual_reorder_quantity: int | None = None
     unit_cost: float | None = None
     location: str | None = Field(None, max_length=100)
     batch_number: str | None = Field(None, max_length=50)

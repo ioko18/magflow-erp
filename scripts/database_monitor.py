@@ -2,13 +2,14 @@
 """Database monitoring and health check script."""
 
 import asyncio
-import sys
+import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
-from sqlalchemy.ext.asyncio import create_async_engine
+
 from sqlalchemy import text
-import json
+from sqlalchemy.ext.asyncio import create_async_engine
 
 
 class DatabaseMonitor:
@@ -61,13 +62,13 @@ class DatabaseMonitor:
     async def _check_connection(self):
         """Check database connection."""
         async with self.engine.begin() as conn:
-            result = await conn.execute(text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
             return {"status": "OK", "response_time": "N/A"}
 
     async def _check_performance(self):
         """Check database performance."""
         async with self.engine.begin() as conn:
-            start_time = datetime.now()
+            datetime.now()
 
             # Test various query types
             queries = [
@@ -80,7 +81,7 @@ class DatabaseMonitor:
             for query in queries:
                 try:
                     query_start = datetime.now()
-                    result = await conn.execute(text(query))
+                    await conn.execute(text(query))
                     query_end = datetime.now()
                     execution_time = (query_end - query_start).total_seconds() * 1000
 

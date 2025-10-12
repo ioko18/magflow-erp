@@ -8,7 +8,6 @@ import asyncio
 import json
 import sys
 from datetime import datetime
-from typing import Dict, Any
 
 import httpx
 
@@ -35,10 +34,10 @@ class EmagIntegrationTester:
         else:
             self.results["failed"] += 1
             print(f"❌ FAIL: {name}")
-        
+
         if details:
             print(f"   {details}")
-        
+
         self.results["tests"].append({
             "name": name,
             "passed": passed,
@@ -55,11 +54,11 @@ class EmagIntegrationTester:
                     json={"username": "admin@example.com", "password": "secret"},
                     timeout=10.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     self.token = data.get("access_token")
-                    self.log_test("Authentication", True, f"Token obtained")
+                    self.log_test("Authentication", True, "Token obtained")
                     return True
                 else:
                     self.log_test("Authentication", False, f"Status: {response.status_code}")
@@ -96,7 +95,7 @@ class EmagIntegrationTester:
                     headers=headers,
                     timeout=10.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     products = data.get("products", [])
@@ -128,7 +127,7 @@ class EmagIntegrationTester:
                     headers=headers,
                     timeout=10.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     stats = data.get("sync_statistics", {})
@@ -160,7 +159,7 @@ class EmagIntegrationTester:
                     headers=headers,
                     timeout=10.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     status = data.get("status", "unknown")
@@ -193,7 +192,7 @@ class EmagIntegrationTester:
                     headers=headers,
                     timeout=10.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     metrics = data.get("metrics", {})
@@ -225,16 +224,16 @@ class EmagIntegrationTester:
                     headers=headers,
                     timeout=15.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
                     products = data.get("products", [])
                     total = len(products)
-                    
+
                     # Count by account type
                     main_count = len([p for p in products if p.get("account_type") == "main"])
                     fbe_count = len([p for p in products if p.get("account_type") == "fbe"])
-                    
+
                     passed = total >= 100  # Should have at least 100 products
                     self.log_test(
                         "Database Products Count",

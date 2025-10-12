@@ -41,28 +41,35 @@ async def get_all_emag_products(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(
             f"Fetching products from eMAG - account: {account_type}, limit: {limit}, offset: {offset}"
         )
 
-        # Get products from eMAG API
-        products = await service.get_products(limit=limit, offset=offset)
+        try:
+            # Get products from eMAG API
+            products = await service.get_products(limit=limit, offset=offset)
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "count": len(products),
-            "limit": limit,
-            "offset": offset,
-            "products": products,
-        }
+            return {
+                "success": True,
+                "account_type": account_type,
+                "count": len(products),
+                "limit": limit,
+                "offset": offset,
+                "products": products,
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Error fetching products: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch products: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/{product_id}")
@@ -86,23 +93,30 @@ async def get_emag_product_by_id(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(
             f"Fetching product {product_id} from eMAG - account: {account_type}"
         )
 
-        product = await service.get_product_by_id(product_id)
+        try:
+            product = await service.get_product_by_id(product_id)
 
-        if not product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product {product_id} not found",
-            )
+            if not product:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Product {product_id} not found",
+                )
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "product": product,
-        }
+            return {
+                "success": True,
+                "account_type": account_type,
+                "product": product,
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except HTTPException:
         raise
@@ -111,7 +125,7 @@ async def get_emag_product_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch product: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/count")
@@ -133,19 +147,26 @@ async def get_products_count(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(f"Getting products count from eMAG - account: {account_type}")
 
-        count = await service.get_products_count()
+        try:
+            count = await service.get_products_count()
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "total_count": count,
-        }
+            return {
+                "success": True,
+                "account_type": account_type,
+                "total_count": count,
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Error getting products count: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get products count: {str(e)}",
-        )
+        ) from e

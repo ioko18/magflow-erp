@@ -170,7 +170,7 @@ class ProductMappingService:
         for key, value in update_data.items():
             setattr(mapping, key, value)
 
-        mapping.updated_at = datetime.now(UTC)
+        mapping.updated_at = datetime.now(UTC).replace(tzinfo=None)
         await self.db.commit()
         await self.db.refresh(mapping)
         return mapping

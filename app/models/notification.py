@@ -5,7 +5,7 @@ Provides database models for user notifications and notification preferences.
 """
 
 import enum
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
@@ -95,7 +95,7 @@ class Notification(Base):
     read_at = Column(DateTime, nullable=True)
 
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
     expires_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -175,9 +175,9 @@ class NotificationSettings(Base):
     )  # daily, weekly
 
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False
     )
 
     # Relationships

@@ -5,22 +5,23 @@ Revises: 14b0e514876f
 Create Date: 2025-10-10 20:23:53.439853
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 # revision identifiers, used by Alembic.
 revision: str = '97aa49837ac6'
-down_revision: Union[str, Sequence[str], None] = '14b0e514876f'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '14b0e514876f'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     """Upgrade schema."""
-    
+
     # Create product_variants table
     op.create_table(
         'product_variants',
@@ -55,14 +56,14 @@ def upgrade() -> None:
         ),
         schema='app'
     )
-    
+
     # Create indexes for product_variants
     op.create_index('idx_product_variants_group', 'product_variants', ['variant_group_id'], schema='app')
     op.create_index('idx_product_variants_sku', 'product_variants', ['sku'], schema='app')
     op.create_index('idx_product_variants_pnk', 'product_variants', ['part_number_key'], schema='app')
     op.create_index('idx_product_variants_active', 'product_variants', ['is_active'], schema='app')
     op.create_index('idx_product_variants_type', 'product_variants', ['variant_type'], schema='app')
-    
+
     # Create product_genealogy table
     op.create_table(
         'product_genealogy',
@@ -97,7 +98,7 @@ def upgrade() -> None:
         ),
         schema='app'
     )
-    
+
     # Create indexes for product_genealogy
     op.create_index('idx_genealogy_family', 'product_genealogy', ['family_id'], schema='app')
     op.create_index('idx_genealogy_sku', 'product_genealogy', ['sku'], schema='app')
@@ -107,14 +108,14 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    
+
     # Drop product_genealogy table
     op.drop_index('idx_genealogy_root', table_name='product_genealogy', schema='app')
     op.drop_index('idx_genealogy_stage', table_name='product_genealogy', schema='app')
     op.drop_index('idx_genealogy_sku', table_name='product_genealogy', schema='app')
     op.drop_index('idx_genealogy_family', table_name='product_genealogy', schema='app')
     op.drop_table('product_genealogy', schema='app')
-    
+
     # Drop product_variants table
     op.drop_index('idx_product_variants_type', table_name='product_variants', schema='app')
     op.drop_index('idx_product_variants_active', table_name='product_variants', schema='app')

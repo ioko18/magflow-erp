@@ -105,7 +105,7 @@ class NotificationService:
                 action_label=action_label,
                 expires_at=expires_at,
                 read=False,
-                created_at=datetime.now(UTC),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
             )
 
             self.db.add(notification)
@@ -463,7 +463,7 @@ class NotificationService:
                 if hasattr(settings, key):
                     setattr(settings, key, value)
 
-            settings.updated_at = datetime.now(UTC)
+            settings.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             await self.db.commit()
             await self.db.refresh(settings)

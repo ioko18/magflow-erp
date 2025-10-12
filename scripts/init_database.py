@@ -11,16 +11,15 @@ from datetime import datetime
 # Add the project root to the Python path
 sys.path.append('/Users/macos/anaconda3/envs/MagFlow')
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
-from app.models.user import User
-from app.models.role import Role
 from app.models.permission import Permission
+from app.models.role import Role
+from app.models.user import User
 from app.services.rbac_service import AuditService
-
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

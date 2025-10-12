@@ -66,6 +66,7 @@ class InventoryItem(Base, TimestampMixin):
     minimum_stock: Mapped[int] = mapped_column(Integer, default=0)
     maximum_stock: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reorder_point: Mapped[int] = mapped_column(Integer, default=0)
+    manual_reorder_quantity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     unit_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
     location: Mapped[str | None] = mapped_column(String(100), nullable=True)
     batch_number: Mapped[str | None] = mapped_column(String(50), nullable=True)

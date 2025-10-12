@@ -7,6 +7,7 @@ It can be run directly to verify the health check functionality.
 
 import asyncio
 import sys
+
 from fastapi.testclient import TestClient
 
 # Add the app directory to the Python path

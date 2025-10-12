@@ -3,15 +3,16 @@
 
 import asyncio
 import sys
+
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 # Add app to path
 sys.path.insert(0, '/Users/macos/anaconda3/envs/MagFlow')
 
-from app.models.supplier import Supplier
 from app.models.product import Product
+from app.models.supplier import Supplier
 
 DATABASE_URL = "postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@localhost:5433/magflow"
 
@@ -19,7 +20,7 @@ async def test_suppliers_query():
     """Test the suppliers query that's failing."""
     engine = create_async_engine(DATABASE_URL, echo=True)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async with async_session() as session:
         try:
             print("\n=== Testing Suppliers Query ===")
@@ -33,14 +34,14 @@ async def test_suppliers_query():
             print(f"✗ Error querying suppliers: {e}")
             import traceback
             traceback.print_exc()
-    
+
     await engine.dispose()
 
 async def test_products_query():
     """Test the products query that's failing."""
     engine = create_async_engine(DATABASE_URL, echo=False)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     async with async_session() as session:
         try:
             print("\n=== Testing Products Query ===")
@@ -54,7 +55,7 @@ async def test_products_query():
             print(f"✗ Error querying products: {e}")
             import traceback
             traceback.print_exc()
-    
+
     await engine.dispose()
 
 async def main():

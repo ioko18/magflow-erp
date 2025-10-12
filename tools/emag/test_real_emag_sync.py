@@ -4,9 +4,10 @@ Test script pentru sincronizarea reală cu API-ul eMAG.
 """
 
 import asyncio
-import os
-from dotenv import load_dotenv
+
 from app.services.enhanced_emag_service import EnhancedEmagIntegrationService
+from dotenv import load_dotenv
+
 from app.core.database import get_async_session
 
 
@@ -85,7 +86,8 @@ async def test_real_emag_sync():
 
     try:
         async for db in get_async_session():
-            from sqlalchemy import select, func
+            from sqlalchemy import func, select
+
             from app.models.emag_models import EmagProductV2
 
             # Numără produsele per cont
@@ -101,7 +103,7 @@ async def test_real_emag_sync():
             fbe_count = await db.execute(fbe_count_stmt)
             fbe_total = fbe_count.scalar()
 
-            print(f"📊 Produse în baza de date:")
+            print("📊 Produse în baza de date:")
             print(f"   MAIN: {main_total} produse")
             print(f"   FBE: {fbe_total} produse")
             print(f"   TOTAL: {main_total + fbe_total} produse")
@@ -116,7 +118,7 @@ async def test_real_emag_sync():
             recent_products = recent_result.scalars().all()
 
             if recent_products:
-                print(f"\n🕒 Ultimele 5 produse sincronizate:")
+                print("\n🕒 Ultimele 5 produse sincronizate:")
                 for i, product in enumerate(recent_products):
                     sync_time = (
                         product.last_synced_at.strftime("%H:%M:%S")

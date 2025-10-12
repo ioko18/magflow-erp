@@ -5,17 +5,17 @@ Revises: add_emag_orders_v2
 Create Date: 2025-09-30 15:37:39.462224
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '8ee48849d280'
-down_revision: Union[str, Sequence[str], None] = 'add_emag_orders_v2'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'add_emag_orders_v2'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -44,7 +44,7 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index('idx_emag_products_v2_ownership', table_name='emag_products_v2')
     op.drop_index('idx_emag_products_v2_validation_status', table_name='emag_products_v2')
-    
+
     op.drop_column('emag_products_v2', 'weight_g')
     op.drop_column('emag_products_v2', 'height_mm')
     op.drop_column('emag_products_v2', 'width_mm')

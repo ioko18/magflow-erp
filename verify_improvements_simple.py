@@ -8,6 +8,7 @@ This script verifies the key fixes without database dependencies.
 import json
 import sys
 from datetime import datetime
+
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -51,9 +52,7 @@ def test_model_imports():
 
     try:
         from app.models.emag_models import (
-            EmagProductV2,
             EmagSyncLog,
-            EmagProductOfferV2,
         )
 
         print("  ✅ EmagProductV2 imported successfully")
@@ -80,11 +79,9 @@ def test_service_imports():
     print("\n🔧 Testing Service Imports...")
 
     try:
-        from app.services.enhanced_emag_service import EnhancedEmagIntegrationService
 
         print("  ✅ EnhancedEmagIntegrationService imported successfully")
 
-        from app.services.emag_api_client import EmagApiClient
 
         print("  ✅ EmagApiClient imported successfully")
 
@@ -184,7 +181,7 @@ def main():
         print("  - Enhanced error handling")
         print("  - Model and service imports working")
 
-        print(f"\n📄 Detailed results saved to: emag_improvements_verification.json")
+        print("\n📄 Detailed results saved to: emag_improvements_verification.json")
         return 0
     else:
         print(f"\n⚠️  VERIFICATION NEEDS ATTENTION ({success_rate:.1f}% pass rate)")

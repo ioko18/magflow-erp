@@ -4,7 +4,9 @@ Database migration script to fix schema issues for order sync functionality.
 """
 
 import logging
+
 from sqlalchemy import create_engine, text
+
 from app.core.config import settings
 
 # Configure logging
@@ -83,7 +85,7 @@ def run_migrations():
 
             for query in verification_queries:
                 try:
-                    result = conn.execute(text(query))
+                    conn.execute(text(query))
                     logger.info(f"✓ Verified table accessibility: {query.split()[-3]}")
                 except Exception as e:
                     logger.error(f"✗ Failed to verify table: {e}")

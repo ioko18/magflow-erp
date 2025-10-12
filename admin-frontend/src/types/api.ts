@@ -73,3 +73,57 @@ export interface SyncResponse {
   total: number;
   errors?: string[];
 }
+
+// eMAG Order Details
+export interface EmagOrderDetails {
+  id: string;
+  emag_order_id: number;
+  account_type: 'main' | 'fbe';
+  status: number;
+  status_name: string | null;
+  customer_id?: number | null;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  total_amount: number;
+  currency: string;
+  payment_method: string | null;
+  payment_status?: number | null;
+  delivery_mode: string | null;
+  shipping_address?: {
+    contact?: string;
+    phone?: string;
+    country?: string;
+    city?: string;
+    street?: string;
+    postal_code?: string;
+  } | null;
+  billing_address?: {
+    contact?: string;
+    phone?: string;
+    country?: string;
+    city?: string;
+    street?: string;
+    postal_code?: string;
+  } | null;
+  products?: Array<{
+    id?: string;
+    sku: string;
+    name: string;
+    quantity: number;
+    sale_price: number;
+    price?: number;
+    total?: number;
+  }>;
+  vouchers?: Array<{
+    code: string;
+    amount: number;
+  }>;
+  awb_number?: string | null;
+  invoice_url?: string | null;
+  order_date: string | null;
+  acknowledged_at?: string | null;
+  finalized_at?: string | null;
+  sync_status: string;
+  last_synced_at: string | null;
+}

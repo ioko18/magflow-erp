@@ -12,18 +12,18 @@ This module provides custom business logic and workflows specific to:
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Any
 from enum import Enum
+from typing import Any
 
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, and_
 
-from app.models.rma import ReturnRequest, ReturnStatus
+from app.core.config import settings
+from app.integrations.emag.services import EmagIntegrationManager
 from app.models.cancellation import CancellationRequest, CancellationStatus
 from app.models.invoice import Invoice, InvoiceStatus
-from app.integrations.emag.services import EmagIntegrationManager
-from app.core.config import settings
+from app.models.rma import ReturnRequest, ReturnStatus
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -46,7 +46,7 @@ class FashionRMAManager:
         self.engine = create_async_engine(settings.DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def process_fashion_return(self, return_request_id: int) -> Dict[str, Any]:
+    async def process_fashion_return(self, return_request_id: int) -> dict[str, Any]:
         """Process fashion-specific return with additional business logic."""
         logger.info(f"Processing fashion return: {return_request_id}")
 
@@ -138,14 +138,14 @@ class EMAGSyncWorkflow:
         self.engine = create_async_engine(settings.DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def smart_sync_strategy(self) -> Dict[str, Any]:
+    async def smart_sync_strategy(self) -> dict[str, Any]:
         """Implement smart sync strategy based on business priorities."""
         logger.info("Running smart eMAG sync strategy...")
 
         async with self.async_session() as session:
             try:
                 # Get current sync status
-                sync_status = await self.integration_manager.get_sync_status()
+                await self.integration_manager.get_sync_status()
 
                 # Business priority rules
                 priorities = {
@@ -219,7 +219,7 @@ class EMAGSyncWorkflow:
                 logger.error(f"Smart sync error: {str(e)}")
                 return {"error": str(e)}
 
-    async def _sync_high_priority(self, items: List[Dict]) -> Dict[str, int]:
+    async def _sync_high_priority(self, items: list[dict]) -> dict[str, int]:
         """Sync high-priority items first."""
         results = {"processed": 0, "successful": 0, "failed": 0}
 
@@ -244,7 +244,7 @@ class EMAGSyncWorkflow:
 
         return results
 
-    async def _sync_medium_priority(self, items: List[Dict]) -> Dict[str, int]:
+    async def _sync_medium_priority(self, items: list[dict]) -> dict[str, int]:
         """Sync medium-priority items."""
         results = {"processed": 0, "successful": 0, "failed": 0}
 
@@ -275,7 +275,7 @@ class InventoryAutoOrderWorkflow:
         self.engine = create_async_engine(settings.DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def check_reorder_points(self) -> Dict[str, Any]:
+    async def check_reorder_points(self) -> dict[str, Any]:
         """Check inventory levels and suggest reorders."""
         logger.info("Checking inventory reorder points...")
 
@@ -336,7 +336,7 @@ class CustomerServiceWorkflow:
         self.engine = create_async_engine(settings.DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def escalate_pending_returns(self) -> Dict[str, Any]:
+    async def escalate_pending_returns(self) -> dict[str, Any]:
         """Escalate pending returns that need attention."""
         logger.info("Escalating pending returns...")
 
@@ -389,7 +389,7 @@ class BulkOperationsManager:
         self.engine = create_async_engine(settings.DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
-    async def bulk_update_product_prices(self, price_updates: List[Dict]) -> Dict[str, Any]:
+    async def bulk_update_product_prices(self, price_updates: list[dict]) -> dict[str, Any]:
         """Bulk update product prices efficiently."""
         logger.info(f"Bulk updating {len(price_updates)} product prices...")
 
@@ -437,30 +437,30 @@ class CustomWorkflowManager:
         self.customer_service = CustomerServiceWorkflow()
         self.bulk_operations = BulkOperationsManager()
 
-    async def run_fashion_rma_workflow(self, return_request_id: int) -> Dict[str, Any]:
+    async def run_fashion_rma_workflow(self, return_request_id: int) -> dict[str, Any]:
         """Run fashion-specific RMA workflow."""
         return await self.fashion_rma.process_fashion_return(return_request_id)
 
-    async def run_emag_sync_workflow(self) -> Dict[str, Any]:
+    async def run_emag_sync_workflow(self) -> dict[str, Any]:
         """Run eMAG sync workflow with business priorities."""
         return await self.emag_sync.smart_sync_strategy()
 
-    async def run_inventory_workflow(self) -> Dict[str, Any]:
+    async def run_inventory_workflow(self) -> dict[str, Any]:
         """Run inventory management workflow."""
         return await self.inventory_auto.check_reorder_points()
 
-    async def run_customer_service_workflow(self) -> Dict[str, Any]:
+    async def run_customer_service_workflow(self) -> dict[str, Any]:
         """Run customer service workflow."""
         return await self.customer_service.escalate_pending_returns()
 
-    async def run_bulk_operations_workflow(self, operation: str, data: Dict) -> Dict[str, Any]:
+    async def run_bulk_operations_workflow(self, operation: str, data: dict) -> dict[str, Any]:
         """Run bulk operations workflow."""
         if operation == "price_update":
             return await self.bulk_operations.bulk_update_product_prices(data.get("updates", []))
         else:
             return {"error": f"Unsupported bulk operation: {operation}"}
 
-    async def run_all_workflows(self) -> Dict[str, Any]:
+    async def run_all_workflows(self) -> dict[str, Any]:
         """Run all custom workflows."""
         logger.info("Running all custom business workflows...")
 

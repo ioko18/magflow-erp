@@ -156,7 +156,7 @@ async def create_supplier(
         }
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{supplier_id}", response_model=dict[str, Any])
@@ -281,7 +281,7 @@ async def update_supplier(
         }
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{supplier_id}", response_model=dict[str, Any])
@@ -304,7 +304,7 @@ async def delete_supplier(
         }
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.patch("/batch-update-order")
@@ -366,7 +366,7 @@ async def batch_update_supplier_order(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/import")
@@ -719,7 +719,7 @@ async def get_product_matches(
             },
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/{match_id}/confirm")
@@ -753,7 +753,7 @@ async def confirm_product_match(
         }
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{supplier_id}/matching/statistics")
@@ -940,7 +940,7 @@ async def match_supplier_product(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{supplier_id}/products/{product_id}/match")
@@ -1013,7 +1013,7 @@ async def unmatch_supplier_product(
             exc_info=True,
         )
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/auto-match")
@@ -1082,7 +1082,7 @@ async def jieba_search_products(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{supplier_id}/products/{product_id}/jieba-suggestions")
@@ -1118,7 +1118,7 @@ async def get_jieba_match_suggestions(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/bulk-confirm")
@@ -1185,7 +1185,7 @@ async def bulk_confirm_matches(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/bulk-unmatch")
@@ -1236,7 +1236,7 @@ async def bulk_unmatch_products(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/import-excel")
@@ -1325,7 +1325,7 @@ async def import_supplier_products_from_excel(
                     )
                     existing_product.supplier_price = price
                     existing_product.supplier_currency = "CNY"
-                    existing_product.updated_at = datetime.now(UTC)
+                    existing_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 else:
                     # Create new product
                     new_product = SupplierProduct(
@@ -1336,8 +1336,8 @@ async def import_supplier_products_from_excel(
                         supplier_price=price,
                         supplier_currency="CNY",
                         is_active=True,
-                        created_at=datetime.now(UTC),
-                        updated_at=datetime.now(UTC),
+                        created_at=datetime.now(UTC).replace(tzinfo=None),
+                        updated_at=datetime.now(UTC).replace(tzinfo=None),
                     )
                     db.add(new_product)
 
@@ -1365,7 +1365,7 @@ async def import_supplier_products_from_excel(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Import failed: {str(e)}") from e
 
 
 @router.get("/{supplier_id}/orders/generate")
@@ -1420,7 +1420,7 @@ async def generate_supplier_order_excel(
             },
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{supplier_id}/performance")
@@ -1441,7 +1441,7 @@ async def get_supplier_performance(
 
         return {"status": "success", "data": performance}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{supplier_id}/products/duplicates")
@@ -1477,7 +1477,7 @@ async def get_duplicate_matches(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/duplicates/resolve")
@@ -1511,7 +1511,7 @@ async def resolve_duplicate_matches(
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{supplier_id}/products/{product_id}/check-duplicate")
@@ -1548,7 +1548,7 @@ async def check_duplicate_before_match(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{supplier_id}/products/export")
@@ -1674,7 +1674,7 @@ async def export_supplier_products(
             return {"status": "error", "message": "Excel export not yet implemented"}
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/products/{local_product_id}/price-comparison")
@@ -1747,7 +1747,7 @@ async def get_price_comparison(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # Background task for processing 1688 imports

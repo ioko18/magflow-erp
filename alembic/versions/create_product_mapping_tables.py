@@ -5,8 +5,9 @@ Revises: 20251001_034500
 Create Date: 2025-10-01 10:55:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'create_product_mapping'
@@ -45,12 +46,12 @@ def upgrade() -> None:
         sa.UniqueConstraint('local_sku', name='uq_product_mapping_local_sku'),
         schema='app'
     )
-    
+
     # Create indexes
     op.create_index('ix_product_mappings_local_sku', 'product_mappings', ['local_sku'], schema='app')
     op.create_index('ix_product_mappings_emag_main_id', 'product_mappings', ['emag_main_id'], schema='app')
     op.create_index('ix_product_mappings_emag_fbe_id', 'product_mappings', ['emag_fbe_id'], schema='app')
-    
+
     # Create import_logs table
     op.create_table(
         'import_logs',
@@ -75,7 +76,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for import_logs
     op.create_index('ix_import_logs_started_at', 'import_logs', ['started_at'], schema='app')
     op.create_index('ix_import_logs_status', 'import_logs', ['status'], schema='app')
@@ -88,7 +89,7 @@ def downgrade() -> None:
     op.drop_index('ix_product_mappings_emag_fbe_id', table_name='product_mappings', schema='app')
     op.drop_index('ix_product_mappings_emag_main_id', table_name='product_mappings', schema='app')
     op.drop_index('ix_product_mappings_local_sku', table_name='product_mappings', schema='app')
-    
+
     # Drop tables
     op.drop_table('import_logs', schema='app')
     op.drop_table('product_mappings', schema='app')

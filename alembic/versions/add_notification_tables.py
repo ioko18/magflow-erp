@@ -5,9 +5,10 @@ Revises: 3a4be43d04f7
 Create Date: 2025-01-04 16:30:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_notification_tables_v2'
@@ -39,7 +40,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for notifications
     op.create_index('ix_notifications_id', 'notifications', ['id'], schema='app')
     op.create_index('ix_notifications_user_id', 'notifications', ['user_id'], schema='app')
@@ -48,7 +49,7 @@ def upgrade() -> None:
     op.create_index('idx_user_read_created', 'notifications', ['user_id', 'read', 'created_at'], schema='app')
     op.create_index('idx_user_category', 'notifications', ['user_id', 'category'], schema='app')
     op.create_index('idx_user_priority', 'notifications', ['user_id', 'priority'], schema='app')
-    
+
     # Create notification_settings table
     op.create_table(
         'notification_settings',
@@ -74,7 +75,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('user_id'),
         schema='app'
     )
-    
+
     # Create indexes for notification_settings
     op.create_index('ix_notification_settings_id', 'notification_settings', ['id'], schema='app')
     op.create_index('ix_notification_settings_user_id', 'notification_settings', ['user_id'], unique=True, schema='app')
@@ -85,7 +86,7 @@ def downgrade() -> None:
     op.drop_index('ix_notification_settings_user_id', table_name='notification_settings', schema='app')
     op.drop_index('ix_notification_settings_id', table_name='notification_settings', schema='app')
     op.drop_table('notification_settings', schema='app')
-    
+
     # Drop notifications table
     op.drop_index('idx_user_priority', table_name='notifications', schema='app')
     op.drop_index('idx_user_category', table_name='notifications', schema='app')
@@ -95,7 +96,7 @@ def downgrade() -> None:
     op.drop_index('ix_notifications_user_id', table_name='notifications', schema='app')
     op.drop_index('ix_notifications_id', table_name='notifications', schema='app')
     op.drop_table('notifications', schema='app')
-    
+
     # Drop enums
     op.execute('DROP TYPE IF EXISTS notificationtype')
     op.execute('DROP TYPE IF EXISTS notificationcategory')

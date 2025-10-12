@@ -349,8 +349,8 @@ class CatalogService:
                 is_active=True,
                 stock_quantity=10,
                 category_id=1,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+                updated_at=datetime.now(UTC).replace(tzinfo=None),
             ),
         ]
 
@@ -552,8 +552,8 @@ class CatalogService:
                 name="Test Brand",
                 slug="test-brand",
                 is_active=True,
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+                updated_at=datetime.now(UTC).replace(tzinfo=None),
             ),
         ]
 
@@ -636,8 +636,8 @@ class CatalogService:
                         position=0,
                     ),
                 ],
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+                updated_at=datetime.now(UTC).replace(tzinfo=None),
             ),
         ]
 

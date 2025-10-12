@@ -14,6 +14,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from app.services.enhanced_emag_service import EnhancedEmagIntegrationService
+
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -29,7 +30,7 @@ async def test_order_sync_methods():
     # Test 1: Check if methods exist
     print("✓ Test 1: Checking if order sync methods exist...")
     service = EnhancedEmagIntegrationService("main")
-    
+
     assert hasattr(service, 'sync_orders_from_account'), "Missing sync_orders_from_account method"
     assert hasattr(service, 'sync_all_orders_from_both_accounts'), "Missing sync_all_orders_from_both_accounts method"
     print("  ✅ All order sync methods exist")
@@ -38,14 +39,14 @@ async def test_order_sync_methods():
     # Test 2: Check method signatures
     print("✓ Test 2: Checking method signatures...")
     import inspect
-    
+
     sig1 = inspect.signature(service.sync_orders_from_account)
     params1 = list(sig1.parameters.keys())
     assert 'max_pages' in params1, "Missing max_pages parameter"
     assert 'delay_between_requests' in params1, "Missing delay_between_requests parameter"
     assert 'status_filter' in params1, "Missing status_filter parameter"
     print("  ✅ sync_orders_from_account signature correct")
-    
+
     sig2 = inspect.signature(service.sync_all_orders_from_both_accounts)
     params2 = list(sig2.parameters.keys())
     assert 'max_pages_per_account' in params2, "Missing max_pages_per_account parameter"
@@ -92,32 +93,32 @@ def test_api_endpoints():
 
     try:
         from app.api.v1.endpoints.enhanced_emag_sync import router
-        
+
         # Get all routes
-        routes = [route for route in router.routes]
+        routes = list(router.routes)
         route_paths = [route.path for route in routes]
-        
+
         print("✓ Checking for order sync endpoints...")
         assert '/sync/all-orders' in route_paths, "Missing /sync/all-orders endpoint"
         assert '/orders/all' in route_paths, "Missing /orders/all endpoint"
         print("  ✅ All order sync endpoints defined")
         print()
-        
+
         print("Available endpoints:")
         for route in routes:
             methods = ', '.join(route.methods) if hasattr(route, 'methods') else 'N/A'
             print(f"  - {methods:10} {route.path}")
         print()
-        
+
     except Exception as e:
         print(f"  ❌ Error checking endpoints: {e}")
         return False
-    
+
     print("=" * 80)
     print("API Endpoints Test Passed! ✅")
     print("=" * 80)
     print()
-    
+
     return True
 
 
@@ -125,14 +126,14 @@ if __name__ == "__main__":
     print()
     print("🚀 eMAG Order Sync Implementation Test")
     print()
-    
+
     # Run async tests
     try:
         asyncio.run(test_order_sync_methods())
     except Exception as e:
         print(f"❌ Async tests failed: {e}")
         sys.exit(1)
-    
+
     # Run API tests
     try:
         if not test_api_endpoints():
@@ -140,7 +141,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"❌ API tests failed: {e}")
         sys.exit(1)
-    
+
     print("=" * 80)
     print("🎉 ALL TESTS PASSED!")
     print("=" * 80)

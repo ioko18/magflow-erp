@@ -8,9 +8,10 @@ with a filename based on the current timestamp. It also updates the active key s
 
 import time
 from pathlib import Path
+
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
 
 from app.core.config import settings
 

@@ -6,7 +6,8 @@ import json
 import time
 from collections import deque
 from enum import Enum
-from typing import Any, Dict, Optional, Type, TypeVar, cast, Deque
+from typing import Any, TypeVar, cast
+
 import aiohttp
 
 # Type variable for response models
@@ -76,8 +77,8 @@ class RateLimiter:
     def __init__(self, orders_per_second: int, other_per_second: int):
         self.orders_per_second = orders_per_second
         self.other_per_second = other_per_second
-        self.order_requests: Deque[float] = deque()
-        self.other_requests: Deque[float] = deque()
+        self.order_requests: deque[float] = deque()
+        self.other_requests: deque[float] = deque()
         self.lock = asyncio.Lock()
 
     async def wait_if_needed(self, is_order_endpoint: bool = False) -> None:
@@ -114,7 +115,7 @@ class RateLimiter:
 class EmagAPIError(Exception):
     """Base exception for eMAG API errors."""
 
-    def __init__(self, message: str, status_code: Optional[int] = None):
+    def __init__(self, message: str, status_code: int | None = None):
         self.status_code = status_code
         self.message = message
         super().__init__(self.message)
@@ -150,8 +151,8 @@ class EmagClient:
     def __init__(
         self,
         account_type: EmagAccountType = EmagAccountType.MAIN,
-        settings: Optional[EmagSettings] = None,
-        session: Optional[aiohttp.ClientSession] = None,
+        settings: EmagSettings | None = None,
+        session: aiohttp.ClientSession | None = None,
     ):
         self.settings = settings or EmagSettings()
         self.account_type = account_type
@@ -161,7 +162,7 @@ class EmagClient:
             other_per_second=self.settings.rate_limit_other,
         )
         self._session = session
-        self._auth_token: Optional[str] = None
+        self._auth_token: str | None = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Get or create an aiohttp ClientSession."""
@@ -194,8 +195,8 @@ class EmagClient:
         return self._auth_token
 
     def _prepare_headers(
-        self, headers: Optional[Dict[str, str]] = None
-    ) -> Dict[str, str]:
+        self, headers: dict[str, str] | None = None
+    ) -> dict[str, str]:
         """Prepare headers for API requests."""
         default_headers = {
             "Authorization": f"Basic {self._get_auth_token()}",
@@ -220,10 +221,10 @@ class EmagClient:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
         retry_count: int = 0,
     ) -> T:
@@ -265,7 +266,7 @@ class EmagClient:
 
                 return cast(T, response_data)
 
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        except (TimeoutError, aiohttp.ClientError) as e:
             if retry_count < self.settings.retry_attempts:
                 # Exponential backoff with jitter
                 delay = self.settings.retry_delay * (2**retry_count)
@@ -328,9 +329,9 @@ class EmagClient:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a GET request."""
@@ -346,10 +347,10 @@ class EmagClient:
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a POST request."""
@@ -366,10 +367,10 @@ class EmagClient:
     async def put(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a PUT request."""
@@ -386,9 +387,9 @@ class EmagClient:
     async def delete(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        response_model: Optional[Type[T]] = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        response_model: type[T] | None = None,
         is_order_endpoint: bool = False,
     ) -> T:
         """Make a DELETE request."""
@@ -407,7 +408,7 @@ class EmagClient:
         self,
         method: str,
         url: str,
-        headers: Dict[str, str],
+        headers: dict[str, str],
         data: Any = None,
         params: Any = None,
     ) -> None:
@@ -431,7 +432,7 @@ class EmagClient:
             print(json.dumps(data, indent=2, ensure_ascii=False))
 
     def _log_response(
-        self, status_code: int, headers: Dict[str, str], data: Any = None
+        self, status_code: int, headers: dict[str, str], data: Any = None
     ) -> None:
         """Log the response details."""
         print(f"\n=== Response ({status_code}) ===")

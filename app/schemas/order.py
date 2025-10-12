@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,7 @@ class OrderBase(BaseModel):
 # Properties to receive on order creation
 class OrderCreate(OrderBase):
     customer_id: int
-    order_date: datetime = Field(default_factory=datetime.utcnow)
+    order_date: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     status: str = "pending"
     total_amount: float = 0.0
 

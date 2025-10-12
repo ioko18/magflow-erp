@@ -6,12 +6,12 @@ Based on eMAG API v4.4.8 specifications
 """
 
 import asyncio
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
-from enum import Enum
-from decimal import Decimal
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +35,14 @@ class SmartDealsAnalysis:
     product_id: str
     eligibility: SmartDealsEligibility
     confidence_score: float
-    recommended_price: Optional[Decimal] = None
-    target_price: Optional[Decimal] = None
-    current_price: Optional[Decimal] = None
-    price_gap: Optional[Decimal] = None
-    analysis_details: Dict[str, Any] = field(default_factory=dict)
+    recommended_price: Decimal | None = None
+    target_price: Decimal | None = None
+    current_price: Decimal | None = None
+    price_gap: Decimal | None = None
+    analysis_details: dict[str, Any] = field(default_factory=dict)
     last_analysis: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             "product_id": self.product_id,
@@ -73,8 +73,8 @@ class SmartDealsManager:
 
     def __init__(self, api_client):
         self.api_client = api_client
-        self.analysis_cache: Dict[str, SmartDealsAnalysis] = {}
-        self.eligibility_cache: Dict[str, SmartDealsEligibility] = {}
+        self.analysis_cache: dict[str, SmartDealsAnalysis] = {}
+        self.eligibility_cache: dict[str, SmartDealsEligibility] = {}
 
         # Smart Deals thresholds and parameters
         self.eligibility_thresholds = {
@@ -85,7 +85,7 @@ class SmartDealsManager:
         }
 
     async def check_smart_deals_eligibility(self, product_id: str,
-                                          current_price: Optional[Decimal] = None) -> SmartDealsAnalysis:
+                                          current_price: Decimal | None = None) -> SmartDealsAnalysis:
         """Check if product is eligible for Smart Deals badge"""
 
         # Check cache first
@@ -161,7 +161,7 @@ class SmartDealsManager:
             )
 
     def _determine_eligibility(self, api_eligible: bool, confidence_score: float,
-                             current_price: Optional[Decimal], target_price: Optional[Decimal]) -> SmartDealsEligibility:
+                             current_price: Decimal | None, target_price: Decimal | None) -> SmartDealsEligibility:
         """Determine Smart Deals eligibility based on various factors"""
 
         if not api_eligible:
@@ -177,7 +177,7 @@ class SmartDealsManager:
 
         return SmartDealsEligibility.ELIGIBLE
 
-    def _calculate_price_gap(self, current_price: Optional[Decimal], target_price: Optional[Decimal]) -> Optional[Decimal]:
+    def _calculate_price_gap(self, current_price: Decimal | None, target_price: Decimal | None) -> Decimal | None:
         """Calculate price gap between current and target prices"""
         if not current_price or not target_price:
             return None
@@ -258,7 +258,7 @@ class SmartDealsManager:
                 reasoning=f"Product does not meet Smart Deals criteria (confidence: {analysis.confidence_score:.2f})"
             )
 
-    async def batch_check_eligibility(self, product_ids: List[str]) -> Dict[str, SmartDealsAnalysis]:
+    async def batch_check_eligibility(self, product_ids: list[str]) -> dict[str, SmartDealsAnalysis]:
         """Check Smart Deals eligibility for multiple products"""
         results = {}
 
@@ -281,7 +281,7 @@ class SmartDealsManager:
 
         return results
 
-    async def get_smart_deals_statistics(self, product_ids: List[str]) -> Dict[str, Any]:
+    async def get_smart_deals_statistics(self, product_ids: list[str]) -> dict[str, Any]:
         """Get Smart Deals statistics for a list of products"""
 
         if not product_ids:
@@ -340,7 +340,7 @@ class SmartDealsManager:
         self.eligibility_cache.clear()
         logger.info("Smart Deals cache cleared")
 
-    def get_cache_info(self) -> Dict[str, Any]:
+    def get_cache_info(self) -> dict[str, Any]:
         """Get cache information"""
         return {
             'cached_analyses': len(self.analysis_cache),

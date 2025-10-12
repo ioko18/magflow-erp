@@ -4,16 +4,15 @@ Revision ID: f5a8d2c7d4ab
 Revises: 9a5e6b199c94
 Create Date: 2025-09-26 08:46:00.000000
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision: str = "f5a8d2c7d4ab"
-down_revision: Union[str, Sequence[str], None] = "9a5e6b199c94"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "9a5e6b199c94"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

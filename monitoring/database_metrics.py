@@ -9,9 +9,9 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, TypedDict
+from typing import Any, TypedDict
 
-from sqlalchemy import text, event
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Configuration is loaded through environment variables
@@ -43,7 +43,7 @@ _metrics_cache = {}
 _cache_timestamps = {}
 
 
-def _get_cached_metrics(key: str, ttl: int = METRICS_CACHE_TTL) -> Tuple[Any, bool]:
+def _get_cached_metrics(key: str, ttl: int = METRICS_CACHE_TTL) -> tuple[Any, bool]:
     """Get cached metrics if they exist and are not expired."""
     now = time.time()
     if key in _metrics_cache and (now - _cache_timestamps.get(key, 0)) < ttl:
@@ -66,12 +66,12 @@ class DatabaseMetrics(TypedDict, total=False):
     total_transactions: int
     active_transactions: int
     idle_in_transaction: int
-    long_running_queries: List[Dict[str, Any]]
-    table_sizes: List[Dict[str, Any]]
-    index_usage: List[Dict[str, Any]]
+    long_running_queries: list[dict[str, Any]]
+    table_sizes: list[dict[str, Any]]
+    index_usage: list[dict[str, Any]]
     cache_hit_ratio: float
     collection_time_ms: float
-    error: Optional[str]
+    error: str | None
 
 
 async def collect_database_metrics(
@@ -113,7 +113,7 @@ async def collect_database_metrics(
                     # Get connection and transaction metrics
                     conn_metrics = await session.execute(
                         text("""
-                        SELECT 
+                        SELECT
                             COUNT(*) as total_connections,
                             COUNT(*) FILTER (WHERE state = 'active') as active_connections,
                             COUNT(*) FILTER (WHERE state = 'idle') as idle_connections,
@@ -132,7 +132,7 @@ async def collect_database_metrics(
                     # Get table sizes and bloat
                     table_sizes = await session.execute(
                         text("""
-                        SELECT 
+                        SELECT
                             schemaname as schema,
                             relname as table_name,
                             n_live_tup as row_estimate,
@@ -153,7 +153,7 @@ async def collect_database_metrics(
                     # Get index usage statistics
                     index_usage = await session.execute(
                         text("""
-                        SELECT 
+                        SELECT
                             schemaname as schema,
                             relname as table_name,
                             indexrelname as index_name,
@@ -172,7 +172,7 @@ async def collect_database_metrics(
                     # Get cache hit ratio
                     cache_stats = await session.execute(
                         text("""
-                        SELECT 
+                        SELECT
                             sum(heap_blks_read) as heap_read,
                             sum(heap_blks_hit) as heap_hit,
                             sum(heap_blks_hit) / nullif(sum(heap_blks_hit) + sum(heap_blks_read), 0) as hit_ratio
@@ -199,7 +199,7 @@ async def collect_database_metrics(
 
             return metrics
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(
             "Database metrics collection timed out after %s seconds",
             HEALTH_CHECK_TIMEOUT,
@@ -217,8 +217,8 @@ async def collect_database_metrics(
 
 
 async def get_database_health_status(
-    session: Optional[AsyncSession] = None,
-) -> Dict[str, Any]:
+    session: AsyncSession | None = None,
+) -> dict[str, Any]:
     """Get a comprehensive health status of the database.
 
     Args:
@@ -254,7 +254,7 @@ async def get_database_health_status(
             await session.close()
 
 
-async def _get_postgresql_health_status(session: AsyncSession) -> Dict[str, Any]:
+async def _get_postgresql_health_status(session: AsyncSession) -> dict[str, Any]:
     """Get health status for PostgreSQL database."""
     try:
         metrics = await collect_database_metrics(session)
@@ -324,7 +324,7 @@ async def _get_postgresql_health_status(session: AsyncSession) -> Dict[str, Any]
         }
 
 
-async def _get_sqlite_health_status(session: AsyncSession) -> Dict[str, Any]:
+async def _get_sqlite_health_status(session: AsyncSession) -> dict[str, Any]:
     """Get health status for SQLite database."""
     try:
         # Simple health check for SQLite
@@ -343,11 +343,11 @@ async def _get_sqlite_health_status(session: AsyncSession) -> Dict[str, Any]:
         }
 
 
-async def _get_blocking_locks(session: AsyncSession) -> List[Dict[str, Any]]:
+async def _get_blocking_locks(session: AsyncSession) -> list[dict[str, Any]]:
     """Get blocking locks from PostgreSQL."""
     try:
         query = """
-        SELECT 
+        SELECT
             blocked_locks.pid AS blocked_pid,
             blocked_activity.usename AS blocked_user,
             blocking_locks.pid AS blocking_pid,
@@ -362,7 +362,7 @@ async def _get_blocking_locks(session: AsyncSession) -> List[Dict[str, Any]]:
             blocking_activity.state AS blocking_state
         FROM pg_catalog.pg_locks blocked_locks
         JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid
-        JOIN pg_catalog.pg_locks blocking_locks 
+        JOIN pg_catalog.pg_locks blocking_locks
             ON blocking_locks.locktype = blocked_locks.locktype
             AND blocking_locks.DATABASE IS NOT DISTINCT FROM blocked_locks.DATABASE
             AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
@@ -443,8 +443,9 @@ async def main():
     """Run the main application with proper async context."""
     try:
         # Initialize database connection
-        from app.db.session import get_async_session
         import json
+
+        from app.db.session import get_async_session
 
         async with get_async_session() as session:
             # Example: Get database health status

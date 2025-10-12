@@ -1,8 +1,9 @@
 import asyncio
-import os
-from dotenv import load_dotenv
-from app.core.config import settings
+
 from app.services.emag_integration_service import EmagIntegrationService
+from dotenv import load_dotenv
+
+from app.core.config import settings
 from app.core.dependency_injection import ServiceContext
 
 

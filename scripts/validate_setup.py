@@ -14,9 +14,10 @@ from pathlib import Path
 app_dir = Path(__file__).parent / "app"
 sys.path.insert(0, str(app_dir))
 
+import logging
+
 from core.config import get_settings
 from core.exceptions import ConfigurationError
-import logging
 
 # Configure logging
 logging.basicConfig(

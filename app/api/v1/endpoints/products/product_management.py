@@ -981,7 +981,7 @@ async def update_product_full(
                     # Update field
                     setattr(product, field, new_value)
 
-        product.updated_at = datetime.now(UTC)
+        product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         await db.commit()
         await db.refresh(product)
@@ -1022,7 +1022,7 @@ async def delete_product(
         # Soft delete
         product.is_active = False
         product.is_discontinued = True
-        product.updated_at = datetime.now(UTC)
+        product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         # Log deletion
         ip_address = get_client_ip(request)
@@ -1082,7 +1082,7 @@ async def toggle_discontinued_status(
         if new_status:
             product.is_active = False
 
-        product.updated_at = datetime.now(UTC)
+        product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
         # Log change
         ip_address = get_client_ip(request)
@@ -1162,7 +1162,7 @@ async def bulk_toggle_discontinued(
                 if discontinued:
                     product.is_active = False
 
-                product.updated_at = datetime.now(UTC)
+                product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
                 # Log change
                 await log_field_change(
@@ -1327,7 +1327,7 @@ async def reorder_products(
 
         if product:
             product.display_order = display_order
-            product.updated_at = datetime.now(UTC)
+            product.updated_at = datetime.now(UTC).replace(tzinfo=None)
             updated_products.append(
                 {
                     "product_id": product.id,

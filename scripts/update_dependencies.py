@@ -3,19 +3,18 @@
 Script to update Python dependencies to their latest stable versions.
 """
 
-import subprocess
 import json
+import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 
-def run_command(cmd: List[str], cwd: Optional[Path] = None) -> Tuple[str, str, int]:
+def run_command(cmd: list[str], cwd: Path | None = None) -> tuple[str, str, int]:
     """Run a shell command and return stdout, stderr, and return code."""
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
     return result.stdout, result.stderr, result.returncode
 
 
-def get_outdated_packages() -> List[Dict[str, str]]:
+def get_outdated_packages() -> list[dict[str, str]]:
     """Get a list of outdated packages and their latest versions."""
     cmd = ["pip", "list", "--outdated", "--format", "json"]
     stdout, stderr, returncode = run_command(cmd)
@@ -31,7 +30,7 @@ def get_outdated_packages() -> List[Dict[str, str]]:
         return []
 
 
-def update_package(package_name: str, version: Optional[str] = None) -> bool:
+def update_package(package_name: str, version: str | None = None) -> bool:
     """Update a specific package to the latest version or a specific version."""
     if version:
         cmd = ["pip", "install", "-U", f"{package_name}=={version}"]
@@ -67,7 +66,7 @@ def update_requirements_file(requirements_file: Path) -> bool:
             f.write(stdout)
         print(f"Updated {requirements_file}")
         return True
-    except IOError as e:
+    except OSError as e:
         print(f"Error writing to {requirements_file}: {e}")
         return False
 

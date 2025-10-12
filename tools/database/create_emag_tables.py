@@ -4,15 +4,8 @@ Script pentru crearea manuală a tabelelor eMAG V2.
 """
 
 import asyncio
-from app.core.database import get_async_session
-from app.models.emag_models import (
-    EmagProductV2,
-    EmagProductOfferV2,
-    EmagSyncLog,
-    EmagSyncProgress,
-)
-from sqlalchemy.ext.asyncio import AsyncEngine
-from app.core.database import engine
+
+from app.core.database import engine, get_async_session
 
 
 async def create_emag_tables():
@@ -37,9 +30,9 @@ async def create_emag_tables():
             result = await db.execute(
                 text(
                     """
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public' 
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
                 AND table_name LIKE '%emag%'
                 ORDER BY table_name
             """

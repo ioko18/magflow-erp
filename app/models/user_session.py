@@ -33,7 +33,7 @@ class UserSession(Base):
     user_agent: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
         nullable=False,
     )
     expires_at: Mapped[datetime] = mapped_column(
@@ -42,7 +42,7 @@ class UserSession(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_activity: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
         nullable=False,
     )
 

@@ -9,10 +9,11 @@ It checks for common issues like missing examples, descriptions, and response sc
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any
+
 import jsonschema
-import yaml
 import requests
+import yaml
 
 # Constants
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -24,11 +25,11 @@ class OpenAPIValidator:
     def __init__(self, schema_path: Path):
         self.schema_path = schema_path
         self.openapi_schema = self._load_schema()
-        self.issues: List[Dict[str, str]] = []
+        self.issues: list[dict[str, str]] = []
 
-    def _load_schema(self) -> Dict[str, Any]:
+    def _load_schema(self) -> dict[str, Any]:
         """Load the OpenAPI schema from file."""
-        with open(self.schema_path, "r", encoding="utf-8") as f:
+        with open(self.schema_path, encoding="utf-8") as f:
             if self.schema_path.suffix == ".yaml":
                 return yaml.safe_load(f)
             return json.load(f)
@@ -67,7 +68,7 @@ class OpenAPIValidator:
                 self._check_operation(path, method, operation)
 
     def _check_operation(
-        self, path: str, method: str, operation: Dict[str, Any]
+        self, path: str, method: str, operation: dict[str, Any]
     ) -> None:
         """Check a single operation in the OpenAPI schema."""
         op_path = f"paths.{path}.{method}"
@@ -98,7 +99,7 @@ class OpenAPIValidator:
         # Check for responses
         self._check_responses(op_path, operation.get("responses", {}))
 
-    def _check_parameter(self, op_path: str, param: Dict[str, Any]) -> None:
+    def _check_parameter(self, op_path: str, param: dict[str, Any]) -> None:
         """Check a single parameter in an operation."""
         param_path = f"{op_path}.parameters.{param.get('name', 'unknown')}"
 
@@ -114,7 +115,7 @@ class OpenAPIValidator:
                 f"{param_path}.example", "Parameter example is missing", "info"
             )
 
-    def _check_request_body(self, op_path: str, request_body: Dict[str, Any]) -> None:
+    def _check_request_body(self, op_path: str, request_body: dict[str, Any]) -> None:
         """Check the request body of an operation."""
         body_path = f"{op_path}.requestBody"
 
@@ -133,7 +134,7 @@ class OpenAPIValidator:
                     "info",
                 )
 
-    def _check_responses(self, op_path: str, responses: Dict[str, Any]) -> None:
+    def _check_responses(self, op_path: str, responses: dict[str, Any]) -> None:
         """Check the responses of an operation."""
         if not responses:
             self._add_issue(f"{op_path}.responses", "No responses defined", "error")
@@ -152,7 +153,7 @@ class OpenAPIValidator:
             self._check_response(op_path, status_code, response)
 
     def _check_response(
-        self, op_path: str, status_code: str, response: Dict[str, Any]
+        self, op_path: str, status_code: str, response: dict[str, Any]
     ) -> None:
         """Check a single response in an operation."""
         resp_path = f"{op_path}.responses.{status_code}"

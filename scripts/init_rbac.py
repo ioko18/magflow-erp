@@ -2,19 +2,19 @@
 
 import asyncio
 import logging
-from typing import List
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionFactory
-from app.models.role import Role, Permission
-from app.security.rbac import Permission as PermissionEnum, DEFAULT_ROLES
+from app.models.role import Permission, Role
+from app.security.rbac import DEFAULT_ROLES
+from app.security.rbac import Permission as PermissionEnum
 
 logger = logging.getLogger(__name__)
 
 
-async def create_default_permissions(session: AsyncSession) -> List[Permission]:
+async def create_default_permissions(session: AsyncSession) -> list[Permission]:
     """Create default permissions if they don't exist."""
     permissions = []
 
@@ -39,7 +39,7 @@ async def create_default_permissions(session: AsyncSession) -> List[Permission]:
     return permissions
 
 
-async def create_default_roles(session: AsyncSession, permissions: List[Permission]) -> List[Role]:
+async def create_default_roles(session: AsyncSession, permissions: list[Permission]) -> list[Role]:
     """Create default roles with their permissions."""
     roles = []
 

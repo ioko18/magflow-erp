@@ -8,6 +8,7 @@ Usage:
 
 import asyncio
 import sys
+
 import httpx
 
 BASE_URL = "http://localhost:8000"
@@ -17,11 +18,11 @@ CREDENTIALS = {"username": "admin@example.com", "password": "secret"}
 async def test_endpoints():
     """Test all product publishing endpoints"""
     results = {"passed": 0, "failed": 0}
-    
+
     print("\n" + "="*60)
     print("  eMAG Product Publishing - E2E Test")
     print("="*60)
-    
+
     # Authenticate
     print("\n🔐 Authenticating...")
     try:
@@ -31,7 +32,7 @@ async def test_endpoints():
                 json=CREDENTIALS,
                 timeout=10.0
             )
-            
+
             if response.status_code == 200:
                 token = response.json().get("access_token")
                 print("✓ Authentication successful")
@@ -42,7 +43,7 @@ async def test_endpoints():
     except Exception as e:
         print(f"✗ Authentication error: {e}")
         return False
-    
+
     # Test VAT Rates
     print("\n📊 Testing VAT Rates...")
     try:
@@ -52,7 +53,7 @@ async def test_endpoints():
                 headers=headers,
                 timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 count = data.get("data", {}).get("count", 0)
@@ -64,7 +65,7 @@ async def test_endpoints():
     except Exception as e:
         print(f"✗ VAT Rates error: {e}")
         results["failed"] += 1
-    
+
     # Test Handling Times
     print("\n⏱️  Testing Handling Times...")
     try:
@@ -74,7 +75,7 @@ async def test_endpoints():
                 headers=headers,
                 timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 count = data.get("data", {}).get("count", 0)
@@ -86,7 +87,7 @@ async def test_endpoints():
     except Exception as e:
         print(f"✗ Handling Times error: {e}")
         results["failed"] += 1
-    
+
     # Test Categories
     print("\n📁 Testing Categories...")
     try:
@@ -96,17 +97,17 @@ async def test_endpoints():
                 headers=headers,
                 timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 results_data = data.get("data", {}).get("results", [])
                 print(f"✓ Categories: {len(results_data)} categories retrieved")
-                
+
                 # Show first category
                 if results_data:
                     cat = results_data[0]
                     print(f"  Sample: ID={cat.get('id')}, Name={cat.get('name')}")
-                
+
                 results["passed"] += 1
             else:
                 print(f"✗ Categories failed: {response.status_code}")
@@ -114,7 +115,7 @@ async def test_endpoints():
     except Exception as e:
         print(f"✗ Categories error: {e}")
         results["failed"] += 1
-    
+
     # Test Allowed Categories
     print("\n✅ Testing Allowed Categories...")
     try:
@@ -124,7 +125,7 @@ async def test_endpoints():
                 headers=headers,
                 timeout=30.0
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 categories = data.get("data", {}).get("categories", [])
@@ -136,7 +137,7 @@ async def test_endpoints():
     except Exception as e:
         print(f"✗ Allowed Categories error: {e}")
         results["failed"] += 1
-    
+
     # Display Results
     print("\n" + "="*60)
     print("  Test Results Summary")
@@ -147,7 +148,7 @@ async def test_endpoints():
     print(f"Passed: {results['passed']}")
     print(f"Failed: {results['failed']}")
     print(f"Pass Rate: {pass_rate:.1f}%")
-    
+
     if results["failed"] == 0:
         print("\n✅ All tests passed!")
         return True

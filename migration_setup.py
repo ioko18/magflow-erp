@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """MagFlow ERP Migration Enhancement Setup Script."""
 
+import subprocess
 import sys
 from pathlib import Path
-import subprocess
 
 
 class MigrationEnhancementSetup:

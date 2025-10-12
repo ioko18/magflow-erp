@@ -1,10 +1,15 @@
 """Mapping models for product synchronization between internal system and eMAG."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
+
+
+def utc_now():
+    """Return current UTC time without timezone info (for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class MappingStatus(str, Enum):
@@ -36,11 +41,11 @@ class ProductMapping(BaseModel):
         description="Mapping status",
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Creation timestamp",
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Last update timestamp",
     )
     last_synced_at: datetime | None = Field(
@@ -77,11 +82,11 @@ class CategoryIdMapping(BaseModel):
         description="Mapping status",
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Creation timestamp",
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Last update timestamp",
     )
     parent_mapping: str | None = Field(
@@ -108,11 +113,11 @@ class BrandIdMapping(BaseModel):
         description="Mapping status",
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Creation timestamp",
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Last update timestamp",
     )
 
@@ -139,11 +144,11 @@ class CharacteristicIdMapping(BaseModel):
         description="Mapping status",
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Creation timestamp",
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         description="Last update timestamp",
     )
 

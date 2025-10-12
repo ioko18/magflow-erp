@@ -6,7 +6,6 @@ of the application and its dependencies.
 """
 
 import logging
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -29,10 +28,10 @@ class AlertRule(BaseModel):
     )
     summary: str = Field(..., description="Short description of the alert")
     description: str = Field(..., description="Detailed description of the alert")
-    labels: Dict[str, str] = Field(
+    labels: dict[str, str] = Field(
         default_factory=dict, description="Additional labels for the alert"
     )
-    annotations: Dict[str, str] = Field(
+    annotations: dict[str, str] = Field(
         default_factory=dict, description="Additional annotations for the alert"
     )
 
@@ -47,7 +46,7 @@ class AlertGroup(BaseModel):
     """A group of related alert rules."""
 
     name: str
-    rules: List[AlertRule]
+    rules: list[AlertRule]
 
 
 # Define default alert rules
@@ -115,7 +114,7 @@ DEFAULT_ALERT_RULES = {
 }
 
 
-def get_alert_rules() -> Dict[str, AlertGroup]:
+def get_alert_rules() -> dict[str, AlertGroup]:
     """Get all configured alert rules.
 
     Returns:
@@ -124,7 +123,7 @@ def get_alert_rules() -> Dict[str, AlertGroup]:
     return DEFAULT_ALERT_RULES
 
 
-def get_alert_rule(name: str) -> Optional[AlertRule]:
+def get_alert_rule(name: str) -> AlertRule | None:
     """Get a specific alert rule by name.
 
     Args:
@@ -140,7 +139,7 @@ def get_alert_rule(name: str) -> Optional[AlertRule]:
     return None
 
 
-def generate_prometheus_rules() -> Dict:
+def generate_prometheus_rules() -> dict:
     """Generate Prometheus alerting rules from the configured alerts.
 
     Returns:

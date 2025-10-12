@@ -3,7 +3,9 @@
 
 import asyncio
 import sys
+
 from sqlalchemy import text
+
 from app.core.database_config import DatabaseConfig
 
 

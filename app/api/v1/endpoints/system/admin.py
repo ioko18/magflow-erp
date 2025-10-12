@@ -402,7 +402,7 @@ async def get_dashboard_data(
         )
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch dashboard data: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/emag-products-by-account", response_model=dict[str, Any])
@@ -786,7 +786,7 @@ async def admin_get_emag_products_by_account(
         }
 
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch products: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch products: {exc}") from exc
 
 
 @router.post("/sync-emag", response_model=dict[str, Any])
@@ -808,7 +808,7 @@ async def sync_emag_offers(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/emag-orders", response_model=dict[str, Any])
@@ -1023,8 +1023,8 @@ async def get_emag_orders(
         # Calculate recent activity
         from datetime import timedelta
 
-        # Orders created in last 24 hours
-        twenty_four_hours_ago = datetime.now(UTC) - timedelta(hours=24)
+        # Orders created in last 24 hours (timezone-naive for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
+        twenty_four_hours_ago = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
         new_orders_24h_query = (
             select(func.count())
             .select_from(EmagOrder)
@@ -1035,9 +1035,9 @@ async def get_emag_orders(
         new_orders_24h_result = await db.execute(new_orders_24h_query)
         new_orders_24h = new_orders_24h_result.scalar() or 0
 
-        # Orders synced today
+        # Orders synced today (timezone-naive for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
         today_start = datetime.now(UTC).replace(
-            hour=0, minute=0, second=0, microsecond=0
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=None
         )
         synced_today_query = (
             select(func.count())
@@ -1095,11 +1095,11 @@ async def get_emag_orders(
 
     except Exception as e:
         logger.error(
-            "Error in get_emag_orders",
+            "Failed to fetch eMAG orders",
             exc_info=True,
             extra={"error": str(e)},
         )
-        raise HTTPException(status_code=500, detail=f"Failed to fetch orders: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch orders: {str(e)}") from e
 
 
 @router.get("/products/unified", response_model=dict[str, Any])
@@ -1527,4 +1527,4 @@ async def get_unified_products(
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch unified products: {exc}"
-        )
+        ) from exc

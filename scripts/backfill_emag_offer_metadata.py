@@ -5,7 +5,7 @@ Run this script with a database role that owns the table.
 """
 import argparse
 import json
-from typing import Any, Dict
+from typing import Any
 
 from sqlalchemy import create_engine, text
 
@@ -14,7 +14,7 @@ def build_engine(database_url: str):
     return create_engine(database_url)
 
 
-def build_metadata(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+def build_metadata(raw_data: dict[str, Any]) -> dict[str, Any]:
     return {
         "validation_status": raw_data.get("offer_validation_status"),
         "availability": raw_data.get("availability"),

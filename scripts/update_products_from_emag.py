@@ -1,20 +1,20 @@
 """
 Script to update MagFlow database with product information from eMAG API.
 """
+import asyncio
 import os
 import re
-import asyncio
-from datetime import datetime
-from typing import List, Dict, Any
-
-import aiohttp
-from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import insert
 
 # Import database models and session
 import sys
+from datetime import datetime
 from pathlib import Path
+from typing import Any
+
+import aiohttp
+from dotenv import load_dotenv
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Add the app directory to the Python path
 app_dir = str(Path(__file__).parent.parent / "app")
@@ -45,33 +45,33 @@ def clean_html(html: str) -> str:
     return ' '.join(clean.split())
 
 
-def extract_product_name(offer: Dict[str, Any]) -> str:
+def extract_product_name(offer: dict[str, Any]) -> str:
     """Extract product name from offer data."""
     # Try to get name from description first
     description = offer.get('description', '')
     name_match = re.search(r'<strong>Nume produs:</strong>\s*([^<]+)', description)
     if name_match:
         return clean_html(name_match.group(1).strip())
-    
+
     # Fallback to name field
     name = offer.get('name', '')
     if name:
         # Clean up the name
         name = name.split(',')[0].split(' si ')[0].split(' pentru ')[0].strip()
         return clean_html(name)
-    
+
     return "Unnamed Product"
 
 
 async def get_or_create_emag_category(session: AsyncSession, category_name: str) -> dict:
     """Get or create an eMAG category mapping.
-    
+
     Since we don't have a dedicated category mapping table, we'll just return
     a dictionary with the category information.
     """
     if not category_name:
         return None
-    
+
     # For now, just return a dictionary with the category name
     # In a real implementation, this would check the database for an existing mapping
     return {
@@ -81,12 +81,12 @@ async def get_or_create_emag_category(session: AsyncSession, category_name: str)
     }
 
 
-async def update_or_create_emag_product(session: AsyncSession, offer: Dict[str, Any]) -> EmagProduct:
+async def update_or_create_emag_product(session: AsyncSession, offer: dict[str, Any]) -> EmagProduct:
     """Update or create an eMAG product in the database from eMAG offer data."""
     emag_id = str(offer.get('id'))
     name = extract_product_name(offer)
     description = clean_html(offer.get('description', ''))
-    
+
     # Prepare product data
     product_data = {
         'emag_id': emag_id,
@@ -104,7 +104,7 @@ async def update_or_create_emag_product(session: AsyncSession, offer: Dict[str, 
         'emag_updated_at': offer.get('updated_at'),
         'raw_data': offer
     }
-    
+
     # Create or update the eMAG product
     stmt = (
         insert(EmagProduct)
@@ -130,10 +130,10 @@ async def update_or_create_emag_product(session: AsyncSession, offer: Dict[str, 
         )
         .returning(EmagProduct)
     )
-    
+
     result = await session.execute(stmt)
     emag_product = result.scalar_one()
-    
+
     # Create or update the offer
     offer_data = {
         'emag_product_id': emag_id,
@@ -159,7 +159,7 @@ async def update_or_create_emag_product(session: AsyncSession, offer: Dict[str, 
         'raw_data': offer,
         'metadata_': {}
     }
-    
+
     stmt = (
         insert(EmagProductOffer)
         .values(**offer_data)
@@ -183,23 +183,23 @@ async def update_or_create_emag_product(session: AsyncSession, offer: Dict[str, 
             }
         )
     )
-    
+
     await session.execute(stmt)
     await session.commit()
-    
+
     # We're not handling category mappings in this version
     # as we don't have the EmagCategoryMapping model available
     # In a real implementation, you would handle category mappings here
-    
+
     return emag_product
 
 
-async def fetch_emag_offers(session: aiohttp.ClientSession, page: int = 1, per_page: int = 10) -> List[Dict[str, Any]]:
+async def fetch_emag_offers(session: aiohttp.ClientSession, page: int = 1, per_page: int = 10) -> list[dict[str, Any]]:
     """Fetch product offers from eMAG API asynchronously."""
     auth = aiohttp.BasicAuth(EMAG_API_USERNAME, EMAG_API_PASSWORD)
     headers = {"Content-Type": "application/json"}
     data = {"page": page, "per_page": per_page}
-    
+
     try:
         async with session.post(
             f"{EMAG_API_URL}/product_offer/read",
@@ -209,11 +209,11 @@ async def fetch_emag_offers(session: aiohttp.ClientSession, page: int = 1, per_p
         ) as response:
             response.raise_for_status()
             result = await response.json()
-            
+
             if result.get('isError', False):
                 print(f"API error: {result.get('messages', 'Unknown error')}")
                 return []
-                
+
             return result.get('results', [])
     except Exception as e:
         print(f"Error fetching eMAG offers: {e}")
@@ -223,7 +223,7 @@ async def fetch_emag_offers(session: aiohttp.ClientSession, page: int = 1, per_p
 async def main():
     """Main function to update products from eMAG."""
     print("Starting product update from eMAG...")
-    
+
     # Create aiohttp client session
     async with aiohttp.ClientSession() as http_session:
         # Get database session
@@ -232,11 +232,11 @@ async def main():
                 # Fetch offers from eMAG
                 print("Fetching products from eMAG...")
                 offers = await fetch_emag_offers(http_session, per_page=5)  # Adjust per_page as needed
-                
+
                 if not offers:
                     print("No offers found or error fetching offers.")
                     return
-                
+
                 # Process each offer
                 for i, offer in enumerate(offers, 1):
                     try:
@@ -248,9 +248,9 @@ async def main():
                         print(f"Error processing offer {i}: {e}")
                         import traceback
                         traceback.print_exc()
-                
+
                 print("Product update completed successfully!")
-                
+
             except Exception as e:
                 print(f"Error: {e}")
                 import traceback

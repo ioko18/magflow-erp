@@ -9,22 +9,24 @@ This script implements the SKU semantics improvements across the codebase:
 """
 
 import asyncio
-import sys
-import subprocess
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Any
 import logging
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.core.config import settings
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text
 import json
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.core.config import settings
 
 
 class SKUImplementationManager:
@@ -73,7 +75,7 @@ class SKUImplementationManager:
             self.logger.error(f"Failed to initialize SKU implementation: {e}")
             return False
 
-    async def validate_sku_semantics(self) -> Dict[str, Any]:
+    async def validate_sku_semantics(self) -> dict[str, Any]:
         """Validate SKU semantics across existing data."""
         self.logger.info("Validating SKU semantics...")
 
@@ -123,7 +125,7 @@ class SKUImplementationManager:
         self.logger.info(f"SKU validation completed: {validation_results['status']}")
         return validation_results
 
-    async def update_code_with_semantic_methods(self) -> Dict[str, Any]:
+    async def update_code_with_semantic_methods(self) -> dict[str, Any]:
         """Update existing code to use semantic SKU methods."""
         self.logger.info("Updating code with semantic SKU methods...")
 
@@ -155,7 +157,7 @@ class SKUImplementationManager:
         self.logger.info(f"Code update analysis completed: {updates['status']}")
         return updates
 
-    def _find_code_files_with_sku_access(self) -> List[str]:
+    def _find_code_files_with_sku_access(self) -> list[str]:
         """Find Python files that access SKU fields directly."""
         sku_patterns = [
             '.sku',  # Direct SKU access
@@ -187,7 +189,7 @@ class SKUImplementationManager:
 
         return files_with_sku
 
-    async def create_admin_dashboard_foundation(self) -> Dict[str, Any]:
+    async def create_admin_dashboard_foundation(self) -> dict[str, Any]:
         """Set up admin dashboard foundation."""
         self.logger.info("Setting up admin dashboard foundation...")
 
@@ -290,7 +292,7 @@ async def admin_products(
         with open(dashboard_dir / "routes.py", 'w') as f:
             f.write(admin_router_content)
 
-    async def test_emag_integration(self) -> Dict[str, Any]:
+    async def test_emag_integration(self) -> dict[str, Any]:
         """Test eMAG integration with proper SKU mapping."""
         self.logger.info("Testing eMAG integration with SKU semantics...")
 
@@ -335,7 +337,7 @@ async def admin_products(
         self.logger.info(f"eMAG integration test completed: {integration_test['status']}")
         return integration_test
 
-    async def generate_implementation_report(self) -> Dict[str, Any]:
+    async def generate_implementation_report(self) -> dict[str, Any]:
         """Generate comprehensive implementation report."""
         self.logger.info("Generating implementation report...")
 

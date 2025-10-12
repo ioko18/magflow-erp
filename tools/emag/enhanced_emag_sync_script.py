@@ -12,11 +12,11 @@ Usage:
     python enhanced_emag_sync_script.py --mode offers --account fbe --max-pages 25
 """
 
-import asyncio
 import argparse
+import asyncio
 import logging
-import sys
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -40,10 +40,10 @@ except ImportError:
                     os.environ[key] = value
 
 from app.services.enhanced_emag_service import EnhancedEmagIntegrationService
-from app.config.emag_config import get_emag_config, validate_emag_credentials
-from app.core.logging import get_logger, _ensure_basic_config
-from app.db.session import get_db
 
+from app.config.emag_config import get_emag_config, validate_emag_credentials
+from app.core.logging import _ensure_basic_config, get_logger
+from app.db.session import get_db
 
 # Configure logging
 _ensure_basic_config()
@@ -73,13 +73,13 @@ class EmagSyncCLI:
 Examples:
   # Sync products from both accounts (max 50 pages each)
   python enhanced_emag_sync_script.py --mode products --account both --max-pages 50
-  
+
   # Sync offers from MAIN account only
   python enhanced_emag_sync_script.py --mode offers --account main --max-pages 25
-  
+
   # Full sync with custom delay
   python enhanced_emag_sync_script.py --mode both --account both --max-pages 100 --delay 2.0
-  
+
   # Test connection only
   python enhanced_emag_sync_script.py --mode test --account main
             """,
@@ -326,7 +326,7 @@ Examples:
 
         if results.get("products"):
             product_data = results["products"]
-            print(f"\nPRODUCTS:")
+            print("\nPRODUCTS:")
             if product_data.get("main_account"):
                 print(
                     f"  MAIN: {product_data['main_account'].get('products_count', 0)} products"
@@ -345,7 +345,7 @@ Examples:
 
         if results.get("offers"):
             offer_data = results["offers"]
-            print(f"\nOFFERS:")
+            print("\nOFFERS:")
             print(f"  Status: {offer_data.get('status', 'unknown')}")
 
         if results.get("error"):

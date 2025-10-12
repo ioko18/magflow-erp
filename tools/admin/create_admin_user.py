@@ -15,9 +15,9 @@ sys.path.insert(0, user_site)
 try:
     import asyncpg
     import sqlalchemy
+    from passlib.hash import bcrypt
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
-    from passlib.hash import bcrypt
 
     from app.core.config import settings
 

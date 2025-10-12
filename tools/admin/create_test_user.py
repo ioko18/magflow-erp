@@ -15,9 +15,9 @@ sys.path.insert(0, user_site)
 try:
     import asyncpg
     import sqlalchemy
+    from passlib.hash import bcrypt
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
-    from passlib.hash import bcrypt
 
     from app.core.config import settings
 
@@ -125,7 +125,7 @@ try:
                 print("✅ Test user created successfully!")
                 print("   Email: admin@magflow.com")
                 print("   Password: secret")
-                print("   Is Superuser: {}".format(user_info.is_superuser))
+                print(f"   Is Superuser: {user_info.is_superuser}")
                 print("   Role: {}".format(user_info.role_name or "None"))
             else:
                 print("❌ Failed to create or verify user")

@@ -4,10 +4,11 @@ Test complet pentru integrarea eMAG cu date reale.
 """
 
 import asyncio
+
 import requests
-import json
-from app.core.database import get_async_session
 from sqlalchemy import text
+
+from app.core.database import get_async_session
 
 
 def get_auth_token():
@@ -44,16 +45,16 @@ async def test_database_content():
         result = await db.execute(
             text(
                 """
-            SELECT account_type, COUNT(*) as count, 
+            SELECT account_type, COUNT(*) as count,
                    COUNT(CASE WHEN is_active THEN 1 END) as active_count
-            FROM app.emag_products_v2 
+            FROM app.emag_products_v2
             GROUP BY account_type
         """
             )
         )
         account_stats = result.fetchall()
 
-        print(f"\n📊 Statistici baza de date:")
+        print("\n📊 Statistici baza de date:")
         print(f"   Total produse: {total_products}")
         for stat in account_stats:
             print(
@@ -65,15 +66,15 @@ async def test_database_content():
             text(
                 """
             SELECT sku, name, account_type, last_synced_at
-            FROM app.emag_products_v2 
-            ORDER BY last_synced_at DESC 
+            FROM app.emag_products_v2
+            ORDER BY last_synced_at DESC
             LIMIT 5
         """
             )
         )
         recent_products = result.fetchall()
 
-        print(f"\n🕒 Ultimele 5 produse sincronizate:")
+        print("\n🕒 Ultimele 5 produse sincronizate:")
         for i, product in enumerate(recent_products):
             sync_time = (
                 product.last_synced_at.strftime("%H:%M:%S")
@@ -137,7 +138,7 @@ async def main():
 
     # 4. Afișează exemple de produse
     if both_products and both_products.get("products"):
-        print(f"\n📦 4. Exemple de produse sincronizate:")
+        print("\n📦 4. Exemple de produse sincronizate:")
         products = both_products["products"][:5]
         for i, product in enumerate(products):
             print(
@@ -148,18 +149,18 @@ async def main():
             )
 
     # 5. Sumar final
-    print(f"\n✅ 5. Sumar integrare completă:")
-    print(f"   🔗 API eMAG: Conectat și funcțional")
+    print("\n✅ 5. Sumar integrare completă:")
+    print("   🔗 API eMAG: Conectat și funcțional")
     print(
         f"   🗄️  Baza de date: {total_products if 'total_products' in locals() else 'N/A'} produse sincronizate"
     )
-    print(f"   🌐 Endpoint-uri: Toate funcționale")
-    print(f"   🔐 Autentificare: JWT funcțional")
-    print(f"   📱 Frontend: Disponibil la http://localhost:5173")
-    print(f"   📚 API Docs: Disponibile la http://localhost:8000/docs")
+    print("   🌐 Endpoint-uri: Toate funcționale")
+    print("   🔐 Autentificare: JWT funcțional")
+    print("   📱 Frontend: Disponibil la http://localhost:5173")
+    print("   📚 API Docs: Disponibile la http://localhost:8000/docs")
 
-    print(f"\n🎉 Integrarea eMAG este complet funcțională cu date reale!")
-    print(f"   Credențiale login: admin@example.com / secret")
+    print("\n🎉 Integrarea eMAG este complet funcțională cu date reale!")
+    print("   Credențiale login: admin@example.com / secret")
 
 
 if __name__ == "__main__":

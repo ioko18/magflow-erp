@@ -8,6 +8,7 @@ real-time marketplace connectivity with proper rate limiting and error handling.
 import asyncio
 import contextlib
 import os
+import secrets
 import time
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -114,11 +115,9 @@ class EmagRateLimiter:
         self._locks: dict[str, asyncio.Lock] = {}
         # Track timestamps of previous requests for both 1-second and 60-second windows
         self._request_windows: dict[str, dict[str, deque[float]]] = {}
-
     async def acquire(self, resource_type: str = "other"):
         """Acquire permission to make a request respecting eMAG API limits."""
-
-        import random
+        # Using secrets.SystemRandom() for cryptographic safety
 
         per_second_limit = (
             self.orders_rps if resource_type == "orders" else self.other_rps
@@ -173,7 +172,7 @@ class EmagRateLimiter:
                 wait_time = max(0.0, min(wait_times) if wait_times else 0.0)
 
             # Apply optional jitter when waiting to avoid synchronized bursts
-            jitter = random.uniform(0, self.jitter_max) if self.jitter_max > 0 else 0.0
+            jitter = secrets.SystemRandom().uniform(0, self.jitter_max) if self.jitter_max > 0 else 0.0
             await self.sleep_fn(max(0.001, wait_time) + jitter)
 
 
@@ -252,9 +251,9 @@ class EmagIntegrationService(BaseService):
         self.order_repository = get_order_repository()
         self._sync_tasks: dict[str, asyncio.Task] = {}
 
-    def _load_config(self) -> EmagApiConfig:
+    def _load_config(self, account_type: str) -> EmagApiConfig:
         """Load eMAG API configuration from settings."""
-        prefix = f"EMAG_{self.account_type.upper()}_"
+        prefix = f"EMAG_{account_type.upper()}_"
         env = (
             EmagApiEnvironment.PRODUCTION
             if settings.ENVIRONMENT == "production"
@@ -647,11 +646,7 @@ class EmagIntegrationService(BaseService):
                         if captcha_detected:
                             self.captcha_blocked = True
                         raise EmagApiError(
-                            (
-                                "Captcha challenge encountered"
-                                if captcha_detected
-                                else "Invalid API response: expected JSON body"
-                            ),
+                            "Captcha challenge encountered" if captcha_detected else "Invalid API response: expected JSON body",
                             status_code,
                             {
                                 "content_type": content_type,
@@ -659,7 +654,7 @@ class EmagIntegrationService(BaseService):
                                 "captcha_required": captcha_detected,
                                 "response_headers": headers_snapshot,
                             },
-                        )
+                        ) from None
 
                     json_val = response.json()
                     response_data = (
@@ -698,10 +693,8 @@ class EmagIntegrationService(BaseService):
                         return response_data
                     if status_code == 429:  # Rate limit exceeded
                         if retry_count < max_retries:
-                            # Exponential backoff with jitter
-                            import random
-
-                            wait_time = (2**retry_count) + random.uniform(0, 1)
+                            # Exponential backoff with jitter using cryptographic RNG
+                            wait_time = (2**retry_count) + secrets.SystemRandom().uniform(0, 1)
                             logger.warning(
                                 "Rate limit hit, retrying in %.2fs", wait_time
                             )
@@ -789,7 +782,7 @@ class EmagIntegrationService(BaseService):
                     message=f"Request failed after {max_retries + 1} attempts: {type(e).__name__}: {e}",
                     status_code=0,
                     details={"error_type": type(e).__name__, "error_message": str(e)},
-                )
+                ) from e
 
             except Exception as e:
                 logger.error(
@@ -809,7 +802,7 @@ class EmagIntegrationService(BaseService):
                     message=f"Unexpected error after {max_retries + 1} attempts: {type(e).__name__}: {e}",
                     status_code=0,
                     details={"error_type": type(e).__name__, "error_message": str(e)},
-                )
+                ) from e
 
         # This should never be reached, but just in case
         logger.error(
@@ -1058,6 +1051,37 @@ class EmagIntegrationService(BaseService):
 
         return await self._make_request("POST", "/order/read", data=payload)
 
+    async def get_order_by_id(self, order_id: int) -> dict[str, Any] | None:
+        """
+        Get a specific order by ID from eMAG Marketplace API.
+
+        Args:
+            order_id: eMAG order ID
+
+        Returns:
+            Order details or None if not found
+        """
+        try:
+            response = await self._make_request("POST", "/order/read", data={
+                "data": {
+                    "currentPage": 1,
+                    "itemsPerPage": 1,
+                    "filters": {
+                        "id": order_id
+                    }
+                }
+            })
+
+            # Extract order from response
+            if response and "results" in response and response["results"]:
+                return response["results"][0]
+
+            return None
+
+        except EmagApiError as e:
+            logger.error(f"Failed to fetch order {order_id}: {e}")
+            return None
+
     async def update_order_status(self, order_id: str, status: str) -> dict[str, Any]:
         """Update order status on eMAG."""
         return await self._make_request(
@@ -1110,7 +1134,7 @@ class EmagIntegrationService(BaseService):
                 product_id,
                 e,
             )
-            raise EmagApiError(f"Smart Deals price check failed: {e}")
+            raise EmagApiError(f"Smart Deals price check failed: {e}") from e
 
     # EmagIntegrationService class is defined earlier in the file
 
@@ -1134,6 +1158,8 @@ class EmagIntegrationService(BaseService):
                 "sandbox": EmagApiEnvironment.SANDBOX,
                 "sand": EmagApiEnvironment.SANDBOX,
                 "test": EmagApiEnvironment.SANDBOX,
+                "development": EmagApiEnvironment.SANDBOX,
+                "dev": EmagApiEnvironment.SANDBOX,
             }
 
             if normalized in aliases:
@@ -1141,7 +1167,7 @@ class EmagIntegrationService(BaseService):
 
         raise ConfigurationError(
             "Invalid EMAG_ENVIRONMENT value. Expected one of: "
-            "production, prod, live, sandbox, sand, test."
+            "production, prod, live, sandbox, sand, test, development, dev."
         )
 
     def _load_config(self, account_type: str) -> EmagApiConfig:
@@ -1218,12 +1244,12 @@ class EmagIntegrationService(BaseService):
             )
         except ConfigurationError as e:
             logger.error("Failed to load eMAG configuration: %s", e)
-            raise ConfigurationError(f"eMAG integration not properly configured: {e}")
+            raise ConfigurationError(f"eMAG integration not properly configured: {e}") from e
 
     async def cleanup(self):
         """Cleanup eMAG integration service."""
-        if self.api_client:
-            await self.api_client.close()
+        if self.client:
+            await self.client.close()
 
         # Cancel any running sync tasks
         for task in self._sync_tasks.values():
@@ -1247,16 +1273,16 @@ class EmagIntegrationService(BaseService):
         contract without duplicating logic in this service.
         """
 
-        if not self.api_client:
+        if not self.client:
             raise EmagApiError("eMAG API client not initialized")
 
         # Prefer a public request helper when available to avoid relying on
         # internals of the API client.
-        request_fn = getattr(self.api_client, "request", None)
+        request_fn = getattr(self.client, "request", None)
         if request_fn:
             return await request_fn(method, endpoint, data=data, params=params)
 
-        return await self.api_client._request(  # pylint: disable=protected-access
+        return await self.client._request(  # pylint: disable=protected-access
             method,
             endpoint,
             data=data,
@@ -1267,10 +1293,10 @@ class EmagIntegrationService(BaseService):
     async def update_inventory(self, sku: str, quantity: int) -> bool:
         """Update inventory for a specific product."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
-            result = await self.api_client.sync_inventory(sku, quantity)
+            result = await self.client.sync_inventory(sku, quantity)
             return result.get("success", False)
 
         except Exception as e:
@@ -1289,7 +1315,7 @@ class EmagIntegrationService(BaseService):
         such as rate-limit responses by retrying with exponential backoff.
         """
 
-        if not self.api_client:
+        if not self.client:
             raise EmagApiError("eMAG API client not initialized")
 
         attempt = 1
@@ -1297,7 +1323,7 @@ class EmagIntegrationService(BaseService):
 
         while attempt <= max_attempts:
             try:
-                response = await self.api_client.create_product(product)
+                response = await self.client.create_product(product)
 
                 if isinstance(response, dict) and not response.get("isError", False):
                     return response
@@ -1477,7 +1503,7 @@ class EmagIntegrationService(BaseService):
     async def _get_emag_products(self) -> list[EmagProduct]:
         """Get products from eMAG API."""
         try:
-            response = await self.api_client.get_products()
+            response = await self.client.get_products()
             products_data = response.get("products", [])
 
             products = []
@@ -1577,7 +1603,7 @@ class EmagIntegrationService(BaseService):
     async def _get_emag_orders(self) -> list[EmagOrder]:
         """Get orders from eMAG API."""
         try:
-            response = await self.api_client.get_orders()
+            response = await self.client.get_orders()
             orders_data = response.get("orders", [])
 
             orders = []
@@ -1770,7 +1796,7 @@ class EmagIntegrationService(BaseService):
     ) -> dict[str, Any]:
         """Get product offers from eMAG."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
             # Build query parameters
@@ -1803,7 +1829,7 @@ class EmagIntegrationService(BaseService):
     ) -> dict[str, Any]:
         """Search for product offers on eMAG."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
             # Build query parameters
@@ -1831,7 +1857,7 @@ class EmagIntegrationService(BaseService):
     ) -> dict[str, Any]:
         """Get detailed information for a specific offer."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
             return await self._make_request(
@@ -1871,7 +1897,7 @@ class EmagIntegrationService(BaseService):
             while page <= max_pages:
                 try:
                     # Get products for current page
-                    response = await self.api_client.get_products(page=page, limit=100)
+                    response = await self.client.get_products(page=page, limit=100)
 
                     products = response.get("products", [])
                     if not products:
@@ -1940,7 +1966,7 @@ class EmagIntegrationService(BaseService):
     ) -> list[dict[str, Any]]:
         """Get all products from eMAG account with pagination."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
             all_products = []
@@ -1952,7 +1978,7 @@ class EmagIntegrationService(BaseService):
             while page <= total_pages and page <= max_pages:
                 try:
                     # Get products for current page
-                    response = await self.api_client.get_products(
+                    response = await self.client.get_products(
                         page=page,
                         limit=100,  # Maximum allowed by eMAG API
                     )
@@ -1998,7 +2024,7 @@ class EmagIntegrationService(BaseService):
     ) -> list[dict[str, Any]]:
         """Get all offers from eMAG account with pagination."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
             all_offers = []
@@ -2288,7 +2314,7 @@ class EmagIntegrationService(BaseService):
     ) -> dict[str, Any]:
         """Get detailed information for a specific product."""
         try:
-            if not self.api_client:
+            if not self.client:
                 raise EmagApiError("eMAG API client not initialized")
 
             return await self._make_request(

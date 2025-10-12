@@ -6,12 +6,12 @@ Based on API v4.4.8 specifications
 """
 
 import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from decimal import Decimal
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class DateInterval:
     timezone: str = "UTC"
     index: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API"""
         return {
             "start_date": {
@@ -62,15 +62,15 @@ class CampaignProposal:
     id: str  # Internal campaign ID
     sale_price: Decimal
     stock: int
-    max_qty_per_order: Optional[int] = None
-    post_campaign_sale_price: Optional[Decimal] = None
-    campaign_id: Optional[str] = None
+    max_qty_per_order: int | None = None
+    post_campaign_sale_price: Decimal | None = None
+    campaign_id: str | None = None
     not_available_post_campaign: bool = False
-    voucher_discount: Optional[Decimal] = None
-    date_intervals: List[DateInterval] = field(default_factory=list)
+    voucher_discount: Decimal | None = None
+    date_intervals: list[DateInterval] = field(default_factory=list)
     campaign_type: CampaignType = CampaignType.STANDARD
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API submission"""
         data = {
             "id": self.id,
@@ -102,10 +102,10 @@ class CampaignResponse:
     campaign_id: str
     status: str
     message: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api_response(cls, response_data: Dict[str, Any]) -> 'CampaignResponse':
+    def from_api_response(cls, response_data: dict[str, Any]) -> 'CampaignResponse':
         """Create from API response"""
         return cls(
             campaign_id=response_data.get('campaign_id', ''),
@@ -118,13 +118,13 @@ class CampaignResponse:
 class SmartDealsPriceCheck:
     """Smart Deals price check request/response"""
     product_id: str
-    target_price: Optional[Decimal] = None
+    target_price: Decimal | None = None
     currency: str = "RON"
     is_eligible: bool = False
-    recommended_price: Optional[Decimal] = None
+    recommended_price: Decimal | None = None
     confidence_score: float = 0.0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for API"""
         return {
             "product_id": self.product_id,
@@ -133,7 +133,7 @@ class SmartDealsPriceCheck:
         }
 
     @classmethod
-    def from_api_response(cls, response_data: Dict[str, Any]) -> 'SmartDealsPriceCheck':
+    def from_api_response(cls, response_data: dict[str, Any]) -> 'SmartDealsPriceCheck':
         """Create from API response"""
         return cls(
             product_id=response_data.get('product_id', ''),
@@ -149,8 +149,8 @@ class CampaignManager:
 
     def __init__(self, api_client):
         self.api_client = api_client
-        self.campaign_cache: Dict[str, CampaignProposal] = {}
-        self.active_campaigns: Dict[str, CampaignResponse] = {}
+        self.campaign_cache: dict[str, CampaignProposal] = {}
+        self.active_campaigns: dict[str, CampaignResponse] = {}
 
     async def create_campaign_proposal(self, proposal: CampaignProposal) -> CampaignResponse:
         """Create a new campaign proposal"""
@@ -198,7 +198,7 @@ class CampaignManager:
                 message=str(e)
             )
 
-    async def check_smart_deals_price(self, product_id: str, target_price: Optional[Decimal] = None) -> SmartDealsPriceCheck:
+    async def check_smart_deals_price(self, product_id: str, target_price: Decimal | None = None) -> SmartDealsPriceCheck:
         """Check if product is eligible for Smart Deals badge"""
         try:
             logger.info(f"Checking Smart Deals price for product: {product_id}")
@@ -238,7 +238,7 @@ class CampaignManager:
     async def create_multi_deals_campaign(self,
                                         product_id: str,
                                         base_price: Decimal,
-                                        intervals: List[DateInterval]) -> CampaignResponse:
+                                        intervals: list[DateInterval]) -> CampaignResponse:
         """Create a MultiDeals campaign with multiple date intervals"""
         try:
             logger.info(f"Creating MultiDeals campaign for product: {product_id}")
@@ -310,7 +310,7 @@ class CampaignManager:
                 message=str(e)
             )
 
-    def validate_campaign_proposal(self, proposal: CampaignProposal) -> List[str]:
+    def validate_campaign_proposal(self, proposal: CampaignProposal) -> list[str]:
         """Validate campaign proposal before submission"""
         errors = []
 
@@ -346,7 +346,7 @@ class CampaignManager:
 
         return errors
 
-    async def bulk_create_campaigns(self, proposals: List[CampaignProposal]) -> List[CampaignResponse]:
+    async def bulk_create_campaigns(self, proposals: list[CampaignProposal]) -> list[CampaignResponse]:
         """Create multiple campaign proposals in bulk"""
         results = []
 
@@ -371,7 +371,7 @@ class CampaignManager:
 
         return results
 
-    def get_campaign_statistics(self) -> Dict[str, Any]:
+    def get_campaign_statistics(self) -> dict[str, Any]:
         """Get campaign statistics"""
         total_campaigns = len(self.campaign_cache)
         active_campaigns = len([c for c in self.active_campaigns.values() if c.status == 'active'])

@@ -4,6 +4,7 @@ Manual migration script to create missing tables for MagFlow ERP
 """
 
 import os
+
 import psycopg2
 from dotenv import load_dotenv
 

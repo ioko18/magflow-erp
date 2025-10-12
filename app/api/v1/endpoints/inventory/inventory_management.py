@@ -58,7 +58,18 @@ def calculate_stock_status(item: InventoryItem) -> str:
 
 
 def calculate_reorder_quantity(item: InventoryItem) -> int:
-    """Calculate recommended reorder quantity."""
+    """
+    Calculate recommended reorder quantity.
+
+    Priority:
+    1. Manual override (manual_reorder_quantity) - if set, use this value
+    2. Automatic calculation based on stock levels
+    """
+    # If manual reorder quantity is set, use it (override automatic calculation)
+    if item.manual_reorder_quantity is not None:
+        return item.manual_reorder_quantity
+
+    # Otherwise, calculate automatically
     available = item.quantity - item.reserved_quantity
 
     if item.maximum_stock:

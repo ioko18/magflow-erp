@@ -4,7 +4,7 @@ This module handles the intelligent matching of similar products from multiple
 Chinese suppliers to enable price comparison and best supplier selection.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Optional
 
@@ -88,7 +88,7 @@ class SupplierRawProduct(Base, TimestampMixin):
 
     # Metadata
     import_batch_id: Mapped[str | None] = mapped_column(String(50), index=True)
-    import_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    import_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
     last_price_check: Mapped[datetime | None] = mapped_column(DateTime)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -258,7 +258,7 @@ class SupplierPriceHistory(Base, TimestampMixin):
 
     # Timestamp
     recorded_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, index=True
+        DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), index=True
     )
 
     # Context

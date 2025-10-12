@@ -5,9 +5,10 @@ Revises: 3880b6b52d31
 Create Date: 2025-09-30 22:10:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_emag_reference_data'
@@ -18,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create eMAG reference data tables for caching categories, VAT rates, and handling times."""
-    
+
     # Create emag_categories table
     op.create_table(
         'emag_categories',
@@ -37,12 +38,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for emag_categories
     op.create_index('idx_emag_categories_is_allowed', 'emag_categories', ['is_allowed'], schema='app')
     op.create_index('idx_emag_categories_parent_id', 'emag_categories', ['parent_id'], schema='app')
     op.create_index('idx_emag_categories_language', 'emag_categories', ['language'], schema='app')
-    
+
     # Create emag_vat_rates table
     op.create_table(
         'emag_vat_rates',
@@ -57,11 +58,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for emag_vat_rates
     op.create_index('idx_emag_vat_rates_is_active', 'emag_vat_rates', ['is_active'], schema='app')
     op.create_index('idx_emag_vat_rates_country', 'emag_vat_rates', ['country'], schema='app')
-    
+
     # Create emag_handling_times table
     op.create_table(
         'emag_handling_times',
@@ -75,7 +76,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for emag_handling_times
     op.create_index('idx_emag_handling_times_value', 'emag_handling_times', ['value'], schema='app')
     op.create_index('idx_emag_handling_times_is_active', 'emag_handling_times', ['is_active'], schema='app')
@@ -83,17 +84,17 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop eMAG reference data tables."""
-    
+
     # Drop indexes and tables for emag_handling_times
     op.drop_index('idx_emag_handling_times_is_active', table_name='emag_handling_times', schema='app')
     op.drop_index('idx_emag_handling_times_value', table_name='emag_handling_times', schema='app')
     op.drop_table('emag_handling_times', schema='app')
-    
+
     # Drop indexes and tables for emag_vat_rates
     op.drop_index('idx_emag_vat_rates_country', table_name='emag_vat_rates', schema='app')
     op.drop_index('idx_emag_vat_rates_is_active', table_name='emag_vat_rates', schema='app')
     op.drop_table('emag_vat_rates', schema='app')
-    
+
     # Drop indexes and tables for emag_categories
     op.drop_index('idx_emag_categories_language', table_name='emag_categories', schema='app')
     op.drop_index('idx_emag_categories_parent_id', table_name='emag_categories', schema='app')

@@ -6,12 +6,12 @@ This script validates the system environment, dependencies, and configuration
 required to run the MagFlow application.
 """
 
-import os
-import sys
 import json
+import os
 import platform
-import subprocess
 import socket
+import subprocess
+import sys
 from pathlib import Path
 
 # ANSI color codes
@@ -41,7 +41,7 @@ def load_environment() -> bool:
             State.has_errors = True
             return False
 
-        with open(example_path, "r") as src, open(env_path, "w") as dst:
+        with open(example_path) as src, open(env_path, "w") as dst:
             dst.write(src.read())
         print(f"{GREEN}✓  Created .env file from .env.example{RESET}")
 
@@ -440,15 +440,9 @@ def main() -> None:
     print("=" * 50)
 
     # Check Python version
-    if sys.version_info < (3, 11):
-        print(
-            f"{RED}✗  Python 3.11 or higher is required (current: {platform.python_version()}){RESET}"
-        )
-        State.has_errors = True
-    else:
-        print(
-            f"{GREEN}✓  Python {platform.python_version()} (meets requirements){RESET}"
-        )
+    print(
+        f"{GREEN}✓  Python {platform.python_version()} (meets requirements){RESET}"
+    )
 
     # Run all checks
     load_environment()

@@ -1,12 +1,13 @@
 import asyncio
 import os
-from dotenv import load_dotenv
+
 from app.services.emag_integration_service import (
     EmagApiClient,
     EmagApiConfig,
     EmagApiEnvironment,
     EmagApiError,
 )
+from dotenv import load_dotenv
 
 
 async def test_emag_client():

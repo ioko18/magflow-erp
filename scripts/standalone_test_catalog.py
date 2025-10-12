@@ -1,7 +1,7 @@
 """Standalone test script for the eMAG Catalog Service."""
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class MockHttpClient:
@@ -77,7 +77,7 @@ class MockHttpClient:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock GET request."""
@@ -121,7 +121,7 @@ class Category:
         self,
         id: int,
         name: str,
-        parentId: Optional[int] = None,
+        parentId: int | None = None,
         isLeaf: bool = False,
         **kwargs,
     ):
@@ -261,7 +261,7 @@ class CatalogService:
         """
         self.http_client = http_client
 
-    async def get_categories(self, parent_id: Optional[int] = None) -> list:
+    async def get_categories(self, parent_id: int | None = None) -> list:
         """Get a list of categories from eMAG.
 
         Args:
@@ -313,7 +313,7 @@ class CatalogService:
 
         return response.results
 
-    async def get_vat_rates(self) -> Dict[str, float]:
+    async def get_vat_rates(self) -> dict[str, float]:
         """Get VAT rates from eMAG.
 
         Returns:
@@ -336,7 +336,7 @@ class CatalogService:
             for item in response.results
         }
 
-    async def get_handling_times(self) -> Dict[str, int]:
+    async def get_handling_times(self) -> dict[str, int]:
         """Get handling time settings from eMAG.
 
         Returns:
@@ -449,7 +449,7 @@ async def test_catalog_service():
         category_tree = await catalog_service.get_category_tree()
         print("   Category Tree:")
 
-        def print_category(category: Dict[str, Any], level: int = 0):
+        def print_category(category: dict[str, Any], level: int = 0):
             """Recursively print category tree."""
             indent = "  " * level
             print(f"{indent}- {category['name']} (ID: {category['id']})")

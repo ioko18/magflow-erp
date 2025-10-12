@@ -4,12 +4,12 @@ Advanced Product Validation and Ownership Management System
 Based on eMAG API v4.4.8 specifications with comprehensive validation
 """
 
-import re
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
+import re
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class OwnershipStatus(Enum):
 
 class ProductCategory:
     """Product category information"""
-    def __init__(self, category_data: Dict[str, Any]):
+    def __init__(self, category_data: dict[str, Any]):
         self.id = category_data.get('id')
         self.name = category_data.get('name', '')
         self.characteristics = category_data.get('characteristics', [])
@@ -46,10 +46,10 @@ class ProductCategory:
 class ProductValidationResult:
     """Result of product validation"""
     is_valid: bool
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
-    validation_details: Dict[str, Any] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+    validation_details: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class ProductOwnershipInfo:
@@ -58,15 +58,15 @@ class ProductOwnershipInfo:
     can_update_content: bool
     can_update_images: bool
     can_update_characteristics: bool
-    restrictions: List[str] = field(default_factory=list)
+    restrictions: list[str] = field(default_factory=list)
 
 class AdvancedProductValidator:
     """Advanced product validation system"""
 
     def __init__(self):
-        self._category_cache: Dict[int, ProductCategory] = {}
-        self._vat_rates_cache: Dict[int, Dict] = {}
-        self._handling_times_cache: List[Dict] = []
+        self._category_cache: dict[int, ProductCategory] = {}
+        self._vat_rates_cache: dict[int, dict] = {}
+        self._handling_times_cache: list[dict] = []
 
         # Validation rules based on API documentation
         self._validation_rules = {
@@ -113,8 +113,8 @@ class AdvancedProductValidator:
             }
         }
 
-    def validate_product_data(self, product_data: Dict[str, Any],
-                            category_id: Optional[int] = None) -> ProductValidationResult:
+    def validate_product_data(self, product_data: dict[str, Any],
+                            category_id: int | None = None) -> ProductValidationResult:
         """Validate complete product data"""
         result = ProductValidationResult(is_valid=True)
 
@@ -150,7 +150,7 @@ class AdvancedProductValidator:
 
         return result
 
-    def _validate_basic_fields(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_basic_fields(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate basic required fields"""
         required_fields = ['name', 'part_number', 'sale_price', 'stock']
 
@@ -176,7 +176,7 @@ class AdvancedProductValidator:
         if len(cleaned_part_number) != len(part_number):
             result.warnings.append(f"Part number cleaned: '{part_number}' → '{cleaned_part_number}'")
 
-    def _validate_category_requirements(self, product_data: Dict[str, Any],
+    def _validate_category_requirements(self, product_data: dict[str, Any],
                                       category_id: int, result: ProductValidationResult):
         """Validate category-specific requirements"""
         if category_id not in self._category_cache:
@@ -200,7 +200,7 @@ class AdvancedProductValidator:
         # For now, assume EAN is required for most categories
         return True
 
-    def _validate_business_rules(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_business_rules(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate business rules and constraints"""
 
         # EAN vs Part Number Key mutual exclusivity
@@ -229,7 +229,7 @@ class AdvancedProductValidator:
             result.errors.append("Stock cannot be negative")
             result.is_valid = False
 
-    def _validate_content_quality(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_content_quality(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate content quality and completeness"""
 
         description = product_data.get('description', '')
@@ -251,7 +251,7 @@ class AdvancedProductValidator:
         if len(name.split()) < 2:
             result.warnings.append("Product name should contain at least 2 words")
 
-    def _validate_images(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_images(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate product images"""
 
         images = product_data.get('images', [])
@@ -288,7 +288,7 @@ class AdvancedProductValidator:
         url_pattern = r'^https?://[^\s/$.?#].[^\s]*\.(jpg|jpeg|png|gif|webp)$'
         return bool(re.match(url_pattern, url, re.IGNORECASE))
 
-    def _validate_characteristics(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_characteristics(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate product characteristics"""
 
         characteristics = product_data.get('characteristics', [])
@@ -316,7 +316,7 @@ class AdvancedProductValidator:
             if 'tag' in char:
                 result.warnings.append(f"Characteristic {i+1} uses tags - ensure multiple entries for different tags")
 
-    def _validate_pricing(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_pricing(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate pricing information"""
 
         sale_price = product_data.get('sale_price', 0)
@@ -343,7 +343,7 @@ class AdvancedProductValidator:
         if currency and len(currency) != 3:
             result.warnings.append(f"Currency code should be 3 characters: {currency}")
 
-    def _validate_stock(self, product_data: Dict[str, Any], result: ProductValidationResult):
+    def _validate_stock(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate stock information"""
 
         stock = product_data.get('stock', 0)
@@ -371,8 +371,8 @@ class AdvancedProductValidator:
                     result.errors.append(f"Stock item {i+1} has negative stock")
                     result.is_valid = False
 
-    def validate_ownership_and_permissions(self, product_data: Dict[str, Any],
-                                         current_ownership: Optional[OwnershipStatus] = None) -> ProductOwnershipInfo:
+    def validate_ownership_and_permissions(self, product_data: dict[str, Any],
+                                         current_ownership: OwnershipStatus | None = None) -> ProductOwnershipInfo:
         """Validate product ownership and update permissions"""
 
         ownership_status = current_ownership or OwnershipStatus.NOT_ELIGIBLE_FOR_UPDATES
@@ -409,7 +409,7 @@ class AdvancedProductValidator:
             restrictions=restrictions
         )
 
-    def validate_gpsr_fields(self, product_data: Dict[str, Any]) -> List[str]:
+    def validate_gpsr_fields(self, product_data: dict[str, Any]) -> list[str]:
         """Validate GPSR (General Product Safety Regulation) fields"""
         errors = []
 
@@ -445,8 +445,8 @@ class AdvancedProductValidator:
 
         return errors
 
-    def generate_validation_report(self, product_data: Dict[str, Any],
-                                 category_id: Optional[int] = None) -> Dict[str, Any]:
+    def generate_validation_report(self, product_data: dict[str, Any],
+                                 category_id: int | None = None) -> dict[str, Any]:
         """Generate comprehensive validation report"""
 
         validation_result = self.validate_product_data(product_data, category_id)

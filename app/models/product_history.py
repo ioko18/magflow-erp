@@ -1,6 +1,6 @@
 """Product history tracking models for audit and change tracking."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
@@ -46,7 +46,7 @@ class ProductSKUHistory(Base):
     changed_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
         index=True,
         comment="When the change occurred",
     )
@@ -119,7 +119,7 @@ class ProductChangeLog(Base):
     changed_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
         index=True,
         comment="When the change occurred",
     )

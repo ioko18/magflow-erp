@@ -6,16 +6,17 @@ This script benchmarks prepared statements with PgBouncer in transaction pooling
 It tests both prepared and non-prepared queries to compare performance with TLS support.
 """
 
-import time
-import psycopg
 import argparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import statistics
 import os
-import ssl
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass
 import pathlib
+import ssl
+import statistics
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Any
+
+import psycopg
 
 
 @dataclass
@@ -27,9 +28,9 @@ class BenchmarkConfig:
     test_queries: int = 10000
     num_threads: int = 10
     use_ssl: bool = True
-    ssl_cert: Optional[str] = None
-    ssl_key: Optional[str] = None
-    ssl_root_cert: Optional[str] = None
+    ssl_cert: str | None = None
+    ssl_key: str | None = None
+    ssl_root_cert: str | None = None
     connection_timeout: int = 10
     statement_timeout: int = 30
 
@@ -39,13 +40,13 @@ class PgBouncerBenchmark:
 
     def __init__(self, config: BenchmarkConfig):
         self.config = config
-        self.results: Dict[str, List[float]] = {
+        self.results: dict[str, list[float]] = {
             "prepared": [],
             "unprepared": [],
             "prepared_concurrent": [],
             "unprepared_concurrent": [],
         }
-        self.connection_params: Dict[str, Any] = {
+        self.connection_params: dict[str, Any] = {
             "autocommit": True,
             "connect_timeout": config.connection_timeout,
             "options": f"-c statement_timeout={config.statement_timeout}s",
@@ -91,7 +92,7 @@ class PgBouncerBenchmark:
             print(f"Warning: Warmup failed: {e}")
             raise
 
-    def run_benchmark(self, use_prepared: bool, num_queries: int) -> List[float]:
+    def run_benchmark(self, use_prepared: bool, num_queries: int) -> list[float]:
         """Run benchmark with or without prepared statements."""
         query = "SELECT $1::text as test, now() as ts"
         times = []
@@ -120,7 +121,7 @@ class PgBouncerBenchmark:
 
     def run_concurrent_benchmark(
         self, use_prepared: bool, num_queries: int, num_threads: int = 10
-    ) -> List[float]:
+    ) -> list[float]:
         """Run benchmark with concurrent connections."""
         queries_per_thread = max(1, num_queries // num_threads)
         total_queries = queries_per_thread * num_threads
@@ -129,7 +130,7 @@ class PgBouncerBenchmark:
             f"({queries_per_thread} queries/thread) - {'prepared' if use_prepared else 'unprepared'}"
         )
 
-        def worker(_) -> List[float]:
+        def worker(_) -> list[float]:
             try:
                 return self.run_benchmark(use_prepared, queries_per_thread)
             except Exception as e:
@@ -148,7 +149,7 @@ class PgBouncerBenchmark:
 
         return all_times
 
-    def print_stats(self, times: List[float], label: str):
+    def print_stats(self, times: list[float], label: str):
         """Print statistics for a set of timings."""
         if not times:
             print(f"\n{label.upper()}: No results")

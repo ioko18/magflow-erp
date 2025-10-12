@@ -6,11 +6,11 @@ Usage:
     python generate_scram_verifiers.py username password [iterations=4096]
 """
 
-import sys
+import base64
 import hashlib
 import hmac
-import base64
 import os
+import sys
 
 
 def generate_salt(length: int = 16) -> bytes:

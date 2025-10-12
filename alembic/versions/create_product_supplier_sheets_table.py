@@ -5,8 +5,9 @@ Revises: add_notification_tables_v2
 Create Date: 2025-10-04 20:30:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'create_supplier_sheets'
@@ -43,7 +44,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('sku', 'supplier_name', name='uq_product_supplier_sku_name'),
         schema='app'
     )
-    
+
     # Create indexes
     op.create_index('ix_product_supplier_sheets_sku', 'product_supplier_sheets', ['sku'], schema='app')
     op.create_index('ix_product_supplier_sheets_supplier_name', 'product_supplier_sheets', ['supplier_name'], schema='app')
@@ -55,6 +56,6 @@ def downgrade() -> None:
     op.drop_index('ix_product_supplier_sheets_is_active', table_name='product_supplier_sheets', schema='app')
     op.drop_index('ix_product_supplier_sheets_supplier_name', table_name='product_supplier_sheets', schema='app')
     op.drop_index('ix_product_supplier_sheets_sku', table_name='product_supplier_sheets', schema='app')
-    
+
     # Drop table
     op.drop_table('product_supplier_sheets', schema='app')

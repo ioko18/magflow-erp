@@ -156,8 +156,8 @@ class EmagAWBService:
                     order.courier_name = awb_data.get("courier_name")
                     order.status = 4  # Finalized
                     order.status_name = "finalized"
-                    order.finalized_at = datetime.now(UTC)
-                    order.updated_at = datetime.now(UTC)
+                    order.finalized_at = datetime.now(UTC).replace(tzinfo=None)
+                    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     await session.commit()
 
             self._metrics["awbs_generated"] += 1

@@ -1,10 +1,15 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from sqlalchemy import Column, DateTime
 from sqlalchemy.orm import DeclarativeBase, declared_attr
 
 ModelType = TypeVar("ModelType", bound="Base")
+
+
+def utc_now():
+    """Return current UTC time without timezone info (for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)."""
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Base(DeclarativeBase):
@@ -22,11 +27,11 @@ class Base(DeclarativeBase):
             ["_" + c.lower() if c.isupper() else c for c in self.__name__]
         ).lstrip("_")
 
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=utc_now,
+        onupdate=utc_now,
         nullable=False,
     )
 

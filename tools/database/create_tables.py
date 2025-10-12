@@ -2,8 +2,10 @@
 """Create database tables."""
 
 import os
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+
 from app.db.base_class import Base
 
 # Load environment variables

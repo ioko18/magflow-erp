@@ -6,8 +6,8 @@ This script demonstrates the comprehensive testing capabilities
 that have been implemented for the MagFlow ERP project.
 """
 
-import sys
 import subprocess
+import sys
 
 
 def run_command(cmd: str, description: str) -> bool:

@@ -211,8 +211,8 @@ class EmagInvoiceService:
 
                 if order:
                     order.invoice_url = invoice_url
-                    order.invoice_uploaded_at = datetime.now(UTC)
-                    order.updated_at = datetime.now(UTC)
+                    order.invoice_uploaded_at = datetime.now(UTC).replace(tzinfo=None)
+                    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     await session.commit()
 
             self._metrics["invoices_attached"] += 1

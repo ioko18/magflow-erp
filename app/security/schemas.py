@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from fastapi import Form
@@ -51,7 +51,7 @@ class TokenData(BaseModel):
     roles: list[str] = Field(default_factory=list)
     is_active: bool = True
     exp: datetime
-    iat: datetime = Field(default_factory=datetime.utcnow)
+    iat: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     jti: str = Field(..., description="JWT ID")
 
     model_config = ConfigDict()
@@ -118,8 +118,8 @@ class UserInDB(UserBase):
     failed_login_attempts: int = 0
     last_failed_login: datetime | None = None
     password_changed_at: datetime | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
     model_config = ConfigDict(from_attributes=True)
 

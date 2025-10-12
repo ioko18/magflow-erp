@@ -164,8 +164,8 @@ class AdminService:
                 full_name=user_data.get("full_name"),
                 is_active=user_data.get("is_active", True),
                 is_superuser=user_data.get("is_superuser", False),
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+                updated_at=datetime.now(UTC).replace(tzinfo=None),
             )
 
             self.db.add(new_user)
@@ -259,7 +259,7 @@ class AdminService:
                     if role_obj:
                         user.roles.append(role_obj)
 
-            user.updated_at = datetime.now(UTC)
+            user.updated_at = datetime.now(UTC).replace(tzinfo=None)
             await self.db.commit()
 
             # Log admin action

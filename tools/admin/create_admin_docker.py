@@ -9,8 +9,10 @@ app_dir = Path(__file__).parent
 sys.path.insert(0, str(app_dir))
 
 from datetime import datetime
-from sqlalchemy import create_engine, text
+
 from passlib.hash import bcrypt
+from sqlalchemy import create_engine, text
+
 
 def create_admin_user():
     """Create admin user."""

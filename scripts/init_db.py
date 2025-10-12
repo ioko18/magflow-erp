@@ -2,6 +2,7 @@
 """Initialize the database schema directly."""
 
 import asyncio
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -61,21 +62,21 @@ async def init_db():
         # Create indexes
         await conn.execute(
             text("""
-        CREATE INDEX IF NOT EXISTS idx_products_name_lower 
+        CREATE INDEX IF NOT EXISTS idx_products_name_lower
         ON app.products (lower(name))
         """)
         )
 
         await conn.execute(
             text("""
-        CREATE INDEX IF NOT EXISTS idx_products_price 
+        CREATE INDEX IF NOT EXISTS idx_products_price
         ON app.products (price)
         """)
         )
 
         await conn.execute(
             text("""
-        CREATE INDEX IF NOT EXISTS idx_products_created_at 
+        CREATE INDEX IF NOT EXISTS idx_products_created_at
         ON app.products (created_at)
         """)
         )

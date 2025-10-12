@@ -11,10 +11,11 @@ database, and log progress with the project's structured logger.
 import asyncio
 import logging
 import os
+
 from dotenv import load_dotenv
 
-from app.logging_setup import setup_logging
 from app.emag.services.offer_sync_service import OfferSyncService
+from app.logging_setup import setup_logging
 
 # ---------------------------------------------------------------------------
 # Configuration & logging

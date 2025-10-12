@@ -25,16 +25,23 @@ async def _run_product_sync(account_type: str, full_sync: bool = False):
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(
             f"Starting product sync - account: {account_type}, full: {full_sync}"
         )
 
-        result = await service.sync_products(full_sync=full_sync)
+        try:
+            result = await service.sync_products(full_sync=full_sync)
 
-        logger.info(
-            f"Product sync completed - account: {account_type}, "
-            f"synced: {result.get('synced', 0)}, errors: {result.get('errors', 0)}"
-        )
+            logger.info(
+                f"Product sync completed - account: {account_type}, "
+                f"synced: {result.get('synced', 0)}, errors: {result.get('errors', 0)}"
+            )
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Product sync failed: {e}", exc_info=True)
@@ -47,16 +54,23 @@ async def _run_order_sync(account_type: str, days_back: int = 7):
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
+        # Initialize the service
+        await service.initialize()
+
         logger.info(
             f"Starting order sync - account: {account_type}, days_back: {days_back}"
         )
 
-        result = await service.sync_orders(days_back=days_back)
+        try:
+            result = await service.sync_orders(days_back=days_back)
 
-        logger.info(
-            f"Order sync completed - account: {account_type}, "
-            f"synced: {result.get('synced', 0)}, errors: {result.get('errors', 0)}"
-        )
+            logger.info(
+                f"Order sync completed - account: {account_type}, "
+                f"synced: {result.get('synced', 0)}, errors: {result.get('errors', 0)}"
+            )
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Order sync failed: {e}", exc_info=True)
@@ -99,25 +113,32 @@ async def sync_emag_products(
             context = ServiceContext(settings=settings)
             service = EmagIntegrationService(context, account_type=account_type)
 
+            # Initialize the service
+            await service.initialize()
+
             logger.info(f"Starting synchronous product sync - account: {account_type}")
 
-            result = await service.sync_products(full_sync=full_sync)
+            try:
+                result = await service.sync_products(full_sync=full_sync)
 
-            return {
-                "success": True,
-                "message": "Product synchronization completed",
-                "account_type": account_type,
-                "full_sync": full_sync,
-                "async_mode": False,
-                "result": result,
-            }
+                return {
+                    "success": True,
+                    "message": "Product synchronization completed",
+                    "account_type": account_type,
+                    "full_sync": full_sync,
+                    "async_mode": False,
+                    "result": result,
+                }
+            finally:
+                # Clean up the service
+                await service.close()
 
     except Exception as e:
         logger.error(f"Error starting product sync: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start product synchronization: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/orders")
@@ -157,25 +178,32 @@ async def sync_orders(
             context = ServiceContext(settings=settings)
             service = EmagIntegrationService(context, account_type=account_type)
 
+            # Initialize the service
+            await service.initialize()
+
             logger.info(f"Starting synchronous order sync - account: {account_type}")
 
-            result = await service.sync_orders(days_back=days_back)
+            try:
+                result = await service.sync_orders(days_back=days_back)
 
-            return {
-                "success": True,
-                "message": "Order synchronization completed",
-                "account_type": account_type,
-                "days_back": days_back,
-                "async_mode": False,
-                "result": result,
-            }
+                return {
+                    "success": True,
+                    "message": "Order synchronization completed",
+                    "account_type": account_type,
+                    "days_back": days_back,
+                    "async_mode": False,
+                    "result": result,
+                }
+            finally:
+                # Clean up the service
+                await service.close()
 
     except Exception as e:
         logger.error(f"Error starting order sync: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start order synchronization: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/status")
@@ -197,17 +225,24 @@ async def get_sync_status(
         context = ServiceContext(settings=settings)
         service = EmagIntegrationService(context, account_type=account_type)
 
-        status_info = await service.get_sync_status()
+        # Initialize the service
+        await service.initialize()
 
-        return {
-            "success": True,
-            "account_type": account_type,
-            "status": status_info,
-        }
+        try:
+            status_info = await service.get_sync_status()
+
+            return {
+                "success": True,
+                "account_type": account_type,
+                "status": status_info,
+            }
+        finally:
+            # Clean up the service
+            await service.close()
 
     except Exception as e:
         logger.error(f"Error getting sync status: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sync status: {str(e)}",
-        )
+        ) from e

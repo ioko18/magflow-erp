@@ -67,7 +67,7 @@ class AIRecommendation:
     actionable_steps: list[str]
     estimated_benefit: str
     implementation_effort: str  # easy, medium, hard
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class EmagAnalyticsService(ServiceBase):

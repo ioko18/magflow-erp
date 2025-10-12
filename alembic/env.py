@@ -6,6 +6,7 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
+
 from alembic import context
 
 # Add the app directory to the Python path
@@ -13,14 +14,13 @@ app_dir = str(Path(__file__).parent.parent)
 sys.path.insert(0, app_dir)
 
 # Import the settings to get the database schema
+# Import all models to ensure they are registered with SQLAlchemy's metadata
+# This is necessary for Alembic to detect all models
+import app.models  # noqa: F401, E402
 from app.core.config import settings  # noqa: E402
 
 # Import the Base class to get the metadata
 from app.db.base_class import Base  # noqa: E402
-
-# Import all models to ensure they are registered with SQLAlchemy's metadata
-# This is necessary for Alembic to detect all models
-import app.models  # noqa: F401, E402
 
 # Set the schema for all tables using sanitized value
 schema_name = settings.db_schema_safe
@@ -54,7 +54,7 @@ target_metadata = Base.metadata
 
 def do_run_migrations(connection: Connection) -> None:
     """Run migrations in the given connection.
-    
+
     Args:
         connection: SQLAlchemy connection to use for migrations
     """
@@ -68,7 +68,7 @@ def do_run_migrations(connection: Connection) -> None:
         compare_type=True,  # Check for column type changes
         compare_server_default=True,  # Check for server default changes
     )
-    
+
     # Create the schema if it doesn't exist
     with context.begin_transaction():
         connection.execute(
@@ -79,19 +79,19 @@ def do_run_migrations(connection: Connection) -> None:
         connection.execute(
             text(f'SET search_path TO "{schema_name}", public')
         )
-        
+
         # Run migrations
         context.run_migrations()
 
 
 def include_name(name, type_, parent_names):
     """Filter which tables to include in autogenerate.
-    
+
     Args:
         name: The name of the object
         type_: Type of the object (e.g., 'table', 'column', 'index', etc.)
         parent_names: Dictionary of parent object names
-        
+
     Returns:
         bool: Whether to include the object in autogenerate
     """
@@ -143,22 +143,22 @@ async def run_migrations_online() -> None:
     """
     # Create an async engine
     connectable = create_async_engine(settings.DB_URI, future=True)
-    
+
     async with connectable.connect() as connection:
         # Set the search path for this connection
         await connection.execute(
             text(f'SET search_path TO "{schema_name}", public')
         )
-        
+
         # Create the schema if it doesn't exist
         await connection.execute(
             text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
         )
         await connection.commit()
-        
+
         # Run migrations
         await connection.run_sync(do_run_migrations)
-    
+
     await connectable.dispose()
 
 

@@ -26,15 +26,15 @@ IMPORT_PATTERNS = [
 def update_imports(file_path):
     """Update imports in a single file."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             content = f.read()
-        
+
         original_content = content
-        
+
         # Update imports based on patterns
         for pattern, replacement in IMPORT_PATTERNS:
             content = re.sub(pattern, replacement, content)
-        
+
         # Only write if changes were made
         if content != original_content:
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -49,7 +49,7 @@ def update_imports(file_path):
 def main():
     """Update imports in all test files."""
     updated_count = 0
-    
+
     # Process all Python files in the tests directory
     for root, _, files in os.walk(TEST_DIR):
         for file in files:
@@ -57,7 +57,7 @@ def main():
                 file_path = Path(root) / file
                 if update_imports(file_path):
                     updated_count += 1
-    
+
     print(f"\n✅ Updated imports in {updated_count} test files")
 
 if __name__ == "__main__":

@@ -8,8 +8,9 @@ Implements rate limiting and optimal batch sizes according to eMAG API guideline
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any, Callable
+from typing import Any
 
 from app.config.emag_config import get_emag_config
 from app.core.emag_monitoring import get_monitor

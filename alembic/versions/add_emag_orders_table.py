@@ -5,9 +5,10 @@ Revises: 069bd2ae6d01
 Create Date: 2025-09-30 11:40:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_emag_orders_v2'
@@ -18,14 +19,14 @@ depends_on = None
 
 def upgrade() -> None:
     """Create emag_orders table in app schema."""
-    
+
     # Check if table already exists (idempotent - handles parallel branch merge)
     conn = op.get_bind()
     inspector = sa.inspect(conn)
     if 'emag_orders' in inspector.get_table_names(schema='app'):
         print("⚠️  Table emag_orders already exists, skipping creation")
         return
-    
+
     # Create emag_orders table
     op.create_table(
         'emag_orders',
@@ -82,7 +83,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('emag_order_id', 'account_type', name='uq_emag_orders_id_account'),
         schema='app'
     )
-    
+
     # Create indexes
     op.create_index(
         'idx_emag_orders_emag_id_account',

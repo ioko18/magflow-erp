@@ -6,8 +6,8 @@ Create Date: 2025-10-01 19:56:00.000000
 
 """
 
+
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20251001_add_unique_constraint_sync_progress"
@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade():
     """Add unique constraint on sync_log_id for ON CONFLICT support."""
-    
+
     # Add unique constraint to sync_log_id
     op.create_unique_constraint(
         "uq_emag_sync_progress_sync_log_id",
@@ -29,7 +29,7 @@ def upgrade():
 
 def downgrade():
     """Remove unique constraint on sync_log_id."""
-    
+
     # Drop unique constraint
     op.drop_constraint(
         "uq_emag_sync_progress_sync_log_id",

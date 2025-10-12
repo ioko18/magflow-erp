@@ -5,16 +5,17 @@ Test Full eMAG Sync for MagFlow ERP.
 This script tests the complete eMAG synchronization with database integration.
 """
 
-import os
-import sys
 import asyncio
-import aiohttp
 import base64
 import json
-import psycopg2
+import os
+import sys
 import uuid
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import aiohttp
+import psycopg2
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -68,7 +69,7 @@ class FullEmagSync:
             cur.execute(
                 """
                 INSERT INTO emag_sync_logs (
-                    id, sync_type, account_type, operation, status, 
+                    id, sync_type, account_type, operation, status,
                     started_at, sync_version, triggered_by
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
@@ -102,7 +103,7 @@ class FullEmagSync:
                     # Check if product exists in emag_products_v2
                     cur.execute(
                         """
-                        SELECT id FROM app.emag_products_v2 
+                        SELECT id FROM app.emag_products_v2
                         WHERE sku = %s AND account_type = %s
                     """,
                         (sku, self.account_type),

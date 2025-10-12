@@ -4,8 +4,10 @@ Script pentru crearea sigură a tabelelor eMAG V2.
 """
 
 import asyncio
-from app.core.database import get_async_session, engine
+
 from sqlalchemy import text
+
+from app.core.database import get_async_session
 
 
 async def create_emag_tables_safe():
@@ -98,14 +100,14 @@ async def create_emag_tables_safe():
             await db.execute(
                 text(
                     """
-                DO $$ 
+                DO $$
                 BEGIN
                     IF NOT EXISTS (
-                        SELECT 1 FROM pg_constraint 
+                        SELECT 1 FROM pg_constraint
                         WHERE conname = 'uq_emag_products_v2_sku_account'
                     ) THEN
-                        ALTER TABLE emag_products_v2 
-                        ADD CONSTRAINT uq_emag_products_v2_sku_account 
+                        ALTER TABLE emag_products_v2
+                        ADD CONSTRAINT uq_emag_products_v2_sku_account
                         UNIQUE (sku, account_type);
                     END IF;
                 END $$;
@@ -151,9 +153,9 @@ async def create_emag_tables_safe():
             result = await db.execute(
                 text(
                     """
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public' 
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
                 AND table_name LIKE '%emag%'
                 ORDER BY table_name
             """

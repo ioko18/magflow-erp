@@ -5,12 +5,12 @@ Provides intelligent rate limiting, exponential backoff, and circuit breaker pat
 """
 
 import asyncio
+import logging
 import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Any
-import logging
-from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,8 @@ class RequestMetrics:
     successful_requests: int = 0
     failed_requests: int = 0
     rate_limited_requests: int = 0
-    last_request_time: Optional[datetime] = None
-    response_times: List[float] = field(default_factory=list)
+    last_request_time: datetime | None = None
+    response_times: list[float] = field(default_factory=list)
 
 class EnhancedRateLimiter:
     """Enhanced rate limiter with multiple strategies"""
@@ -152,7 +152,7 @@ class EnhancedRateLimiter:
         self._consecutive_failures += 1
         self._consecutive_successes = 0
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current metrics"""
         return {
             "total_requests": self._metrics.total_requests,
@@ -251,7 +251,7 @@ class CircuitBreaker:
         self.state = CircuitBreakerState.CLOSED
         self.failure_count = 0
         self.success_count = 0
-        self.last_failure_time: Optional[datetime] = None
+        self.last_failure_time: datetime | None = None
         self._lock = asyncio.Lock()
 
     async def call(self, func, *args, **kwargs):
@@ -309,7 +309,7 @@ class CircuitBreaker:
         self.last_failure_time = None
         logger.info("Circuit breaker reset to CLOSED state")
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get circuit breaker status"""
         return {
             "state": self.state.value,
@@ -322,14 +322,14 @@ class EnhancedEMAGClient:
     """Enhanced eMAG API client with advanced rate limiting and retry logic"""
 
     def __init__(self,
-                 rate_limit_config: Optional[RateLimitConfig] = None,
-                 retry_config: Optional[RetryConfig] = None,
-                 circuit_breaker_config: Optional[CircuitBreakerConfig] = None):
+                 rate_limit_config: RateLimitConfig | None = None,
+                 retry_config: RetryConfig | None = None,
+                 circuit_breaker_config: CircuitBreakerConfig | None = None):
         self.rate_limiter = EnhancedRateLimiter(rate_limit_config or RateLimitConfig())
         self.retry_manager = RetryManager(retry_config or RetryConfig())
         self.circuit_breaker = CircuitBreaker(circuit_breaker_config or CircuitBreakerConfig())
 
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
 
     async def __aenter__(self):
@@ -387,7 +387,7 @@ class EnhancedEMAGClient:
             lambda: self.retry_manager.execute_with_retry(_execute_request)
         )
 
-    async def get_product_offers(self, page: int = 1, items_per_page: int = 100) -> Dict:
+    async def get_product_offers(self, page: int = 1, items_per_page: int = 100) -> dict:
         """Get product offers with enhanced error handling"""
         url = "https://marketplace-api.emag.ro/api-3/product_offer/read"
 
@@ -412,11 +412,11 @@ class EnhancedEMAGClient:
             auth=aiohttp.BasicAuth(username, password)
         )
 
-    def get_rate_limiter_metrics(self) -> Dict[str, Any]:
+    def get_rate_limiter_metrics(self) -> dict[str, Any]:
         """Get rate limiter metrics"""
         return self.rate_limiter.get_metrics()
 
-    def get_circuit_breaker_status(self) -> Dict[str, Any]:
+    def get_circuit_breaker_status(self) -> dict[str, Any]:
         """Get circuit breaker status"""
         return self.circuit_breaker.get_status()
 

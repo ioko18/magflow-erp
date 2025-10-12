@@ -5,17 +5,13 @@ Revises: 20251001_add_unique_constraint_sync_progress, ee01e67b1bcc
 Create Date: 2025-10-01 19:58:13.103163
 
 """
-from typing import Sequence, Union
-
-from alembic import op
-import sqlalchemy as sa
-
+from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = '940c1544dd7b'
-down_revision: Union[str, Sequence[str], None] = ('20251001_add_unique_constraint_sync_progress', 'ee01e67b1bcc')
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = ('20251001_add_unique_constraint_sync_progress', 'ee01e67b1bcc')
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

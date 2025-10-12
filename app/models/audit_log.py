@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
@@ -34,7 +34,7 @@ class AuditLog(Base, TimestampMixin):
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, nullable=False
+        DateTime(timezone=True), default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False
     )
     success: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -28,6 +28,8 @@ import {
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import api from '../../services/api';
+import OrderDetailsModal from '../../components/orders/OrderDetailsModal';
+import type { EmagOrderDetails } from '../../types/api';
 
 type OrderStatus = string;
 
@@ -179,6 +181,9 @@ export default function OrdersPage() {
   const [messageApi, contextHolder] = message.useMessage();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState(''); // Separate state for input value
+  const [selectedOrder, setSelectedOrder] = useState<EmagOrderDetails | null>(null);
+  const [orderDetailsVisible, setOrderDetailsVisible] = useState(false);
+  const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
 
   const hasActiveFilters = useMemo(
     () =>
@@ -419,6 +424,47 @@ export default function OrdersPage() {
     }));
   };
 
+  const handleViewDetails = async (record: OrderRecord) => {
+    console.log('🔍 handleViewDetails called with record:', record);
+    
+    if (!record.emagOrderId || !record.channel) {
+      messageApi.error('Date comandă incomplete - lipsește ID-ul eMAG sau canalul');
+      return;
+    }
+
+    setOrderDetailsLoading(true);
+    setOrderDetailsVisible(true);
+    
+    try {
+      const response = await api.get(`/emag/orders/${record.emagOrderId}`, {
+        params: {
+          account_type: record.channel === 'fbe' ? 'fbe' : 'main',
+        },
+      });
+
+      console.log('📦 Order details response:', response.data);
+
+      if (response.data?.success && response.data?.data) {
+        setSelectedOrder(response.data.data as EmagOrderDetails);
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching order details:', error);
+      messageApi.error(
+        error.response?.data?.detail || 'Nu s-au putut încărca detaliile comenzii'
+      );
+      setOrderDetailsVisible(false);
+    } finally {
+      setOrderDetailsLoading(false);
+    }
+  };
+
+  const handleCloseOrderDetails = () => {
+    setOrderDetailsVisible(false);
+    setSelectedOrder(null);
+  };
+
   // Search is now handled on backend, no need for client-side filtering
 
   const columns: ColumnsType<OrderRecord> = useMemo(
@@ -518,19 +564,29 @@ export default function OrdersPage() {
       {
         title: 'Acțiuni',
         key: 'actions',
-        render: () => (
+        render: (_: any, record: OrderRecord) => (
           <Space size="middle">
-            <Button type="link" size="small" disabled>
+            <Button 
+              type="link" 
+              size="small" 
+              onClick={() => handleViewDetails(record)}
+              disabled={!record.emagOrderId}
+            >
               Detalii
             </Button>
-            <Button type="link" size="small" disabled>
+            <Button 
+              type="link" 
+              size="small" 
+              disabled
+              title="Funcționalitate în dezvoltare"
+            >
               Factură
             </Button>
           </Space>
         ),
       },
     ],
-    []
+    [handleViewDetails]
   );
 
   const expandedRowRender = useCallback((record: OrderRecord) => {
@@ -652,6 +708,12 @@ export default function OrdersPage() {
   return (
     <>
       {contextHolder}
+      <OrderDetailsModal
+        visible={orderDetailsVisible}
+        onClose={handleCloseOrderDetails}
+        order={selectedOrder}
+        loading={orderDetailsLoading}
+      />
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>

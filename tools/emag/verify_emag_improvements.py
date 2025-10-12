@@ -12,7 +12,7 @@ import json
 import sys
 import traceback
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Any
 
 import aiohttp
 from dotenv import load_dotenv
@@ -24,8 +24,8 @@ load_dotenv()
 # Add project root to path
 sys.path.append(".")
 
-from app.core.database import get_async_session
 from app.config.emag_config import get_emag_config
+from app.core.database import get_async_session
 
 
 class EmagIntegrationVerifier:
@@ -39,7 +39,7 @@ class EmagIntegrationVerifier:
         }
         self.base_url = "http://localhost:8000"
 
-    async def run_all_tests(self) -> Dict[str, Any]:
+    async def run_all_tests(self) -> dict[str, Any]:
         """Run all verification tests."""
         print("🔍 Starting comprehensive eMAG integration verification...")
         print("=" * 60)
@@ -73,9 +73,9 @@ class EmagIntegrationVerifier:
             result = await session.execute(
                 text(
                     """
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'emag_sync_logs' 
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'emag_sync_logs'
                 AND column_name IN ('created_at', 'updated_at')
                 ORDER BY column_name;
             """
@@ -94,8 +94,8 @@ class EmagIntegrationVerifier:
             result = await session.execute(
                 text(
                     """
-                SELECT COUNT(*) 
-                FROM information_schema.tables 
+                SELECT COUNT(*)
+                FROM information_schema.tables
                 WHERE table_name = 'emag_products_v2';
             """
                 )
@@ -114,8 +114,8 @@ class EmagIntegrationVerifier:
                 result = await session.execute(
                     text(
                         """
-                    SELECT account_type, COUNT(*) 
-                    FROM app.emag_products_v2 
+                    SELECT account_type, COUNT(*)
+                    FROM app.emag_products_v2
                     GROUP BY account_type;
                 """
                     )
@@ -209,12 +209,12 @@ class EmagIntegrationVerifier:
                 await session.execute(
                     text(
                         """
-                    INSERT INTO emag_sync_logs 
-                    (id, sync_type, account_type, operation, status, 
+                    INSERT INTO emag_sync_logs
+                    (id, sync_type, account_type, operation, status,
                      total_items, processed_items, created_items, updated_items, failed_items,
                      pages_processed, api_requests_made, rate_limit_hits,
                      started_at, triggered_by, sync_version, created_at, updated_at)
-                    VALUES 
+                    VALUES
                     (gen_random_uuid(), 'products', 'main', 'test_sync', 'completed',
                      0, 0, 0, 0, 0, 0, 0, 0,
                      CURRENT_TIMESTAMP, 'test', 'v4.4.8', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
@@ -234,7 +234,7 @@ class EmagIntegrationVerifier:
                 await session.execute(
                     text(
                         """
-                    DELETE FROM emag_sync_logs 
+                    DELETE FROM emag_sync_logs
                     WHERE triggered_by = 'test' AND sync_version = 'v4.4.8';
                 """
                     )
@@ -314,7 +314,7 @@ class EmagIntegrationVerifier:
         print(f"Success Rate: {success_rate:.1f}%")
 
         if summary["errors"]:
-            print(f"\n❌ Errors encountered:")
+            print("\n❌ Errors encountered:")
             for error in summary["errors"]:
                 print(f"  - {error}")
 
@@ -335,7 +335,7 @@ async def main():
         with open("emag_verification_results.json", "w") as f:
             json.dump(results, f, indent=2)
 
-        print(f"\n📄 Detailed results saved to: emag_verification_results.json")
+        print("\n📄 Detailed results saved to: emag_verification_results.json")
 
         # Exit with appropriate code
         success_rate = (

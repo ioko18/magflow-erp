@@ -4,9 +4,11 @@ Debug script to test eMAG API response and data processing
 """
 
 import asyncio
-import os
-import requests
 import json
+import os
+
+import requests
+
 
 async def debug_emag_api():
     """Debug eMAG API response and data structure"""

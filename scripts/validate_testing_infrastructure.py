@@ -5,8 +5,9 @@ MagFlow ERP Testing Infrastructure Demo
 This script demonstrates that the testing infrastructure is working properly.
 """
 
-import sys
 import os
+import sys
+
 
 def test_basic_imports():
     """Test basic imports work."""
@@ -58,7 +59,7 @@ def test_readme_content():
     try:
         readme_path = "tests/README.md"
         if os.path.exists(readme_path):
-            with open(readme_path, 'r') as f:
+            with open(readme_path) as f:
                 content = f.read()
 
             # Check for key sections

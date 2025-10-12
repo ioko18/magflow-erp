@@ -4,7 +4,6 @@ Check database connectivity and table existence.
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -13,8 +12,9 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from sqlalchemy import text
-from app.core.database import get_async_session
+
 from app.core.config import settings
+from app.core.database import get_async_session
 
 
 async def check_database():
@@ -24,7 +24,7 @@ async def check_database():
     try:
         async for session in get_async_session():
             # Test basic connectivity
-            result = await session.execute(text("SELECT 1"))
+            await session.execute(text("SELECT 1"))
             print("✅ Database connection successful")
 
             # Check if schema exists
@@ -48,9 +48,9 @@ async def check_database():
             table_result = await session.execute(
                 text(
                     """
-                    SELECT table_name 
-                    FROM information_schema.tables 
-                    WHERE table_schema = 'app' 
+                    SELECT table_name
+                    FROM information_schema.tables
+                    WHERE table_schema = 'app'
                     AND table_name = 'emag_product_offers'
                 """
                 )
@@ -69,9 +69,9 @@ async def check_database():
                 columns_result = await session.execute(
                     text(
                         """
-                        SELECT column_name, data_type 
-                        FROM information_schema.columns 
-                        WHERE table_schema = 'app' 
+                        SELECT column_name, data_type
+                        FROM information_schema.columns
+                        WHERE table_schema = 'app'
                         AND table_name = 'emag_product_offers'
                         ORDER BY ordinal_position
                     """

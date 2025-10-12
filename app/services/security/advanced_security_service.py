@@ -98,7 +98,7 @@ class AuditEvent:
     success: bool
     metadata: dict[str, Any] = field(default_factory=dict)
     risk_score: int = 0  # 0-100
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 @dataclass
@@ -114,7 +114,7 @@ class SecurityAlert:
     timestamp: datetime
     resolved: bool = False
     resolution_notes: str = ""
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class AdvancedSecurityService(ServiceBase):

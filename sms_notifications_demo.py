@@ -7,11 +7,10 @@ alerts, and automated messaging.
 """
 
 import asyncio
-from app.services.sms_service import (
-    SMSService, SMSProvider, NotificationType
-)
-from app.core.dependency_injection import ServiceContext
+
 from app.core.config import get_settings
+from app.core.dependency_injection import ServiceContext
+from app.services.sms_service import NotificationType, SMSProvider, SMSService
 
 
 async def demonstrate_sms_notifications():
@@ -213,7 +212,7 @@ async def demonstrate_sms_notifications():
         }
 
         print('✅ Supported in ' + str(len(countries)) + ' countries:')
-        for code, name in countries.items():
+        for _code, name in countries.items():
             print('  • ' + name)
 
         print("\n🎯 Available API Endpoints:")

@@ -3,7 +3,7 @@ Product Mapping Models for Google Sheets and eMAG Integration
 Maps local products to eMAG MAIN and FBE accounts
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID as UUID_TYPE
 
 from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, UniqueConstraint
@@ -199,7 +199,7 @@ class ImportLog(Base, TimestampMixin):
 
     # Timing
     started_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=datetime.utcnow
+        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None)
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

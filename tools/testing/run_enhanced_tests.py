@@ -7,13 +7,10 @@ test execution with monitoring, error handling, and performance optimization.
 """
 
 import argparse
-import asyncio
 import json
 import logging
 import sys
 import time
-from pathlib import Path
-from typing import Dict, List, Optional
 
 import pytest
 
@@ -32,7 +29,7 @@ class EnhancedTestRunner:
         self.results = {}
         self.performance_data = []
 
-    def run_security_tests(self) -> Dict[str, bool]:
+    def run_security_tests(self) -> dict[str, bool]:
         """Run security module tests to verify fixes."""
         logger.info("Running security module tests...")
 
@@ -91,7 +88,7 @@ class EnhancedTestRunner:
             logger.error(f"Security tests failed: {e}")
             return {"error": False}
 
-    def run_performance_tests(self, test_pattern: str = "test_*.py") -> Dict[str, any]:
+    def run_performance_tests(self, test_pattern: str = "test_*.py") -> dict[str, any]:
         """Run performance-optimized tests."""
         logger.info(f"Running performance tests with pattern: {test_pattern}")
 
@@ -139,7 +136,7 @@ class EnhancedTestRunner:
                 "error": str(e),
             }
 
-    def check_docker_logs(self) -> Dict[str, any]:
+    def check_docker_logs(self) -> dict[str, any]:
         """Check Docker logs for errors and warnings."""
         logger.info("Checking Docker logs for issues...")
 
@@ -186,7 +183,7 @@ class EnhancedTestRunner:
         except Exception as e:
             return {"success": False, "error": f"Failed to check Docker logs: {e}"}
 
-    def run_health_check(self) -> Dict[str, bool]:
+    def run_health_check(self) -> dict[str, bool]:
         """Run application health checks."""
         logger.info("Running application health checks...")
 
@@ -224,7 +221,7 @@ class EnhancedTestRunner:
             logger.error(f"Health check failed: {e}")
             return {"error": False}
 
-    def generate_improvement_report(self) -> Dict[str, any]:
+    def generate_improvement_report(self) -> dict[str, any]:
         """Generate a comprehensive improvement report."""
         total_duration = time.time() - self.start_time
 
@@ -268,7 +265,7 @@ class EnhancedTestRunner:
 
         return report
 
-    def save_report(self, report: Dict[str, any], filename: str = None):
+    def save_report(self, report: dict[str, any], filename: str = None):
         """Save the improvement report to a file."""
         if filename is None:
             timestamp = time.strftime("%Y%m%d_%H%M%S")

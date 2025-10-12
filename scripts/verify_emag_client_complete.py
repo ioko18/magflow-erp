@@ -3,7 +3,8 @@
 import asyncio
 import json
 import sys
-from emag_client_complete import EmagClient, EmagAccountType, EmagAPIError
+
+from emag_client_complete import EmagAccountType, EmagAPIError, EmagClient
 
 
 async def test_client():

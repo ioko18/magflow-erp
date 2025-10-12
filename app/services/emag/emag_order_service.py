@@ -325,7 +325,7 @@ class EmagOrderService:
                     },
                     "products": order_data.get("products", []),
                     "sync_status": "synced",
-                    "last_synced_at": datetime.now(UTC),
+                    "last_synced_at": datetime.now(UTC).replace(tzinfo=None),
                 }
 
                 is_new = False
@@ -334,7 +334,7 @@ class EmagOrderService:
                     for key, value in order_dict.items():
                         if key not in ["emag_order_id", "account_type"]:
                             setattr(existing_order, key, value)
-                    existing_order.updated_at = datetime.now(UTC)
+                    existing_order.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     is_new = False
                 else:
                     # Create new order
@@ -382,8 +382,8 @@ class EmagOrderService:
                 if order:
                     order.status = 2
                     order.status_name = "in_progress"
-                    order.acknowledged_at = datetime.now(UTC)
-                    order.updated_at = datetime.now(UTC)
+                    order.acknowledged_at = datetime.now(UTC).replace(tzinfo=None)
+                    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     await session.commit()
 
             self._metrics["orders_acknowledged"] += 1
@@ -459,10 +459,10 @@ class EmagOrderService:
                 if order:
                     order.status = new_status
                     order.status_name = ORDER_STATUS.get(new_status, "unknown")
-                    order.updated_at = datetime.now(UTC)
+                    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
                     if new_status == 4:
-                        order.finalized_at = datetime.now(UTC)
+                        order.finalized_at = datetime.now(UTC).replace(tzinfo=None)
 
                     await session.commit()
 
@@ -517,8 +517,8 @@ class EmagOrderService:
 
                 if order:
                     order.invoice_url = invoice_url
-                    order.invoice_uploaded_at = datetime.now(UTC)
-                    order.updated_at = datetime.now(UTC)
+                    order.invoice_uploaded_at = datetime.now(UTC).replace(tzinfo=None)
+                    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     await session.commit()
 
             return {

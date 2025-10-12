@@ -3,11 +3,13 @@
 
 import asyncio
 import sys
-from app.db.session import AsyncSessionLocal
-from app.models.user import User
-from app.models.role import Role
-from app.core.security import get_password_hash
+
 from sqlalchemy import select
+
+from app.core.security import get_password_hash
+from app.db.session import AsyncSessionLocal
+from app.models.role import Role
+from app.models.user import User
 
 
 async def create_admin():
@@ -19,18 +21,18 @@ async def create_admin():
                 select(User).where(User.email == 'admin@magflow.com')
             )
             user = result.scalar_one_or_none()
-            
+
             if user:
                 print('✅ Admin user already exists: admin@magflow.com')
                 print('   Password: admin123')
                 return
-            
+
             # Create admin role if not exists
             role_result = await session.execute(
                 select(Role).where(Role.name == 'admin')
             )
             role = role_result.scalar_one_or_none()
-            
+
             if not role:
                 role = Role(
                     name='admin',
@@ -40,7 +42,7 @@ async def create_admin():
                 session.add(role)
                 await session.flush()
                 print('✅ Created admin role')
-            
+
             # Create admin user
             user = User(
                 email='admin@magflow.com',
@@ -52,13 +54,13 @@ async def create_admin():
             )
             session.add(user)
             await session.commit()
-            
+
             print('✅ Admin user created successfully!')
             print('   Email: admin@magflow.com')
             print('   Password: admin123')
             print('')
             print('🔐 You can now login at: http://localhost:5173')
-            
+
         except Exception as e:
             print(f'❌ Error creating admin user: {e}')
             sys.exit(1)

@@ -5,14 +5,14 @@ Comprehensive validation of environment variables, database connections,
 API credentials, and system requirements
 """
 
-import os
-import sys
-import socket
-from datetime import datetime
-from typing import Dict, List, Any
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
+import os
+import socket
+import sys
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
 from urllib.parse import urlparse
 
 # Configure logging
@@ -31,7 +31,7 @@ class ValidationResult:
     check_name: str
     level: ValidationLevel
     message: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     passed: bool = True
 
 @dataclass
@@ -39,8 +39,8 @@ class ValidationReport:
     """Complete validation report"""
     timestamp: str
     environment: str
-    results: List[ValidationResult] = field(default_factory=list)
-    summary: Dict[str, int] = field(default_factory=dict)
+    results: list[ValidationResult] = field(default_factory=list)
+    summary: dict[str, int] = field(default_factory=dict)
 
 class ConfigurationValidator:
     """Comprehensive configuration validator for MagFlow ERP"""
@@ -86,7 +86,7 @@ class ConfigurationValidator:
         }
 
     def add_result(self, check_name: str, level: ValidationLevel, message: str,
-                   details: Dict[str, Any] = None, passed: bool = True):
+                   details: dict[str, Any] = None, passed: bool = True):
         """Add a validation result"""
         result = ValidationResult(
             check_name=check_name,
@@ -511,7 +511,7 @@ class ConfigurationValidator:
 
         try:
             # Check if we're running in Docker
-            with open('/proc/1/cgroup', 'r') as f:
+            with open('/proc/1/cgroup') as f:
                 if 'docker' in f.read().lower():
                     self.add_result(
                         "docker_environment",

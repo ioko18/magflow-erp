@@ -4,16 +4,17 @@ Sincronizare doar pentru contul FBE.
 """
 
 import asyncio
-import sys
 import os
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from dotenv import load_dotenv
-from sqlalchemy import select, and_
-from app.core.database import async_session_factory
 from app.services.emag_api_client import EmagApiClient
+from dotenv import load_dotenv
+from sqlalchemy import and_, select
+
+from app.core.database import async_session_factory
 from app.models.emag_models import EmagProductV2
 
 load_dotenv()
@@ -44,15 +45,15 @@ def safe_str(value, default=""):
 
 async def sync_fbe_complete():
     """Sincronizare completă FBE."""
-    
+
     username = os.getenv("EMAG_FBE_USERNAME", "galactronice.fbe@yahoo.com")
     password = os.getenv("EMAG_FBE_PASSWORD", "GB6on54")
     base_url = "https://marketplace-api.emag.ro/api-3"
-    
+
     print("\n" + "="*70)
     print("🚀 Full FBE Account Sync")
     print("="*70)
-    
+
     stats = {
         "fetched": 0,
         "created": 0,
@@ -60,31 +61,31 @@ async def sync_fbe_complete():
         "errors": 0,
         "start": datetime.now()
     }
-    
+
     async with EmagApiClient(username, password, base_url, timeout=60) as client:
         page = 1
-        
+
         while True:
             try:
                 print(f"\n📥 Page {page}...", end=" ", flush=True)
-                
+
                 response = await client.get_products(page=page, items_per_page=100)
                 products = response.get("results", [])
-                
+
                 if not products:
                     print("✅ Done")
                     break
-                
+
                 print(f"{len(products)} products", end=" | ", flush=True)
                 stats["fetched"] += len(products)
-                
+
                 # Save each product
                 for product in products:
                     sku = product.get("part_number") or product.get("sku")
                     if not sku:
                         stats["errors"] += 1
                         continue
-                    
+
                     async with async_session_factory() as session:
                         try:
                             stmt = select(EmagProductV2).where(
@@ -95,7 +96,7 @@ async def sync_fbe_complete():
                             )
                             result = await session.execute(stmt)
                             existing = result.scalar_one_or_none()
-                            
+
                             # Extract stock
                             stock_qty = 0
                             if "stock" in product:
@@ -106,7 +107,7 @@ async def sync_fbe_complete():
                                     stock_qty = safe_int(stock_data.get("value", 0))
                                 else:
                                     stock_qty = safe_int(stock_data)
-                            
+
                             # Extract characteristics
                             characteristics = {}
                             if "characteristics" in product and isinstance(product["characteristics"], list):
@@ -117,7 +118,7 @@ async def sync_fbe_complete():
                                             "value": char["value"],
                                             "tag": char.get("tag"),
                                         }
-                            
+
                             if existing:
                                 # Update
                                 existing.name = safe_str(product.get("name"))
@@ -152,31 +153,31 @@ async def sync_fbe_complete():
                                 )
                                 session.add(new_product)
                                 stats["created"] += 1
-                            
+
                             await session.commit()
-                            
+
                         except Exception as e:
                             await session.rollback()
                             stats["errors"] += 1
                             if stats["errors"] <= 5:  # Show first 5 errors only
                                 print(f"\n⚠️  Error {sku}: {e}")
-                
+
                 print(f"✅ Created: {stats['created']}, Updated: {stats['updated']}")
-                
+
                 if len(products) < 100:
                     break
-                
+
                 page += 1
                 await asyncio.sleep(0.4)
-                
+
             except Exception as e:
                 print(f"\n❌ Page error: {e}")
                 break
-    
+
     elapsed = (datetime.now() - stats["start"]).total_seconds()
-    
+
     print("\n" + "="*70)
-    print(f"✅ FBE Sync Complete")
+    print("✅ FBE Sync Complete")
     print("="*70)
     print(f"Fetched:  {stats['fetched']}")
     print(f"Created:  {stats['created']}")

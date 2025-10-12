@@ -7,7 +7,7 @@ Follows eMAG API v4.4.9 specifications.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -26,6 +26,12 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import Base
+
+
+# Timezone-aware datetime utility
+def utc_now():
+    """Return current UTC time without timezone info (for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)."""
+    return datetime.now(UTC).replace(tzinfo=None)  # noqa: DTZ005
 
 
 class EmagProductV2(Base):
@@ -87,9 +93,9 @@ class EmagProductV2(Base):
     sync_attempts = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
     emag_created_at = Column(DateTime, nullable=True)
     emag_modified_at = Column(DateTime, nullable=True)
@@ -289,9 +295,9 @@ class EmagProductOfferV2(Base):
     sync_attempts = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
     emag_created_at = Column(DateTime, nullable=True)
     emag_modified_at = Column(DateTime, nullable=True)
@@ -402,9 +408,9 @@ class EmagOrder(Base):
     sync_attempts = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
     order_date = Column(DateTime, nullable=True)  # eMAG order date
     emag_created_at = Column(DateTime, nullable=True)
@@ -472,7 +478,7 @@ class EmagSyncLog(Base):
     rate_limit_hits = Column(Integer, nullable=False, default=0)
 
     # Timestamps
-    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=False, default=utc_now)
     completed_at = Column(DateTime, nullable=True)
 
     # Additional metadata
@@ -480,9 +486,9 @@ class EmagSyncLog(Base):
     sync_version = Column(String(20), nullable=True)  # API version used
 
     # Standard timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
 
     # Indexes
@@ -537,9 +543,9 @@ class EmagCategory(Base):
     language = Column(String(5), nullable=False, default="ro")  # ro, en, hu, bg, etc.
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
     last_synced_at = Column(DateTime, nullable=True)
 
@@ -566,9 +572,9 @@ class EmagVatRate(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
     last_synced_at = Column(DateTime, nullable=True)
 
@@ -593,9 +599,9 @@ class EmagHandlingTime(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
     last_synced_at = Column(DateTime, nullable=True)
 
@@ -642,7 +648,7 @@ class EmagSyncProgress(Base):
 
     # Timestamps
     updated_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
+        DateTime, nullable=False, default=utc_now, onupdate=utc_now
     )
 
     # Relationships

@@ -1,7 +1,8 @@
-import os
-import aiohttp
 import asyncio
 import json
+import os
+
+import aiohttp
 from dotenv import load_dotenv
 
 # Load environment variables

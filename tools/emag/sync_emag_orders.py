@@ -10,6 +10,7 @@ if find_spec("greenlet") is None:
 
 import argparse
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -17,34 +18,35 @@ import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import aiohttp
 import backoff
-import inspect
-from sqlalchemy import select, exc as sa_exc, text
+from sqlalchemy import exc as sa_exc
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import noload
 
 # Import application components
 try:
+    from app.services.emag_integration_service import EmagIntegrationService
+
     from app.core.config import settings
     from app.core.database_resilience import DatabaseConfig, DatabaseHealthChecker
     from app.core.dependency_injection import ServiceContext
     from app.core.schema_validator import (
-        validate_sync_environment,
         print_validation_report,
+        validate_sync_environment,
     )
+    from app.core.security import get_password_hash
     from app.core.service_registry import ServiceRegistry
     from app.db.session import AsyncSessionLocal
     from app.models.order import Order, OrderLine
     from app.models.product import Product
     from app.models.user import User
-    from app.services.emag_integration_service import EmagIntegrationService
-    from app.core.security import get_password_hash
 except ImportError as e:
     print(f"Error importing application components: {e}", file=sys.stderr)
     print(f"Current sys.path: {sys.path}", file=sys.stderr)
@@ -111,11 +113,11 @@ class OrderSyncConfig:
 
 
 def _get_config_value(
-    keys: Tuple[str, ...],
+    keys: tuple[str, ...],
     cast,
     default,
     *,
-    account_type: Optional[str] = None,
+    account_type: str | None = None,
 ) -> Any:
     """Retrieve configuration values from env or settings with graceful fallback."""
 
@@ -217,8 +219,8 @@ class PerformanceMetrics:
     def mark_order_with_missing_product(self):
         self.metrics["orders_with_missing_products"] += 1
 
-    def get_metrics(self) -> Dict[str, Any]:
-        serialized: Dict[str, Any] = {}
+    def get_metrics(self) -> dict[str, Any]:
+        serialized: dict[str, Any] = {}
         for key, value in self.metrics.items():
             if isinstance(value, set):
                 serialized[key] = sorted(value)
@@ -273,7 +275,7 @@ def _to_decimal(value: Any, default: Decimal = Decimal("0")) -> Decimal:
     return default
 
 
-def _extract_quantity(item: Dict[str, Any]) -> int:
+def _extract_quantity(item: dict[str, Any]) -> int:
     """Extract quantity information from a product payload."""
 
     for key in ("quantity", "qty", "quantity_ordered", "ordered_quantity"):
@@ -289,7 +291,7 @@ def _extract_quantity(item: Dict[str, Any]) -> int:
     return 1
 
 
-def _extract_unit_price(item: Dict[str, Any]) -> Decimal:
+def _extract_unit_price(item: dict[str, Any]) -> Decimal:
     """Determine the best price candidate for a product line."""
 
     for key in ("sale_price", "price", "unit_price", "value", "product_price"):
@@ -300,7 +302,7 @@ def _extract_unit_price(item: Dict[str, Any]) -> Decimal:
 
 
 def _extract_line_total(
-    item: Dict[str, Any], quantity: int, unit_price: Decimal
+    item: dict[str, Any], quantity: int, unit_price: Decimal
 ) -> Decimal:
     """Compute the line total, falling back to price * quantity when needed."""
 
@@ -314,7 +316,7 @@ def _extract_line_total(
 
 
 def _extract_order_total(
-    order_data: Dict[str, Any], line_total_sum: Decimal
+    order_data: dict[str, Any], line_total_sum: Decimal
 ) -> Decimal:
     """Determine the overall order total using multiple fallback fields."""
 
@@ -368,7 +370,7 @@ BACKOFF_CONFIG = {
 )
 async def _make_api_request(
     service: EmagIntegrationService, method: str, endpoint: str, **kwargs
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Make an API request with retry logic and metrics."""
     start_time = time.monotonic()
     metrics.record_metric("api_calls")
@@ -548,12 +550,12 @@ async def ensure_default_customer(session: AsyncSession) -> int:
 
 async def upsert_customer_from_order(
     session: AsyncSession,
-    order_data: Dict[str, Any],
+    order_data: dict[str, Any],
     fallback_customer_id: int,
 ) -> int:
     """Create or update a customer based on the order payload."""
 
-    customer_payload: Dict[str, Any] = order_data.get("customer") or {}
+    customer_payload: dict[str, Any] = order_data.get("customer") or {}
     if not customer_payload:
         return fallback_customer_id
 
@@ -609,8 +611,8 @@ async def _create_missing_product(
     db_session: AsyncSession,
     product_id: int,
     *,
-    name: Optional[str] = None,
-    sku: Optional[str] = None,
+    name: str | None = None,
+    sku: str | None = None,
 ) -> int:
     """Create or update a placeholder product for missing IDs.
 
@@ -653,13 +655,13 @@ async def _create_missing_product(
 
 
 async def _process_order_batch(
-    orders: List[Dict[str, Any]],
+    orders: list[dict[str, Any]],
     service: EmagIntegrationService,
     account_type: str,
     force_update: bool = False,
-    start_date_filter: Optional[datetime] = None,
-    end_date_filter: Optional[datetime] = None,
-) -> Tuple[int, int, int]:
+    start_date_filter: datetime | None = None,
+    end_date_filter: datetime | None = None,
+) -> tuple[int, int, int]:
     """Process a batch of orders with transaction management."""
     success_count = 0
     error_count = 0
@@ -709,7 +711,7 @@ async def _process_order_batch(
                     # Parse order date before touching the database
                     order_date_str = order_data.get("date")
                     order_date = datetime.now(
-                        timezone.utc
+                        UTC
                     )  # Default to now if no date provided
                     if order_date_str:
                         try:
@@ -717,8 +719,8 @@ async def _process_order_batch(
                                 order_date_str.replace("Z", "+00:00")
                             )
                             if parsed_date.tzinfo is None:
-                                parsed_date = parsed_date.replace(tzinfo=timezone.utc)
-                            order_date = parsed_date.astimezone(timezone.utc)
+                                parsed_date = parsed_date.replace(tzinfo=UTC)
+                            order_date = parsed_date.astimezone(UTC)
                         except (ValueError, AttributeError) as e:
                             logger.warning(
                                 "Invalid order date format: %s, using current time: %s",
@@ -789,7 +791,7 @@ async def _process_order_batch(
                             status = ORDER_STATUS_MAPPING.get(status_code, "unknown")
 
                             # Prepare order lines using helper extractors
-                            prepared_lines: List[Tuple[int, int, Decimal]] = []
+                            prepared_lines: list[tuple[int, int, Decimal]] = []
                             line_total_sum = Decimal("0")
                             order_missing_products = False
 
@@ -946,8 +948,8 @@ async def _process_order_batch(
                     order_date_str.replace("Z", "+00:00")
                 )
                 if parsed_date.tzinfo is None:
-                    parsed_date = parsed_date.replace(tzinfo=timezone.utc)
-                parsed_date = parsed_date.astimezone(timezone.utc)
+                    parsed_date = parsed_date.replace(tzinfo=UTC)
+                parsed_date = parsed_date.astimezone(UTC)
 
                 if parsed_date < start_date_filter:
                     old_orders_count += 1
@@ -973,8 +975,8 @@ async def sync_orders(
     max_concurrent: int = 3,  # Reduced concurrency to prevent connection exhaustion
     force_update: bool = False,
     show_summary: bool = False,
-    limit: Optional[int] = None,
-) -> Dict[str, Any]:
+    limit: int | None = None,
+) -> dict[str, Any]:
     """Synchronize orders for a specific account type with enhanced error handling and performance."""
     global STATS
     STATS["start_time"] = time.time()
@@ -1018,7 +1020,7 @@ async def sync_orders(
             )
 
         # Calculate date range
-        end_date: datetime = datetime.now(timezone.utc)
+        end_date: datetime = datetime.now(UTC)
         start_date = end_date - timedelta(days=days)
 
         # Optimize date range to avoid fetching very old orders
@@ -1080,9 +1082,9 @@ async def sync_orders(
                                 )
                                 if parsed_date.tzinfo is None:
                                     parsed_date = parsed_date.replace(
-                                        tzinfo=timezone.utc
+                                        tzinfo=UTC
                                     )
-                                parsed_date = parsed_date.astimezone(timezone.utc)
+                                parsed_date = parsed_date.astimezone(UTC)
                                 if (
                                     oldest_order_date is None
                                     or parsed_date < oldest_order_date
@@ -1175,7 +1177,7 @@ async def sync_orders(
             "errors": total_errors,
             "duration_seconds": round(duration, 2),
             "metrics": metrics.get_metrics(),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         logger.info(
@@ -1197,7 +1199,7 @@ async def sync_orders(
             "duration_seconds": round(
                 time.time() - STATS.get("start_time", time.time()), 2
             ),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     finally:
@@ -1357,7 +1359,7 @@ def _log_progress(
     )
 
 
-async def sync_both_accounts(days: int = 1) -> Dict[str, Any]:
+async def sync_both_accounts(days: int = 1) -> dict[str, Any]:
     """Synchronize orders from both MAIN and FBE accounts with enhanced error handling."""
     logger.info(
         f"Starting order sync for both MAIN and FBE accounts (last {days} days)"
@@ -1395,7 +1397,7 @@ async def sync_both_accounts(days: int = 1) -> Dict[str, Any]:
                     {
                         "status": "error",
                         "error": str(e),
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     }
                 )
 
@@ -1420,7 +1422,7 @@ async def sync_both_accounts(days: int = 1) -> Dict[str, Any]:
             "error_count": error_count,
             "duration_seconds": round(duration, 2),
             "results": results,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     except Exception as e:
@@ -1429,7 +1431,7 @@ async def sync_both_accounts(days: int = 1) -> Dict[str, Any]:
             "status": "error",
             "error": str(e),
             "duration_seconds": round(time.time() - start_time, 2),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
 
@@ -1526,7 +1528,7 @@ def setup_logging(log_level: str = "INFO") -> None:
     logger.addHandler(console_handler)
 
 
-def print_summary(result: Dict[str, Any]) -> None:
+def print_summary(result: dict[str, Any]) -> None:
     """Print a detailed summary of the sync results with metrics and recommendations."""
     print("\n" + "=" * 80)
     print("SYNC SUMMARY".center(80))
@@ -1538,9 +1540,9 @@ def print_summary(result: Dict[str, Any]) -> None:
     total_orders = 0
     success_orders = 0
     error_orders = 0
-    metrics_data: Dict[str, Any] = {}
+    metrics_data: dict[str, Any] = {}
 
-    def merge_metrics(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    def merge_metrics(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
         for key, value in incoming.items():
             if isinstance(value, (int, float)):
                 base[key] = base.get(key, 0) + value
@@ -1559,7 +1561,7 @@ def print_summary(result: Dict[str, Any]) -> None:
                 base[key] = value
         return base
 
-    account_breakdown: List[Tuple[str, str, int, int]] = []
+    account_breakdown: list[tuple[str, str, int, int]] = []
 
     if status in {"success", "error"}:
         processed = int(result.get("processed", 0))
@@ -1670,7 +1672,7 @@ def print_summary(result: Dict[str, Any]) -> None:
     print("\n" + "=" * 50 + "\n")
 
 
-def save_summary_to_file(result: Dict[str, Any], summary_path: Path) -> None:
+def save_summary_to_file(result: dict[str, Any], summary_path: Path) -> None:
     """Write sync result summary to ``summary_path`` as JSON."""
     try:
         summary_path.parent.mkdir(parents=True, exist_ok=True)

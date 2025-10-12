@@ -5,14 +5,15 @@ Provides detailed health status for all system components
 """
 
 import asyncio
-import os
 import json
-import psutil
-from datetime import datetime
-from typing import Dict, Any
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
+import os
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+import psutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -31,7 +32,7 @@ class HealthCheckResult:
     component: str
     status: HealthStatus
     message: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     response_time_ms: float = 0.0
     last_check: datetime = field(default_factory=datetime.utcnow)
 
@@ -41,8 +42,8 @@ class SystemHealthReport:
     timestamp: datetime
     overall_status: HealthStatus
     uptime_seconds: float
-    components: Dict[str, HealthCheckResult] = field(default_factory=dict)
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    components: dict[str, HealthCheckResult] = field(default_factory=dict)
+    metrics: dict[str, Any] = field(default_factory=dict)
 
 class HealthChecker:
     """Comprehensive health check system"""
@@ -129,7 +130,7 @@ class HealthChecker:
             success_count = 0
             total_time = 0
 
-            for config_name, connection_string in db_configs:
+            for config_name, _connection_string in db_configs:
                 try:
                     # Test connection
                     if db_url:
@@ -527,12 +528,6 @@ class HealthChecker:
 
 def format_health_report_html(report: SystemHealthReport) -> str:
     """Format health report as HTML"""
-    status_colors = {
-        HealthStatus.HEALTHY: "green",
-        HealthStatus.DEGRADED: "orange",
-        HealthStatus.UNHEALTHY: "red",
-        HealthStatus.UNKNOWN: "gray"
-    }
 
     html = f"""
     <!DOCTYPE html>

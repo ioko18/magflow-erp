@@ -152,7 +152,7 @@ class EmagProductLinkService:
                 new_stock = old_stock + (main_product.stock_quantity or 0)
 
                 existing_fbe.stock_quantity = new_stock
-                existing_fbe.updated_at = datetime.now(UTC)
+                existing_fbe.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
                 # Optionally sync other fields
                 existing_fbe.name = main_product.name
@@ -351,8 +351,8 @@ class EmagProductLinkService:
             sync_status="pending",
             # Metadata
             source_account="main",
-            created_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
+            created_at=datetime.now(UTC).replace(tzinfo=None),
+            updated_at=datetime.now(UTC).replace(tzinfo=None),
         )
 
         self.db.add(fbe_product)

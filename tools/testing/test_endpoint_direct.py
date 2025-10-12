@@ -4,8 +4,10 @@ Test direct pentru endpoint-ul de produse.
 """
 
 import asyncio
-from app.core.database import get_async_session
+
 from sqlalchemy import text
+
+from app.core.database import get_async_session
 
 
 async def test_endpoint_query():
@@ -36,11 +38,11 @@ async def test_endpoint_query():
 
         # Execute raw SQL query
         query = f"""
-            SELECT id, sku, name, account_type, price, currency, stock_quantity, 
+            SELECT id, sku, name, account_type, price, currency, stock_quantity,
                    is_active, status, brand, emag_category_name, last_synced_at, sync_status
-            FROM app.emag_products_v2 
+            FROM app.emag_products_v2
             {where_clause}
-            ORDER BY updated_at DESC 
+            ORDER BY updated_at DESC
             LIMIT :limit
         """
         params["limit"] = max_pages_per_account * 100

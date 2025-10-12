@@ -5,11 +5,11 @@ Supports: eMAG RO/BG/HU, Fashion Days RO/BG
 Enhanced configuration with platform-specific settings and validation
 """
 
+import logging
 import os
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,11 @@ class PlatformConfig:
     currency: str
     language: str
     country_code: str
-    rate_limits: Dict[str, int]
-    features: List[str] = field(default_factory=list)
-    special_rules: Dict[str, Any] = field(default_factory=dict)
+    rate_limits: dict[str, int]
+    features: list[str] = field(default_factory=list)
+    special_rules: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
             "platform": self.platform.value,
@@ -182,8 +182,8 @@ class MultiPlatformConfigManager:
     }
 
     def __init__(self):
-        self.current_platform: Optional[PlatformType] = None
-        self.active_account: Optional[AccountType] = None
+        self.current_platform: PlatformType | None = None
+        self.active_account: AccountType | None = None
         self._load_configuration()
 
     def _load_configuration(self):
@@ -214,13 +214,13 @@ class MultiPlatformConfigManager:
         """Get configuration for specific platform"""
         return self.PLATFORM_CONFIGS[platform]
 
-    def get_api_credentials(self) -> Dict[str, str]:
+    def get_api_credentials(self) -> dict[str, str]:
         """Get API credentials for current platform and account"""
         platform_config = self.get_current_platform_config()
 
         # Build credential environment variable names
         platform_prefix = self.current_platform.value.upper()
-        account_suffix = f"_{self.active_account.value.upper()}"
+        f"_{self.active_account.value.upper()}"
 
         credentials = {}
 
@@ -251,7 +251,7 @@ class MultiPlatformConfigManager:
 
         return credentials
 
-    def validate_configuration(self) -> Dict[str, Any]:
+    def validate_configuration(self) -> dict[str, Any]:
         """Validate current configuration"""
         validation_results = {
             'platform': self.current_platform.value,
@@ -285,7 +285,7 @@ class MultiPlatformConfigManager:
 
         return validation_results
 
-    def get_platform_specific_settings(self) -> Dict[str, Any]:
+    def get_platform_specific_settings(self) -> dict[str, Any]:
         """Get platform-specific settings and rules"""
         platform_config = self.get_current_platform_config()
 
@@ -325,7 +325,7 @@ class MultiPlatformConfigManager:
 
         logger.info(f"Switched to platform: {self.current_platform.value} ({self.active_account.value})")
 
-    def get_available_platforms(self) -> List[Dict[str, Any]]:
+    def get_available_platforms(self) -> list[dict[str, Any]]:
         """Get list of available platforms with their configurations"""
         return [
             {
@@ -338,7 +338,7 @@ class MultiPlatformConfigManager:
             for platform, platform_config in self.PLATFORM_CONFIGS.items()
         ]
 
-    def get_rate_limits(self) -> Dict[str, int]:
+    def get_rate_limits(self) -> dict[str, int]:
         """Get rate limits for current platform"""
         return self.get_current_platform_config().rate_limits
 
@@ -347,7 +347,7 @@ class MultiPlatformConfigManager:
         platform_config = self.get_current_platform_config()
         return feature in platform_config.features
 
-    def get_platform_info(self) -> Dict[str, Any]:
+    def get_platform_info(self) -> dict[str, Any]:
         """Get comprehensive platform information"""
         platform_config = self.get_current_platform_config()
 

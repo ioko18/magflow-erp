@@ -17,9 +17,9 @@ Options:
     --cov           Run with coverage report
     --no-cov        Disable coverage report
 """
-import sys
-import subprocess
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 
 # Project root
@@ -29,7 +29,7 @@ TEST_DIR = PROJECT_ROOT / "tests"
 def run_tests(test_paths=None, marker=None, verbose=False, coverage=True):
     """Run tests with the given options."""
     cmd = [sys.executable, "-m", "pytest", "-v" if verbose else "-v"]
-    
+
     # Add coverage if enabled
     if coverage:
         cmd.extend([
@@ -38,17 +38,17 @@ def run_tests(test_paths=None, marker=None, verbose=False, coverage=True):
             "--cov-report=html:htmlcov",
             "--cov-config=.coveragerc"
         ])
-    
+
     # Add marker if specified
     if marker:
         cmd.append(f"-m {marker}")
-    
+
     # Add test paths
     if test_paths:
         cmd.extend(str(path) for path in test_paths)
     else:
         cmd.append(str(TEST_DIR))
-    
+
     # Run the command
     return subprocess.call(cmd)
 
@@ -87,9 +87,9 @@ def main():
         "--cov/--no-cov", dest="coverage", default=True,
         help="Enable/disable coverage reporting (default: enabled)"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Set default marker if test type is specified
     if not args.marker and any((args.unit, args.integration, args.api)):
         if args.unit:
@@ -98,7 +98,7 @@ def main():
             args.marker = "integration"
         elif args.api:
             args.marker = "api"
-    
+
     # Run tests
     return run_tests(
         test_paths=args.test_paths,

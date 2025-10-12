@@ -5,9 +5,9 @@ Revises: c8e960008812
 Create Date: 2025-10-01 15:05:00
 
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'add_invoice_names'
@@ -18,12 +18,12 @@ depends_on = None
 
 def upgrade():
     """Add invoice_name_ro and invoice_name_en columns to products table."""
-    op.add_column('products', 
+    op.add_column('products',
         sa.Column('invoice_name_ro', sa.String(200), nullable=True,
                   comment='Product name for Romanian invoices (shorter, customs-friendly)'),
         schema='app'
     )
-    op.add_column('products', 
+    op.add_column('products',
         sa.Column('invoice_name_en', sa.String(200), nullable=True,
                   comment='Product name for English invoices (customs declarations, VAT)'),
         schema='app'

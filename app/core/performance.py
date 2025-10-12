@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Any
 
@@ -29,7 +29,7 @@ class PerformanceMetrics:
     cache_misses: int = 0
     api_calls: int = 0
     api_time: float = 0.0
-    start_time: datetime = field(default_factory=datetime.utcnow)
+    start_time: datetime = field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 # Global metrics storage

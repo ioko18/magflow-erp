@@ -9,11 +9,12 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+from sqlalchemy import select
+
 from app.core.database import get_async_session
 from app.core.security import get_password_hash
-from app.models.user import User
 from app.models.role import Role
-from sqlalchemy import select
+from app.models.user import User
 
 
 async def create_admin_user():

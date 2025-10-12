@@ -5,9 +5,10 @@ Revises: c8e960008812
 Create Date: 2025-10-01 00:56:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'supplier_matching_001'
@@ -18,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create supplier matching tables."""
-    
+
     # Create product_matching_groups table FIRST (to avoid FK constraint issues)
     op.create_table(
         'product_matching_groups',
@@ -48,12 +49,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for product_matching_groups
     op.create_index('idx_group_status', 'product_matching_groups', ['status'], schema='app')
     op.create_index('idx_group_confidence', 'product_matching_groups', ['confidence_score'], schema='app')
     op.create_index('idx_group_active', 'product_matching_groups', ['is_active'], schema='app')
-    
+
     # Create supplier_raw_products table (after product_matching_groups)
     op.create_table(
         'supplier_raw_products',
@@ -86,7 +87,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for supplier_raw_products
     op.create_index('idx_supplier_raw_name', 'supplier_raw_products', ['chinese_name'], schema='app')
     op.create_index('idx_supplier_raw_supplier', 'supplier_raw_products', ['supplier_id'], schema='app')
@@ -94,7 +95,7 @@ def upgrade() -> None:
     op.create_index('idx_supplier_raw_active', 'supplier_raw_products', ['is_active'], schema='app')
     op.create_index('idx_supplier_raw_batch', 'supplier_raw_products', ['import_batch_id'], schema='app')
     op.create_index('idx_supplier_raw_group', 'supplier_raw_products', ['product_group_id'], schema='app')
-    
+
     # Create product_matching_scores table
     op.create_table(
         'product_matching_scores',
@@ -117,11 +118,11 @@ def upgrade() -> None:
         sa.UniqueConstraint('product_a_id', 'product_b_id', name='uq_product_pair'),
         schema='app'
     )
-    
+
     # Create indexes for product_matching_scores
     op.create_index('idx_matching_products', 'product_matching_scores', ['product_a_id', 'product_b_id'], schema='app')
     op.create_index('idx_matching_score', 'product_matching_scores', ['total_score'], schema='app')
-    
+
     # Create supplier_price_history table
     op.create_table(
         'supplier_price_history',
@@ -139,7 +140,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         schema='app'
     )
-    
+
     # Create indexes for supplier_price_history
     op.create_index('idx_price_history_product', 'supplier_price_history', ['raw_product_id'], schema='app')
     op.create_index('idx_price_history_date', 'supplier_price_history', ['recorded_at'], schema='app')
@@ -147,7 +148,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop supplier matching tables."""
-    
+
     # Drop tables in reverse order
     op.drop_table('supplier_price_history', schema='app')
     op.drop_table('product_matching_scores', schema='app')

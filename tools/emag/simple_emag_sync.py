@@ -6,14 +6,14 @@ This script performs a basic eMAG API test without requiring the full
 application stack, useful for testing API connectivity and credentials.
 """
 
+import asyncio
+import base64
 import os
 import sys
-import asyncio
-import aiohttp
-import base64
-import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+
+import aiohttp
 
 # Add project root to path
 project_root = Path(__file__).parent
@@ -180,9 +180,9 @@ async def test_emag_sync(account_type: str = "main", max_pages: int = 2):
         response = connection_result.get("response", {})
         if isinstance(response, dict):
             if not response.get("isError", True):
-                results = response.get("results", [])
+                response.get("results", [])
                 pagination = response.get("pagination", {})
-                print(f"   ✅ API response valid")
+                print("   ✅ API response valid")
                 print(
                     f"   ℹ️  Total items available: {pagination.get('totalItems', 'unknown')}"
                 )
@@ -195,7 +195,7 @@ async def test_emag_sync(account_type: str = "main", max_pages: int = 2):
                 ].get("message", "Unknown error")
                 print(f"   ⚠️  API returned error: {error_msg}")
         else:
-            print(f"   ⚠️  Unexpected response format")
+            print("   ⚠️  Unexpected response format")
     else:
         print(
             f"   ❌ Connection failed: {connection_result.get('error', 'Unknown error')}"
@@ -210,12 +210,12 @@ async def test_emag_sync(account_type: str = "main", max_pages: int = 2):
     print(f"\n2. Testing product sync ({max_pages} pages)...")
     products = await client.get_products_sample(max_pages)
 
-    print(f"\n3. Sync Results:")
+    print("\n3. Sync Results:")
     print(f"   Products retrieved: {len(products)}")
 
     if products:
         sample_product = products[0]
-        print(f"   Sample product:")
+        print("   Sample product:")
         print(f"     ID: {sample_product.get('id', 'N/A')}")
         print(f"     SKU: {sample_product.get('part_number', 'N/A')}")
         print(f"     Name: {sample_product.get('name', 'N/A')[:50]}...")
@@ -238,17 +238,17 @@ async def main():
     fbe_success = await test_emag_sync("fbe", 2)
 
     # Summary
-    print(f"\nSync Test Summary")
+    print("\nSync Test Summary")
     print("=" * 50)
     print(f"MAIN Account: {'✅ SUCCESS' if main_success else '❌ FAILED'}")
     print(f"FBE Account:  {'✅ SUCCESS' if fbe_success else '❌ FAILED'}")
 
     if main_success or fbe_success:
-        print(f"\n✅ eMAG integration is working!")
-        print(f"✅ Ready for full synchronization")
+        print("\n✅ eMAG integration is working!")
+        print("✅ Ready for full synchronization")
     else:
-        print(f"\n❌ eMAG integration needs attention")
-        print(f"❌ Check credentials and network connectivity")
+        print("\n❌ eMAG integration needs attention")
+        print("❌ Check credentials and network connectivity")
 
     print(f"\nCompleted at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 

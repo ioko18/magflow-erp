@@ -466,7 +466,7 @@ class EnhancedEmagIntegrationService:
                             self._update_product_from_emag_data(
                                 existing_product, product_data
                             )
-                            existing_product.last_synced_at = datetime.now(UTC)
+                            existing_product.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
                             existing_product.sync_status = "synced"
                             existing_product.sync_attempts += 1
                         else:
@@ -846,7 +846,7 @@ class EnhancedEmagIntegrationService:
                 characteristics
             ),  # True if characteristics exist
             sync_status="synced",
-            last_synced_at=datetime.now(UTC),
+            last_synced_at=datetime.now(UTC).replace(tzinfo=None),
             sync_attempts=1,
             emag_created_at=self._parse_datetime(product_data.get("created")),
             emag_modified_at=self._parse_datetime(product_data.get("modified")),
@@ -1044,9 +1044,9 @@ class EnhancedEmagIntegrationService:
         )
         product.emag_modified_at = self._parse_datetime(product_data.get("modified"))
         product.raw_emag_data = product_data
-        product.updated_at = datetime.now(UTC)
+        product.updated_at = datetime.now(UTC).replace(tzinfo=None)
         product.sync_status = "synced"
-        product.last_synced_at = datetime.now(UTC)
+        product.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
 
         # v4.4.9 - Update new fields
         product.validation_status = self._safe_int(
@@ -1312,7 +1312,7 @@ class EnhancedEmagIntegrationService:
                 "status": product_data.get("status"),
                 "is_available": product_data.get("status") == 1
                 or product_data.get("status") == "active",
-                "last_synced_at": datetime.now(UTC),
+                "last_synced_at": datetime.now(UTC).replace(tzinfo=None),
                 "sync_status": "synced",
             }
 
@@ -1321,7 +1321,7 @@ class EnhancedEmagIntegrationService:
                 for key, value in offer_data.items():
                     if key not in ["sku", "account_type"]:
                         setattr(existing_offer, key, value)
-                existing_offer.updated_at = datetime.now(UTC)
+                existing_offer.updated_at = datetime.now(UTC).replace(tzinfo=None)
             else:
                 # Create new offer
                 new_offer = EmagProductOfferV2(**offer_data)

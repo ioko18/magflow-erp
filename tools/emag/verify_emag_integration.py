@@ -5,10 +5,11 @@ Comprehensive test of all eMAG integration components
 """
 
 import json
-import requests
 import sys
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
+
+import requests
 
 # Configuration
 BASE_URL = "http://localhost:8000"
@@ -232,7 +233,7 @@ class EmagIntegrationVerifier:
             print(f"❌ Frontend error: {str(e)}")
             return False
 
-    def generate_report(self) -> Dict[str, Any]:
+    def generate_report(self) -> dict[str, Any]:
         """Generate comprehensive report"""
         total_products = self.results["main_products"] + self.results["fbe_products"]
 
@@ -283,7 +284,7 @@ class EmagIntegrationVerifier:
 
         return report
 
-    def run_verification(self) -> Dict[str, Any]:
+    def run_verification(self) -> dict[str, Any]:
         """Run complete verification"""
         print("🚀 Starting eMAG Integration Verification")
         print("=" * 50)
