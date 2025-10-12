@@ -43,6 +43,9 @@ def upgrade() -> None:
     7. Shipping tax voucher split (from c8e960008812_add_shipping_tax_voucher_split_to_orders)
     8. Missing supplier columns (from 14b0e514876f_add_missing_supplier_columns)
     9. Part number key for emag_products (from 069bd2ae6d01_add_part_number_key_to_emag_products)
+    10. Display order for products (from 1bf2989cb727_add_display_order_to_products)
+    11. Chinese name for products (from 20251001_034500_add_chinese_name_to_products)
+    12. Part number key for emag_product_offers (from 9a5e6b199c94_add_part_number_key_to_emag_product_)
     """
 
     # Get connection and inspector
@@ -273,11 +276,143 @@ def upgrade() -> None:
     except Exception as e:
         print(f"ℹ️  Part number key operation skipped: {e}")
 
+    # ========================================================================
+    # 9. Add display_order to products (from 1bf2989cb727)
+    # ========================================================================
+    try:
+        products_columns = [
+            col['name']
+            for col in inspector.get_columns('products', schema='app')
+        ]
+
+        if 'display_order' not in products_columns:
+            op.add_column(
+                'products',
+                sa.Column('display_order', sa.Integer(), nullable=True, 
+                         comment='Custom display order for product listing (lower numbers appear first)'),
+                schema='app'
+            )
+            print("✅ Added display_order column to products")
+
+            # Create index
+            op.create_index('ix_app_products_display_order', 'products', ['display_order'], schema='app')
+            print("✅ Created index on products.display_order")
+        else:
+            print("ℹ️  Column display_order already exists in products, skipping")
+    except Exception as e:
+        print(f"ℹ️  Products display order operation skipped: {e}")
+
+    # ========================================================================
+    # 10. Add chinese_name to products (from 20251001_034500)
+    # ========================================================================
+    try:
+        products_columns = [
+            col['name']
+            for col in inspector.get_columns('products', schema='app')
+        ]
+
+        if 'chinese_name' not in products_columns:
+            op.add_column(
+                'products',
+                sa.Column('chinese_name', sa.String(length=500), nullable=True,
+                         comment='Chinese product name for supplier matching (1688.com integration)'),
+                schema='app'
+            )
+            print("✅ Added chinese_name column to products")
+
+            # Create index
+            op.create_index('ix_app_products_chinese_name', 'products', ['chinese_name'], unique=False, schema='app')
+            print("✅ Created index on products.chinese_name")
+        else:
+            print("ℹ️  Column chinese_name already exists in products, skipping")
+    except Exception as e:
+        print(f"ℹ️  Chinese name operation skipped: {e}")
+
+    # ========================================================================
+    # 11. Add part_number_key to emag_product_offers (from 9a5e6b199c94)
+    # ========================================================================
+    try:
+        if 'emag_product_offers' in inspector.get_table_names(schema='app'):
+            offers_columns = [
+                col['name']
+                for col in inspector.get_columns('emag_product_offers', schema='app')
+            ]
+
+            if 'part_number_key' not in offers_columns:
+                op.add_column(
+                    'emag_product_offers',
+                    sa.Column('part_number_key', sa.String(length=50), nullable=True),
+                    schema='app'
+                )
+                print("✅ Added part_number_key column to emag_product_offers")
+
+                # Create index
+                op.create_index('ix_emag_product_offers_part_number_key', 'emag_product_offers', ['part_number_key'], schema='app')
+                print("✅ Created index on emag_product_offers.part_number_key")
+            else:
+                print("ℹ️  Column part_number_key already exists in emag_product_offers, skipping")
+        else:
+            print("ℹ️  Table emag_product_offers not found, skipping")
+    except Exception as e:
+        print(f"ℹ️  Emag product offers part number key operation skipped: {e}")
+
 
 def downgrade() -> None:
     """Downgrade schema - reverse all operations."""
     conn = op.get_bind()
     inspector = sa.inspect(conn)
+
+    # ========================================================================
+    # 11. Remove part_number_key from emag_product_offers
+    # ========================================================================
+    try:
+        if 'emag_product_offers' in inspector.get_table_names(schema='app'):
+            # Drop index first
+            try:
+                op.drop_index('ix_emag_product_offers_part_number_key', table_name='emag_product_offers', schema='app')
+                print("✅ Removed index on emag_product_offers.part_number_key")
+            except Exception:
+                pass
+
+            # Drop column
+            op.drop_column('emag_product_offers', 'part_number_key', schema='app')
+            print("✅ Removed part_number_key column from emag_product_offers")
+    except Exception as e:
+        print(f"ℹ️  Emag product offers part number key removal skipped: {e}")
+
+    # ========================================================================
+    # 10. Remove chinese_name from products
+    # ========================================================================
+    try:
+        # Drop index first
+        try:
+            op.drop_index('ix_app_products_chinese_name', table_name='products', schema='app')
+            print("✅ Removed index on products.chinese_name")
+        except Exception:
+            pass
+
+        # Drop column
+        op.drop_column('products', 'chinese_name', schema='app')
+        print("✅ Removed chinese_name column from products")
+    except Exception as e:
+        print(f"ℹ️  Chinese name removal skipped: {e}")
+
+    # ========================================================================
+    # 9. Remove display_order from products
+    # ========================================================================
+    try:
+        # Drop index first
+        try:
+            op.drop_index('ix_app_products_display_order', table_name='products', schema='app')
+            print("✅ Removed index on products.display_order")
+        except Exception:
+            pass
+
+        # Drop column
+        op.drop_column('products', 'display_order', schema='app')
+        print("✅ Removed display_order column from products")
+    except Exception as e:
+        print(f"ℹ️  Products display order removal skipped: {e}")
 
     # ========================================================================
     # 8. Remove part_number_key from emag_products
