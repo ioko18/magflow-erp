@@ -46,6 +46,9 @@ def upgrade() -> None:
     10. Display order for products (from 1bf2989cb727_add_display_order_to_products)
     11. Chinese name for products (from 20251001_034500_add_chinese_name_to_products)
     12. Part number key for emag_product_offers (from 9a5e6b199c94_add_part_number_key_to_emag_product_)
+    13. Created/updated timestamps for emag_sync_logs (from 9fd22e656f5c_add_created_at_updated_at_to_emag_sync_)
+    14. External ID for orders (from 20250928_add_external_id_to_orders)
+    15. Missing columns for emag_products_v2 (from fix_emag_products_v2_missing_columns)
     """
 
     # Get connection and inspector
@@ -355,6 +358,55 @@ def upgrade() -> None:
             print("ℹ️  Table emag_product_offers not found, skipping")
     except Exception as e:
         print(f"ℹ️  Emag product offers part number key operation skipped: {e}")
+
+    # ========================================================================
+    # 12. Add timestamps to emag_sync_logs (from 9fd22e656f5c)
+    # ========================================================================
+    try:
+        if 'emag_sync_logs' in inspector.get_table_names(schema='app'):
+            sync_logs_columns = [col['name'] for col in inspector.get_columns('emag_sync_logs', schema='app')]
+            
+            if 'created_at' not in sync_logs_columns:
+                op.add_column('emag_sync_logs', sa.Column('created_at', sa.DateTime(), nullable=False, 
+                             server_default=sa.text('CURRENT_TIMESTAMP')), schema='app')
+                print("✅ Added created_at to emag_sync_logs")
+            
+            if 'updated_at' not in sync_logs_columns:
+                op.add_column('emag_sync_logs', sa.Column('updated_at', sa.DateTime(), nullable=False,
+                             server_default=sa.text('CURRENT_TIMESTAMP')), schema='app')
+                print("✅ Added updated_at to emag_sync_logs")
+    except Exception as e:
+        print(f"ℹ️  Emag sync logs timestamps operation skipped: {e}")
+
+    # ========================================================================
+    # 13. Add external_id to orders (from 20250928_add_external_id)
+    # ========================================================================
+    try:
+        if 'orders' in inspector.get_table_names(schema='app'):
+            orders_columns = [col['name'] for col in inspector.get_columns('orders', schema='app')]
+            
+            if 'external_id' not in orders_columns:
+                op.add_column('orders', sa.Column('external_id', sa.String(length=100), nullable=True), schema='app')
+                op.add_column('orders', sa.Column('external_source', sa.String(length=50), nullable=True), schema='app')
+                op.create_index('ix_orders_external_id', 'orders', ['external_id'], unique=False, schema='app')
+                op.create_unique_constraint('uq_orders_external_source', 'orders', ['external_id', 'external_source'], schema='app')
+                print("✅ Added external_id and external_source to orders")
+    except Exception as e:
+        print(f"ℹ️  Orders external ID operation skipped: {e}")
+
+    # ========================================================================
+    # 14. Fix missing columns in emag_products_v2 (from fix_emag_v2_cols)
+    # ========================================================================
+    try:
+        if 'emag_products_v2' in inspector.get_table_names(schema='app'):
+            v2_columns = [col['name'] for col in inspector.get_columns('emag_products_v2', schema='app')]
+            
+            if 'emag_id' not in v2_columns:
+                op.add_column('emag_products_v2', sa.Column('emag_id', sa.String(50), nullable=True), schema='app')
+                op.create_index('idx_emag_products_v2_emag_id', 'emag_products_v2', ['emag_id'], schema='app')
+                print("✅ Added emag_id to emag_products_v2")
+    except Exception as e:
+        print(f"ℹ️  Emag products v2 fix operation skipped: {e}")
 
 
 def downgrade() -> None:
