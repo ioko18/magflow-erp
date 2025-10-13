@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 from pydantic.networks import HttpUrl
 
 
@@ -151,12 +151,16 @@ class UserInDB(UserInDBBase):
 
 
 class LoginRequest(BaseModel):
-    """Login request model."""
+    """Login request model.
+
+    Accepts both 'username' and 'email' fields for compatibility.
+    """
 
     username: str = Field(
         ...,
         min_length=1,
         description="Username or email",
+        validation_alias=AliasChoices("username", "email"),
     )
     password: str = Field(
         ...,

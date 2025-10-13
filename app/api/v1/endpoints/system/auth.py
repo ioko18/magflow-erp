@@ -90,7 +90,10 @@ async def _get_current_user(
 async def _extract_login_credentials(
     request: Request, payload: LoginRequest | None
 ) -> tuple[str | None, str | None]:
-    """Normalize login credentials from either JSON payloads or form submissions."""
+    """Normalize login credentials from either JSON payloads or form submissions.
+
+    Accepts both 'username' and 'email' fields for compatibility with different clients.
+    """
 
     if payload is not None:
         return payload.username, payload.password
@@ -101,7 +104,8 @@ async def _extract_login_credentials(
         "application/x-www-form-urlencoded"
     ) or content_type.startswith("multipart/form-data"):
         form = await request.form()
-        return form.get("username"), form.get("password")
+        username = form.get("username") or form.get("email")
+        return username, form.get("password")
 
     try:
         body = await request.json()
@@ -109,7 +113,9 @@ async def _extract_login_credentials(
         body = None
 
     if isinstance(body, dict):
-        return body.get("username"), body.get("password")
+        # Accept both 'username' and 'email' for compatibility
+        username = body.get("username") or body.get("email")
+        return username, body.get("password")
 
     return None, None
 

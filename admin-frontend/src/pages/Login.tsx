@@ -103,7 +103,7 @@ const Login: React.FC = () => {
           >
             <Input
               prefix={<UserOutlined />}
-              placeholder="admin@magflow.com"
+              placeholder="admin@magflow.local"
               autoComplete="username"
             />
           </Form.Item>
@@ -136,13 +136,13 @@ const Login: React.FC = () => {
         <div style={{ textAlign: 'center', marginTop: 16 }}>
           <Space direction="vertical" size="small">
             <div style={{ color: '#999', fontSize: 14 }}>
-              Demo Credentials:
+              Development Credentials:
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
-              Email: <strong>admin@magflow.com</strong>
+              Email: <strong>admin@magflow.local</strong>
             </div>
             <div style={{ color: '#666', fontSize: 13 }}>
-              Password: <strong>admin123</strong>
+              Password: <strong>secret</strong>
             </div>
           </Space>
         </div>

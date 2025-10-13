@@ -89,7 +89,7 @@ for file in $PYTHON_FILES; do
     fi
     
     # Check for eval/exec
-    EVAL_EXEC_MATCHES=$(grep -nE 'eval|exec' "$file" 2>/dev/null | grep -v "# nosec" | grep -v "test_" | grep -v "op.execute" | grep -v "conn.execute" || true)
+    EVAL_EXEC_MATCHES=$(grep -nE 'eval|exec' "$file" 2>/dev/null | grep -v "# nosec" | grep -v "test_" | grep -v "op.execute" | grep -v "conn.execute" | grep -v "db.execute" | grep -v "session.execute" || true)
     if [ -n "$EVAL_EXEC_MATCHES" ]; then
         echo -e "${RED}❌ Dangerous function (eval/exec) in $file${NC}"
         echo "$EVAL_EXEC_MATCHES"
