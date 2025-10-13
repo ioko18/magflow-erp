@@ -1,9 +1,0 @@
-{
-  "kid": "key_hs256_00ce90d12d354abdac8f502c89c99f54",
-  "private_key": "pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0",
-  "public_key": "pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0",
-  "algorithm": "HS256",
-  "key_type": "oct",
-  "expires_at": "2025-10-26 17:59:53.242047",
-  "created_at": "2025-09-26 17:59:53.242058"
-}

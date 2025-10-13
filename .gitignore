@@ -155,7 +155,13 @@ data/
 
 # Frontend dependencies
 admin-frontend/node_modules/
+
+# Sensitive credentials (NEVER commit these!)
 service_account.json
+jwt-keys/
+*.pem
+*.key
+!certs/**/*.key  # Allow dev certs
 
 # Performance metrics and monitoring
 performance_metrics_*.json

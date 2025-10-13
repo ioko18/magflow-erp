@@ -1,16 +1,22 @@
-# 🔐 Credențiale de Login - MagFlow ERP
+# 🔐 Credențiale - MagFlow ERP
 **Data**: 2025-10-13  
-**Status**: ✅ VERIFICAT ȘI CONFIRMAT
+**Status**: ✅ PRODUCȚIE - Calculator Personal
 
 ---
 
-## ⚠️ IMPORTANT: UN SINGUR UTILIZATOR ACTIV
+## ⚠️ IMPORTANT: Cont Personal de Producție
 
-În baza de date există **UN SINGUR utilizator**:
+Acest sistem folosește **credențiale reale** pentru:
+- ✅ Google Sheets API (service_account.json)
+- ✅ eMAG API (credențiale reale de producție)
+- ✅ Un singur utilizator admin
 
 | Email | Parolă | Rol | Status |
 |-------|--------|-----|--------|
 | **admin@magflow.local** | **secret** | Admin | ✅ Activ |
+
+> **Notă**: Acest cont este pentru uz personal pe calculator local. 
+> Nu distribui credențialele Google/eMAG din acest sistem!
 
 ---
 
