@@ -58,14 +58,14 @@ for file in $PYTHON_FILES; do
     fi
     
     # Check for hardcoded passwords (excluding settings and env vars)
-    if grep -n 'password\s*=\s*["\'][^"'\'']*["\']' "$file" 2>/dev/null | grep -v "getenv\|settings\.\|Field(\|# nosec"; then
+    if grep -n 'password\s*=\s*["\x27][^"\x27]*["\x27]' "$file" 2>/dev/null | grep -v "getenv\|settings\.\|Field(\|# nosec"; then
         echo -e "${YELLOW}⚠ Potential hardcoded password in $file${NC}"
         echo "   Consider using environment variables or settings."
         ((SECRET_ERRORS++))
     fi
     
     # Check for hardcoded API keys
-    if grep -n 'api_key\s*=\s*["\'][^"'\'']*["\']' "$file" 2>/dev/null | grep -v "getenv\|settings\.\|# nosec"; then
+    if grep -n 'api_key\s*=\s*["\x27][^"\x27]*["\x27]' "$file" 2>/dev/null | grep -v "getenv\|settings\.\|# nosec"; then
         echo -e "${YELLOW}⚠ Potential hardcoded API key in $file${NC}"
         echo "   Consider using environment variables or settings."
         ((SECRET_ERRORS++))
@@ -83,15 +83,23 @@ echo ""
 echo "3️⃣  Checking for dangerous functions..."
 DANGER_ERRORS=0
 for file in $PYTHON_FILES; do
+    # Skip alembic migration files as they use op.execute legitimately
+    if [[ $file == *"alembic/versions/"* ]]; then
+        continue
+    fi
+    
     # Check for eval/exec
-    if grep -n '\(eval\|exec\)\s*(' "$file" 2>/dev/null | grep -v "# nosec" | grep -v "test_"; then
+    EVAL_EXEC_MATCHES=$(grep -nE 'eval|exec' "$file" 2>/dev/null | grep -v "# nosec" | grep -v "test_" | grep -v "op.execute" | grep -v "conn.execute" || true)
+    if [ -n "$EVAL_EXEC_MATCHES" ]; then
         echo -e "${RED}❌ Dangerous function (eval/exec) in $file${NC}"
+        echo "$EVAL_EXEC_MATCHES"
         ((DANGER_ERRORS++))
         ((ERRORS++))
     fi
     
     # Check for pickle.loads without validation
-    if grep -n 'pickle\.loads' "$file" 2>/dev/null | grep -v "# nosec" | grep -v "# Validated"; then
+    PICKLE_MATCHES=$(grep -n 'pickle\.loads' "$file" 2>/dev/null | grep -v "# nosec" | grep -v "# Validated" || true)
+    if [ -n "$PICKLE_MATCHES" ]; then
         echo -e "${YELLOW}⚠ pickle.loads usage in $file${NC}"
         echo "   Ensure data source is trusted to prevent code execution."
         ((DANGER_ERRORS++))

@@ -24,11 +24,18 @@ NOW = sa.text("now()")
 
 def upgrade() -> None:
     """Upgrade schema by creating eMAG offer-related tables."""
+    from sqlalchemy import inspect
+
     op.execute("CREATE SCHEMA IF NOT EXISTS app")
     op.execute("SET search_path TO app, public")
 
-    # Products table
-    op.create_table(
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    existing_tables = inspector.get_table_names(schema='app')
+
+    # Products table - only create if it doesn't exist
+    if 'emag_products' not in existing_tables:
+        op.create_table(
         "emag_products",
         sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("emag_id", sa.String(length=100), nullable=False, unique=True),
@@ -50,12 +57,13 @@ def upgrade() -> None:
         schema="app",
     )
 
-    op.create_index("ix_emag_products_part_number", "emag_products", ["part_number"], schema="app")
-    op.create_index("ix_emag_products_category", "emag_products", ["emag_category_id"], schema="app")
-    op.create_index("ix_emag_products_brand", "emag_products", ["emag_brand_id"], schema="app")
+        op.create_index("ix_emag_products_part_number", "emag_products", ["part_number"], schema="app")
+        op.create_index("ix_emag_products_category", "emag_products", ["emag_category_id"], schema="app")
+        op.create_index("ix_emag_products_brand", "emag_products", ["emag_brand_id"], schema="app")
 
-    # Offers table
-    op.create_table(
+    # Offers table - only create if it doesn't exist
+    if 'emag_product_offers' not in existing_tables:
+        op.create_table(
         "emag_product_offers",
         sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("emag_product_id", sa.String(length=100), nullable=False),
@@ -86,13 +94,14 @@ def upgrade() -> None:
         schema="app",
     )
 
-    op.create_index("idx_emag_offer_product", "emag_product_offers", ["emag_product_id"], schema="app")
-    op.create_index("idx_emag_offer_status", "emag_product_offers", ["status"], schema="app")
-    op.create_index("idx_emag_offer_imported", "emag_product_offers", ["last_imported_at"], schema="app")
-    op.create_index("idx_emag_offer_batch", "emag_product_offers", ["import_batch_id"], schema="app")
+        op.create_index("idx_emag_offer_product", "emag_product_offers", ["emag_product_id"], schema="app")
+        op.create_index("idx_emag_offer_status", "emag_product_offers", ["status"], schema="app")
+        op.create_index("idx_emag_offer_imported", "emag_product_offers", ["last_imported_at"], schema="app")
+        op.create_index("idx_emag_offer_batch", "emag_product_offers", ["import_batch_id"], schema="app")
 
-    # Sync runs table
-    op.create_table(
+    # Sync runs table - only create if it doesn't exist
+    if 'emag_offer_syncs' not in existing_tables:
+        op.create_table(
         "emag_offer_syncs",
         sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("sync_id", sa.String(length=100), nullable=False, unique=True),
@@ -118,13 +127,14 @@ def upgrade() -> None:
         schema="app",
     )
 
-    op.create_index("idx_emag_sync_status", "emag_offer_syncs", ["status"], schema="app")
-    op.create_index("idx_emag_sync_account", "emag_offer_syncs", ["account_type"], schema="app")
-    op.create_index("idx_emag_sync_started", "emag_offer_syncs", ["started_at"], schema="app")
-    op.create_index("idx_emag_sync_completed", "emag_offer_syncs", ["completed_at"], schema="app")
+        op.create_index("idx_emag_sync_status", "emag_offer_syncs", ["status"], schema="app")
+        op.create_index("idx_emag_sync_account", "emag_offer_syncs", ["account_type"], schema="app")
+        op.create_index("idx_emag_sync_started", "emag_offer_syncs", ["started_at"], schema="app")
+        op.create_index("idx_emag_sync_completed", "emag_offer_syncs", ["completed_at"], schema="app")
 
-    # Import conflicts table
-    op.create_table(
+    # Import conflicts table - only create if it doesn't exist
+    if 'emag_import_conflicts' not in existing_tables:
+        op.create_table(
         "emag_import_conflicts",
         sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("sync_id", sa.String(length=100), sa.ForeignKey("app.emag_offer_syncs.sync_id", ondelete="CASCADE"), nullable=False),
@@ -144,8 +154,8 @@ def upgrade() -> None:
         schema="app",
     )
 
-    op.create_index("idx_emag_conflicts_sync", "emag_import_conflicts", ["sync_id"], schema="app")
-    op.create_index("idx_emag_conflicts_offer", "emag_import_conflicts", ["emag_offer_id"], schema="app")
+        op.create_index("idx_emag_conflicts_sync", "emag_import_conflicts", ["sync_id"], schema="app")
+        op.create_index("idx_emag_conflicts_offer", "emag_import_conflicts", ["emag_offer_id"], schema="app")
 
 
 def downgrade() -> None:
