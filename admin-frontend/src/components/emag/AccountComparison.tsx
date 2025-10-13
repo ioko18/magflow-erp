@@ -63,7 +63,7 @@ const AccountComparison: React.FC<AccountComparisonProps> = ({
                 <span>Cont MAIN</span>
               </Space>
             }
-            bordered={false}
+            variant="borderless"
             style={{
               background: 'linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%)',
               borderLeft: '4px solid #1890ff',
@@ -128,7 +128,7 @@ const AccountComparison: React.FC<AccountComparisonProps> = ({
                 <span>Cont FBE</span>
               </Space>
             }
-            bordered={false}
+            variant="borderless"
             style={{
               background: 'linear-gradient(135deg, #f9f0ff 0%, #ffffff 100%)',
               borderLeft: '4px solid #722ed1',
@@ -195,7 +195,7 @@ const AccountComparison: React.FC<AccountComparisonProps> = ({
                 <span>Comparație Conturi</span>
               </Space>
             }
-            bordered={false}
+            variant="borderless"
           >
             <Row gutter={16}>
               <Col xs={24} sm={12} md={6}>

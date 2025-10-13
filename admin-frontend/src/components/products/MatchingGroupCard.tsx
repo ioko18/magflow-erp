@@ -491,7 +491,7 @@ const MatchingGroupCard: React.FC<MatchingGroupCardProps> = ({
         {priceComparison && (
           <>
             {/* Summary Stats */}
-            <Card style={{ marginBottom: 16 }} bordered={false}>
+            <Card style={{ marginBottom: 16 }} variant="borderless">
               <Descriptions column={2} bordered size="small">
                 <Descriptions.Item label="Products" span={2}>
                   <Badge count={priceComparison.product_count} showZero style={{ backgroundColor: '#52c41a' }} />

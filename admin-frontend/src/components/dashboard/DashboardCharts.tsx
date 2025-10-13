@@ -91,7 +91,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
       <Col xs={24} lg={16}>
         <Card 
           title="Tendință Vânzări (Ultimele 6 Luni)"
-          bordered={false}
+          variant="borderless"
           style={{ height: '100%' }}
         >
           {salesData.length > 0 ? (
@@ -143,7 +143,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
       <Col xs={24} lg={8}>
         <Card 
           title="Status Inventar"
-          bordered={false}
+          variant="borderless"
           style={{ height: '100%' }}
         >
           {inventoryPieData.length > 0 ? (
@@ -177,7 +177,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({
       <Col xs={24}>
         <Card 
           title="Top 5 Produse după Stoc"
-          bordered={false}
+          variant="borderless"
         >
           {topProducts.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
