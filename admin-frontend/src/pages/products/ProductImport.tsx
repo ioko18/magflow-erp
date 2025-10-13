@@ -103,9 +103,9 @@ interface ImportResponse {
   total_rows: number;
   successful_imports: number;
   failed_imports: number;
-  skipped_rows: number;
-  products_created: number;
-  products_updated: number;
+  auto_mapped_main: number;
+  auto_mapped_fbe: number;
+  unmapped_products: number;
   duration_seconds: number | null;
   error_message: string | null;
 }
@@ -156,6 +156,7 @@ const ProductImport: React.FC = () => {
   const [suppliers, setSuppliers] = useState<ProductSupplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierStats, setSupplierStats] = useState<SupplierStatistics | null>(null);
+  const [productsSource, setProductsSource] = useState<'google_sheets' | 'local_db' | null>(null);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -191,6 +192,36 @@ const ProductImport: React.FC = () => {
   const loadProducts = async () => {
     setLoading(true);
     try {
+      // First try to load from Google Sheets directly
+      try {
+        const sheetsResponse = await api.get('/products/update/google-sheets-products', {
+          params: { limit: 100 }
+        });
+        if (sheetsResponse.data && sheetsResponse.data.length > 0) {
+          // Transform Google Sheets data to match Product interface
+          const transformedProducts = sheetsResponse.data.map((p: any) => ({
+            id: p.row_number,
+            sku: p.sku,
+            name: p.romanian_name,
+            base_price: p.emag_fbe_ro_price_ron || 0,
+            currency: 'RON',
+            is_active: true,
+            display_order: null,
+            image_url: null,
+            brand: null,
+            ean: null,
+            weight_kg: null,
+            manufacturer: null,
+          }));
+          setProducts(transformedProducts);
+          setProductsSource('google_sheets');
+          return;
+        }
+      } catch (sheetsError) {
+        console.warn('Could not load from Google Sheets, falling back to local products:', sheetsError);
+      }
+
+      // Fallback to local database products
       const params: any = { limit: 100 };
       if (searchTerm) {
         params.search = searchTerm;
@@ -200,8 +231,10 @@ const ProductImport: React.FC = () => {
       }
       const response = await api.get('/products/update/products', { params });
       setProducts(response.data);
+      setProductsSource('local_db');
     } catch (error) {
       console.error('Failed to load products:', error);
+      setProductsSource(null);
     } finally {
       setLoading(false);
     }
@@ -248,8 +281,18 @@ const ProductImport: React.FC = () => {
         setConnectionStatus('connected');
         messageApi.success('Google Sheets connection successful');
       }
-    } catch (error) {
+    } catch (error: any) {
       setConnectionStatus('error');
+      
+      // Show specific error message based on status code
+      if (error.response?.status === 401) {
+        messageApi.error('Authentication required. Please login first.');
+      } else if (error.response?.status === 500) {
+        messageApi.error('Google Sheets connection failed. Check service_account.json configuration.');
+      } else {
+        messageApi.error(error.response?.data?.detail || 'Connection test failed');
+      }
+      
       console.error('Connection test failed:', error);
     }
   };
@@ -323,9 +366,8 @@ const ProductImport: React.FC = () => {
                   <Descriptions.Item label="Total Rows">{result.total_rows}</Descriptions.Item>
                   <Descriptions.Item label="Successful">{result.successful_imports}</Descriptions.Item>
                   <Descriptions.Item label="Failed">{result.failed_imports}</Descriptions.Item>
-                  <Descriptions.Item label="Skipped">{result.skipped_rows}</Descriptions.Item>
-                  <Descriptions.Item label="Created">{result.products_created}</Descriptions.Item>
-                  <Descriptions.Item label="Updated">{result.products_updated}</Descriptions.Item>
+                  <Descriptions.Item label="Created">{result.auto_mapped_main || 0}</Descriptions.Item>
+                  <Descriptions.Item label="Updated">{result.auto_mapped_fbe || 0}</Descriptions.Item>
                   {result.duration_seconds && (
                     <Descriptions.Item label="Duration">
                       {result.duration_seconds.toFixed(2)}s
@@ -705,6 +747,18 @@ const ProductImport: React.FC = () => {
                       Active only
                     </Checkbox>
                   </Space>
+                  {productsSource && (
+                    <Alert
+                      message={
+                        productsSource === 'google_sheets' 
+                          ? 'Showing products from Google Sheets (not yet imported)'
+                          : 'Showing products from local database'
+                      }
+                      type={productsSource === 'google_sheets' ? 'info' : 'success'}
+                      showIcon
+                      closable
+                    />
+                  )}
                 </Space>
 
                 <Table
