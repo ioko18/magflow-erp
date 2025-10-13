@@ -35,7 +35,8 @@ if config is not None:
     # Align Alembic configuration with runtime settings to avoid stale URLs
     config.set_main_option("sqlalchemy.url", settings.alembic_url)
     config.set_section_option("alembic", "search_path", f"{schema_name},public")
-    config.set_section_option("alembic", "version_table_schema", schema_name)
+    # Keep alembic_version in public schema (default)
+    # config.set_section_option("alembic", "version_table_schema", schema_name)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -63,7 +64,8 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,  # Include all schemas in autogenerate
-        version_table_schema=schema_name,  # Store version in app schema
+        # Keep alembic_version in public schema to avoid race conditions
+        # version_table_schema=schema_name,
         include_name=include_name,  # Function to filter object names
         compare_type=True,  # Check for column type changes
         compare_server_default=True,  # Check for server default changes
@@ -119,7 +121,8 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
-        version_table_schema=schema_name,
+        # Keep alembic_version in public schema to avoid race conditions
+        # version_table_schema=schema_name,
         include_name=include_name,
         compare_type=True,
         compare_server_default=True,
@@ -145,19 +148,27 @@ async def run_migrations_online() -> None:
     connectable = create_async_engine(settings.DB_URI, future=True)
 
     async with connectable.connect() as connection:
-        # Set the search path for this connection
-        await connection.execute(
-            text(f'SET search_path TO "{schema_name}", public')
-        )
+        # Acquire PostgreSQL advisory lock to prevent race conditions
+        # Lock ID: 123456789 (arbitrary unique number for migrations)
+        await connection.execute(text("SELECT pg_advisory_lock(123456789)"))
 
-        # Create the schema if it doesn't exist
-        await connection.execute(
-            text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
-        )
-        await connection.commit()
+        try:
+            # Set the search path for this connection
+            await connection.execute(
+                text(f'SET search_path TO "{schema_name}", public')
+            )
 
-        # Run migrations
-        await connection.run_sync(do_run_migrations)
+            # Create the schema if it doesn't exist
+            await connection.execute(
+                text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"')
+            )
+            await connection.commit()
+
+            # Run migrations
+            await connection.run_sync(do_run_migrations)
+        finally:
+            # Always release the advisory lock
+            await connection.execute(text("SELECT pg_advisory_unlock(123456789)"))
 
     await connectable.dispose()
 
