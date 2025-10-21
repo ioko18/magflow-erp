@@ -1,31 +1,43 @@
 /**
  * Tests for Error Logger Utility
- * 
+ *
  * Ensures centralized logging works correctly across the application
  */
 
-import { errorLogger, logError, logWarning, logInfo } from '../errorLogger';
+// @vitest-environment jsdom
 
 describe('ErrorLogger', () => {
-  let consoleErrorSpy: jest.SpyInstance;
-  let consoleWarnSpy: jest.SpyInstance;
-  let consoleInfoSpy: jest.SpyInstance;
+  let consoleErrorSpy: any;
+  let consoleWarnSpy: any;
+  let consoleInfoSpy: any;
   let localStorageMock: { [key: string]: string };
 
   beforeEach(() => {
     // Mock console methods
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
-    consoleInfoSpy = jest.spyOn(console, 'info').mockImplementation();
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
     // Mock localStorage
     localStorageMock = {};
-    global.Storage.prototype.getItem = jest.fn((key) => localStorageMock[key] || null);
-    global.Storage.prototype.setItem = jest.fn((key, value) => {
+    global.Storage.prototype.getItem = vi.fn((key: string) => localStorageMock[key] || null);
+    global.Storage.prototype.setItem = vi.fn((key: string, value: string) => {
       localStorageMock[key] = value;
     });
-    global.Storage.prototype.removeItem = jest.fn((key) => {
+    global.Storage.prototype.removeItem = vi.fn((key: string) => {
       delete localStorageMock[key];
+    });
+
+    // Mock window.location
+    Object.defineProperty(window, 'location', {
+      value: { href: 'http://localhost:3000/test' },
+      writable: true,
+    });
+
+    // Mock navigator
+    Object.defineProperty(window, 'navigator', {
+      value: { userAgent: 'test-agent' },
+      writable: true,
     });
 
     // Clear stored errors before each test
@@ -36,7 +48,7 @@ describe('ErrorLogger', () => {
     consoleErrorSpy.mockRestore();
     consoleWarnSpy.mockRestore();
     consoleInfoSpy.mockRestore();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('logError', () => {
@@ -55,7 +67,7 @@ describe('ErrorLogger', () => {
 
     it('should handle non-Error objects', () => {
       const errorString = 'String error';
-      
+
       logError(errorString);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -65,7 +77,7 @@ describe('ErrorLogger', () => {
 
     it('should include stack trace for Error objects', () => {
       const error = new Error('Test error with stack');
-      
+
       logError(error);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -75,7 +87,7 @@ describe('ErrorLogger', () => {
 
     it('should include timestamp and user agent', () => {
       const error = new Error('Test error');
-      
+
       logError(error);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -128,12 +140,8 @@ describe('ErrorLogger', () => {
   describe('Error Storage', () => {
     it('should store errors in localStorage (production mode)', () => {
       // Mock production environment
-      const originalEnv = import.meta.env.DEV;
-      Object.defineProperty(import.meta.env, 'DEV', {
-        value: false,
-        writable: true,
-        configurable: true
-      });
+      const originalEnv = (global as any).import.meta?.env?.DEV;
+      (global as any).import.meta = { env: { DEV: false } };
 
       const error = new Error('Test error for storage');
       logError(error);
@@ -142,20 +150,12 @@ describe('ErrorLogger', () => {
       expect(storedErrors.length).toBeGreaterThan(0);
 
       // Restore environment
-      Object.defineProperty(import.meta.env, 'DEV', {
-        value: originalEnv,
-        writable: true,
-        configurable: true
-      });
+      (global as any).import.meta = { env: { DEV: originalEnv } };
     });
 
     it('should limit stored errors to 50', () => {
       // Mock production environment
-      Object.defineProperty(import.meta.env, 'DEV', {
-        value: false,
-        writable: true,
-        configurable: true
-      });
+      (global as any).import.meta = { env: { DEV: false } };
 
       // Log 60 errors
       for (let i = 0; i < 60; i++) {
@@ -164,13 +164,16 @@ describe('ErrorLogger', () => {
 
       const storedErrors = errorLogger.getStoredErrors();
       expect(storedErrors.length).toBeLessThanOrEqual(50);
+
+      // Restore environment
+      (global as any).import.meta = { env: { DEV: true } };
     });
 
     it('should clear stored errors', () => {
       logError(new Error('Test error'));
-      
+
       errorLogger.clearStoredErrors();
-      
+
       const storedErrors = errorLogger.getStoredErrors();
       expect(storedErrors.length).toBe(0);
     });
@@ -200,7 +203,7 @@ describe('ErrorLogger', () => {
 
     it('should handle undefined context gracefully', () => {
       const error = new Error('Test error');
-      
+
       expect(() => logError(error)).not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
@@ -225,7 +228,7 @@ describe('ErrorLogger', () => {
 
     it('should include current URL', () => {
       const error = new Error('Test error');
-      
+
       logError(error);
 
       const loggedData = consoleErrorSpy.mock.calls[0][1];

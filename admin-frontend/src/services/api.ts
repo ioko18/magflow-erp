@@ -13,7 +13,7 @@ interface RetryConfig extends InternalAxiosRequestConfig {
   _retryCount?: number;
 }
 
-const API_BASE_URL = (import.meta as ImportMeta).env?.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
 const REFRESH_ENDPOINT = '/auth/refresh-token';
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';

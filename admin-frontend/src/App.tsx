@@ -39,7 +39,6 @@ const LowStockSuppliers = lazy(() => import('./pages/products/LowStockSuppliers'
 const ProductMatchingSuggestions = lazy(() => import('./pages/products/ProductMatchingSuggestions'))
 
 // Purchase Orders
-const PurchaseOrderList = lazy(() => import('./components/purchase-orders/PurchaseOrderList'))
 const PurchaseOrderListModern = lazy(() => import('./components/purchase-orders/PurchaseOrderListModern'))
 const PurchaseOrderForm = lazy(() => import('./components/purchase-orders/PurchaseOrderForm'))
 const PurchaseOrderDetails = lazy(() => import('./components/purchase-orders/PurchaseOrderDetails'))
@@ -223,24 +222,13 @@ const router = createBrowserRouter(
       ],
     },
   ],
-  {
-    future: {
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    },
-  }
 )
 
 function App() {
   return (
     <ThemeProvider>
       <AntApp>
-        <RouterProvider
-          router={router}
-          future={{
-            v7_startTransition: true,
-          }}
-        />
+        <RouterProvider router={router} />
       </AntApp>
     </ThemeProvider>
   )
