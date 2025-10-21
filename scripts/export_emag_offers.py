@@ -198,7 +198,11 @@ if __name__ == "__main__":
     parser.add_argument("--min-price", type=float, help="Minimum sale_price")
     parser.add_argument("--max-price", type=float, help="Maximum sale_price")
     parser.add_argument("--stock-gt", type=int, help="Stock strictly greater than value")
-    parser.add_argument("--only-available", action="store_true", help="Only offers where is_available is true")
+    parser.add_argument(
+        "--only-available",
+        action="store_true",
+        help="Only offers where is_available is true",
+    )
     parser.add_argument(
         "--sort-by",
         choices=["updated_at", "sale_price", "stock"],

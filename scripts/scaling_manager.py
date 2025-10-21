@@ -94,19 +94,28 @@ class UsagePatternAnalyzer:
         metrics["cpu"] = {
             "current": cpu_percent,
             "threshold": self.thresholds[ScalingMetric.CPU_USAGE],
-            "load_level": self._get_load_level(cpu_percent, self.thresholds[ScalingMetric.CPU_USAGE])
+            "load_level": self._get_load_level(
+                cpu_percent,
+                self.thresholds[ScalingMetric.CPU_USAGE],
+            ),
         }
 
         metrics["memory"] = {
             "current": memory.percent,
             "threshold": self.thresholds[ScalingMetric.MEMORY_USAGE],
-            "load_level": self._get_load_level(memory.percent, self.thresholds[ScalingMetric.MEMORY_USAGE])
+            "load_level": self._get_load_level(
+                memory.percent,
+                self.thresholds[ScalingMetric.MEMORY_USAGE],
+            ),
         }
 
         metrics["disk"] = {
             "current": disk.percent,
             "threshold": self.thresholds[ScalingMetric.DISK_USAGE],
-            "load_level": self._get_load_level(disk.percent, self.thresholds[ScalingMetric.DISK_USAGE])
+            "load_level": self._get_load_level(
+                disk.percent,
+                self.thresholds[ScalingMetric.DISK_USAGE],
+            ),
         }
 
         # Network I/O
@@ -225,7 +234,10 @@ class UsagePatternAnalyzer:
         else:
             return LoadLevel.LOW
 
-    def generate_scaling_recommendations(self, metrics: dict[str, Any]) -> list[ScalingRecommendation]:
+    def generate_scaling_recommendations(
+        self,
+        metrics: dict[str, Any],
+    ) -> list[ScalingRecommendation]:
         """Generate scaling recommendations based on metrics."""
         logger.info("Generating scaling recommendations...")
 
@@ -234,66 +246,91 @@ class UsagePatternAnalyzer:
         # CPU scaling recommendation
         cpu_metrics = metrics.get("system", {}).get("cpu", {})
         if cpu_metrics.get("load_level") in [LoadLevel.HIGH, LoadLevel.CRITICAL]:
-            recommendations.append(ScalingRecommendation(
-                metric=ScalingMetric.CPU_USAGE,
-                current_value=cpu_metrics.get("current", 0),
-                threshold=cpu_metrics.get("threshold", 70),
-                load_level=cpu_metrics.get("load_level", LoadLevel.LOW),
-                recommendation="Consider adding more CPU cores or implementing horizontal scaling with multiple worker processes",
-                priority="high",
-                estimated_cost_impact="medium"
-            ))
+            recommendations.append(
+                ScalingRecommendation(
+                    metric=ScalingMetric.CPU_USAGE,
+                    current_value=cpu_metrics.get("current", 0),
+                    threshold=cpu_metrics.get("threshold", 70),
+                    load_level=cpu_metrics.get("load_level", LoadLevel.LOW),
+                    recommendation=(
+                        "Consider adding more CPU cores or implementing horizontal"
+                        " scaling with multiple worker processes"
+                    ),
+                    priority="high",
+                    estimated_cost_impact="medium",
+                )
+            )
 
         # Memory scaling recommendation
         memory_metrics = metrics.get("system", {}).get("memory", {})
         if memory_metrics.get("load_level") in [LoadLevel.HIGH, LoadLevel.CRITICAL]:
-            recommendations.append(ScalingRecommendation(
-                metric=ScalingMetric.MEMORY_USAGE,
-                current_value=memory_metrics.get("current", 0),
-                threshold=memory_metrics.get("threshold", 80),
-                load_level=memory_metrics.get("load_level", LoadLevel.LOW),
-                recommendation="Consider increasing memory allocation or implementing memory optimization strategies",
-                priority="high",
-                estimated_cost_impact="low"
-            ))
+            recommendations.append(
+                ScalingRecommendation(
+                    metric=ScalingMetric.MEMORY_USAGE,
+                    current_value=memory_metrics.get("current", 0),
+                    threshold=memory_metrics.get("threshold", 80),
+                    load_level=memory_metrics.get("load_level", LoadLevel.LOW),
+                    recommendation=(
+                        "Consider increasing memory allocation or implementing"
+                        " memory optimization strategies"
+                    ),
+                    priority="high",
+                    estimated_cost_impact="low",
+                )
+            )
 
         # Database scaling recommendation
         db_metrics = metrics.get("database", {})
         if db_metrics.get("active_connections", 0) > 50:
-            recommendations.append(ScalingRecommendation(
-                metric=ScalingMetric.DB_CONNECTIONS,
-                current_value=db_metrics.get("active_connections", 0),
-                threshold=50,
-                load_level=LoadLevel.HIGH,
-                recommendation="Consider implementing database connection pooling or upgrading to a higher-tier database instance",
-                priority="medium",
-                estimated_cost_impact="medium"
-            ))
+            recommendations.append(
+                ScalingRecommendation(
+                    metric=ScalingMetric.DB_CONNECTIONS,
+                    current_value=db_metrics.get("active_connections", 0),
+                    threshold=50,
+                    load_level=LoadLevel.HIGH,
+                    recommendation=(
+                        "Consider implementing database connection pooling or"
+                        " upgrading to a higher-tier database instance"
+                    ),
+                    priority="medium",
+                    estimated_cost_impact="medium",
+                )
+            )
 
         # API performance recommendation
         api_metrics = metrics.get("api", {})
         if api_metrics.get("p95_response_time", 0) > 500:
-            recommendations.append(ScalingRecommendation(
-                metric=ScalingMetric.RESPONSE_TIME,
-                current_value=api_metrics.get("p95_response_time", 0),
-                threshold=500,
-                load_level=LoadLevel.HIGH,
-                recommendation="Consider implementing caching strategies, database query optimization, or adding more application instances",
-                priority="medium",
-                estimated_cost_impact="low"
-            ))
+            recommendations.append(
+                ScalingRecommendation(
+                    metric=ScalingMetric.RESPONSE_TIME,
+                    current_value=api_metrics.get("p95_response_time", 0),
+                    threshold=500,
+                    load_level=LoadLevel.HIGH,
+                    recommendation=(
+                        "Consider implementing caching strategies, database query"
+                        " optimization, or adding more application instances"
+                    ),
+                    priority="medium",
+                    estimated_cost_impact="low",
+                )
+            )
 
         # Error rate recommendation
         if api_metrics.get("error_rate", 0) > 2:
-            recommendations.append(ScalingRecommendation(
-                metric=ScalingMetric.ERROR_RATE,
-                current_value=api_metrics.get("error_rate", 0),
-                threshold=2,
-                load_level=LoadLevel.HIGH,
-                recommendation="High error rate detected. Investigate application logs and implement better error handling",
-                priority="high",
-                estimated_cost_impact="low"
-            ))
+            recommendations.append(
+                ScalingRecommendation(
+                    metric=ScalingMetric.ERROR_RATE,
+                    current_value=api_metrics.get("error_rate", 0),
+                    threshold=2,
+                    load_level=LoadLevel.HIGH,
+                    recommendation=(
+                        "High error rate detected. Investigate application logs"
+                        " and implement better error handling"
+                    ),
+                    priority="high",
+                    estimated_cost_impact="low",
+                )
+            )
 
         return recommendations
 
@@ -334,10 +371,15 @@ class UsagePatternAnalyzer:
 
         # System metrics load
         system_load = 0
-        if metrics.get("system", {}).get("cpu", {}).get("load_level"):
-            system_load += {"low": 1, "medium": 2, "high": 3, "critical": 4}[metrics["system"]["cpu"]["load_level"]]
-        if metrics.get("system", {}).get("memory", {}).get("load_level"):
-            system_load += {"low": 1, "medium": 2, "high": 3, "critical": 4}[metrics["system"]["memory"]["load_level"]]
+        level_weights = {"low": 1, "medium": 2, "high": 3, "critical": 4}
+        system_metrics = metrics.get("system", {})
+        cpu_level = system_metrics.get("cpu", {}).get("load_level")
+        if cpu_level:
+            system_load += level_weights[cpu_level]
+
+        memory_level = system_metrics.get("memory", {}).get("load_level")
+        if memory_level:
+            system_load += level_weights[memory_level]
         load_scores.append(system_load / 2)
 
         # API metrics load
@@ -382,7 +424,10 @@ class UsagePatternAnalyzer:
 
         return actions
 
-    def _get_monitoring_suggestions(self, recommendations: list[ScalingRecommendation]) -> list[str]:
+    def _get_monitoring_suggestions(
+        self,
+        recommendations: list[ScalingRecommendation],
+    ) -> list[str]:
         """Get monitoring suggestions."""
         suggestions = [
             "Monitor CPU usage trends over the next 24 hours",
@@ -394,7 +439,10 @@ class UsagePatternAnalyzer:
 
         return suggestions
 
-    def _get_cost_optimization_tips(self, recommendations: list[ScalingRecommendation]) -> list[str]:
+    def _get_cost_optimization_tips(
+        self,
+        recommendations: list[ScalingRecommendation],
+    ) -> list[str]:
         """Get cost optimization tips."""
         tips = [
             "Consider auto-scaling based on CPU usage to reduce costs during low traffic",
@@ -422,16 +470,33 @@ class UsagePatternAnalyzer:
 
         system_metrics = strategy.get("system", {}).get("system", {})
         if system_metrics.get("cpu"):
-            report.append(f"  • CPU Usage: {system_metrics['cpu']['current']:.1f}% (Threshold: {system_metrics['cpu']['threshold']}%)")
+            report.append(
+                "  • CPU Usage: "
+                f"{system_metrics['cpu']['current']:.1f}% "
+                f"(Threshold: {system_metrics['cpu']['threshold']}%)"
+            )
         if system_metrics.get("memory"):
-            report.append(f"  • Memory Usage: {system_metrics['memory']['current']:.1f}% (Threshold: {system_metrics['memory']['threshold']}%)")
+            report.append(
+                "  • Memory Usage: "
+                f"{system_metrics['memory']['current']:.1f}% "
+                f"(Threshold: {system_metrics['memory']['threshold']}%)"
+            )
         if system_metrics.get("disk"):
-            report.append(f"  • Disk Usage: {system_metrics['disk']['current']:.1f}% (Threshold: {system_metrics['disk']['threshold']}%)")
+            report.append(
+                "  • Disk Usage: "
+                f"{system_metrics['disk']['current']:.1f}% "
+                f"(Threshold: {system_metrics['disk']['threshold']}%)"
+            )
 
         api_metrics = strategy.get("api", {})
         if api_metrics:
-            report.append(f"  • API Requests: {api_metrics.get('requests_per_minute', 'N/A')}/min")
-            report.append(f"  • Response Time: {api_metrics.get('average_response_time', 'N/A')}ms avg")
+            report.append(
+                f"  • API Requests: {api_metrics.get('requests_per_minute', 'N/A')}/min"
+            )
+            report.append(
+                "  • Response Time: "
+                f"{api_metrics.get('average_response_time', 'N/A')}ms avg"
+            )
 
         report.append("")
 
@@ -442,9 +507,20 @@ class UsagePatternAnalyzer:
         recommendations = strategy.get("scaling_recommendations", [])
         priority_order = {"high": 0, "medium": 1, "low": 2}
 
-        for rec in sorted(recommendations, key=lambda x: priority_order.get(rec.priority, 2)):
-            priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(rec.priority, "🟢")
-            report.append(f"{priority_icon} [{rec.priority.upper()}] {rec.metric.value.replace('_', ' ').title()}")
+        for rec in sorted(
+            recommendations,
+            key=lambda item: priority_order.get(item.priority, 2),
+        ):
+            priority_icon = {
+                "high": "🔴",
+                "medium": "🟡",
+                "low": "🟢",
+            }.get(rec.priority, "🟢")
+            report.append(
+                f"{priority_icon} "
+                f"[{rec.priority.upper()}] "
+                f"{rec.metric.value.replace('_', ' ').title()}"
+            )
             report.append(f"    Current: {rec.current_value}, Threshold: {rec.threshold}")
             report.append(f"    Recommendation: {rec.recommendation}")
             report.append(f"    Cost Impact: {rec.estimated_cost_impact}")

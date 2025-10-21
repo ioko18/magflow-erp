@@ -36,6 +36,7 @@ const SupplierProductsSheet = lazy(() => import('./pages/suppliers/SupplierProdu
 const ProductImport = lazy(() => import('./pages/products/ProductImport'))
 const Inventory = lazy(() => import('./pages/products/Inventory'))
 const LowStockSuppliers = lazy(() => import('./pages/products/LowStockSuppliers'))
+const ProductMatchingSuggestions = lazy(() => import('./pages/products/ProductMatchingSuggestions'))
 
 // Purchase Orders
 const PurchaseOrderList = lazy(() => import('./components/purchase-orders/PurchaseOrderList'))
@@ -151,6 +152,10 @@ const router = createBrowserRouter(
             {
               path: 'low-stock-suppliers',
               element: <LowStockSuppliers />,
+            },
+            {
+              path: 'product-matching-suggestions',
+              element: <ProductMatchingSuggestions />,
             },
             {
               path: 'orders',

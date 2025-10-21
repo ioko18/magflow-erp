@@ -141,7 +141,10 @@ class ProductSupplierSheet(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<ProductSupplierSheet sku:{self.sku} supplier:{self.supplier_name} price:{self.price_cny} CNY>"
+        return (
+            f"<ProductSupplierSheet sku:{self.sku} supplier:{self.supplier_name} "
+            f"price:{self.price_cny} CNY>"
+        )
 
     def get_price_display(self) -> str:
         """Get formatted price display"""

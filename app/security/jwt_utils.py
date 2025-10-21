@@ -90,7 +90,7 @@ def create_token(
             },
         )
     except JWTError as e:
-        raise JWTError(f"Failed to encode token: {e}")
+        raise JWTError(f"Failed to encode token: {e}") from e
 
 
 def decode_token(

@@ -2,15 +2,17 @@
 """Enhanced migration utilities and safety checks."""
 
 import asyncio
-import sys
+import json
 import os
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy import text
-from alembic import command
+from typing import Any
+
 from alembic.config import Config
+from sqlalchemy import text
+
+from alembic import command
 from app.core.database_config import DatabaseConfig
 
 
@@ -29,7 +31,7 @@ class MigrationManager:
         else:
             return DatabaseConfig.create_optimized_engine()
 
-    async def pre_migration_checks(self) -> Dict[str, Any]:
+    async def pre_migration_checks(self) -> dict[str, Any]:
         """Run comprehensive pre-migration checks."""
         print("🔍 Running pre-migration checks...")
 
@@ -50,7 +52,7 @@ class MigrationManager:
             "timestamp": datetime.now().isoformat()
         }
 
-    async def _check_database_connection(self) -> Dict[str, Any]:
+    async def _check_database_connection(self) -> dict[str, Any]:
         """Check database connection and basic health."""
         try:
             async with self.engine.begin() as conn:
@@ -77,7 +79,7 @@ class MigrationManager:
                 "response_time": "N/A"
             }
 
-    async def _check_backup_status(self) -> Dict[str, Any]:
+    async def _check_backup_status(self) -> dict[str, Any]:
         """Check if recent backups exist."""
         try:
             # This would check for recent backup files
@@ -115,7 +117,7 @@ class MigrationManager:
                 "backup_count": 0
             }
 
-    async def _check_schema_consistency(self) -> Dict[str, Any]:
+    async def _check_schema_consistency(self) -> dict[str, Any]:
         """Check schema consistency across environments."""
         try:
             async with self.engine.begin() as conn:
@@ -143,7 +145,7 @@ class MigrationManager:
                 "table_count": 0
             }
 
-    async def _check_data_integrity(self) -> Dict[str, Any]:
+    async def _check_data_integrity(self) -> dict[str, Any]:
         """Check data integrity constraints."""
         try:
             async with self.engine.begin() as conn:
@@ -171,14 +173,14 @@ class MigrationManager:
                 "table_count": 0
             }
 
-    async def _check_performance_baseline(self) -> Dict[str, Any]:
+    async def _check_performance_baseline(self) -> dict[str, Any]:
         """Check current performance baseline."""
         try:
             async with self.engine.begin() as conn:
                 start_time = datetime.now()
 
                 # Run a sample query to check performance
-                result = await conn.execute(text("""
+                await conn.execute(text("""
                     SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'app';
                 """))
 
@@ -198,7 +200,7 @@ class MigrationManager:
                 "execution_time_ms": None
             }
 
-    async def _check_space_requirements(self) -> Dict[str, Any]:
+    async def _check_space_requirements(self) -> dict[str, Any]:
         """Check disk space requirements."""
         try:
             async with self.engine.begin() as conn:
@@ -225,7 +227,7 @@ class MigrationManager:
                 "database_size": "Unknown"
             }
 
-    def generate_migration_report(self, pre_checks: Dict[str, Any]) -> str:
+    def generate_migration_report(self, pre_checks: dict[str, Any]) -> str:
         """Generate a comprehensive migration report."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_file = f"migration_report_{timestamp}.json"
@@ -247,7 +249,7 @@ class MigrationManager:
 
         return report_file
 
-    def _generate_recommendations(self, checks: Dict[str, Any]) -> List[str]:
+    def _generate_recommendations(self, checks: dict[str, Any]) -> list[str]:
         """Generate migration recommendations based on checks."""
         recommendations = []
 
@@ -260,11 +262,13 @@ class MigrationManager:
         if checks["all_checks_passed"]:
             recommendations.append("✅ All checks passed - migration should be safe")
         else:
-            recommendations.append("🛑 STOP: Do not proceed with migration until issues are resolved")
+            recommendations.append(
+                "🛑 STOP: Do not proceed with migration until issues are resolved"
+            )
 
         return recommendations
 
-    def _assess_risks(self, checks: Dict[str, Any]) -> Dict[str, Any]:
+    def _assess_risks(self, checks: dict[str, Any]) -> dict[str, Any]:
         """Assess migration risks."""
         risk_score = 0
         risk_factors = []
@@ -321,7 +325,8 @@ class MigrationManager:
                 end_time = datetime.now()
                 duration = end_time - start_time
 
-                print("✅ Migration completed successfully!"                print(f"⏱️  Duration: {duration}")
+                print("✅ Migration completed successfully!")
+                print(f"⏱️  Duration: {duration}")
 
                 # 7. Post-migration verification
                 await self._post_migration_verification()
@@ -354,7 +359,7 @@ class MigrationManager:
         Path("backups").mkdir(exist_ok=True)
 
         # Create backup using pg_dump
-        cmd = [
+        _cmd = [
             "pg_dump",
             "-h", os.getenv("DB_HOST", "localhost"),
             "-U", os.getenv("DB_USER", "postgres"),

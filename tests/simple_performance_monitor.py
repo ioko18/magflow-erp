@@ -252,6 +252,23 @@ class SimplePerformanceMonitor:
         if summary.get("status") == "no_data":
             return "📊 No performance data available"
 
+        total_tests = summary["total_tests"]
+        total_errors = summary["total_errors"]
+        success_rate = (
+            (total_tests - total_errors) / total_tests * 100 if total_tests else 0.0
+        )
+
+        performance_score = summary["performance_score"]
+        status_label = (
+            "🟢 EXCELLENT"
+            if performance_score >= 80
+            else "🟡 GOOD"
+            if performance_score >= 60
+            else "🟠 NEEDS IMPROVEMENT"
+            if performance_score >= 40
+            else "🔴 POOR"
+        )
+
         report = f"""
 🚀 MagFlow ERP Performance Report
 {'='*50}
@@ -269,9 +286,9 @@ class SimplePerformanceMonitor:
 
 📊 Quality Metrics:
   • Total Errors: {summary['total_errors']}
-  • Success Rate: {((summary['total_tests'] - summary['total_errors']) / summary['total_tests'] * 100):.1f}%
+  • Success Rate: {success_rate:.1f}%
 
-💡 Status: {'🟢 EXCELLENT' if summary['performance_score'] >= 80 else '🟡 GOOD' if summary['performance_score'] >= 60 else '🟠 NEEDS IMPROVEMENT' if summary['performance_score'] >= 40 else '🔴 POOR'}
+💡 Status: {status_label}
 
 {'='*50}
 """

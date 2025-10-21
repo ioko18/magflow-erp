@@ -420,7 +420,12 @@ class EmagAnalyticsService(ServiceBase):
                 AIRecommendation(
                     recommendation_type=RecommendationType.PROMOTION_STRATEGY,
                     title="Optimize Sales by Day",
-                    description=f"Best performing day is {best_day.strftime('%A')} with average {avg_daily_sales[best_day]:.2f}. Worst day is {worst_day.strftime('%A')}",
+                    description=(
+                        "Best performing day is "
+                        f"{best_day.strftime('%A')} with average "
+                        f"{avg_daily_sales[best_day]:.2f}. Worst day is "
+                        f"{worst_day.strftime('%A')}"
+                    ),
                     impact_score=85,
                     confidence_score=92,
                     priority="medium",
@@ -565,7 +570,10 @@ class EmagAnalyticsService(ServiceBase):
                 AIRecommendation(
                     recommendation_type=RecommendationType.PROMOTION_STRATEGY,
                     title="Prepare for High Demand Period",
-                    description=f"Predicted high demand on {len(_high_demand_days)} out of {len(predictions)} days",
+                    description=(
+                        "Predicted high demand on "
+                        f"{len(_high_demand_days)} out of {len(predictions)} days"
+                    ),
                     impact_score=90,
                     confidence_score=85,
                     priority="high",
@@ -588,13 +596,27 @@ class EmagAnalyticsService(ServiceBase):
             sales_data = await self.analyze_sales_performance(account_type, 7)
             inventory_data = await self.analyze_inventory_optimization(account_type)
 
+            restock_recommendations = len(
+                [
+                    r
+                    for r in inventory_data["recommendations"]
+                    if r["type"] == "restock"
+                ]
+            )
+
+            currency = sales_data.get("currency", "RON")
+            total_revenue = f"{sales_data['total_revenue']:,.0f}"
+            total_orders = sales_data["total_orders"]
+            average_order_value = f"{sales_data['average_order_value']:,.2f}"
+            revenue_trend = f"{sales_data['revenue_trend']:,.2f}"
+
             summary = f"""
             eMAG {account_type.upper()} Account - Executive Summary
 
             📊 Performance Overview:
-            • Revenue (7 days): {sales_data["total_revenue"]:,.0f} {sales_data.get("currency", "RON")}
-            • Orders (7 days): {sales_data["total_orders"]}
-            • Average Order Value: {sales_data["average_order_value"]:,.2f} {sales_data.get("currency", "RON")}
+            • Revenue (7 days): {total_revenue} {currency}
+            • Orders (7 days): {total_orders}
+            • Average Order Value: {average_order_value} {currency}
 
             📦 Inventory Status:
             • Total Products: {inventory_data["total_products"]}
@@ -604,8 +626,8 @@ class EmagAnalyticsService(ServiceBase):
 
             🎯 Key Recommendations:
             • {len(inventory_data["recommendations"])} inventory actions needed
-            • Sales trend: {sales_data["revenue_trend"]:,.2f}% change
-            • Focus on {len([r for r in inventory_data["recommendations"] if r["type"] == "restock"])} restocking items
+            • Sales trend: {revenue_trend}% change
+            • Focus on {restock_recommendations} restocking items
 
             Report generated: {datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")}
             """

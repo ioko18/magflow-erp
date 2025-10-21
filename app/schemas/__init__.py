@@ -33,12 +33,25 @@ from .purchase import (
     SupplierPaymentMethod,
     SupplierPaymentStatus,
     SupplierPaymentUpdate,
-    # Supplier Product schemas
+    # Supplier Product schemas (legacy - for purchase orders)
     SupplierProduct,
     SupplierProductCreate,
     SupplierProductUpdate,
     SupplierStatus,
     SupplierUpdate,
+)
+from .supplier_product import (
+    # Supplier Product schemas (1688.com integration)
+    ChineseNameUpdate,
+    LocalProductInfo,
+    MatchingUpdate,
+    PriceUpdate,
+    SpecificationUpdate,
+    SupplierChange,
+    SupplierProductListResponse,
+    SupplierProductResponse,
+    SupplierProductStatistics,
+    URLUpdate,
 )
 
 __all__ = [
@@ -47,10 +60,21 @@ __all__ = [
     "SupplierCreate",
     "SupplierUpdate",
     "SupplierStatus",
-    # Purchase schemas - Supplier Product
+    # Purchase schemas - Supplier Product (legacy)
     "SupplierProduct",
     "SupplierProductCreate",
     "SupplierProductUpdate",
+    # Supplier Product schemas (1688.com integration)
+    "SupplierProductResponse",
+    "SupplierProductListResponse",
+    "SupplierProductStatistics",
+    "LocalProductInfo",
+    "ChineseNameUpdate",
+    "SpecificationUpdate",
+    "URLUpdate",
+    "PriceUpdate",
+    "SupplierChange",
+    "MatchingUpdate",
     # Purchase schemas - Purchase Order
     "PurchaseOrder",
     "PurchaseOrderCreate",

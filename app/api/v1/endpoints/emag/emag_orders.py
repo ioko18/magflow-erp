@@ -8,6 +8,7 @@ This module provides REST API endpoints for managing eMAG orders including:
 - Invoice and warranty attachment
 """
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,6 +24,10 @@ from app.models.user import User
 from app.services.emag.emag_order_service import EmagOrderService
 
 logger = get_logger(__name__)
+
+# Global lock to prevent concurrent syncs
+_sync_lock = asyncio.Lock()
+_sync_in_progress = False
 
 router = APIRouter()
 
@@ -43,7 +48,10 @@ class OrderSyncRequest(BaseModel):
     )
     sync_mode: str = Field(
         "incremental",
-        description="Sync mode: incremental (only new/updated), full (all orders), historical (specific date range)",
+        description=(
+            "Sync mode: incremental (only new/updated), "
+            "full (all orders), historical (specific date range)"
+        ),
     )
     start_date: str | None = Field(
         None, description="Start date for historical sync (YYYY-MM-DD)"
@@ -118,95 +126,146 @@ async def sync_orders(
     For MAIN account: Only syncs orders from last 6 months (no orders since 31.03.2025)
     For FBE account: Syncs all recent orders (has daily orders)
     """
-    logger.info(
-        "User %s initiating order sync for %s account",
-        current_user.email,
-        request.account_type,
-    )
+    global _sync_in_progress
 
-    try:
-        # Determine days_back based on sync_mode
-        if request.sync_mode == "incremental":
-            # Only sync last 7 days for incremental
-            effective_days_back = 7
-            logger.info("Incremental sync mode: last 7 days")
-        elif request.sync_mode == "historical":
-            # Historical sync with date range
-            effective_days_back = None  # Will use start_date/end_date
-            logger.info(
-                f"Historical sync mode: {request.start_date} to {request.end_date}"
-            )
-        else:  # full
-            # Full sync based on request or defaults
-            effective_days_back = request.days_back
-            logger.info(f"Full sync mode: {effective_days_back or 'all'} days")
+    # Check if sync is already in progress
+    if _sync_lock.locked():
+        logger.warning(
+            "User %s attempted to start sync while another sync is in progress",
+            current_user.email,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Another sync operation is already in progress. Please wait for it to complete.",
+        )
 
-        if request.account_type == "both":
-            # Sync both accounts
-            results = {}
+    async with _sync_lock:
+        _sync_in_progress = True
+        logger.info(
+            "User %s initiating order sync for %s account",
+            current_user.email,
+            request.account_type,
+        )
 
-            # MAIN account - last 6 months only (no orders since 31.03.2025)
-            logger.info("Syncing MAIN account orders")
-            async with EmagOrderService("main", db) as main_service:
-                results["main"] = await main_service.sync_new_orders(
-                    status_filter=request.status_filter,
-                    max_pages=request.max_pages,
-                    days_back=180 if request.sync_mode != "incremental" else 7,
+        try:
+            # Determine days_back based on sync_mode
+            if request.sync_mode == "incremental":
+                # Only sync last 7 days for incremental
+                effective_days_back = 7
+                logger.info("Incremental sync mode: last 7 days")
+            elif request.sync_mode == "historical":
+                # Historical sync with date range
+                effective_days_back = None  # Will use start_date/end_date
+                logger.info(
+                    f"Historical sync mode: {request.start_date} to {request.end_date}"
                 )
+            else:  # full
+                # Full sync based on request or defaults
+                effective_days_back = request.days_back
+                logger.info(f"Full sync mode: {effective_days_back or 'all'} days")
 
-            # FBE account
-            logger.info("Syncing FBE account orders")
-            async with EmagOrderService("fbe", db) as fbe_service:
-                results["fbe"] = await fbe_service.sync_new_orders(
-                    status_filter=request.status_filter,
-                    max_pages=request.max_pages,
-                    days_back=effective_days_back,
+            if request.account_type == "both":
+                # Sync both accounts in parallel
+                results = {}
+
+                # Create tasks for parallel execution
+                async def sync_main():
+                    logger.info("Syncing MAIN account orders")
+                    async with EmagOrderService("main", db) as main_service:
+                        return await main_service.sync_new_orders(
+                            status_filter=request.status_filter,
+                            max_pages=request.max_pages,
+                            days_back=180 if request.sync_mode != "incremental" else 7,
+                        )
+
+                async def sync_fbe():
+                    logger.info("Syncing FBE account orders")
+                    async with EmagOrderService("fbe", db) as fbe_service:
+                        return await fbe_service.sync_new_orders(
+                            status_filter=request.status_filter,
+                            max_pages=request.max_pages,
+                            days_back=effective_days_back,
+                        )
+
+                # Run both syncs in parallel with timeout
+                main_task = asyncio.create_task(sync_main())
+                fbe_task = asyncio.create_task(sync_fbe())
+
+                try:
+                    # Wait for both with 15 minute timeout (increased for large syncs)
+                    results["main"], results["fbe"] = await asyncio.wait_for(
+                        asyncio.gather(main_task, fbe_task),
+                        timeout=900.0
+                    )
+                except TimeoutError:
+                    logger.error("Sync operation timed out after 15 minutes")
+                    main_task.cancel()
+                    fbe_task.cancel()
+                    raise HTTPException(
+                        status_code=status.HTTP_408_REQUEST_TIMEOUT,
+                        detail=(
+                            "Sync operation timed out. "
+                            "Please try again with fewer pages or use "
+                            "incremental sync mode."
+                        ),
+                    ) from None
+
+                total_synced = results["main"].get("synced", 0) + results["fbe"].get(
+                    "synced", 0
                 )
-
-            total_synced = results["main"].get("synced", 0) + results["fbe"].get(
-                "synced", 0
-            )
-            total_created = results["main"].get("created", 0) + results["fbe"].get(
-                "created", 0
-            )
-            total_updated = results["main"].get("updated", 0) + results["fbe"].get(
-                "updated", 0
-            )
-
-            return {
-                "success": True,
-                "message": f"Successfully synced orders from both accounts: {total_synced} total ({total_created} new, {total_updated} updated)",
-                "data": {
-                    "main_account": results["main"],
-                    "fbe_account": results["fbe"],
-                    "totals": {
-                        "synced": total_synced,
-                        "created": total_created,
-                        "updated": total_updated,
-                    },
-                },
-            }
-        else:
-            # Single account sync
-            async with EmagOrderService(request.account_type, db) as order_service:
-                result = await order_service.sync_new_orders(
-                    status_filter=request.status_filter,
-                    max_pages=request.max_pages,
-                    days_back=request.days_back,
+                total_created = results["main"].get("created", 0) + results["fbe"].get(
+                    "created", 0
+                )
+                total_updated = results["main"].get("updated", 0) + results["fbe"].get(
+                    "updated", 0
                 )
 
                 return {
                     "success": True,
-                    "message": f"Successfully synced {result.get('synced', 0)} orders from {request.account_type} account",
-                    "data": result,
+                    "message": (
+                        "Successfully synced orders from both accounts: "
+                        f"{total_synced} total "
+                        f"({total_created} new, {total_updated} updated)"
+                    ),
+                    "data": {
+                        "main_account": results["main"],
+                        "fbe_account": results["fbe"],
+                        "totals": {
+                            "synced": total_synced,
+                            "created": total_created,
+                            "updated": total_updated,
+                        },
+                    },
                 }
+            else:
+                # Single account sync
+                async with EmagOrderService(request.account_type, db) as order_service:
+                    result = await order_service.sync_new_orders(
+                        status_filter=request.status_filter,
+                        max_pages=request.max_pages,
+                        days_back=request.days_back,
+                    )
 
-    except Exception as e:
-        logger.error("Order sync failed: %s", str(e), exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Order synchronization failed: {str(e)}",
-        )
+                    return {
+                        "success": True,
+                        "message": (
+                            "Successfully synced "
+                            f"{result.get('synced', 0)} orders from "
+                            f"{request.account_type} account"
+                        ),
+                        "data": result,
+                    }
+
+        except TimeoutError:
+            raise  # Already handled above
+        except Exception as e:
+            logger.error("Order sync failed: %s", str(e), exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Order synchronization failed: {str(e)}",
+            ) from e
+        finally:
+            _sync_in_progress = False
 
 
 @router.get("/list", status_code=status.HTTP_200_OK)
@@ -318,7 +377,7 @@ async def get_all_orders(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch orders: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/{order_id}", status_code=status.HTTP_200_OK)
@@ -395,7 +454,7 @@ async def get_order_details(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch order details: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/{order_id}/acknowledge", status_code=status.HTTP_200_OK)
@@ -432,7 +491,7 @@ async def acknowledge_order(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Order acknowledgment failed: {str(e)}",
-        )
+        ) from e
 
 
 @router.put("/{order_id}/status", status_code=status.HTTP_200_OK)
@@ -478,7 +537,7 @@ async def update_order_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Order status update failed: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/{order_id}/invoice", status_code=status.HTTP_200_OK)
@@ -514,7 +573,7 @@ async def attach_invoice(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Invoice attachment failed: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/statistics/summary", status_code=status.HTTP_200_OK)
@@ -577,4 +636,4 @@ async def get_order_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch order statistics: {str(e)}",
-        )
+        ) from e

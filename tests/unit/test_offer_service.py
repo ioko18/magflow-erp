@@ -3,9 +3,9 @@
 import asyncio
 import os
 import sys
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-from unittest.mock import patch, AsyncMock
+from datetime import UTC, datetime
+from typing import Any
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -95,10 +95,10 @@ class MockHttpClient:
     def _build_price(
         self,
         price: float,
-        vat_rate: Optional[float],
-        sale_price: Optional[float] = None,
+        vat_rate: float | None,
+        sale_price: float | None = None,
         currency: str = "RON",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a structured price payload compatible with the response model."""
 
         vat = float(vat_rate) if vat_rate is not None else 0.0
@@ -113,7 +113,7 @@ class MockHttpClient:
             "vat_amount": current_price * vat / 100,
         }
 
-    def _build_stock(self, quantity: Optional[int]) -> Dict[str, Any]:
+    def _build_stock(self, quantity: int | None) -> dict[str, Any]:
         """Create a structured stock payload compatible with the response model."""
 
         qty = int(quantity) if quantity is not None else 0
@@ -124,7 +124,7 @@ class MockHttpClient:
             "sold_quantity": 0,
         }
 
-    def _update_price_fields(self, product_id: str, updates: Dict[str, Any]) -> None:
+    def _update_price_fields(self, product_id: str, updates: dict[str, Any]) -> None:
         """Update price-related fields for an offer."""
 
         if not {"price", "sale_price", "vat_rate"}.intersection(updates.keys()):
@@ -152,8 +152,8 @@ class MockHttpClient:
         )
 
     def _apply_offer_updates(
-        self, product_id: str, updates: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, product_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any]:
         """Apply update payload to an existing offer."""
 
         offer = self.offers[product_id]
@@ -183,17 +183,17 @@ class MockHttpClient:
         if "warranty" in updates and updates["warranty"] is not None:
             offer["warranty"] = updates["warranty"]
 
-        offer["updated_at"] = datetime.now(timezone.utc).isoformat()
+        offer["updated_at"] = datetime.now(UTC).isoformat()
         return offer
 
-    def _create_offer(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _create_offer(self, data: dict[str, Any]) -> dict[str, Any]:
         """Create a new offer in the mock database."""
         emag_id = self.next_id
         self.next_id += 1
 
-        created_at = data.get("created_at", datetime.now(timezone.utc).isoformat())
+        created_at = data.get("created_at", datetime.now(UTC).isoformat())
         updated_at = (
-            data.get("updated_at", created_at) or datetime.now(timezone.utc).isoformat()
+            data.get("updated_at", created_at) or datetime.now(UTC).isoformat()
         )
         vat_rate = data.get("vat_rate", 0.0)
         sale_price = data.get("sale_price")
@@ -231,7 +231,7 @@ class MockHttpClient:
     async def get(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock GET request."""
@@ -301,7 +301,7 @@ class MockHttpClient:
     async def post(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock POST request."""
@@ -384,7 +384,7 @@ class MockHttpClient:
     async def put(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock PUT request."""
@@ -394,7 +394,7 @@ class MockHttpClient:
     async def delete(
         self,
         endpoint: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         response_model: Any = None,
     ) -> Any:
         """Mock DELETE request."""
@@ -413,7 +413,7 @@ class MockHttpClient:
 
         return self._error_response(f"Unknown endpoint: {endpoint}", 404)
 
-    def _error_response(self, message: str, status_code: int) -> Dict[str, Any]:
+    def _error_response(self, message: str, status_code: int) -> dict[str, Any]:
         """Create an error response."""
         return {
             "isError": True,
@@ -421,7 +421,7 @@ class MockHttpClient:
             "status_code": status_code,
         }
 
-    def _to_response_model(self, data: Dict[str, Any], response_model: Any) -> Any:
+    def _to_response_model(self, data: dict[str, Any], response_model: Any) -> Any:
         """Convert data to the specified response model."""
         if response_model is None:
             return data
@@ -465,7 +465,8 @@ async def test_offer_service():
         print(f"   Found {len(offers.results)} offers")
         for i, offer in enumerate(offers.results[:3], 1):
             print(
-                f"   {i}. {offer.product_name} (ID: {offer.product_id}, Price: {offer.price.current})",
+                f"   {i}. {offer.product_name} (ID: {offer.product_id}, "
+                f"Price: {offer.price.current})",
             )
 
         # Test 2: Get a single offer
@@ -475,7 +476,8 @@ async def test_offer_service():
             offer = await service.get_offer(product_id)
             print(f"   Found offer: {offer.product_name} (Status: {offer.status})")
             print(
-                f"   Price: {offer.price.current} {offer.price.currency} (VAT: {offer.price.vat_rate}%)",
+                f"   Price: {offer.price.current} {offer.price.currency} "
+                f"(VAT: {offer.price.vat_rate}%)",
             )
             print(f"   Stock: {offer.stock.available_quantity} available")
 
@@ -512,7 +514,8 @@ async def test_offer_service():
             f"   New price: {updated_offer.price.current} (was: {created_offer.price.current})",
         )
         print(
-            f"   New stock: {updated_offer.stock.available_quantity} (was: {created_offer.stock.available_quantity})",
+            f"   New stock: {updated_offer.stock.available_quantity} "
+            f"(was: {created_offer.stock.available_quantity})",
         )
 
         # Test 5: Bulk update offers
@@ -525,9 +528,11 @@ async def test_offer_service():
             ],
         )
         bulk_result = await service.bulk_update_offers(bulk_updates)
+        success_count = sum(1 for r in bulk_result.results if r.success)
+        failure_count = sum(1 for r in bulk_result.results if not r.success)
         print(
-            f"   Bulk update results: {sum(1 for r in bulk_result.results if r.success)} succeeded, "
-            f"{sum(1 for r in bulk_result.results if not r.success)} failed",
+            f"   Bulk update results: {success_count} succeeded, "
+            f"{failure_count} failed",
         )
 
         # Test 6: Filter offers

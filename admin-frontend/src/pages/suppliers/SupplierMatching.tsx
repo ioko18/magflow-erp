@@ -20,10 +20,9 @@ import {
   Alert,
   App as AntApp,
   Input,
+  InputNumber,
   Upload,
-  Badge,
-  Dropdown,
-  Slider
+  Dropdown
 } from 'antd';
 import {
   LinkOutlined,
@@ -31,7 +30,6 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   EyeOutlined,
-  ThunderboltOutlined,
   ShoppingOutlined,
   TeamOutlined,
   GlobalOutlined,
@@ -936,20 +934,23 @@ const SupplierMatchingPage: React.FC = () => {
                   <Col span={8}>
                     <Space direction="vertical" style={{ width: '100%' }} size={4}>
                       <Text strong>Interval Preț (CNY):</Text>
-                      <Slider
-                        range
-                        min={0}
-                        max={1000}
-                        value={priceRange}
-                        onChange={(value) => setPriceRange(value as [number, number])}
-                        marks={{
-                          0: '0',
-                          250: '250',
-                          500: '500',
-                          750: '750',
-                          1000: '1000'
-                        }}
-                      />
+                      <Space>
+                        <InputNumber
+                          min={0}
+                          max={1000}
+                          value={priceRange[0]}
+                          onChange={(value) => setPriceRange([value || 0, priceRange[1]])}
+                          placeholder="Min"
+                        />
+                        <Text>-</Text>
+                        <InputNumber
+                          min={0}
+                          max={1000}
+                          value={priceRange[1]}
+                          onChange={(value) => setPriceRange([priceRange[0], value || 1000])}
+                          placeholder="Max"
+                        />
+                      </Space>
                       <Text type="secondary" style={{ fontSize: '11px' }}>
                         {priceRange[0]} - {priceRange[1]} CNY
                       </Text>
@@ -959,17 +960,14 @@ const SupplierMatchingPage: React.FC = () => {
                   <Col span={8}>
                     <Space direction="vertical" style={{ width: '100%' }} size={4}>
                       <Text strong>Scor Minim Confidence:</Text>
-                      <Slider
+                      <InputNumber
                         min={0}
                         max={100}
                         value={minConfidence}
-                        onChange={setMinConfidence}
-                        marks={{
-                          0: '0%',
-                          50: '50%',
-                          70: '70%',
-                          100: '100%'
-                        }}
+                        onChange={(value) => setMinConfidence(value || 0)}
+                        formatter={(value) => `${value}%`}
+                        parser={(value) => value?.replace('%', '') as unknown as number}
+                        style={{ width: '100%' }}
                       />
                       <Text type="secondary" style={{ fontSize: '11px' }}>
                         Minim: {minConfidence}%

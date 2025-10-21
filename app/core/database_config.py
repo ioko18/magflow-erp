@@ -45,7 +45,8 @@ class DatabaseConfig:
         pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))
         pool_pre_ping = os.getenv("DB_POOL_PRE_PING", "true").lower() == "true"
 
-        # When using PgBouncer in transaction mode, we need to disable SQLAlchemy's connection pooling
+        # When using PgBouncer in transaction mode,
+        # we need to disable SQLAlchemy's connection pooling
         # and let PgBouncer handle the pooling
         if os.getenv("PGBOUNCER_ENABLED", "true").lower() == "true":
             # For PgBouncer in transaction mode, use NullPool and let PgBouncer handle pooling

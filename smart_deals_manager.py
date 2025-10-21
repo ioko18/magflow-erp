@@ -84,8 +84,11 @@ class SmartDealsManager:
             'analysis_validity_hours': 24
         }
 
-    async def check_smart_deals_eligibility(self, product_id: str,
-                                          current_price: Decimal | None = None) -> SmartDealsAnalysis:
+    async def check_smart_deals_eligibility(
+        self,
+        product_id: str,
+        current_price: Decimal | None = None,
+    ) -> SmartDealsAnalysis:
         """Check if product is eligible for Smart Deals badge"""
 
         # Check cache first
@@ -160,8 +163,13 @@ class SmartDealsManager:
                 analysis_details={'error': str(e)}
             )
 
-    def _determine_eligibility(self, api_eligible: bool, confidence_score: float,
-                             current_price: Decimal | None, target_price: Decimal | None) -> SmartDealsEligibility:
+    def _determine_eligibility(
+        self,
+        api_eligible: bool,
+        confidence_score: float,
+        current_price: Decimal | None,
+        target_price: Decimal | None,
+    ) -> SmartDealsEligibility:
         """Determine Smart Deals eligibility based on various factors"""
 
         if not api_eligible:
@@ -177,7 +185,11 @@ class SmartDealsManager:
 
         return SmartDealsEligibility.ELIGIBLE
 
-    def _calculate_price_gap(self, current_price: Decimal | None, target_price: Decimal | None) -> Decimal | None:
+    def _calculate_price_gap(
+        self,
+        current_price: Decimal | None,
+        target_price: Decimal | None,
+    ) -> Decimal | None:
         """Calculate price gap between current and target prices"""
         if not current_price or not target_price:
             return None
@@ -189,8 +201,12 @@ class SmartDealsManager:
         age = datetime.utcnow() - analysis.last_analysis
         return age.total_seconds() < (self.eligibility_thresholds['analysis_validity_hours'] * 3600)
 
-    async def optimize_for_smart_deals(self, product_id: str, current_price: Decimal,
-                                     max_price_adjustment: float = 0.15) -> SmartDealsRecommendation:
+    async def optimize_for_smart_deals(
+        self,
+        product_id: str,
+        current_price: Decimal,
+        max_price_adjustment: float = 0.15,
+    ) -> SmartDealsRecommendation:
         """Optimize product pricing for Smart Deals eligibility"""
 
         analysis = await self.check_smart_deals_eligibility(product_id, current_price)
@@ -204,7 +220,10 @@ class SmartDealsManager:
                 expected_benefit="Already eligible for Smart Deals badge",
                 implementation_effort="None required",
                 risk_level="Low",
-                reasoning=f"Product meets Smart Deals criteria with {analysis.confidence_score:.2f} confidence"
+                reasoning=(
+                    "Product meets Smart Deals criteria with "
+                    f"{analysis.confidence_score:.2f} confidence"
+                )
             )
 
         elif analysis.eligibility == SmartDealsEligibility.REQUIRES_PRICE_ADJUSTMENT:
@@ -217,10 +236,16 @@ class SmartDealsManager:
                         action="adjust_price",
                         current_price=current_price,
                         recommended_price=analysis.recommended_price,
-                        expected_benefit=f"Gain Smart Deals badge with {analysis.confidence_score:.2f} confidence",
+                        expected_benefit=(
+                            "Gain Smart Deals badge with "
+                            f"{analysis.confidence_score:.2f} confidence"
+                        ),
                         implementation_effort="Price update required",
                         risk_level="Medium" if price_adjustment > 0.1 else "Low",
-                        reasoning=f"Price adjustment of {price_adjustment:.1%} needed to achieve Smart Deals eligibility"
+                        reasoning=(
+                            "Price adjustment of "
+                            f"{price_adjustment:.1%} needed to achieve Smart Deals eligibility"
+                        )
                     )
                 else:
                     return SmartDealsRecommendation(
@@ -231,7 +256,11 @@ class SmartDealsManager:
                         expected_benefit="Alternative optimization strategies available",
                         implementation_effort="Analysis and decision required",
                         risk_level="High",
-                        reasoning=f"Required price adjustment ({price_adjustment:.1%}) exceeds maximum threshold ({max_price_adjustment:.1%})"
+                        reasoning=(
+                            "Required price adjustment ("
+                            f"{price_adjustment:.1%}) exceeds maximum threshold "
+                            f"({max_price_adjustment:.1%})"
+                        )
                     )
 
         elif analysis.eligibility == SmartDealsEligibility.INSUFFICIENT_DATA:
@@ -255,10 +284,15 @@ class SmartDealsManager:
                 expected_benefit="Product not suitable for Smart Deals",
                 implementation_effort="None",
                 risk_level="Low",
-                reasoning=f"Product does not meet Smart Deals criteria (confidence: {analysis.confidence_score:.2f})"
+                reasoning=(
+                    "Product does not meet Smart Deals criteria (confidence: "
+                    f"{analysis.confidence_score:.2f})"
+                )
             )
 
-    async def batch_check_eligibility(self, product_ids: list[str]) -> dict[str, SmartDealsAnalysis]:
+    async def batch_check_eligibility(
+        self, product_ids: list[str]
+    ) -> dict[str, SmartDealsAnalysis]:
         """Check Smart Deals eligibility for multiple products"""
         results = {}
 

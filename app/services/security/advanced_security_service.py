@@ -267,7 +267,10 @@ class AdvancedSecurityService(ServiceBase):
                     alert_type="brute_force_attack",
                     severity="high",
                     title="Multiple Failed Login Attempts",
-                    description=f"User {event.user_id} has {recent_failures} failed login attempts in {self.security_config.brute_force_window_minutes} minutes",
+                    description=(
+                        f"User {event.user_id} has {recent_failures} failed login attempts in "
+                        f"{self.security_config.brute_force_window_minutes} minutes"
+                    ),
                     affected_users=[event.user_id],
                 )
 

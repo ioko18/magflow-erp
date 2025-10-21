@@ -88,7 +88,8 @@ async def test_optimized_create_product():
             )
 
             print(
-                f"⚡ Optimized create test - Setup: {setup_time:.3f}s, Execution: {execution_time:.3f}s"
+                "⚡ Optimized create test - "
+                f"Setup: {setup_time:.3f}s, Execution: {execution_time:.3f}s"
             )
 
     except Exception as e:

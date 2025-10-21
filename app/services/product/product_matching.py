@@ -97,9 +97,10 @@ class ImageSimilarityMatcher:
         # 3. Calculate similarity scores
 
         # For now, return a random score (would be replaced with actual CV)
-        import random
+        import secrets
 
-        return random.uniform(0.3, 0.8)  # Placeholder similarity score
+        random_gen = secrets.SystemRandom()
+        return random_gen.uniform(0.3, 0.8)  # Placeholder similarity score
 
 
 class AttributeMatcher:

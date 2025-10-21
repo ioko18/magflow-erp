@@ -345,7 +345,10 @@ async def bulk_propose_to_campaigns(
 
     return BulkCampaignProposalResponse(
         status="completed",
-        message=f"Processed {len(request.proposals)} proposals: {total_success} succeeded, {total_failed} failed",
+        message=(
+            f"Processed {len(request.proposals)} proposals: "
+            f"{total_success} succeeded, {total_failed} failed"
+        ),
         summary={
             "total": len(request.proposals),
             "success": total_success,

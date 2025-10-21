@@ -63,7 +63,8 @@ class ExcelGeneratorService:
         excel_buffer.seek(0)
 
         logger.info(
-            f"Generated Excel order for supplier {supplier.name} with {len(supplier_products)} products"
+            f"Generated Excel order for supplier {supplier.name} "
+            f"with {len(supplier_products)} products"
         )
         return excel_buffer.getvalue()
 

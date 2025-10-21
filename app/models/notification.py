@@ -95,14 +95,22 @@ class Notification(Base):
     read_at = Column(DateTime, nullable=True)
 
     # Metadata
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
+        index=True,
+    )
     expires_at = Column(DateTime, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="notifications")
 
     def __repr__(self):
-        return f"<Notification(id={self.id}, user_id={self.user_id}, title='{self.title}', read={self.read})>"
+        return (
+            f"<Notification(id={self.id}, user_id={self.user_id}, title='{self.title}', "
+            f"read={self.read})>"
+        )
 
     def to_dict(self):
         """Convert notification to dictionary."""
@@ -175,9 +183,16 @@ class NotificationSettings(Base):
     )  # daily, weekly
 
     # Metadata
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
+    )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
     )
 
     # Relationships
@@ -223,7 +238,14 @@ class NotificationSettings(Base):
             return False
 
         # Check channel is enabled
-        if channel == "email" and not self.email_enabled or channel == "push" and not self.push_enabled or channel == "sms" and not self.sms_enabled:
+        if (
+            channel == "email"
+            and not self.email_enabled
+            or channel == "push"
+            and not self.push_enabled
+            or channel == "sms"
+            and not self.sms_enabled
+        ):
             return False
 
         # Check category preferences

@@ -9,8 +9,10 @@ for the MagFlow ERP application.
 import json
 import os
 import secrets
+import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -68,9 +70,16 @@ class SecurityHardening:
     def check_dependency_vulnerabilities(self) -> dict[str, Any]:
         """Check for known vulnerabilities in dependencies."""
         try:
-            # Run safety check
-            result = subprocess.run(
-                ["safety", "check", "--json"],
+            safety_cmd = shutil.which("safety")
+            if safety_cmd is None:
+                return {
+                    "status": "SKIP",
+                    "message": "Safety tool not installed"
+                }
+
+            safety_path = Path(safety_cmd)
+            result = subprocess.run(  # noqa: S603,S607 - validated absolute path from shutil.which
+                [safety_path.as_posix(), "check", "--json"],
                 capture_output=True,
                 text=True,
                 cwd=self.project_root
@@ -135,9 +144,16 @@ class SecurityHardening:
     def check_code_security(self) -> dict[str, Any]:
         """Run static code security analysis."""
         try:
-            # Run bandit security scan
-            result = subprocess.run(
-                ["bandit", "-r", "app/", "-f", "json"],
+            bandit_cmd = shutil.which("bandit")
+            if bandit_cmd is None:
+                return {
+                    "status": "SKIP",
+                    "message": "Bandit tool not installed"
+                }
+
+            bandit_path = Path(bandit_cmd)
+            result = subprocess.run(  # noqa: S603,S607 - validated absolute path from shutil.which
+                [bandit_path.as_posix(), "-r", "app/", "-f", "json"],
                 capture_output=True,
                 text=True,
                 cwd=self.project_root
@@ -268,7 +284,7 @@ class SecurityHardening:
                 recommendations.extend(check_result.get("recommendations", []))
 
         report = {
-            "timestamp": subprocess.check_output(["date"], text=True).strip(),
+            "timestamp": datetime.utcnow().isoformat(),
             "checks": checks,
             "security_score": security_score,
             "recommendations": list(set(recommendations)),
@@ -293,8 +309,13 @@ class SecurityHardening:
         # Print check results
         print("\n📋 Security Check Results:")
         for check_name, result in report["checks"].items():
-            status_icon = "✅" if result["status"] == "PASS" else "❌" if result["status"] == "FAIL" else "⚠️"
-            print(f"  {status_icon} {check_name.replace('_', ' ').title()}: {result['status']}")
+            status_map = {
+                "PASS": "✅",
+                "FAIL": "❌",
+            }
+            status_icon = status_map.get(result["status"], "⚠️")
+            formatted_name = check_name.replace('_', ' ').title()
+            print(f"  {status_icon} {formatted_name}: {result['status']}")
 
             if result.get("issues"):
                 for issue in result["issues"][:3]:  # Show first 3 issues
@@ -316,7 +337,8 @@ class SecurityHardening:
                 print(f"  ✅ {fix}")
 
         # Save report
-        report_file = self.project_root / f"security_report_{report['timestamp'].replace(' ', '_').replace(':', '-')}.json"
+        timestamp = report['timestamp'].replace(' ', '_').replace(':', '-')
+        report_file = self.project_root / f"security_report_{timestamp}.json"
         with open(report_file, 'w') as f:
             json.dump(report, f, indent=2)
 

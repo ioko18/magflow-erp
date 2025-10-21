@@ -73,9 +73,9 @@ async def import_products_from_excel(
         )
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}") from e
 
 
 @router.get("/import/batches", response_model=list[dict])
@@ -353,7 +353,7 @@ async def confirm_matching_group(
         )
         return {"success": True, "group_id": group.id, "status": group.status}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/groups/{group_id}/reject")
@@ -370,7 +370,7 @@ async def reject_matching_group(
         await matching_service.reject_match(group_id=group_id, user_id=current_user.id)
         return {"success": True, "group_id": group_id, "status": "rejected"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== PRICE COMPARISON ====================
@@ -737,7 +737,10 @@ async def reset_all_matching(
 
     return {
         "success": True,
-        "message": f"Reset complete: {groups_count} groups deleted, {products_count} products reset to pending",
+        "message": (
+            "Reset complete: "
+            f"{groups_count} groups deleted, {products_count} products reset to pending"
+        ),
         "groups_deleted": groups_count,
         "products_reset": products_count,
     }

@@ -27,9 +27,12 @@ class ReportingService(ServiceBase):
         """Initialize reporting service with dependency injection.
 
         The service attempts to retrieve repositories via the global ServiceRegistry.
-        In unit test environments the registry may not be initialized, which would raise a RuntimeError.
-        To make the service usable in such contexts, we gracefully handle the error and set the repository attributes to ``None``.
-        Tests that require a repository can patch the ``get_user_repository`` function before instantiation.
+        In unit test environments the registry may not be initialized,
+        which would raise a RuntimeError.
+        To make the service usable in such contexts, we gracefully handle the error
+        and set the repository attributes to ``None``.
+        Tests that require a repository can patch the ``get_user_repository``
+        function before instantiation.
         """
         super().__init__(context)
         try:
@@ -576,8 +579,8 @@ class ReportingService(ServiceBase):
 
             return output.getvalue()
 
-        except ImportError:
-            raise ValueError("Excel export requires pandas and openpyxl")
+        except ImportError as e:
+            raise ValueError("Excel export requires pandas and openpyxl") from e
 
     async def _export_to_pdf(self, report_data: dict[str, Any]) -> bytes:
         """Export report data to PDF format."""
@@ -637,8 +640,8 @@ class ReportingService(ServiceBase):
             doc.build(story)
             return buffer.getvalue()
 
-        except ImportError:
-            raise ValueError("PDF export requires reportlab")
+        except ImportError as e:
+            raise ValueError("PDF export requires reportlab") from e
 
     async def schedule_report(
         self,

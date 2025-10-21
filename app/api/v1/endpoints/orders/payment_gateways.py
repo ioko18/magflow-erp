@@ -126,17 +126,17 @@ async def create_payment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid payment data: {e!s}",
-        )
+        ) from e
     except ConfigurationError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Payment gateway not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create payment: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/process/{transaction_id}")
@@ -187,12 +187,12 @@ async def process_payment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid payment data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process payment: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/refund/{transaction_id}")
@@ -239,12 +239,12 @@ async def refund_payment(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid refund data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process refund: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/status/{transaction_id}")
@@ -291,7 +291,7 @@ async def get_payment_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get rate limit status: {_!s}",
-        )
+        ) from _
 
 
 @router.post("/webhook/{gateway_type}")
@@ -335,12 +335,12 @@ async def handle_webhook(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid gateway type: {gateway_type}",
-        )
+        ) from _
     except Exception as _:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to handle webhook: {_!s}",
-        )
+        ) from _
 
 
 @router.get("/gateways")
@@ -365,7 +365,7 @@ async def get_supported_gateways(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get payment gateways: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/transactions")
@@ -458,7 +458,7 @@ async def get_payment_transactions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get payment transactions: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/transactions/{transaction_id}")
@@ -507,7 +507,7 @@ async def get_payment_transaction(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Payment transaction {transaction_id} not found",
-        )
+        ) from _
 
 
 @router.get("/statistics")
@@ -578,7 +578,7 @@ async def get_payment_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get payment statistics: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test/{gateway_type}")
@@ -619,17 +619,17 @@ async def test_payment_gateway(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid gateway type: {gateway_type}",
-        )
+        ) from _
     except ConfigurationError as _:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Payment gateway {gateway_type} not configured: {_!s}",
-        )
+        ) from _
     except Exception as _:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Payment gateway test failed: {_!s}",
-        )
+        ) from _
 
 
 @router.get("/methods")
@@ -702,4 +702,4 @@ async def get_supported_payment_methods(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get payment methods: {e!s}",
-        )
+        ) from e

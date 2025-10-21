@@ -220,7 +220,7 @@ async def get_inventory_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch inventory statistics: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/low-stock")
@@ -413,7 +413,7 @@ async def get_low_stock_products(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch low stock products: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/stock-alerts")
@@ -542,7 +542,7 @@ async def get_stock_alerts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch stock alerts: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/export/low-stock-excel")
@@ -803,7 +803,7 @@ async def export_low_stock_to_excel(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export low stock products: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/search")
@@ -944,4 +944,4 @@ async def search_emag_products(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to search products: {str(e)}",
-        )
+        ) from e

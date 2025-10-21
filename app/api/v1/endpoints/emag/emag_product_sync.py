@@ -180,7 +180,7 @@ async def sync_products(
         raise HTTPException(
             status_code=400,
             detail=f"Invalid sync configuration: {str(e)}",
-        )
+        ) from e
     except Exception as e:
         # Log detailed error information
         error_msg = str(e)
@@ -193,7 +193,11 @@ async def sync_products(
 
         # Provide more helpful error messages
         if "credentials" in error_msg.lower() or "authentication" in error_msg.lower():
-            detail = f"Authentication failed. Please check eMAG API credentials for {request.account_type} account."
+            detail = (
+                "Authentication failed. "
+                "Please check eMAG API credentials for "
+                f"{request.account_type} account."
+            )
         elif "timeout" in error_msg.lower():
             detail = (
                 "Sync timeout. Try reducing max_pages or check network connectivity."
@@ -206,11 +210,11 @@ async def sync_products(
         raise HTTPException(
             status_code=500,
             detail=detail,
-        )
+        ) from e
 
 
 async def _run_sync_task(db: AsyncSession, request: SyncProductsRequest):
-    """Background task for running product sync."""
+    """Background task for running product sync with automatic inventory sync."""
     from app.core.database import async_session_factory
 
     try:
@@ -233,6 +237,35 @@ async def _run_sync_task(db: AsyncSession, request: SyncProductsRequest):
                 logger.info(
                     f"Background sync task completed and committed for {request.account_type}"
                 )
+
+                # Auto-sync inventory after product sync
+                accounts_to_sync = (
+                    ["main", "fbe"]
+                    if request.account_type == "both"
+                    else [request.account_type]
+                )
+
+                for account in accounts_to_sync:
+                    try:
+                        logger.info(f"Auto-syncing inventory for {account} account")
+                        from app.api.v1.endpoints.inventory.emag_inventory_sync import (
+                            _sync_emag_to_inventory,
+                        )
+
+                        inventory_stats = await _sync_emag_to_inventory(sync_db, account)
+                        logger.info(
+                            "%s: Inventory synced - %s items, %s low stock",
+                            account,
+                            inventory_stats.get("products_synced", 0),
+                            inventory_stats.get("low_stock_count", 0),
+                        )
+                    except Exception as inv_error:
+                        logger.warning(
+                            f"Failed to auto-sync inventory for {account}: {inv_error}",
+                            exc_info=True,
+                        )
+                        # Don't fail the whole task if inventory sync fails
+
     except Exception as e:
         logger.error(f"Background sync task failed: {e}", exc_info=True)
 
@@ -313,7 +346,7 @@ async def get_sync_status(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get sync status: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/statistics", response_model=SyncStatisticsResponse)
@@ -338,7 +371,7 @@ async def get_sync_statistics(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get sync statistics: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/history")
@@ -413,13 +446,13 @@ async def get_sync_history(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get sync history: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/products")
 async def get_synced_products(
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=100),
+    limit: int = Query(default=50, ge=1, le=1000),
     account_type: str | None = Query(default=None),
     search: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
@@ -523,7 +556,7 @@ async def get_synced_products(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get synced products: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/sync/{sync_id}")
@@ -582,7 +615,7 @@ async def cancel_sync(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to cancel sync: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/cleanup-stuck-syncs")
@@ -652,7 +685,7 @@ async def cleanup_stuck_syncs(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to cleanup stuck syncs: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/test-connection")
@@ -683,7 +716,9 @@ async def test_emag_connection(
         )
 
         logger.info(
-            f"Credentials check: username={'SET' if username else 'MISSING'}, password={'SET' if password else 'MISSING'}"
+            "Credentials check: username=%s, password=%s",
+            "SET" if username else "MISSING",
+            "SET" if password else "MISSING",
         )
 
         if not username or not password:
@@ -744,7 +779,11 @@ async def test_emag_connection(
 
         # Provide helpful error messages
         if "401" in error_msg or "unauthorized" in error_msg.lower():
-            detail = f"Authentication failed for {account_type} account. Check username and password."
+            detail = (
+                "Authentication failed for "
+                f"{account_type} account. "
+                "Check username and password."
+            )
         elif "timeout" in error_msg.lower():
             detail = "Connection timeout. Check network connectivity and eMAG API availability."
         elif "connection" in error_msg.lower() or "connect" in error_msg.lower():
@@ -755,4 +794,4 @@ async def test_emag_connection(
         raise HTTPException(
             status_code=500,
             detail=detail,
-        )
+        ) from e

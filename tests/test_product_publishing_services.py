@@ -33,7 +33,10 @@ class TestProductPublishingService:
     @pytest.fixture
     async def service(self, mock_client):
         """Create service instance with mocked client"""
-        with patch('app.services.emag.emag_product_publishing_service.EmagApiClient', return_value=mock_client):
+        with patch(
+            'app.services.emag.emag_product_publishing_service.EmagApiClient',
+            return_value=mock_client,
+        ):
             service = EmagProductPublishingService("main")
             service.client = mock_client
             yield service
@@ -200,7 +203,10 @@ class TestCategoryService:
     @pytest.fixture
     async def service(self, mock_client):
         """Create service instance with mocked client"""
-        with patch('app.services.emag.emag_category_service.EmagApiClient', return_value=mock_client):
+        with patch(
+            'app.services.emag.emag_category_service.EmagApiClient',
+            return_value=mock_client,
+        ):
             service = EmagCategoryService("main")
             service.client = mock_client
             yield service
@@ -319,7 +325,10 @@ class TestReferenceDataService:
     @pytest.fixture
     async def service(self, mock_client):
         """Create service instance with mocked client"""
-        with patch('app.services.emag.emag_reference_data_service.EmagApiClient', return_value=mock_client):
+        with patch(
+            'app.services.emag.emag_reference_data_service.EmagApiClient',
+            return_value=mock_client,
+        ):
             service = EmagReferenceDataService("main")
             service.client = mock_client
             yield service

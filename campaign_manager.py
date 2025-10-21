@@ -198,7 +198,11 @@ class CampaignManager:
                 message=str(e)
             )
 
-    async def check_smart_deals_price(self, product_id: str, target_price: Decimal | None = None) -> SmartDealsPriceCheck:
+    async def check_smart_deals_price(
+        self,
+        product_id: str,
+        target_price: Decimal | None = None,
+    ) -> SmartDealsPriceCheck:
         """Check if product is eligible for Smart Deals badge"""
         try:
             logger.info(f"Checking Smart Deals price for product: {product_id}")
@@ -235,10 +239,12 @@ class CampaignManager:
                 is_eligible=False
             )
 
-    async def create_multi_deals_campaign(self,
-                                        product_id: str,
-                                        base_price: Decimal,
-                                        intervals: list[DateInterval]) -> CampaignResponse:
+    async def create_multi_deals_campaign(
+        self,
+        product_id: str,
+        base_price: Decimal,
+        intervals: list[DateInterval],
+    ) -> CampaignResponse:
         """Create a MultiDeals campaign with multiple date intervals"""
         try:
             logger.info(f"Creating MultiDeals campaign for product: {product_id}")
@@ -346,7 +352,10 @@ class CampaignManager:
 
         return errors
 
-    async def bulk_create_campaigns(self, proposals: list[CampaignProposal]) -> list[CampaignResponse]:
+    async def bulk_create_campaigns(
+        self,
+        proposals: list[CampaignProposal],
+    ) -> list[CampaignResponse]:
         """Create multiple campaign proposals in bulk"""
         results = []
 
@@ -380,7 +389,9 @@ class CampaignManager:
             'total_campaigns': total_campaigns,
             'active_campaigns': active_campaigns,
             'cached_campaigns': list(self.campaign_cache.keys()),
-            'active_campaign_ids': [cid for cid, c in self.active_campaigns.items() if c.status == 'active']
+            'active_campaign_ids': [
+                cid for cid, c in self.active_campaigns.items() if c.status == 'active'
+            ]
         }
 
     def clear_campaign_cache(self):

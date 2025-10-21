@@ -40,8 +40,8 @@ def decode_cursor(cursor: str | None) -> dict[str, Any] | None:
         return None
     try:
         return json.loads(base64.b64decode(cursor.encode()).decode())
-    except (json.JSONDecodeError, UnicodeDecodeError):
-        raise HTTPException(status_code=400, detail="Invalid cursor format")
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise HTTPException(status_code=400, detail="Invalid cursor format") from e
 
 
 def encode_cursor(cursor_data: dict[str, Any]) -> str:
@@ -81,7 +81,10 @@ def get_categories_with_cursor(
     # Base query with required fields
     query = """
         SELECT c.id, c.name, c.created_at,
-               COALESCE(array_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL), '{}') as products
+               COALESCE(
+                   array_agg(DISTINCT p.name) FILTER (WHERE p.name IS NOT NULL),
+                   '{}'
+               ) as products
         FROM app.categories c
         LEFT JOIN app.product_categories pc ON c.id = pc.category_id
         LEFT JOIN app.products p ON pc.product_id = p.id
@@ -224,7 +227,7 @@ async def list_categories(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while fetching categories: {e!s}",
-        )
+        ) from e
 
 
 # Keep existing endpoints for category CRUD operations
@@ -303,9 +306,9 @@ async def create_category(
         db.rollback()
         # Check if it's a unique constraint violation
         if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
-            raise HTTPException(status_code=400, detail="Category name already exists")
+            raise HTTPException(status_code=400, detail="Category name already exists") from e
         logger.error(f"Failed to create category: {e!s}")
-        raise HTTPException(status_code=500, detail="Failed to create category")
+        raise HTTPException(status_code=500, detail="Failed to create category") from e
 
 
 @router.put("/{category_id}", response_model=CategoryResponse)
@@ -363,9 +366,9 @@ async def update_category(
         db.rollback()
         # Check if it's a unique constraint violation
         if "duplicate key" in str(e).lower() or "unique constraint" in str(e).lower():
-            raise HTTPException(status_code=400, detail="Category name already exists")
+            raise HTTPException(status_code=400, detail="Category name already exists") from e
         logger.error(f"Failed to update category {category_id}: {e!s}")
-        raise HTTPException(status_code=500, detail="Failed to update category")
+        raise HTTPException(status_code=500, detail="Failed to update category") from e
 
 
 @router.delete("/{category_id}", status_code=204)
@@ -408,4 +411,4 @@ async def delete_category(
     except Exception as e:
         db.rollback()
         logger.error(f"Failed to delete category {category_id}: {e!s}")
-        raise HTTPException(status_code=500, detail="Failed to delete category")
+        raise HTTPException(status_code=500, detail="Failed to delete category") from e

@@ -10,6 +10,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -30,8 +31,11 @@ from app.db.base_class import Base
 
 # Timezone-aware datetime utility
 def utc_now():
-    """Return current UTC time without timezone info (for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)."""
-    return datetime.now(UTC).replace(tzinfo=None)  # noqa: DTZ005
+    """Return current UTC time without timezone info (for PostgreSQL
+    TIMESTAMP WITHOUT TIME ZONE)."""
+    return (
+        datetime.now(UTC).replace(tzinfo=None)
+    )  # noqa: DTZ005
 
 
 class EmagProductV2(Base):
@@ -260,6 +264,9 @@ class EmagProductOfferV2(Base):
     price = Column(Float, nullable=False)
     original_price = Column(Float, nullable=True)
     sale_price = Column(Float, nullable=True)
+    min_sale_price = Column(Float, nullable=True)
+    max_sale_price = Column(Float, nullable=True)
+    recommended_price = Column(Float, nullable=True)
     currency = Column(String(3), nullable=False, default="RON")
 
     # Inventory
@@ -335,7 +342,7 @@ class EmagOrder(Base):
 
     # Primary identification
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    emag_order_id = Column(Integer, nullable=False, index=True)
+    emag_order_id = Column(BigInteger, nullable=False, index=True)
     account_type = Column(String(10), nullable=False, default="main")
 
     # Order status and type
@@ -347,7 +354,7 @@ class EmagOrder(Base):
     is_complete = Column(Boolean, nullable=False, default=False)
 
     # Customer information
-    customer_id = Column(Integer, nullable=True)
+    customer_id = Column(BigInteger, nullable=True)
     customer_name = Column(String(200), nullable=True)
     customer_email = Column(String(200), nullable=True)
     customer_phone = Column(String(50), nullable=True)
@@ -497,7 +504,7 @@ class EmagSyncLog(Base):
         Index("idx_emag_sync_logs_status", "status"),
         Index("idx_emag_sync_logs_started_at", "started_at"),
         CheckConstraint(
-            "account_type IN ('main', 'fbe')", name="ck_emag_sync_logs_account_type"
+            "account_type IN ('main', 'fbe', 'both')", name="ck_emag_sync_logs_account_type"
         ),
         CheckConstraint(
             "sync_type IN ('products', 'offers', 'orders')",

@@ -33,7 +33,7 @@ class CursorParams(BaseModel):
                 raise ValueError("Invalid cursor format")
             return cursor_data
         except Exception as e:
-            raise ValueError(f"Invalid cursor: {e!s}")
+            raise ValueError(f"Invalid cursor: {e!s}") from e
 
 
 class CursorPagination(GenericModel, Generic[T]):
@@ -101,5 +101,5 @@ def decode_cursor(cursor: str | None) -> dict[str, Any] | None:
         return None
     try:
         return json.loads(base64.b64decode(cursor.encode()).decode())
-    except Exception:
-        raise ValueError("Invalid cursor format")
+    except Exception as e:
+        raise ValueError("Invalid cursor format") from e

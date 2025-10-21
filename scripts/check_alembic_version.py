@@ -40,7 +40,9 @@ async def check_alembic_version():
             print(f"Schema 'app' exists: {schema_exists}")
 
             # List all schemas
-            result = await conn.execute(text("SELECT schema_name FROM information_schema.schemata;"))
+            result = await conn.execute(
+                text("SELECT schema_name FROM information_schema.schemata;")
+            )
             schemas = [row[0] for row in result.fetchall()]
             print(f"All schemas: {schemas}")
 

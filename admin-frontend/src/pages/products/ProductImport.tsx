@@ -157,6 +157,8 @@ const ProductImport: React.FC = () => {
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [supplierStats, setSupplierStats] = useState<SupplierStatistics | null>(null);
   const [productsSource, setProductsSource] = useState<'google_sheets' | 'local_db' | null>(null);
+  const [importProgress, setImportProgress] = useState<number>(0);
+  const [importStatus, setImportStatus] = useState<string>('');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -350,37 +352,94 @@ const ProductImport: React.FC = () => {
       cancelText: 'Cancel',
       onOk: async () => {
         setImporting(true);
+        setImportProgress(0);
+        setImportStatus('Connecting to Google Sheets...');
+        
         try {
+          // Show progress message
+          messageApi.loading({ content: 'Starting import...', key: 'import', duration: 0 });
+          
+          setImportStatus('Fetching products from Google Sheets...');
+          setImportProgress(10);
+          
           const response = await api.post<ImportResponse>('/products/import/google-sheets', {
             auto_map: true,
             import_suppliers: importSuppliers
           });
           
+          setImportProgress(100);
+          setImportStatus('Import completed!');
+          messageApi.destroy('import');
+          
           const result = response.data;
           
           modal.success({
-            title: 'Import Completed',
+            title: '✅ Import Completed Successfully',
+            width: 600,
             content: (
               <div>
-                <Descriptions column={1} size="small">
-                  <Descriptions.Item label="Total Rows">{result.total_rows}</Descriptions.Item>
-                  <Descriptions.Item label="Successful">{result.successful_imports}</Descriptions.Item>
-                  <Descriptions.Item label="Failed">{result.failed_imports}</Descriptions.Item>
-                  <Descriptions.Item label="Created">{result.auto_mapped_main || 0}</Descriptions.Item>
-                  <Descriptions.Item label="Updated">{result.auto_mapped_fbe || 0}</Descriptions.Item>
-                  {result.duration_seconds && (
-                    <Descriptions.Item label="Duration">
-                      {result.duration_seconds.toFixed(2)}s
-                    </Descriptions.Item>
-                  )}
-                </Descriptions>
+                <Alert
+                  message="Import Summary"
+                  description={
+                    <Descriptions column={2} size="small" style={{ marginTop: 12 }}>
+                      <Descriptions.Item label="Total Rows" span={2}>{result.total_rows}</Descriptions.Item>
+                      <Descriptions.Item label="✅ Successful">{result.successful_imports}</Descriptions.Item>
+                      <Descriptions.Item label="❌ Failed">{result.failed_imports}</Descriptions.Item>
+                      <Descriptions.Item label="🆕 Created">{result.auto_mapped_main || 0}</Descriptions.Item>
+                      <Descriptions.Item label="🔄 Updated">{result.auto_mapped_fbe || 0}</Descriptions.Item>
+                      {result.duration_seconds && (
+                        <Descriptions.Item label="⏱️ Duration" span={2}>
+                          {result.duration_seconds.toFixed(2)} seconds
+                        </Descriptions.Item>
+                      )}
+                    </Descriptions>
+                  }
+                  type="success"
+                  showIcon
+                />
+                {result.failed_imports > 0 && (
+                  <Alert
+                    message="Some products failed to import"
+                    description="Check the logs for details about failed imports."
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 16 }}
+                  />
+                )}
               </div>
             ),
           });
           
           await loadData();
         } catch (error: any) {
-          messageApi.error(error.response?.data?.detail || 'Import failed');
+          messageApi.destroy('import');
+          setImportProgress(0);
+          setImportStatus('');
+          
+          const errorMessage = error.response?.data?.detail || error.message || 'Import failed';
+          const errorTitle = '❌ Import Failed';
+          
+          modal.error({
+            title: errorTitle,
+            content: (
+              <div>
+                <p style={{ marginBottom: '12px', color: '#ff4d4f' }}>
+                  <strong>Error:</strong> {errorMessage}
+                </p>
+                {error.response?.status && (
+                  <p style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                    Status Code: {error.response.status}
+                  </p>
+                )}
+                <p style={{ fontSize: '12px', color: '#8c8c8c', marginTop: '8px' }}>
+                  Please check the console logs for more details or contact support if the issue persists.
+                </p>
+              </div>
+            ),
+          });
+          
+          // Also show a brief message notification
+          messageApi.error(`Import failed: ${errorMessage.substring(0, 100)}${errorMessage.length > 100 ? '...' : ''}`);
         } finally {
           setImporting(false);
         }
@@ -685,34 +744,54 @@ const ProductImport: React.FC = () => {
 
       {/* Import Actions */}
       <Card style={{ marginBottom: '24px' }}>
-        <Space>
-          <Button
-            type="default"
-            size="large"
-            icon={<EyeOutlined />}
-            onClick={handlePreview}
-            loading={previewing}
-            disabled={connectionStatus !== 'connected'}
-          >
-            Preview Changes
-          </Button>
-          <Button
-            type="primary"
-            size="large"
-            icon={<CloudUploadOutlined />}
-            onClick={handleImport}
-            loading={importing}
-            disabled={connectionStatus !== 'connected'}
-          >
-            Import Products & Suppliers
-          </Button>
-          <Button
-            icon={<SyncOutlined />}
-            onClick={loadData}
-            loading={loading}
-          >
-            Refresh
-          </Button>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Space>
+            <Button
+              type="default"
+              size="large"
+              icon={<EyeOutlined />}
+              onClick={handlePreview}
+              loading={previewing}
+              disabled={connectionStatus !== 'connected' || importing}
+            >
+              Preview Changes
+            </Button>
+            <Button
+              type="primary"
+              size="large"
+              icon={<CloudUploadOutlined />}
+              onClick={handleImport}
+              loading={importing}
+              disabled={connectionStatus !== 'connected'}
+            >
+              Import Products & Suppliers
+            </Button>
+            <Button
+              icon={<SyncOutlined />}
+              onClick={loadData}
+              loading={loading}
+              disabled={importing}
+            >
+              Refresh
+            </Button>
+          </Space>
+          {importing && (
+            <div style={{ width: '100%' }}>
+              <Progress 
+                percent={importProgress} 
+                status="active"
+                strokeColor={{
+                  '0%': '#108ee9',
+                  '100%': '#87d068',
+                }}
+              />
+              {importStatus && (
+                <Text type="secondary" style={{ fontSize: 12, marginTop: 8, display: 'block' }}>
+                  {importStatus}
+                </Text>
+              )}
+            </div>
+          )}
         </Space>
       </Card>
 

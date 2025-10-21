@@ -100,7 +100,7 @@ class EmagAWBService:
         except EmagApiError as e:
             logger.error("Failed to fetch courier accounts: %s", str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to fetch courier accounts: {str(e)}")
+            raise ServiceError(f"Failed to fetch courier accounts: {str(e)}") from e
 
     async def generate_awb(
         self,
@@ -176,7 +176,7 @@ class EmagAWBService:
             logger.error("Failed to generate AWB for order %d: %s", order_id, str(e))
             self._metrics["awbs_failed"] += 1
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to generate AWB: {str(e)}")
+            raise ServiceError(f"Failed to generate AWB: {str(e)}") from e
 
     async def get_awb_details(self, awb_number: str) -> dict[str, Any]:
         """Get AWB tracking details.
@@ -199,7 +199,7 @@ class EmagAWBService:
         except EmagApiError as e:
             logger.error("Failed to fetch AWB details: %s", str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to fetch AWB details: {str(e)}")
+            raise ServiceError(f"Failed to fetch AWB details: {str(e)}") from e
 
     async def _calculate_packages_from_order(
         self, order_id: int

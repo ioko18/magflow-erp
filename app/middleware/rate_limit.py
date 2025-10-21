@@ -116,7 +116,13 @@ def should_skip_rate_limit(request: Request) -> bool:
         return True
 
     # Skip OpenAPI docs in development
-    return bool(settings.APP_ENV == "development" and (path.startswith("/docs") or path.startswith("/openapi")))
+    return bool(
+        settings.APP_ENV == "development"
+        and (
+            path.startswith("/docs")
+            or path.startswith("/openapi")
+        )
+    )
 
 
 async def rate_limit_middleware(request: Request, call_next):

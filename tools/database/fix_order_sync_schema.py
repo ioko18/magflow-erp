@@ -28,13 +28,31 @@ def run_migrations():
             # Check if tables exist and create them if needed
             migrations = [
                 # Add missing columns to orders table
-                "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS external_id VARCHAR(100);",
-                "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS external_source VARCHAR(50);",
-                "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
-                "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+                (
+                    "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS "
+                    "external_id VARCHAR(100);"
+                ),
+                (
+                    "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS "
+                    "external_source VARCHAR(50);"
+                ),
+                (
+                    "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS "
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ),
+                (
+                    "ALTER TABLE app.orders ADD COLUMN IF NOT EXISTS "
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ),
                 # Add missing columns to order_lines table
-                "ALTER TABLE app.order_lines ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
-                "ALTER TABLE app.order_lines ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+                (
+                    "ALTER TABLE app.order_lines ADD COLUMN IF NOT EXISTS "
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ),
+                (
+                    "ALTER TABLE app.order_lines ADD COLUMN IF NOT EXISTS "
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ),
                 # Add missing columns to products table
                 "ALTER TABLE app.products ADD COLUMN IF NOT EXISTS price DECIMAL(10,2);",
                 "ALTER TABLE app.products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 0;",
@@ -43,7 +61,10 @@ def run_migrations():
                 "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS account_type VARCHAR(10);",
                 "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS sku VARCHAR(255);",
                 "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS category_id INTEGER;",
-                "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS emag_product_id VARCHAR(100);",
+                (
+                    "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS "
+                    "emag_product_id VARCHAR(100);"
+                ),
                 "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS price DECIMAL(10,2);",
                 "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS stock INTEGER;",
                 "ALTER TABLE app.emag_products ADD COLUMN IF NOT EXISTS brand VARCHAR(255);",
@@ -51,17 +72,47 @@ def run_migrations():
                 "ALTER TABLE app.emag_product_offers ADD COLUMN IF NOT EXISTS sku VARCHAR(255);",
                 "ALTER TABLE app.emag_product_offers ADD COLUMN IF NOT EXISTS name VARCHAR(500);",
                 # Add missing columns to emag_offer_syncs table
-                "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS offers_count INTEGER DEFAULT 0;",
-                "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS error_message TEXT;",
-                "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS products_count INTEGER DEFAULT 0;",
-                "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS sync_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
+                (
+                    "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS "
+                    "offers_count INTEGER DEFAULT 0;"
+                ),
+                (
+                    "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS "
+                    "error_message TEXT;"
+                ),
+                (
+                    "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS "
+                    "products_count INTEGER DEFAULT 0;"
+                ),
+                (
+                    "ALTER TABLE app.emag_offer_syncs ADD COLUMN IF NOT EXISTS "
+                    "sync_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                ),
                 # Add any missing indexes
-                "CREATE INDEX IF NOT EXISTS idx_orders_external ON app.orders(external_id, external_source);",
-                "CREATE INDEX IF NOT EXISTS idx_order_lines_order ON app.order_lines(order_id);",
-                "CREATE INDEX IF NOT EXISTS idx_emag_offers_product ON app.emag_product_offers(emag_product_id);",
-                "CREATE INDEX IF NOT EXISTS idx_emag_offers_account ON app.emag_product_offers(account_type);",
-                "CREATE INDEX IF NOT EXISTS idx_emag_syncs_account ON app.emag_offer_syncs(account_type);",
-                "CREATE INDEX IF NOT EXISTS idx_emag_syncs_status ON app.emag_offer_syncs(status);",
+                (
+                    "CREATE INDEX IF NOT EXISTS idx_orders_external "
+                    "ON app.orders(external_id, external_source);"
+                ),
+                (
+                    "CREATE INDEX IF NOT EXISTS idx_order_lines_order "
+                    "ON app.order_lines(order_id);"
+                ),
+                (
+                    "CREATE INDEX IF NOT EXISTS idx_emag_offers_product "
+                    "ON app.emag_product_offers(emag_product_id);"
+                ),
+                (
+                    "CREATE INDEX IF NOT EXISTS idx_emag_offers_account "
+                    "ON app.emag_product_offers(account_type);"
+                ),
+                (
+                    "CREATE INDEX IF NOT EXISTS idx_emag_syncs_account "
+                    "ON app.emag_offer_syncs(account_type);"
+                ),
+                (
+                    "CREATE INDEX IF NOT EXISTS idx_emag_syncs_status "
+                    "ON app.emag_offer_syncs(status);"
+                ),
             ]
 
             # Execute migrations

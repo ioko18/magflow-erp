@@ -35,7 +35,11 @@ async def setup_db():
         conn = await asyncpg.connect(**db_config)
 
         # Create schema if needed
-        if not await conn.fetchval("SELECT 1 FROM information_schema.schemata WHERE schema_name = $1", TEST_SCHEMA):
+        if not await conn.fetchval(
+            "SELECT 1 FROM information_schema.schemata "
+            "WHERE schema_name = $1",
+            TEST_SCHEMA,
+        ):
             await conn.execute(f'CREATE SCHEMA {TEST_SCHEMA}')
 
         await conn.execute(f'SET search_path TO {TEST_SCHEMA}, public')

@@ -8,7 +8,7 @@ Rate limiting implementation conforming to eMAG API v4.4.8 specifications (Secti
 
 import asyncio
 import logging
-import random
+import secrets
 import time
 from collections import deque
 
@@ -210,7 +210,9 @@ class EmagRateLimiter:
             raise
 
         # Add jitter to avoid thundering herd
-        jitter = random.uniform(0, RateLimits.JITTER_MAX)
+        # Use secrets for cryptographically secure random jitter
+        random_gen = secrets.SystemRandom()
+        jitter = random_gen.uniform(0, RateLimits.JITTER_MAX)
         await asyncio.sleep(jitter)
 
         # Record request

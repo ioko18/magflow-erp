@@ -85,7 +85,7 @@ def get_emag_client(account_type: str) -> EmagApiClient:
             max_retries=config.max_retries,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # ========== API Endpoints ==========
@@ -151,10 +151,10 @@ async def update_offer_light(
 
     except EmagApiError as e:
         logger.error(f"eMAG API error updating offer: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error updating offer: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to update offer: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update offer: {str(e)}") from e
 
 
 @router.post("/products/find-by-eans", response_model=dict[str, Any])
@@ -211,12 +211,12 @@ async def find_products_by_eans(
 
     except EmagApiError as e:
         logger.error(f"eMAG API error searching EANs: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error searching EANs: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to search EANs: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to search EANs: {str(e)}") from e
 
 
 @router.post("/products/measurements", response_model=dict[str, Any])
@@ -259,14 +259,14 @@ async def save_product_measurements(
 
     except EmagApiError as e:
         logger.error(f"eMAG API error saving measurements: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error saving measurements: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to save measurements: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/categories", response_model=dict[str, Any])
@@ -324,14 +324,14 @@ async def get_emag_categories(
 
     except EmagApiError as e:
         logger.error(f"eMAG API error fetching categories: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching categories: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch categories: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/vat-rates", response_model=dict[str, Any])
@@ -366,14 +366,14 @@ async def get_vat_rates(
 
     except EmagApiError as e:
         logger.error(f"eMAG API error fetching VAT rates: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching VAT rates: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch VAT rates: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/handling-times", response_model=dict[str, Any])
@@ -408,14 +408,14 @@ async def get_handling_times(
 
     except EmagApiError as e:
         logger.error(f"eMAG API error fetching handling times: {e}")
-        raise HTTPException(status_code=e.status_code or 500, detail=str(e))
+        raise HTTPException(status_code=e.status_code or 500, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching handling times: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch handling times: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/offers/bulk-update-light", response_model=dict[str, Any])
@@ -451,7 +451,10 @@ async def bulk_update_offers_light(
     if len(updates) > 100:
         raise HTTPException(
             status_code=400,
-            detail="Maximum 100 updates allowed per request. Use multiple requests for larger batches.",
+            detail=(
+                "Maximum 100 updates allowed per request. "
+                "Use multiple requests for larger batches."
+            ),
         )
 
     results = []
@@ -575,7 +578,10 @@ async def bulk_update_offers_light(
 
     return {
         "status": "completed",
-        "message": f"Processed {len(updates)} updates: {total_success} succeeded, {total_failed} failed",
+        "message": (
+            f"Processed {len(updates)} updates: "
+            f"{total_success} succeeded, {total_failed} failed"
+        ),
         "summary": {
             "total": len(updates),
             "success": total_success,

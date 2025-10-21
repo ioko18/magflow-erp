@@ -4,9 +4,9 @@ seed-orders:
 	@echo "Seeding sample orders into local database..."
 	@python3 scripts/seed_sample_orders.py
 .PHONY: help install test test-unit test-integration test-e2e test-cov lint format type-check check pre-commit-install pre-commit-run pre-commit-update clean start
-.PHONY: up up-proxy up-monitoring up-ops down logs prod prod-proxy prod-monitoring prod-otel prod-certs ci ci-down
+.PHONY: up up-proxy up-monitoring up-ops down down-keep-data logs prod prod-proxy prod-monitoring prod-otel prod-certs ci ci-down
 .PHONY: up-simple down-simple logs-simple ps-simple restart-simple clean-orphans migrate-compose downgrade-compose app-shell db-shell redis-cli compose-lint logs-worker logs-flower health
-.PHONY: local-smoke manage-logs
+.PHONY: local-smoke manage-logs seed-suppliers seed-all db-backup db-restore db-restore-force
 
 # Local maintenance defaults (overridable via environment)
 MAX_DIR_MB ?= 200
@@ -36,7 +36,8 @@ help:
 	@echo "  make up-proxy        - dev with proxy profile"
 	@echo "  make up-monitoring   - dev with monitoring profile"
 	@echo "  make up-ops          - dev with worker & flower (ops)"
-	@echo "  make down            - docker compose down -v"
+	@echo "  make down            - docker compose down -v (DELETES ALL DATA!)"
+	@echo "  make down-keep-data  - docker compose down (keeps volumes/data)"
 	@echo "  make down-simple     - docker compose down -v (simple)"
 	@echo "  make logs            - tail app logs"
 	@echo "  make ps              - docker compose ps"
@@ -62,6 +63,13 @@ help:
 	@echo "  make prod-certs      - production with Certbot"
 	@echo "  make ci              - CI compose up"
 	@echo "  make ci-down         - CI compose down -v"
+	@echo ""
+	@echo "🗄️  Database:"
+	@echo "  make seed-suppliers     - Seed supplier products data"
+	@echo "  make seed-all           - Seed all demo data (suppliers, orders, etc.)"
+	@echo "  make db-backup          - Backup database to backups/ directory"
+	@echo "  make db-restore         - Restore database from latest backup (with confirmation)"
+	@echo "  make db-restore-force   - Force restore without confirmation"
 
 # Start the server
 start:
@@ -93,7 +101,19 @@ up-ops:
 	docker compose --profile ops up
 
 down:
-	docker compose down -v
+	@echo "⚠️  WARNING: This will DELETE ALL DATA (volumes will be removed)!"
+	@echo "⚠️  Use 'make down-keep-data' to keep your data."
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		docker compose down -v; \
+	else \
+		echo "Cancelled."; \
+	fi
+
+down-keep-data:
+	@echo "🔄 Stopping containers (keeping data)..."
+	docker compose down
 
 restart:
 	docker compose restart app
@@ -392,3 +412,56 @@ k8s-deploy:
 k8s-status:
 	@echo "📊 Checking Kubernetes status..."
 	kubectl get pods -o wide
+
+# Database seeding and backup operations
+seed-suppliers:
+	@echo "🌱 Seeding supplier products data..."
+	docker compose exec app python scripts/seed_supplier_products.py || \
+	python3 scripts/seed_supplier_products.py
+
+seed-all: seed-suppliers
+	@echo "🌱 Seeding all demo data..."
+	@echo "  ✅ Supplier products seeded"
+	@echo "  ℹ️  Add more seed commands here as needed"
+
+db-backup:
+	@echo "💾 Creating database backup..."
+	@mkdir -p backups
+	@TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
+	docker compose exec -T db pg_dump -U app -d magflow | gzip > backups/magflow_$$TIMESTAMP.sql.gz && \
+	echo "✅ Backup created: backups/magflow_$$TIMESTAMP.sql.gz"
+
+db-restore:
+	@echo "📥 Restoring database from latest backup..."
+	@LATEST=$$(ls -t backups/magflow_*.sql.gz 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "❌ No backup files found in backups/"; \
+		exit 1; \
+	fi; \
+	echo "⚠️  This will DROP and recreate the database!"; \
+	echo "Restoring from: $$LATEST"; \
+	read -p "Continue? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "🗑️  Dropping database..."; \
+		docker compose exec -T db psql -U app -d postgres -c "DROP DATABASE IF EXISTS magflow;" && \
+		docker compose exec -T db psql -U app -d postgres -c "CREATE DATABASE magflow;" && \
+		echo "📥 Restoring data..."; \
+		gunzip -c $$LATEST | docker compose exec -T db psql -U app -d magflow > /dev/null 2>&1 && \
+		echo "✅ Database restored successfully!"; \
+	else \
+		echo "Cancelled."; \
+	fi
+
+db-restore-force:
+	@echo "📥 Force restoring database (no confirmation)..."
+	@LATEST=$$(ls -t backups/magflow_*.sql.gz 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "❌ No backup files found in backups/"; \
+		exit 1; \
+	fi; \
+	echo "Restoring from: $$LATEST"; \
+	docker compose exec -T db psql -U app -d postgres -c "DROP DATABASE IF EXISTS magflow;" && \
+	docker compose exec -T db psql -U app -d postgres -c "CREATE DATABASE magflow;" && \
+	gunzip -c $$LATEST | docker compose exec -T db psql -U app -d magflow > /dev/null 2>&1 && \
+	echo "✅ Database restored successfully!"

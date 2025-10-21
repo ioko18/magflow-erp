@@ -148,7 +148,7 @@ async def copy_product_to_fbe(
         raise
     except Exception as e:
         logger.error(f"Error in copy_product_to_fbe: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/bulk-copy-to-fbe")
@@ -206,7 +206,7 @@ async def bulk_copy_products_to_fbe(
 
     except Exception as e:
         logger.error(f"Error in bulk_copy_products_to_fbe: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/copy-preview/{product_id}")
@@ -226,7 +226,9 @@ async def preview_copy_to_fbe(
 
     **Example:**
     ```
-    GET /api/v1/emag/products/copy-preview/123e4567-e89b-12d3-a456-426614174000?pricing_strategy=discount&discount_percent=5
+    GET /api/v1/emag/products/copy-preview/123e4567-e89b-12d3-a456-426614174000?
+        pricing_strategy=discount&
+        discount_percent=5
     ```
     """
     try:
@@ -283,7 +285,7 @@ async def preview_copy_to_fbe(
         raise
     except Exception as e:
         logger.error(f"Error in preview_copy_to_fbe: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/migrate-to-fbe")
@@ -344,7 +346,7 @@ async def migrate_product_to_fbe(
         raise
     except Exception as e:
         logger.error(f"Error in migrate_product_to_fbe: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/bulk-migrate-to-fbe")
@@ -414,4 +416,4 @@ async def bulk_migrate_to_fbe(
 
     except Exception as e:
         logger.error(f"Error in bulk_migrate_to_fbe: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

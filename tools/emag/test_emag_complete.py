@@ -131,10 +131,15 @@ class EmagIntegrationTester:
                 if response.status_code == 200:
                     data = response.json()
                     stats = data.get("sync_statistics", {})
+                    total_syncs = stats.get("total_syncs", 0)
+                    success_rate = stats.get("success_rate", 0)
                     self.log_test(
                         "eMAG Status Endpoint",
                         True,
-                        f"Total syncs: {stats.get('total_syncs', 0)}, Success rate: {stats.get('success_rate', 0)}%"
+                        (
+                            f"Total syncs: {total_syncs}, "
+                            f"Success rate: {success_rate}%"
+                        ),
                     )
                 else:
                     self.log_test(

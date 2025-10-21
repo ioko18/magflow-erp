@@ -83,7 +83,12 @@ async def test_connection():
                 {"schema": settings.DB_SCHEMA}
             )
             tables = [row[0] for row in result.fetchall()]
-            logger.info(f"📋 Found {len(tables)} tables in '{settings.DB_SCHEMA}' schema: {', '.join(tables)}")
+            logger.info(
+                "📋 Found %s tables in '%s' schema: %s",
+                len(tables),
+                settings.DB_SCHEMA,
+                ", ".join(tables),
+            )
     finally:
         await engine.dispose()
 

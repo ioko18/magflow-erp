@@ -46,8 +46,8 @@ from .emag_product_sync import router as product_sync_router
 
 # Sync endpoints
 from .emag_sync import router as sync_router
-from .emag_v449 import router as v449_router
-from .enhanced_emag_sync import router as enhanced_sync_router
+# emag_v449 removed - functionality not used
+# enhanced_emag_sync removed - functionality not used
 from .imports import router as imports_router
 from .integration import router as integration_router
 from .mappings import router as mappings_router

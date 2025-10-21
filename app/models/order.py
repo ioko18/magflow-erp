@@ -30,7 +30,10 @@ class Order(Base):
         ForeignKey("app.users.id"),
         index=True,
     )
-    order_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    order_date: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
     status: Mapped[str] = mapped_column(String(50), default="pending")
     total_amount: Mapped[float] = mapped_column(Float, default=0.0)
     external_id: Mapped[str | None] = mapped_column(

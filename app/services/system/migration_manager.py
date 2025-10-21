@@ -9,6 +9,7 @@ Oferă funcționalități de:
 - Validare integritate schema
 """
 
+import shutil
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -44,6 +45,22 @@ class MigrationManager:
         self.db = db
         self.alembic_dir = Path(__file__).parent.parent.parent / "alembic"
         self.versions_dir = self.alembic_dir / "versions"
+
+        # Cache pentru path-uri absolute de comenzi
+        self._alembic_path = shutil.which("alembic")
+        self._docker_path = shutil.which("docker")
+
+    def _get_safe_command_path(self, command: str) -> str | None:
+        """
+        Obține path-ul absolut și sigur pentru o comandă.
+
+        Args:
+            command: Numele comenzii
+
+        Returns:
+            Path absolut sau None dacă comanda nu este găsită
+        """
+        return shutil.which(command)
 
     async def check_migration_health(self) -> dict:
         """
@@ -103,11 +120,17 @@ class MigrationManager:
     async def _get_current_version(self) -> str | None:
         """Obține versiunea curentă a migrării."""
         try:
-            result = subprocess.run(
-                ["alembic", "current"],
+            if not self._alembic_path:
+                logger.error("Alembic command not found in PATH")
+                return None
+
+            # Safe: using absolute path from shutil.which()
+            result = subprocess.run(  # noqa: S603
+                [self._alembic_path, "current"],
                 capture_output=True,
                 text=True,
                 cwd=self.alembic_dir.parent,
+                timeout=30,  # Timeout pentru securitate
             )
 
             if result.returncode == 0:
@@ -119,6 +142,9 @@ class MigrationManager:
 
             return None
 
+        except subprocess.TimeoutExpired:
+            logger.error("Timeout getting current version")
+            return None
         except Exception as e:
             logger.error(f"Error getting current version: {e}")
             return None
@@ -126,12 +152,18 @@ class MigrationManager:
     async def _get_pending_migrations(self) -> list[str]:
         """Obține lista migrărilor pending."""
         try:
+            if not self._alembic_path:
+                logger.error("Alembic command not found in PATH")
+                return []
+
             # Verifică dacă există migrări care nu au fost aplicate
-            result = subprocess.run(
-                ["alembic", "heads"],
+            # Safe: using absolute path from shutil.which()
+            result = subprocess.run(  # noqa: S603
+                [self._alembic_path, "heads"],
                 capture_output=True,
                 text=True,
                 cwd=self.alembic_dir.parent,
+                timeout=30,
             )
 
             if result.returncode == 0:
@@ -144,6 +176,9 @@ class MigrationManager:
 
             return []
 
+        except subprocess.TimeoutExpired:
+            logger.error("Timeout getting pending migrations")
+            return []
         except Exception as e:
             logger.error(f"Error getting pending migrations: {e}")
             return []
@@ -158,12 +193,18 @@ class MigrationManager:
         conflicts = []
 
         try:
+            if not self._alembic_path:
+                logger.error("Alembic command not found in PATH")
+                return []
+
             # Verifică pentru multiple heads (semn de conflict)
-            result = subprocess.run(
-                ["alembic", "heads"],
+            # Safe: using absolute path from shutil.which()
+            result = subprocess.run(  # noqa: S603
+                [self._alembic_path, "heads"],
                 capture_output=True,
                 text=True,
                 cwd=self.alembic_dir.parent,
+                timeout=30,
             )
 
             if result.returncode == 0:
@@ -372,7 +413,10 @@ class MigrationManager:
                             "category": category,
                             "file_count": len(files),
                             "files": files,
-                            "suggestion": f"Consider consolidating {len(files)} {category} migrations into a single file",
+                            "suggestion": (
+                                f"Consider consolidating {len(files)} {category} migrations "
+                                "into a single file"
+                            ),
                         }
                     )
 
@@ -390,16 +434,27 @@ class MigrationManager:
             Tuple (success, backup_path)
         """
         try:
+            if not self._docker_path:
+                logger.error("Docker command not found in PATH")
+                return False, None
+
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             backup_dir = Path(__file__).parent.parent.parent / "backups"
             backup_dir.mkdir(exist_ok=True)
 
             backup_file = backup_dir / f"pre_migration_{timestamp}.sql"
 
+            # Creează director temporar securizat în container Docker
+            # Folosim /var/tmp în loc de /tmp pentru mai multă securitate
+            # Safe: path is inside Docker container, not host system
+            # Using unique timestamp and cleaning up after operation
+            temp_backup_path = f"/var/tmp/magflow_backup_{timestamp}.sql"  # noqa: S108
+
             # Creează backup folosind pg_dump
-            result = subprocess.run(
+            # Safe: using absolute path from shutil.which()
+            result = subprocess.run(  # noqa: S603
                 [
-                    "docker",
+                    self._docker_path,
                     "exec",
                     "magflow_db",
                     "pg_dump",
@@ -408,25 +463,49 @@ class MigrationManager:
                     "-d",
                     settings.DB_NAME,
                     "-f",
-                    f"/tmp/backup_{timestamp}.sql",
+                    temp_backup_path,
                 ],
                 capture_output=True,
                 text=True,
+                timeout=300,  # 5 minute timeout pentru backup-uri mari
             )
 
             if result.returncode == 0:
                 # Copiază backup-ul din container
-                subprocess.run(
+                # Safe: using absolute path from shutil.which()
+                copy_result = subprocess.run(  # noqa: S603
                     [
-                        "docker",
+                        self._docker_path,
                         "cp",
-                        f"magflow_db:/tmp/backup_{timestamp}.sql",
+                        f"magflow_db:{temp_backup_path}",
                         str(backup_file),
-                    ]
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
                 )
 
-                logger.info(f"Backup created successfully: {backup_file}")
-                return True, str(backup_file)
+                # Curăță fișierul temporar din container
+                # Safe: using absolute path from shutil.which()
+                subprocess.run(  # noqa: S603
+                    [
+                        self._docker_path,
+                        "exec",
+                        "magflow_db",
+                        "rm",
+                        "-f",
+                        temp_backup_path,
+                    ],
+                    capture_output=True,
+                    timeout=30,
+                )
+
+                if copy_result.returncode == 0:
+                    logger.info(f"Backup created successfully: {backup_file}")
+                    return True, str(backup_file)
+                else:
+                    logger.error(f"Failed to copy backup: {copy_result.stderr}")
+                    return False, None
             else:
                 logger.error(f"Backup failed: {result.stderr}")
                 return False, None

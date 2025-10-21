@@ -1,21 +1,25 @@
-"""fix_all_timezone_columns
+"""Fix all timezone columns
 
-Revision ID: 20251013_fix_all_tz
+Revision ID: 20251013_fix_all_timezone_columns
 Revises: 20251010_add_auxiliary
-Create Date: 2025-10-13 04:10:00.000000
+Create Date: 2025-10-13 14:30:00.000000
 
 This migration consolidates timezone fixes for multiple tables:
 - import_logs (started_at, completed_at)
 - product_mappings (last_imported_at)
 - product_supplier_sheets (price_updated_at, last_imported_at, verified_at, created_at, updated_at)
 
-Note: Now follows 20251010_add_auxiliary which consolidated audit_logs and product relationships tables.
+Note: Now follows 20251010_add_auxiliary
+which consolidated audit_logs and product relationships tables.
 """
+import logging
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 
 from alembic import op
+
+logger = logging.getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision: str = '20251013_fix_all_tz'
@@ -59,11 +63,13 @@ def upgrade() -> None:
                     ALTER COLUMN {column_name} TYPE TIMESTAMP WITH TIME ZONE
                     USING {column_name} AT TIME ZONE 'UTC'
                 """))
-                print(f"✅ Converted {table_name}.{column_name} to TIMESTAMP WITH TIME ZONE")
+                logger.info(f"Converted {table_name}.{column_name} to TIMESTAMP WITH TIME ZONE")
             elif result:
-                print(f"⏭️  Skipped {table_name}.{column_name} (already TIMESTAMP WITH TIME ZONE)")
+                logger.info(
+                    f"Skipped {table_name}.{column_name} (already TIMESTAMP WITH TIME ZONE)"
+                )
             else:
-                print(f"⚠️  Column {table_name}.{column_name} not found")
+                logger.warning(f"Column {table_name}.{column_name} not found")
 
 
 def downgrade() -> None:

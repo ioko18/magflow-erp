@@ -107,11 +107,16 @@ class ValidationErrorResponse(ErrorResponse):
 RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_400_BAD_REQUEST: {
         "model": ErrorResponse,
-        "description": "Bad Request - The request could not be understood or was missing required parameters.",
+        "description": (
+            "Bad Request - The request could not be understood or was missing "
+            "required parameters."
+        ),
     },
     status.HTTP_401_UNAUTHORIZED: {
         "model": ErrorResponse,
-        "description": "Unauthorized - Authentication failed or user doesn't have permissions.",
+        "description": (
+            "Unauthorized - Authentication failed or user doesn't have permissions."
+        ),
         "headers": {
             "WWW-Authenticate": {
                 "description": "Indicates the authentication scheme and parameters to use",
@@ -129,11 +134,16 @@ RESPONSES: dict[int | str, dict[str, Any]] = {
     },
     status.HTTP_409_CONFLICT: {
         "model": ErrorResponse,
-        "description": "Conflict - The request conflicts with the current state of the server.",
+        "description": (
+            "Conflict - The request conflicts with the current state of the server."
+        ),
     },
     status.HTTP_422_UNPROCESSABLE_CONTENT: {
         "model": ValidationErrorResponse,
-        "description": "Validation Error - The request was well-formed but was unable to be followed due to semantic errors.",
+        "description": (
+            "Validation Error - The request was well-formed but was unable to be "
+            "followed due to semantic errors."
+        ),
     },
     status.HTTP_429_TOO_MANY_REQUESTS: {
         "model": ErrorResponse,
@@ -151,7 +161,10 @@ RESPONSES: dict[int | str, dict[str, Any]] = {
     },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,
-        "description": "Service Unavailable - The server is currently unable to handle the request due to temporary overloading or maintenance.",
+        "description": (
+            "Service Unavailable - The server is currently unable to handle the "
+            "request due to temporary overloading or maintenance."
+        ),
         "headers": {
             "Retry-After": {
                 "description": "Indicates how long to wait before making a new request",

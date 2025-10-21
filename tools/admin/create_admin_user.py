@@ -13,8 +13,6 @@ user_site = "/Users/macos/Library/Python/3.9/lib/python/site-packages"
 sys.path.insert(0, user_site)
 
 try:
-    import asyncpg
-    import sqlalchemy
     from passlib.hash import bcrypt
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -48,8 +46,20 @@ try:
 
             # Insert admin user
             await conn.execute(text("""
-                INSERT INTO app.users (email, hashed_password, full_name, is_superuser, email_verified)
-                VALUES (:email, :password, :name, :is_superuser, :verified)
+                INSERT INTO app.users (
+                    email,
+                    hashed_password,
+                    full_name,
+                    is_superuser,
+                    email_verified
+                )
+                VALUES (
+                    :email,
+                    :password,
+                    :name,
+                    :is_superuser,
+                    :verified
+                )
             """), {
                 "email": "admin@magflow.local",
                 "password": hashed_password,

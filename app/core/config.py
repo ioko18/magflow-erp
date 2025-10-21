@@ -6,10 +6,11 @@ loaded from environment variables with sensible defaults.
 
 import logging
 import os
+import tempfile
 from functools import lru_cache
 from typing import Any
 
-from pydantic import computed_field
+from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ..core.exceptions import ConfigurationError
@@ -25,7 +26,8 @@ class Settings(BaseSettings):
     SERVICE_NAME: str = (
         "magflow-service"  # Used for logging, metrics, and service identification
     )
-    PROJECT_NAME: str = "MagFlow ERP"  # Used for OpenAPI documentation and other places where the project name is needed
+    # Used for OpenAPI documentation and other places where the project name is needed
+    PROJECT_NAME: str = "MagFlow ERP"
     APP_PORT: int = 8000
     APP_DEBUG: bool = True
     DEBUG: bool = True  # Alias for APP_DEBUG for compatibility
@@ -60,7 +62,12 @@ class Settings(BaseSettings):
         database_url = os.getenv("DATABASE_URL")
         if database_url:
             return database_url
-        return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return (
+            "postgresql+asyncpg://"
+            f"{self.DB_USER}:{self.DB_PASS}@"
+            f"{self.DB_HOST}:{self.DB_PORT}/"
+            f"{self.DB_NAME}"
+        )
 
     @computed_field
     @property
@@ -325,7 +332,12 @@ class Settings(BaseSettings):
     # Metrics and monitoring settings
     METRICS_PATH: str = "/metrics"
     METRICS_PORT: int = 8001
-    PROMETHEUS_MULTIPROC_DIR: str = "/tmp/prometheus"
+    # Prometheus multiproc dir - configurable via env var
+    # Use environment variable or default to system temp directory
+    PROMETHEUS_MULTIPROC_DIR: str = Field(
+        default_factory=lambda: os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+        or os.path.join(tempfile.gettempdir(), "prometheus")
+    )
 
     # Health check settings
     HEALTH_CHECK_PATHS: str = "/health,/health/,/api/v1/health"
@@ -408,7 +420,8 @@ class Settings(BaseSettings):
                     )
                 else:
                     warnings.append(
-                        f"Setting {setting_name} is using default value (acceptable in {self.APP_ENV})"
+                        "Setting "
+                        f"{setting_name} is using default value (acceptable in {self.APP_ENV})"
                     )
 
         # Validate database connection settings

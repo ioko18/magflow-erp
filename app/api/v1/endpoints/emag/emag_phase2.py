@@ -113,7 +113,7 @@ async def get_courier_accounts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch courier accounts: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/awb/{order_id}/generate", status_code=status.HTTP_200_OK)
@@ -140,7 +140,7 @@ async def generate_awb(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate AWB: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/awb/{awb_number}", status_code=status.HTTP_200_OK)
@@ -163,7 +163,7 @@ async def get_awb_details(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch AWB details: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/awb/bulk-generate", status_code=status.HTTP_200_OK)
@@ -191,7 +191,7 @@ async def bulk_generate_awbs(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to bulk generate AWBs: {str(e)}",
-        )
+        ) from e
 
 
 # ========== EAN Product Matching Endpoints ==========
@@ -216,7 +216,7 @@ async def search_product_by_ean(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to search EAN: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/ean/bulk-search", status_code=status.HTTP_200_OK)
@@ -238,7 +238,7 @@ async def bulk_search_products_by_ean(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to bulk search EANs: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/ean/match", status_code=status.HTTP_200_OK)
@@ -262,7 +262,7 @@ async def match_or_suggest_product(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to match EAN: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/ean/validate/{ean}", status_code=status.HTTP_200_OK)
@@ -285,7 +285,7 @@ async def validate_ean(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to validate EAN: {str(e)}",
-        )
+        ) from e
 
 
 # ========== Invoice Generation Endpoints ==========
@@ -313,7 +313,7 @@ async def get_invoice_data(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate invoice data: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/invoice/{order_id}/generate", status_code=status.HTTP_200_OK)
@@ -338,7 +338,7 @@ async def generate_and_attach_invoice(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate invoice: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/invoice/bulk-generate", status_code=status.HTTP_200_OK)
@@ -364,4 +364,4 @@ async def bulk_generate_invoices(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to bulk generate invoices: {str(e)}",
-        )
+        ) from e

@@ -127,7 +127,8 @@ class PgBouncerBenchmark:
         total_queries = queries_per_thread * num_threads
         print(
             f"Running {total_queries} queries across {num_threads} threads "
-            f"({queries_per_thread} queries/thread) - {'prepared' if use_prepared else 'unprepared'}"
+            f"({queries_per_thread} queries/thread) - "
+            f"{'prepared' if use_prepared else 'unprepared'}"
         )
 
         def worker(_) -> list[float]:
@@ -291,7 +292,8 @@ def main():
 
     if not args.dsn:
         print(
-            "Error: Please provide a database connection string via --dsn or DATABASE_URL environment variable"
+            "Error: Please provide a database connection string via --dsn or "
+            "DATABASE_URL environment variable"
         )
         return
 

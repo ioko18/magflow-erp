@@ -4,6 +4,7 @@ Handles importing products from Google Sheets and managing mappings
 """
 
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -195,12 +196,25 @@ async def import_from_google_sheets(
     - Tab: "Products"
     - Required columns: SKU, Romanian_Name, Emag_FBE_RO_Price_RON
     """
+    import_start_time = datetime.now()
+    logger.info(
+        f"Starting Google Sheets import requested by {current_user.email}. "
+        f"auto_map={request.auto_map}, import_suppliers={request.import_suppliers}"
+    )
+
     try:
         service = ProductImportService(db)
         import_log = await service.import_from_google_sheets(
             user_email=current_user.email,
             auto_map=request.auto_map,
             import_suppliers=request.import_suppliers,
+        )
+
+        import_duration = (datetime.now() - import_start_time).total_seconds()
+        logger.info(
+            f"Import completed successfully in {import_duration:.2f}s. "
+            f"Total: {import_log.total_rows}, Success: {import_log.successful_imports}, "
+            f"Failed: {import_log.failed_imports}"
         )
 
         return ImportResponse(
@@ -215,12 +229,58 @@ async def import_from_google_sheets(
             duration_seconds=import_log.duration_seconds,
             error_message=import_log.error_message,
         )
+    except FileNotFoundError as e:
+        logger.error(f"Service account file not found: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Service account configuration file not found. Please contact administrator."
+        ) from e
+    except TimeoutError as e:
+        import_duration = (datetime.now() - import_start_time).total_seconds()
+        logger.error(f"Import timeout after {import_duration:.2f}s: {e}")
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Import operation timed out after {import_duration:.0f} seconds. "
+                "This usually happens with large datasets. Please try again or contact support."
+            )
+        ) from e
     except Exception as e:
-        logger.error(f"Import failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import_duration = (datetime.now() - import_start_time).total_seconds()
+        error_msg = str(e)
+        logger.error(
+            f"Import failed after {import_duration:.2f}s: {e}",
+            exc_info=True,
+            extra={
+                "user": current_user.email,
+                "auto_map": request.auto_map,
+                "import_suppliers": request.import_suppliers,
+            }
+        )
+
+        # Provide user-friendly error messages
+        if "Network" in error_msg or "Connection" in error_msg or "Timeout" in error_msg:
+            detail = (
+                "Network Error: Unable to connect to Google Sheets. "
+                "Please check your internet connection and try again."
+            )
+        elif "authenticate" in error_msg.lower():
+            detail = (
+                "Authentication Error: Failed to authenticate with Google Sheets API. "
+                "Please contact administrator."
+            )
+        elif "spreadsheet" in error_msg.lower():
+            detail = (
+                "Spreadsheet Error: Unable to access the Google Sheets document. "
+                "Please verify permissions."
+            )
+        else:
+            detail = f"Import Error: {error_msg}"
+
+        raise HTTPException(status_code=500, detail=detail) from e
 
 
-@router.get("/mappings/statistics", response_model=MappingStatistics)
+@router.get("/statistics", response_model=MappingStatistics)
 async def get_mapping_statistics(
     db: AsyncSession = Depends(get_database_session),
     current_user: User = Depends(get_current_user),
@@ -242,7 +302,7 @@ async def get_mapping_statistics(
         return MappingStatistics(**stats)
     except Exception as e:
         logger.error(f"Failed to get statistics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/mappings", response_model=list[ProductMappingResponse])
@@ -294,7 +354,7 @@ async def get_product_mappings(
         ]
     except Exception as e:
         logger.error(f"Failed to get mappings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/mappings/lookup", response_model=ProductLookupResponse)
@@ -394,10 +454,10 @@ async def create_manual_mapping(
             notes=mapping.notes,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Failed to create manual mapping: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/history", response_model=list[ImportLogResponse])
@@ -433,7 +493,7 @@ async def get_import_history(
         ]
     except Exception as e:
         logger.error(f"Failed to get import history: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/suppliers/{sku}", response_model=list[ProductSupplierResponse])
@@ -472,7 +532,7 @@ async def get_product_suppliers(
         ]
     except Exception as e:
         logger.error(f"Failed to get suppliers for SKU {sku}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/suppliers-statistics", response_model=SupplierStatistics)
@@ -495,7 +555,29 @@ async def get_supplier_statistics(
         return SupplierStatistics(**stats)
     except Exception as e:
         logger.error(f"Failed to get supplier statistics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+class SupplierProductResponse(BaseModel):
+    """Supplier product information from Google Sheets"""
+
+    id: int
+    sku: str
+    supplier_name: str
+    price_cny: float
+    calculated_price_ron: float | None
+    exchange_rate_cny_ron: float | None
+    supplier_contact: str | None
+    supplier_url: str | None
+    supplier_notes: str | None
+    is_active: bool
+    is_preferred: bool
+    is_verified: bool
+    last_imported_at: str | None
+    created_at: str | None
+
+    class Config:
+        from_attributes = True
 
 
 @router.get("/supplier-products")
@@ -522,10 +604,31 @@ async def get_all_supplier_products(
             sku=sku, supplier_name=supplier_name
         )
 
-        return {"data": products, "total": total, "skip": skip, "limit": limit}
+        # Convert to response models
+        product_responses = [
+            SupplierProductResponse(
+                id=p.id,
+                sku=p.sku,
+                supplier_name=p.supplier_name,
+                price_cny=p.price_cny,
+                calculated_price_ron=p.calculated_price_ron,
+                exchange_rate_cny_ron=p.exchange_rate_cny_ron,
+                supplier_contact=p.supplier_contact,
+                supplier_url=p.supplier_url,
+                supplier_notes=p.supplier_notes,
+                is_active=p.is_active,
+                is_preferred=p.is_preferred,
+                is_verified=p.is_verified,
+                last_imported_at=p.last_imported_at.isoformat() if p.last_imported_at else None,
+                created_at=p.created_at.isoformat() if p.created_at else None,
+            )
+            for p in products
+        ]
+
+        return {"data": product_responses, "total": total, "skip": skip, "limit": limit}
     except Exception as e:
         logger.error(f"Failed to get supplier products: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/sheets/test-connection")
@@ -543,15 +646,11 @@ async def test_google_sheets_connection(current_user: User = Depends(get_current
 
         service = GoogleSheetsService()
 
-        # Test authentication
-        if not service.authenticate():
-            raise HTTPException(
-                status_code=500, detail="Failed to authenticate with Google Sheets API"
-            )
+        # Test authentication - now raises detailed exceptions
+        service.authenticate()
 
-        # Test opening spreadsheet
-        if not service.open_spreadsheet():
-            raise HTTPException(status_code=500, detail="Failed to open spreadsheet")
+        # Test opening spreadsheet - now raises detailed exceptions
+        service.open_spreadsheet()
 
         # Get statistics
         stats = service.get_sheet_statistics()
@@ -561,6 +660,15 @@ async def test_google_sheets_connection(current_user: User = Depends(get_current
             "message": "Successfully connected to Google Sheets",
             "statistics": stats,
         }
+    except FileNotFoundError as e:
+        logger.error(f"Service account file not found: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect. Check service_account.json configuration: {str(e)}"
+        ) from e
     except Exception as e:
-        logger.error(f"Connection test failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Connection test failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to connect. Check service_account.json configuration: {str(e)}"
+        ) from e

@@ -47,7 +47,8 @@ router.include_router(core_orders_router, tags=["emag-core"])
 router.include_router(core_sync_router, tags=["emag-core"])
 router.include_router(core_cache_router, tags=["emag-core"])
 
-# eMAG Product Synchronization endpoints (must be registered BEFORE emag_integration to avoid route conflicts)
+# eMAG Product Synchronization endpoints (must be registered BEFORE
+# emag_integration to avoid route conflicts)
 router.include_router(emag_product_sync, prefix="/products", tags=["emag-product-sync"])
 
 # eMAG Product Copy endpoints (copy products from MAIN to FBE)

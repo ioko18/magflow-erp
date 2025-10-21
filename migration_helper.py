@@ -170,11 +170,13 @@ class MigrationHelper:
         )
         sql_parts.append("-- Index for emag_products lookup")
         sql_parts.append(
-            "CREATE INDEX IF NOT EXISTS idx_emag_products_account_sku ON emag_products(account_type, sku);"
+            "CREATE INDEX IF NOT EXISTS idx_emag_products_account_sku ON "
+            "emag_products(account_type, sku);"
         )
         sql_parts.append("-- Index for emag_product_offers lookup")
         sql_parts.append(
-            "CREATE INDEX IF NOT EXISTS idx_emag_offers_account_sku ON emag_product_offers(account_type, sku);"
+            "CREATE INDEX IF NOT EXISTS idx_emag_offers_account_sku ON "
+            "emag_product_offers(account_type, sku);"
         )
         sql_parts.append("")
 

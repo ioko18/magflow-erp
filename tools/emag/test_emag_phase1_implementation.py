@@ -112,7 +112,10 @@ class Phase1Tester:
 
                 # Test 8: EAN matching
                 print("\n✓ Testing: find_products_by_eans method...")
-                assert hasattr(client, 'find_products_by_eans'), "Method find_products_by_eans not found"
+                assert hasattr(
+                    client,
+                    "find_products_by_eans",
+                ), "Method find_products_by_eans not found"
                 results['find_products_by_eans'] = "✅ EXISTS"
                 print("  ✅ Method exists")
 

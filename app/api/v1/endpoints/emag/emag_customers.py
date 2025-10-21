@@ -184,7 +184,12 @@ async def get_emag_customers(
             summary_query = """
                 SELECT
                     COUNT(DISTINCT customer_name) as total_customers,
-                    COUNT(DISTINCT CASE WHEN order_date > NOW() - INTERVAL '30 days' THEN customer_name END) as active_customers,
+                    COUNT(
+                        DISTINCT CASE
+                            WHEN order_date > NOW() - INTERVAL '30 days'
+                                THEN customer_name
+                        END
+                    ) as active_customers,
                     SUM(total_amount) as total_spent,
                     account_type as channel,
                     COUNT(*) as channel_count
@@ -219,13 +224,14 @@ async def get_emag_customers(
             vip_count = loyalty_dist["gold"]
 
             # Calculate new customers this month
+            cutoff_date = datetime.now(UTC) - timedelta(days=30)
             new_this_month = len(
                 [
                     c
                     for c in customers
                     if c["created_at"]
-                    and datetime.fromisoformat(c["created_at"])
-                    > datetime.now(UTC) - timedelta(days=30)
+                    and datetime.fromisoformat(c["created_at"]).replace(tzinfo=UTC)
+                    > cutoff_date
                 ]
             )
 
@@ -260,7 +266,7 @@ async def get_emag_customers(
         logger.error("Failed to fetch eMAG customers: %s", str(e), exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch customers: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/emag-customers/{customer_id}")
@@ -328,4 +334,4 @@ async def get_customer_details(
         logger.error("Failed to fetch customer details: %s", str(e), exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch customer details: {str(e)}"
-        )
+        ) from e

@@ -66,7 +66,7 @@ class SupplierImportService:
         try:
             df = pd.read_excel(BytesIO(file_content))
         except Exception as e:
-            raise ValueError(f"Failed to read Excel file: {str(e)}")
+            raise ValueError(f"Failed to read Excel file: {str(e)}") from e
 
         # Validate columns
         missing_columns = []
@@ -163,7 +163,11 @@ class SupplierImportService:
             raise ValueError(f"Supplier {supplier_id} not found")
 
         if batch_id is None:
-            batch_id = f"import_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            batch_id = (
+                "import_"
+                f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+                f"_{uuid.uuid4().hex[:8]}"
+            )
 
         imported_count = 0
         skipped_count = 0

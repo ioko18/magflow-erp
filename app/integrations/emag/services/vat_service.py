@@ -345,12 +345,7 @@ class VatService:
 
         except Exception as e:
             logger.error(f"Error fetching default VAT rate: {e!s}", exc_info=True)
-            # If we get here, we couldn't find a default rate through any method
-            raise ValueError(
-                f"No default VAT rate found for country {country_code} "
-                f"on {effective_date.isoformat()}",
-            ) from e
-            # Return cached data if available, even if expired
+            # Try to return cached data if available, even if expired
             try:
                 cached_rate = await self._cache.get_default_rate(country_code)
                 if cached_rate:
@@ -358,10 +353,12 @@ class VatService:
                     return cached_rate
             except Exception as cache_err:
                 logger.warning(f"Error getting stale cache: {cache_err!s}")
+
+            # If we get here, we couldn't find a default rate through any method
             raise ValueError(
-                f"No default VAT rate found for country: {country_code} "
-                f"on {effective_date.strftime('%Y-%m-%d')}",
-            )
+                f"No default VAT rate found for country {country_code} "
+                f"on {effective_date.isoformat()}",
+            ) from e
 
     async def get_rate_by_id(
         self,

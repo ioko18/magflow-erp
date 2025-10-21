@@ -448,7 +448,7 @@ class ConfigurationManager:
         except Exception as e:
             raise ConfigurationError(
                 f"Failed to load configuration file {file_path}: {e}",
-            )
+            ) from e
 
     def get_config(self) -> AppConfig:
         """Get current configuration."""
@@ -572,7 +572,7 @@ def export_config_to_file(config: AppConfig, file_path: str, format: str = "yaml
         logger.info("Configuration exported to %s", file_path)
 
     except Exception as e:
-        raise ConfigurationError(f"Failed to export configuration: {e}")
+        raise ConfigurationError(f"Failed to export configuration: {e}") from e
 
 
 # Environment detection utilities

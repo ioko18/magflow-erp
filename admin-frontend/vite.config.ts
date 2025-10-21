@@ -22,8 +22,8 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         ws: true, // Enable WebSocket proxying
-        timeout: 30000, // 30 second timeout
-        proxyTimeout: 30000,
+        timeout: 300000, // 5 minute timeout for long-running operations (imports, exports)
+        proxyTimeout: 300000,
         configure: (proxy, options) => { // cast to any for event listeners
           (proxy as any).on('error', (err, req, res) => {
             console.error('❌ Proxy error:', err.message);

@@ -201,7 +201,8 @@ class PerformanceEnhancer:
 
         if metrics.database_queries > 10:
             self.logger.warning(
-                f"Excessive database queries in test {metrics.test_name}: {metrics.database_queries} queries"
+                "Excessive database queries in test "
+                f"{metrics.test_name}: {metrics.database_queries} queries"
             )
 
         if self.db_tracker.slow_queries:

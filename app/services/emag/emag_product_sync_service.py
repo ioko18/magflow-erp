@@ -125,8 +125,8 @@ class EmagProductSyncService:
                 username=username,
                 password=password,
                 base_url=base_url,
-                timeout=30,
-                max_retries=3,
+                timeout=90,  # Increased to 90s for large product lists
+                max_retries=5,  # Increased retries for better resilience
             )
             await client.start()
             self._clients[account] = client
@@ -145,9 +145,13 @@ class EmagProductSyncService:
         items_per_page: int,
         filters: dict[str, Any],
         account: str,
-        max_retries: int = 3,
-    ) -> dict[str, Any]:
-        """Fetch products with exponential backoff retry logic."""
+        max_retries: int = 5,
+    ) -> dict[str, Any] | None:
+        """Fetch products with exponential backoff retry logic.
+
+        Returns:
+            Response dict on success, None if page should be skipped after max retries
+        """
         for attempt in range(max_retries):
             try:
                 response = await client.get_products(
@@ -155,11 +159,18 @@ class EmagProductSyncService:
                     items_per_page=items_per_page,
                     filters=filters,
                 )
+                # Success - reset any error tracking
+                if attempt > 0:
+                    logger.info(
+                        f"Successfully fetched {account} page {page} after {attempt + 1} attempts"
+                    )
                 return response
             except EmagApiError as e:
-                if attempt < max_retries - 1:
-                    # Retry on rate limit or server errors
-                    if e.status_code in [429, 500, 502, 503, 504]:
+                is_last_attempt = attempt >= max_retries - 1
+
+                # Retry on rate limit or server errors
+                if e.status_code in [429, 500, 502, 503, 504]:
+                    if not is_last_attempt:
                         wait_time = min(2 ** (attempt + 1), 30)
                         logger.warning(
                             f"Retry {attempt + 1}/{max_retries} for {account} page {page} "
@@ -167,20 +178,41 @@ class EmagProductSyncService:
                         )
                         await asyncio.sleep(wait_time)
                         continue
-                # Re-raise on last attempt or non-retryable errors
+                    else:
+                        # Last attempt failed - log and return None to skip page
+                        logger.error(
+                            f"Failed to fetch {account} page {page} after {max_retries} attempts "
+                            f"(status: {e.status_code}). Skipping this page."
+                        )
+                        self._sync_stats["errors"].append(
+                            f"{account} page {page}: Failed after {max_retries} retries (HTTP {e.status_code})"
+                        )
+                        return None
+                # Re-raise on non-retryable errors
                 raise
             except Exception as e:
-                if attempt < max_retries - 1:
+                is_last_attempt = attempt >= max_retries - 1
+                if not is_last_attempt:
                     wait_time = min(2 ** (attempt + 1), 30)
                     logger.warning(
-                        f"Retry {attempt + 1}/{max_retries} after error: {e}"
+                        f"Retry {attempt + 1}/{max_retries} for {account} page {page} "
+                        f"after error: {type(e).__name__}: {e}"
                     )
                     await asyncio.sleep(wait_time)
                     continue
-                raise
+                else:
+                    # Last attempt failed - log and return None to skip page
+                    logger.error(
+                        f"Failed to fetch {account} page {page} after {max_retries} attempts: {e}. "
+                        f"Skipping this page."
+                    )
+                    self._sync_stats["errors"].append(
+                        f"{account} page {page}: {type(e).__name__}: {str(e)[:100]}"
+                    )
+                    return None
 
         # Should not reach here, but just in case
-        raise EmagApiError(f"Failed to fetch products after {max_retries} retries")
+        return None
 
     async def sync_all_products(
         self,
@@ -203,8 +235,13 @@ class EmagProductSyncService:
             Dictionary with sync statistics
         """
         logger.info(
-            f"Starting product sync: mode={mode}, account={self.account_type}, "
-            f"max_pages={max_pages}, include_inactive={include_inactive}, timeout={timeout_seconds}s"
+            "Starting product sync: mode=%s, account=%s, max_pages=%s, "
+            "include_inactive=%s, timeout=%ss",
+            mode,
+            self.account_type,
+            max_pages,
+            include_inactive,
+            timeout_seconds,
         )
 
         # Create sync log
@@ -249,7 +286,7 @@ class EmagProductSyncService:
             logger.info(f"Product sync completed: {self._sync_stats}")
             return self._sync_stats
 
-        except TimeoutError:
+        except TimeoutError as timeout_err:
             error_msg = f"Product sync timed out after {timeout_seconds} seconds"
             logger.error(error_msg)
             await self._complete_sync_log(sync_log, "failed", error_msg)
@@ -261,7 +298,7 @@ class EmagProductSyncService:
             )
             record_sync_timeout(self.account_type, "products")
 
-            raise ServiceError(error_msg)
+            raise ServiceError(error_msg) from timeout_err
         except Exception as e:
             logger.error(f"Product sync failed: {e}", exc_info=True)
             await self._complete_sync_log(sync_log, "failed", str(e))
@@ -310,8 +347,8 @@ class EmagProductSyncService:
         """Sync products for a specific account."""
         page = 1
         has_more = True
-        consecutive_errors = 0
-        max_consecutive_errors = 5
+        skipped_pages = 0
+        max_skipped_pages = 3  # Allow skipping up to 3 pages before stopping
 
         while has_more and (max_pages is None or page <= max_pages):
             try:
@@ -329,15 +366,35 @@ class EmagProductSyncService:
                     items_per_page=items_per_page,
                     filters=filters,
                     account=account,
+                    max_retries=5,
                 )
 
-                # Reset consecutive errors on success
-                consecutive_errors = 0
+                # If response is None, the page was skipped after max retries
+                if response is None:
+                    skipped_pages += 1
+                    logger.warning(
+                        f"Skipped page {page} for {account} after retries "
+                        f"({skipped_pages}/{max_skipped_pages} pages skipped)"
+                    )
+
+                    if skipped_pages >= max_skipped_pages:
+                        logger.error(
+                            f"Too many skipped pages ({skipped_pages}), stopping sync for {account}"
+                        )
+                        break
+
+                    # Move to next page
+                    page += 1
+                    await asyncio.sleep(1)  # Brief pause before next page
+                    continue
+
+                # Reset skipped pages counter on success
+                skipped_pages = 0
 
                 # Process products
                 products = response.get("results", [])
                 if not products:
-                    logger.info(f"No more products found on page {page}")
+                    logger.info(f"No more products found on page {page} for {account}")
                     break
 
                 # Log progress
@@ -363,56 +420,41 @@ class EmagProductSyncService:
                 await asyncio.sleep(0.2)
 
             except EmagApiError as e:
-                consecutive_errors += 1
+                # This should rarely happen now since _fetch_products_with_retry handles most errors
                 logger.error(
-                    f"API error on page {page} (attempt {consecutive_errors}/{max_consecutive_errors}): {e}"
+                    f"Unhandled API error on page {page} for {account}: {e}",
+                    exc_info=True,
                 )
-                self._sync_stats["errors"].append(f"{account} page {page}: {str(e)}")
-
-                # Handle rate limiting with exponential backoff
-                if e.status_code == 429:
-                    wait_time = min(2**consecutive_errors, 60)  # Max 60 seconds
-                    logger.warning(f"Rate limited, waiting {wait_time}s before retry")
-                    await asyncio.sleep(wait_time)
-                    # Don't increment page, retry same page
-                    continue
-
-                # Handle server errors with retry
-                elif e.status_code in [500, 502, 503, 504]:
-                    if consecutive_errors < max_consecutive_errors:
-                        wait_time = min(2**consecutive_errors, 30)
-                        logger.warning(
-                            f"Server error, waiting {wait_time}s before retry"
-                        )
-                        await asyncio.sleep(wait_time)
-                        # Don't increment page, retry same page
-                        continue
-                    else:
-                        logger.error(
-                            f"Too many consecutive errors ({consecutive_errors}), skipping to next page"
-                        )
-                        page += 1
-                        consecutive_errors = 0
-                        continue
-                else:
-                    # Other errors - fail fast
-                    raise
-
-            except Exception as e:
-                consecutive_errors += 1
-                logger.error(f"Unexpected error on page {page}: {e}", exc_info=True)
-                self._sync_stats["errors"].append(f"{account} page {page}: {str(e)}")
-
-                if consecutive_errors >= max_consecutive_errors:
+                self._sync_stats["errors"].append(
+                    f"{account} page {page}: Unhandled API error - {str(e)}"
+                )
+                # Skip to next page
+                skipped_pages += 1
+                if skipped_pages >= max_skipped_pages:
                     logger.error(
-                        "Too many consecutive errors (%d), aborting sync",
-                        consecutive_errors,
+                        f"Too many errors ({skipped_pages}), aborting sync for {account}"
                     )
                     raise
+                page += 1
+                await asyncio.sleep(2)
 
-                # Wait before retry
-                wait_time = min(2**consecutive_errors, 30)
-                await asyncio.sleep(wait_time)
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error on page {page} for {account}: {e}",
+                    exc_info=True,
+                )
+                self._sync_stats["errors"].append(
+                    f"{account} page {page}: {type(e).__name__}: {str(e)[:100]}"
+                )
+                # Skip to next page
+                skipped_pages += 1
+                if skipped_pages >= max_skipped_pages:
+                    logger.error(
+                        f"Too many errors ({skipped_pages}), aborting sync for {account}"
+                    )
+                    raise
+                page += 1
+                await asyncio.sleep(2)
 
     async def _process_products_batch(
         self,
@@ -433,7 +475,9 @@ class EmagProductSyncService:
                     exc_info=False,  # Don't log full traceback for each product
                 )
                 self._sync_stats["failed"] += 1
-                error_msg = f"Product {product_data.get('part_number')}: {str(e)[:200]}"  # Truncate error
+                error_msg = (
+                    f"Product {product_data.get('part_number')}: {str(e)[:200]}"
+                )  # Truncate error
                 self._sync_stats["errors"].append(error_msg)
                 # Continue with next product
 
@@ -463,6 +507,7 @@ class EmagProductSyncService:
         # Check if product exists
         existing_product = await self._get_existing_product(sku, account)
 
+        product_instance = None
         if existing_product:
             # Update existing product
             should_update = await self._should_update_product(
@@ -474,10 +519,17 @@ class EmagProductSyncService:
                 self._sync_stats["updated"] += 1
             else:
                 self._sync_stats["unchanged"] += 1
+            product_instance = existing_product
         else:
             # Create new product
-            await self._create_product(product_data, account)
+            product_instance = await self._create_product(product_data, account)
             self._sync_stats["created"] += 1
+
+        # Create/update offer for this product
+        if product_instance:
+            await self._upsert_offer_from_product_data(
+                product_instance, product_data
+            )
 
     async def _get_existing_product(
         self,
@@ -617,6 +669,7 @@ class EmagProductSyncService:
 
         self.db.add(product)
         logger.debug(f"Created product: {product.sku}")
+        return product
 
     async def _update_product(
         self,
@@ -806,6 +859,80 @@ class EmagProductSyncService:
             2: "pending",
         }
         return status_map.get(status_code, "unknown")
+
+    async def _upsert_offer_from_product_data(
+        self, product: EmagProductV2, product_data: dict[str, Any]
+    ):
+        """Create or update offer data from product payload."""
+        try:
+            from app.models.emag_models import EmagProductOfferV2
+
+            # Extract offer-specific data
+            sku = product.sku
+            if not sku:
+                return
+
+            # Check if offer exists
+            stmt = select(EmagProductOfferV2).where(
+                and_(
+                    EmagProductOfferV2.sku == sku,
+                    EmagProductOfferV2.account_type == product.account_type,
+                )
+            )
+            result = await self.db.execute(stmt)
+            existing_offer = result.scalar_one_or_none()
+
+            # Convert status to string (eMAG API returns int: 1=active, 0=inactive)
+            status_value = product_data.get("status")
+            if isinstance(status_value, int):
+                status_str = "active" if status_value == 1 else "inactive"
+            else:
+                status_str = str(status_value) if status_value else "active"
+
+            # Calculate stock values
+            stock_value = self._extract_stock_quantity(product_data)
+
+            offer_data = {
+                "sku": sku,
+                "account_type": product.account_type,
+                "product_id": product.id,
+                "emag_offer_id": str(product_data.get("id")),
+                "price": self._extract_price(product_data),
+                "sale_price": self._extract_price(product_data),
+                "min_sale_price": product_data.get("min_sale_price"),
+                "max_sale_price": product_data.get("max_sale_price"),
+                "recommended_price": product_data.get("recommended_price"),
+                "currency": product_data.get("currency", "RON"),
+                "stock": stock_value,
+                "reserved_stock": 0,
+                "available_stock": stock_value,
+                "status": status_str,
+                "is_available": product_data.get("status") == 1
+                or product_data.get("status") == "active",
+                "visibility": "visible",
+                "last_synced_at": datetime.now(UTC).replace(tzinfo=None),
+                "sync_status": "synced",
+                "sync_attempts": 0,
+            }
+
+            if existing_offer:
+                # Update existing offer
+                for key, value in offer_data.items():
+                    if key not in ["sku", "account_type", "sync_attempts"]:
+                        setattr(existing_offer, key, value)
+                existing_offer.sync_attempts += 1
+                existing_offer.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                logger.debug(f"Updated offer for SKU {sku} ({product.account_type})")
+            else:
+                # Create new offer
+                new_offer = EmagProductOfferV2(**offer_data)
+                self.db.add(new_offer)
+                logger.info(f"Created new offer for SKU {sku} ({product.account_type})")
+
+        except Exception as e:
+            logger.error(
+                "Error upserting offer for SKU %s: %s", sku, str(e), exc_info=True
+            )
 
     def _parse_datetime(self, dt_str: str | None) -> datetime | None:
         """Parse datetime string from eMAG."""

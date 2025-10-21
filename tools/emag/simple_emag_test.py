@@ -34,24 +34,32 @@ def test_config():
     # Test MAIN account
     main_username = os.getenv("EMAG_MAIN_USERNAME")
     main_password = os.getenv("EMAG_MAIN_PASSWORD")
+    main_valid = bool(
+        main_username
+        and main_password
+        and len(main_username) > 3
+        and len(main_password) > 6
+    )
 
     print("MAIN Account:")
     print(f"  Username: {main_username}")
     print(f"  Password: {'*' * len(main_password) if main_password else 'NOT SET'}")
-    print(
-        f"  Valid: {bool(main_username and main_password and len(main_username) > 3 and len(main_password) > 6)}"
-    )
+    print("  Valid:", main_valid)
 
     # Test FBE account
     fbe_username = os.getenv("EMAG_FBE_USERNAME")
     fbe_password = os.getenv("EMAG_FBE_PASSWORD")
+    fbe_valid = bool(
+        fbe_username
+        and fbe_password
+        and len(fbe_username) > 3
+        and len(fbe_password) > 6
+    )
 
     print("\nFBE Account:")
     print(f"  Username: {fbe_username}")
     print(f"  Password: {'*' * len(fbe_password) if fbe_password else 'NOT SET'}")
-    print(
-        f"  Valid: {bool(fbe_username and fbe_password and len(fbe_username) > 3 and len(fbe_password) > 6)}"
-    )
+    print("  Valid:", fbe_valid)
 
     # Test rate limiting settings
     print("\nRate Limiting Settings:")
@@ -116,7 +124,8 @@ def main():
         print("2. Run migrations: alembic upgrade head")
         print("3. Start backend: ./start_dev.sh backend")
         print(
-            "4. Test sync: python enhanced_emag_sync_script.py --mode products --account both --max-pages 2"
+            "4. Test sync: python enhanced_emag_sync_script.py "
+            "--mode products --account both --max-pages 2"
         )
     else:
         print("❌ Configuration: INVALID")

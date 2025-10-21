@@ -308,8 +308,8 @@ async def get_current_user(
         if username is None:
             raise credentials_exception
         token_data = TokenPayload(username=username)
-    except JWTError:
-        raise credentials_exception
+    except JWTError as e:
+        raise credentials_exception from e
 
     # Get user from database
     result = await db.execute(
@@ -376,7 +376,8 @@ class SecurityValidator:
             for pattern in dangerous_patterns:
                 if re.search(pattern, input_string, re.IGNORECASE):
                     logger.warning(
-                        f"Potential security threat detected in parameterized query: {input_string[:100]}..."
+                        "Potential security threat detected in parameterized query: "
+                        f"{input_string[:100]}..."
                     )
                     return False
 
@@ -441,7 +442,8 @@ class SecurityValidator:
     def validate_password_strength(password: str) -> dict[str, Any]:
         """Validate password strength.
 
-        Checks for minimum length and inclusion of uppercase, lowercase, digits, and special characters.
+        Checks for minimum length and inclusion of uppercase, lowercase, digits,
+        and special characters.
         Returns a dictionary with score and feedback.
         """
         if not isinstance(password, str):

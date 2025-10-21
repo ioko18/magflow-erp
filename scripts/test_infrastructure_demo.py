@@ -56,32 +56,47 @@ def main():
 
     # Test 2: Test data factory import
     success2 = run_command(
-        "python3 -c 'from tests.test_data_factory import UserFactory; print(\"✅ Factory import successful\")'",
-        "Test data factory system validation"
+        (
+            "python3 -c 'from tests.test_data_factory import UserFactory; "
+            "print(\"✅ Factory import successful\")'"
+        ),
+        "Test data factory system validation",
     )
 
     # Test 3: Conftest fixtures
     success3 = run_command(
-        "python3 -c 'import tests.conftest; print(\"✅ Conftest fixtures loaded successfully\")'",
-        "Test configuration and fixtures validation"
+        (
+            "python3 -c 'import tests.conftest; "
+            "print(\"✅ Conftest fixtures loaded successfully\")'"
+        ),
+        "Test configuration and fixtures validation",
     )
 
     # Test 4: Database performance test (if available)
     success4 = run_command(
-        "python3 -c 'import tests.test_database_performance; print(\"✅ Performance testing module available\")'",
-        "Performance testing infrastructure validation"
+        (
+            "python3 -c 'import tests.test_database_performance; "
+            "print(\"✅ Performance testing module available\")'"
+        ),
+        "Performance testing infrastructure validation",
     )
 
     # Test 5: Integration test validation
     success5 = run_command(
-        "python3 -c 'import tests.test_integration_comprehensive; print(\"✅ Integration testing module available\")'",
-        "Integration testing infrastructure validation"
+        (
+            "python3 -c 'import tests.test_integration_comprehensive; "
+            "print(\"✅ Integration testing module available\")'"
+        ),
+        "Integration testing infrastructure validation",
     )
 
     # Test 6: Migration safety test
     success6 = run_command(
-        "python3 -c 'import tests.test_migration_safety; print(\"✅ Migration testing module available\")'",
-        "Migration testing infrastructure validation"
+        (
+            "python3 -c 'import tests.test_migration_safety; "
+            "print(\"✅ Migration testing module available\")'"
+        ),
+        "Migration testing infrastructure validation",
     )
 
     # Summary

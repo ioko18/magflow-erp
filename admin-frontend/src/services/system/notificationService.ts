@@ -2,11 +2,10 @@
  * Notification Service
  * 
  * Handles all API calls related to notifications and notification settings.
+ * Uses the centralized API instance with interceptors for auth and error handling.
  */
 
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+import api from '../api';
 
 export interface Notification {
   id: number;
@@ -54,19 +53,6 @@ export interface NotificationStatistics {
 }
 
 class NotificationService {
-  private getAuthHeaders() {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    };
-  }
-
   /**
    * Get all notifications for the current user
    */
@@ -77,13 +63,7 @@ class NotificationService {
     limit?: number;
     offset?: number;
   }): Promise<Notification[]> {
-    const response = await axios.get(
-      `${API_BASE_URL}/notifications/`,
-      {
-        ...this.getAuthHeaders(),
-        params,
-      }
-    );
+    const response = await api.get('/notifications/', { params });
     return response.data;
   }
 
@@ -91,10 +71,7 @@ class NotificationService {
    * Get unread notification count
    */
   async getUnreadCount(): Promise<number> {
-    const response = await axios.get(
-      `${API_BASE_URL}/notifications/unread-count`,
-      this.getAuthHeaders()
-    );
+    const response = await api.get('/notifications/unread-count');
     return response.data.unread_count;
   }
 
@@ -102,10 +79,7 @@ class NotificationService {
    * Get notification statistics
    */
   async getStatistics(): Promise<NotificationStatistics> {
-    const response = await axios.get(
-      `${API_BASE_URL}/notifications/statistics`,
-      this.getAuthHeaders()
-    );
+    const response = await api.get('/notifications/statistics');
     return response.data;
   }
 
@@ -113,10 +87,7 @@ class NotificationService {
    * Get a specific notification by ID
    */
   async getNotification(id: number): Promise<Notification> {
-    const response = await axios.get(
-      `${API_BASE_URL}/notifications/${id}`,
-      this.getAuthHeaders()
-    );
+    const response = await api.get(`/notifications/${id}`);
     return response.data;
   }
 
@@ -124,22 +95,14 @@ class NotificationService {
    * Mark a notification as read
    */
   async markAsRead(id: number): Promise<void> {
-    await axios.post(
-      `${API_BASE_URL}/notifications/${id}/read`,
-      {},
-      this.getAuthHeaders()
-    );
+    await api.post(`/notifications/${id}/read`);
   }
 
   /**
    * Mark all notifications as read
    */
   async markAllAsRead(): Promise<{ count: number }> {
-    const response = await axios.post(
-      `${API_BASE_URL}/notifications/mark-all-read`,
-      {},
-      this.getAuthHeaders()
-    );
+    const response = await api.post('/notifications/mark-all-read');
     return response.data;
   }
 
@@ -147,20 +110,14 @@ class NotificationService {
    * Delete a notification
    */
   async deleteNotification(id: number): Promise<void> {
-    await axios.delete(
-      `${API_BASE_URL}/notifications/${id}`,
-      this.getAuthHeaders()
-    );
+    await api.delete(`/notifications/${id}`);
   }
 
   /**
    * Delete all notifications
    */
   async deleteAllNotifications(): Promise<{ count: number }> {
-    const response = await axios.delete(
-      `${API_BASE_URL}/notifications/`,
-      this.getAuthHeaders()
-    );
+    const response = await api.delete('/notifications/');
     return response.data;
   }
 
@@ -168,10 +125,7 @@ class NotificationService {
    * Get notification settings for the current user
    */
   async getSettings(): Promise<NotificationSettings> {
-    const response = await axios.get(
-      `${API_BASE_URL}/notifications/settings/me`,
-      this.getAuthHeaders()
-    );
+    const response = await api.get('/notifications/settings/me');
     return response.data;
   }
 
@@ -179,11 +133,7 @@ class NotificationService {
    * Update notification settings
    */
   async updateSettings(settings: Partial<NotificationSettings>): Promise<NotificationSettings> {
-    const response = await axios.put(
-      `${API_BASE_URL}/notifications/settings/me`,
-      settings,
-      this.getAuthHeaders()
-    );
+    const response = await api.put('/notifications/settings/me', settings);
     return response.data;
   }
 
@@ -191,11 +141,7 @@ class NotificationService {
    * Reset notification settings to defaults
    */
   async resetSettings(): Promise<NotificationSettings> {
-    const response = await axios.post(
-      `${API_BASE_URL}/notifications/settings/reset`,
-      {},
-      this.getAuthHeaders()
-    );
+    const response = await api.post('/notifications/settings/reset');
     return response.data.settings;
   }
 
@@ -212,11 +158,7 @@ class NotificationService {
     action_url?: string;
     action_label?: string;
   }): Promise<Notification> {
-    const response = await axios.post(
-      `${API_BASE_URL}/notifications/create`,
-      notification,
-      this.getAuthHeaders()
-    );
+    const response = await api.post('/notifications/create', notification);
     return response.data;
   }
 }

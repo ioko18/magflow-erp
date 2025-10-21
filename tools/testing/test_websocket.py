@@ -38,8 +38,10 @@ async def test_websocket():
                         syncs = data.get('active_syncs', [])
                         if syncs:
                             sync = syncs[0]
-                            print(f"  [{i+1}] Progress: {sync.get('progress_percentage')}% "
-                                  f"({sync.get('processed_items')}/{sync.get('total_items')} items)")
+                            print(
+                                f"  [{i+1}] Progress: {sync.get('progress_percentage')}% "
+                                f"({sync.get('processed_items')}/{sync.get('total_items')} items)"
+                            )
                     else:
                         print(f"  [{i+1}] No active syncs")
 

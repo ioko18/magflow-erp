@@ -627,7 +627,7 @@ async def update_offer_stock(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Stock update failed: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/offers/schedule-update", response_model=dict[str, Any])
@@ -688,7 +688,7 @@ async def schedule_offer_update(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid start_date format: {e!s}",
-        )
+        ) from e
 
     # Create import service
     import_service = EmagOfferImportService(db)
@@ -717,7 +717,7 @@ async def schedule_offer_update(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Schedule failed: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/campaigns/proposals", response_model=dict[str, Any])
@@ -776,7 +776,7 @@ async def create_campaign_proposal(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Campaign creation failed: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/import/cleanup", response_model=dict[str, Any])
@@ -1035,7 +1035,9 @@ async def _run_saleable_import_task(
         )
 
         logger.info(
-            f"Saleable import task completed: {sync_id}, processed {result.offers_processed} offers",
+            "Saleable import task completed: %s, processed %d offers",
+            sync_id,
+            result.offers_processed,
         )
 
     except Exception as e:

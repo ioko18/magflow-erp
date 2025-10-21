@@ -102,23 +102,44 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const interval = setInterval(async () => {
+    let intervalId: number | null = null;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 3;
+
+    const pollNotifications = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        if (!token) return; // Skip if no token
+        if (!token) {
+          console.log('No token available, stopping notification polling');
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
         
         const apiNotifications = await notificationService.getNotifications({ limit: 50 });
         setNotifications(apiNotifications.map(convertApiNotification));
+        consecutiveErrors = 0; // Reset error counter on success
       } catch (error: any) {
+        consecutiveErrors++;
+        
+        // Stop polling after too many consecutive errors or on 401
+        if (error?.response?.status === 401 || consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          console.log('Stopping notification polling due to authentication error or too many failures');
+          if (intervalId) clearInterval(intervalId);
+          return;
+        }
+        
         // Only log if it's not an authentication error
         if (error?.response?.status !== 401) {
           console.error('Error polling notifications:', error);
         }
-        // Silently fail - don't interrupt user experience
       }
-    }, 30000);
+    };
 
-    return () => clearInterval(interval);
+    intervalId = setInterval(pollNotifications, 30000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [isAuthenticated]);
 
   const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => {

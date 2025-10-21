@@ -145,7 +145,7 @@ class EmagProductPublishingService:
 
         except EmagApiError as e:
             logger.error("Failed to create draft product %d: %s", product_id, str(e))
-            raise ServiceError(f"Draft product creation failed: {str(e)}")
+            raise ServiceError(f"Draft product creation failed: {str(e)}") from e
 
     async def create_complete_product(
         self,
@@ -279,7 +279,7 @@ class EmagProductPublishingService:
 
         except EmagApiError as e:
             logger.error("Failed to create complete product %d: %s", product_id, str(e))
-            raise ServiceError(f"Complete product creation failed: {str(e)}")
+            raise ServiceError(f"Complete product creation failed: {str(e)}") from e
 
     async def attach_offer_to_existing_product(
         self,
@@ -357,7 +357,7 @@ class EmagProductPublishingService:
 
         except EmagApiError as e:
             logger.error("Failed to attach offer %d: %s", product_id, str(e))
-            raise ServiceError(f"Offer attachment failed: {str(e)}")
+            raise ServiceError(f"Offer attachment failed: {str(e)}") from e
 
     async def attach_offer_by_ean(
         self,
@@ -433,7 +433,7 @@ class EmagProductPublishingService:
 
         except EmagApiError as e:
             logger.error("Failed to attach offer %d by EAN: %s", product_id, str(e))
-            raise ServiceError(f"Offer attachment by EAN failed: {str(e)}")
+            raise ServiceError(f"Offer attachment by EAN failed: {str(e)}") from e
 
     async def update_product(
         self, product_id: int, updates: dict[str, Any]
@@ -467,4 +467,4 @@ class EmagProductPublishingService:
 
         except EmagApiError as e:
             logger.error("Failed to update product %d: %s", product_id, str(e))
-            raise ServiceError(f"Product update failed: {str(e)}")
+            raise ServiceError(f"Product update failed: {str(e)}") from e

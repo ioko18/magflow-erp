@@ -128,7 +128,13 @@ class PurchaseOrderService:
 
         # Add history entry
         await self._add_history(
-            po_id, f"status_changed_to_{new_status}", old_status, new_status, notes, user_id, extra_data=metadata
+            po_id,
+            f"status_changed_to_{new_status}",
+            old_status,
+            new_status,
+            notes,
+            user_id,
+            extra_data=metadata,
         )
 
         await self.db.flush()

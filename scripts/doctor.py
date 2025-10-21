@@ -352,7 +352,8 @@ def check_health_endpoint() -> None:
 
     except ImportError:
         print(
-            f"{YELLOW}⚠  'requests' package not available. Install with: pip install requests{RESET}"
+            f"{YELLOW}⚠  'requests' package not available. "
+            f"Install with: pip install requests{RESET}"
         )
         State.has_warnings = True
     except Exception as e:

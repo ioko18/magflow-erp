@@ -34,10 +34,20 @@ def auth_headers():
 @pytest.fixture
 def mock_emag_service():
     """Mock eMAG services"""
-    with patch('app.api.v1.endpoints.emag_product_publishing.EmagProductPublishingService') as mock_pub, \
-         patch('app.api.v1.endpoints.emag_product_publishing.EmagCategoryService') as mock_cat, \
-         patch('app.api.v1.endpoints.emag_product_publishing.EmagReferenceDataService') as mock_ref, \
-         patch('app.api.v1.endpoints.emag_product_publishing.EmagEANMatchingService') as mock_ean:
+    with (
+        patch(
+            "app.api.v1.endpoints.emag_product_publishing.EmagProductPublishingService"
+        ) as mock_pub,
+        patch(
+            "app.api.v1.endpoints.emag_product_publishing.EmagCategoryService"
+        ) as mock_cat,
+        patch(
+            "app.api.v1.endpoints.emag_product_publishing.EmagReferenceDataService"
+        ) as mock_ref,
+        patch(
+            "app.api.v1.endpoints.emag_product_publishing.EmagEANMatchingService"
+        ) as mock_ean,
+    ):
         
         # Setup mock returns
         mock_pub_instance = AsyncMock()
@@ -64,7 +74,12 @@ class TestDraftProductEndpoint:
     """Tests for draft product creation endpoint"""
     
     @pytest.mark.asyncio
-    async def test_create_draft_product_success(self, async_client, auth_headers, mock_emag_service):
+    async def test_create_draft_product_success(
+        self,
+        async_client,
+        auth_headers,
+        mock_emag_service,
+    ):
         """Test successful draft product creation"""
         # Arrange
         mock_emag_service['publishing'].create_draft_product.return_value = {
@@ -136,7 +151,12 @@ class TestCompleteProductEndpoint:
     """Tests for complete product creation endpoint"""
     
     @pytest.mark.asyncio
-    async def test_create_complete_product_success(self, async_client, auth_headers, mock_emag_service):
+    async def test_create_complete_product_success(
+        self,
+        async_client,
+        auth_headers,
+        mock_emag_service,
+    ):
         """Test successful complete product creation"""
         # Arrange
         mock_emag_service['publishing'].create_complete_product.return_value = {
@@ -176,7 +196,12 @@ class TestAttachOfferEndpoint:
     """Tests for offer attachment endpoint"""
     
     @pytest.mark.asyncio
-    async def test_attach_offer_by_part_number_key(self, async_client, auth_headers, mock_emag_service):
+    async def test_attach_offer_by_part_number_key(
+        self,
+        async_client,
+        auth_headers,
+        mock_emag_service,
+    ):
         """Test attaching offer by part_number_key"""
         # Arrange
         mock_emag_service['publishing'].attach_offer_to_existing_product.return_value = {

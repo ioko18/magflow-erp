@@ -46,7 +46,12 @@ async def create_invoice(
         due_date = invoice_date.replace(day=min(invoice_date.day + 30, 31))
 
     # Generate invoice number
-    invoice_number = f"INV-{datetime.now().strftime('%Y%m%d')}-{abs(hash(str(order_id or customer_id) + str(invoice_date.timestamp()))) % 10000:04d}"
+    invoice_number = (
+        "INV-"
+        f"{datetime.now().strftime('%Y%m%d')}"
+        "-"
+        f"{abs(hash(str(order_id or customer_id) + str(invoice_date.timestamp()))) % 10000:04d}"
+    )
 
     # Calculate totals
     subtotal = 0.0
@@ -300,7 +305,12 @@ async def record_invoice_payment(
         raise HTTPException(status_code=404, detail="Invoice not found")
 
     # Generate payment ID
-    payment_id = f"PAY-{datetime.now().strftime('%Y%m%d')}-{abs(hash(str(invoice_id) + str(amount))) % 10000:04d}"
+    payment_id = (
+        "PAY-"
+        f"{datetime.now().strftime('%Y%m%d')}"
+        "-"
+        f"{abs(hash(str(invoice_id) + str(amount))) % 10000:04d}"
+    )
 
     # Create payment record
     payment = InvoicePayment(

@@ -123,7 +123,10 @@ class GoogleSheetsProductMapping(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<GoogleSheetsProductMapping sku:{self.local_sku} main:{self.emag_main_status} fbe:{self.emag_fbe_status}>"
+        return (
+            f"<GoogleSheetsProductMapping sku:{self.local_sku} "
+            f"main:{self.emag_main_status} fbe:{self.emag_fbe_status}>"
+        )
 
     def get_mapping_status(self) -> str:
         """Get overall mapping status"""
@@ -219,4 +222,7 @@ class ImportLog(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<ImportLog {self.import_type} {self.status} {self.successful_imports}/{self.total_rows}>"
+        return (
+            f"<ImportLog {self.import_type} {self.status} "
+            f"{self.successful_imports}/{self.total_rows}>"
+        )

@@ -67,7 +67,8 @@ async def create_emag_tables_safe():
             await db.execute(
                 text(
                     """
-                CREATE INDEX IF NOT EXISTS idx_emag_products_sku_account ON emag_products_v2 (sku, account_type)
+                CREATE INDEX IF NOT EXISTS idx_emag_products_sku_account
+                    ON emag_products_v2 (sku, account_type)
             """
                 )
             )
@@ -75,7 +76,8 @@ async def create_emag_tables_safe():
             await db.execute(
                 text(
                     """
-                CREATE INDEX IF NOT EXISTS idx_emag_products_emag_id ON emag_products_v2 (emag_id)
+                CREATE INDEX IF NOT EXISTS idx_emag_products_emag_id
+                    ON emag_products_v2 (emag_id)
             """
                 )
             )
@@ -83,7 +85,8 @@ async def create_emag_tables_safe():
             await db.execute(
                 text(
                     """
-                CREATE INDEX IF NOT EXISTS idx_emag_products_sync_status ON emag_products_v2 (sync_status)
+                CREATE INDEX IF NOT EXISTS idx_emag_products_sync_status
+                    ON emag_products_v2 (sync_status)
             """
                 )
             )
@@ -91,7 +94,8 @@ async def create_emag_tables_safe():
             await db.execute(
                 text(
                     """
-                CREATE INDEX IF NOT EXISTS idx_emag_products_last_synced ON emag_products_v2 (last_synced_at)
+                CREATE INDEX IF NOT EXISTS idx_emag_products_last_synced
+                    ON emag_products_v2 (last_synced_at)
             """
                 )
             )

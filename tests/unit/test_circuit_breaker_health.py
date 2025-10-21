@@ -1,23 +1,23 @@
 """Test script for circuit breaker functionality and health checks."""
-
 import asyncio
 import logging
 import time
-from typing import Dict, List
+from typing import Any
 from unittest.mock import patch
+
 import pytest
 
 from app.core.circuit_breaker import (
     DATABASE_CIRCUIT_BREAKER,
-    CircuitState,
     CircuitBreaker,
+    CircuitState,
     get_circuit_breaker,
 )
 from app.core.health.circuit_breaker_check import check_circuit_breakers
 
 
 # Add batched implementation for performance comparison
-async def check_circuit_breakers_batch(batch_size: int = 10) -> Dict:
+async def check_circuit_breakers_batch(batch_size: int = 10) -> dict[str, Any]:
     """Check the status of all circuit breakers in batches.
 
     Args:
@@ -28,7 +28,7 @@ async def check_circuit_breakers_batch(batch_size: int = 10) -> Dict:
     """
     from app.core.circuit_breaker import _registry, _registry_lock
 
-    async def check_breaker(name: str, breaker: CircuitBreaker) -> Dict:
+    async def check_breaker(name: str, breaker: CircuitBreaker) -> dict[str, Any]:
         """Check a single circuit breaker's status."""
         try:
             # Match the behavior of check_circuit_breakers in circuit_breaker_check.py
@@ -47,7 +47,9 @@ async def check_circuit_breakers_batch(batch_size: int = 10) -> Dict:
         except Exception as e:
             return {"name": name, "status": "error", "error": str(e), "state": "error"}
 
-    async def process_batch(batch: List[tuple]) -> List[Dict]:
+    async def process_batch(
+        batch: list[tuple[str, CircuitBreaker]]
+    ) -> list[dict[str, Any]]:
         """Process a batch of circuit breakers."""
         tasks = [check_breaker(name, breaker) for name, breaker in batch]
         return await asyncio.gather(*tasks, return_exceptions=False)
@@ -455,7 +457,10 @@ async def test_health_check_performance():
     num_breakers = len(status["metadata"]["circuit_breakers"])
     assert (
         num_breakers == len(batched_status["metadata"]["circuit_breakers"])
-    ), f"Mismatch in number of breakers: {num_breakers} vs {len(batched_status['metadata']['circuit_breakers'])}"
+    ), (
+        "Mismatch in number of breakers: "
+        f"{num_breakers} vs {len(batched_status['metadata']['circuit_breakers'])}"
+    )
 
     # Verify unhealthy breakers match between implementations
     def get_unhealthy(status_dict):

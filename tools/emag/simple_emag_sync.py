@@ -122,8 +122,11 @@ class SimpleEmagClient:
                                 # Check if we have more pages
                                 pagination = result.get("pagination", {})
                                 if page >= pagination.get("totalPages", 0):
+                                    total_pages = pagination.get("totalPages", 0)
                                     print(
-                                        f"    ℹ️  Reached last page ({pagination.get('totalPages', 0)})"
+                                        "    ℹ️  Reached last page ("
+                                        f"{total_pages}"
+                                        ")"
                                     )
                                     break
                             else:
@@ -184,10 +187,12 @@ async def test_emag_sync(account_type: str = "main", max_pages: int = 2):
                 pagination = response.get("pagination", {})
                 print("   ✅ API response valid")
                 print(
-                    f"   ℹ️  Total items available: {pagination.get('totalItems', 'unknown')}"
+                    "   ℹ️  Total items available: "
+                    f"{pagination.get('totalItems', 'unknown')}"
                 )
                 print(
-                    f"   ℹ️  Total pages available: {pagination.get('totalPages', 'unknown')}"
+                    "   ℹ️  Total pages available: "
+                    f"{pagination.get('totalPages', 'unknown')}"
                 )
             else:
                 error_msg = response.get("messages", [{"message": "Unknown error"}])[
@@ -220,7 +225,9 @@ async def test_emag_sync(account_type: str = "main", max_pages: int = 2):
         print(f"     SKU: {sample_product.get('part_number', 'N/A')}")
         print(f"     Name: {sample_product.get('name', 'N/A')[:50]}...")
         print(
-            f"     Price: {sample_product.get('price', 'N/A')} {sample_product.get('currency', 'RON')}"
+            "     Price: "
+            f"{sample_product.get('price', 'N/A')} "
+            f"{sample_product.get('currency', 'RON')}"
         )
         print(f"     Stock: {sample_product.get('stock', 'N/A')}")
 

@@ -9,6 +9,7 @@ test execution with monitoring, error handling, and performance optimization.
 import argparse
 import json
 import logging
+import shutil
 import sys
 import time
 
@@ -28,6 +29,13 @@ class EnhancedTestRunner:
         self.start_time = time.time()
         self.results = {}
         self.performance_data = []
+
+    @staticmethod
+    def _resolve_exec(name: str) -> str:
+        path = shutil.which(name)
+        if path is None:
+            raise FileNotFoundError(f"Executable not found: {name}")
+        return path
 
     def run_security_tests(self) -> dict[str, bool]:
         """Run security module tests to verify fixes."""
@@ -144,8 +152,15 @@ class EnhancedTestRunner:
 
         try:
             # Get recent logs
-            result = subprocess.run(
-                ["docker", "compose", "logs", "app", "--tail=50"],
+            # Safe: command path resolved to absolute executable via _resolve_exec
+            result = subprocess.run(  # noqa: S603
+                [
+                    self._resolve_exec("docker"),
+                    "compose",
+                    "logs",
+                    "app",
+                    "--tail=50",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -180,6 +195,8 @@ class EnhancedTestRunner:
 
         except subprocess.TimeoutExpired:
             return {"success": False, "error": "Docker logs command timed out"}
+        except FileNotFoundError as err:
+            return {"success": False, "error": str(err)}
         except Exception as e:
             return {"success": False, "error": f"Failed to check Docker logs: {e}"}
 
@@ -191,8 +208,16 @@ class EnhancedTestRunner:
             import subprocess
 
             # Check if containers are running
-            result = subprocess.run(
-                ["docker", "compose", "ps", "--services", "--filter", "status=running"],
+            # Safe: command path resolved to absolute executable via _resolve_exec
+            result = subprocess.run(  # noqa: S603
+                [
+                    self._resolve_exec("docker"),
+                    "compose",
+                    "ps",
+                    "--services",
+                    "--filter",
+                    "status=running",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -203,8 +228,14 @@ class EnhancedTestRunner:
             )
 
             # Check health endpoint
-            health_result = subprocess.run(
-                ["curl", "-s", "-f", "http://localhost:8000/health"],
+            # Safe: command path resolved to absolute executable via _resolve_exec
+            health_result = subprocess.run(  # noqa: S603
+                [
+                    self._resolve_exec("curl"),
+                    "-s",
+                    "-f",
+                    "http://localhost:8000/health",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=5,
@@ -217,6 +248,9 @@ class EnhancedTestRunner:
                 "running_services": running_services,
             }
 
+        except FileNotFoundError as err:
+            logger.error(f"Health check failed: {err}")
+            return {"error": False}
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return {"error": False}
@@ -243,7 +277,10 @@ class EnhancedTestRunner:
                 },
                 {
                     "name": "Asyncio Event Loop Management",
-                    "description": "Enhanced test configuration to prevent event loop closure issues",
+                    "description": (
+                        "Enhanced test configuration to prevent event loop closure "
+                        "issues"
+                    ),
                     "status": "completed",
                     "impact": "Eliminated RuntimeError: Event loop is closed in tests",
                 },
@@ -323,7 +360,8 @@ def main():
             )
         else:
             logger.info(
-                f"✅ Health check completed - {sum(1 for v in health_results.values() if v is True)} checks passed"
+                "✅ Health check completed - %s checks passed",
+                sum(1 for v in health_results.values() if v is True),
             )
 
     # Run security tests
@@ -352,7 +390,8 @@ def main():
             )
         else:
             logger.warning(
-                f"⚠️  Performance tests failed (exit code: {perf_results.get('exit_code', 'unknown')})"
+                "⚠️  Performance tests failed (exit code: %s)",
+                perf_results.get("exit_code", "unknown"),
             )
 
     # Check Docker logs

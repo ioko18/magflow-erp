@@ -144,7 +144,10 @@ class PurchaseOrderLine(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<PurchaseOrderLine order:{self.purchase_order_id} product:{self.product_id} qty:{self.quantity}>"
+        return (
+            f"<PurchaseOrderLine order:{self.purchase_order_id} product:{self.product_id} "
+            f"qty:{self.quantity}>"
+        )
 
 
 class PurchaseReceipt(Base, TimestampMixin):
@@ -231,7 +234,10 @@ class PurchaseReceiptLine(Base, TimestampMixin):
     purchase_order_line: Mapped["PurchaseOrderLine"] = relationship("PurchaseOrderLine")
 
     def __repr__(self) -> str:
-        return f"<PurchaseReceiptLine receipt:{self.purchase_receipt_id} qty:{self.received_quantity}>"
+        return (
+            f"<PurchaseReceiptLine receipt:{self.purchase_receipt_id} "
+            f"qty:{self.received_quantity}>"
+        )
 
 
 class SupplierPayment(Base, TimestampMixin):
@@ -353,4 +359,7 @@ class PurchaseRequisitionLine(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<PurchaseRequisitionLine req:{self.purchase_requisition_id} product:{self.product_id}>"
+        return (
+            f"<PurchaseRequisitionLine req:{self.purchase_requisition_id} "
+            f"product:{self.product_id}>"
+        )

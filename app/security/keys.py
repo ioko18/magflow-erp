@@ -293,8 +293,9 @@ class KeyManager:
             supported = {default_algorithm.upper()}
 
         if alg not in supported:
+            supported_list = ", ".join(sorted(supported))
             raise ValueError(
-                f"Unsupported JWT algorithm '{alg}'. Supported algorithms: {', '.join(sorted(supported))}",
+                f"Unsupported JWT algorithm '{alg}'. Supported algorithms: {supported_list}"
             )
         return alg
 
@@ -402,7 +403,7 @@ class KeyManager:
                 key_type = "OKP"
             else:
                 raise ValueError(
-                    f"Algorithm '{algorithm}' is currently not supported for automatic key generation",
+                    f"Algorithm '{algorithm}' is not supported for automatic key generation"
                 )
 
             keypair = KeyPair(
@@ -472,7 +473,8 @@ class KeyManager:
                             self._remove_key_file(keypair.kid)
                             continue
                         self.keys[keypair.kid] = keypair
-                except (json.JSONDecodeError, Exception):
+                except (json.JSONDecodeError, Exception) as exc:
+                    logger.warning("Failed to load key file %s: %s", key_file, exc)
                     continue
 
             # Enforce key limits for all algorithms present on disk
@@ -600,7 +602,10 @@ class KeyManager:
             for key in active_keys:
                 try:
                     keys.append(key.to_jwk(private=private))
-                except Exception:
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to convert key '%s' to JWK: %s", key.kid, exc
+                    )
                     continue
 
             return {"keys": keys}

@@ -241,7 +241,7 @@ def safe_str(value, default=""):
         return default
     try:
         return str(value).strip()
-    except:
+    except Exception:
         return default
 
 
@@ -272,7 +272,11 @@ def create_product_from_api_data(product_data: dict, account_type: str) -> EmagP
 
     # Build attributes
     attributes = {
-        "ean_codes": product_data.get("ean", []) if isinstance(product_data.get("ean"), list) else [],
+        "ean_codes": (
+            product_data.get("ean", [])
+            if isinstance(product_data.get("ean"), list)
+            else []
+        ),
         "vat_id": safe_int(product_data.get("vat_id")),
         "part_number_key": safe_str(product_data.get("part_number_key")),
     }
@@ -291,9 +295,16 @@ def create_product_from_api_data(product_data: dict, account_type: str) -> EmagP
         category_id=safe_str(product_data.get("category_id")),
         emag_category_id=safe_str(product_data.get("category_id")),
         emag_category_name=safe_str(product_data.get("category_name")),
-        is_active=product_data.get("status") == 1 or product_data.get("status") == "1",
+        is_active=(
+            product_data.get("status") == 1
+            or product_data.get("status") == "1"
+        ),
         status=safe_str(product_data.get("status")),
-        images=product_data.get("images", []) if isinstance(product_data.get("images"), list) else [],
+        images=(
+            product_data.get("images", [])
+            if isinstance(product_data.get("images"), list)
+            else []
+        ),
         emag_characteristics=characteristics,
         attributes=attributes,
         sync_status="synced",
@@ -329,11 +340,17 @@ def update_product_from_api_data(product: EmagProductV2, product_data: dict):
     # Update status
     if "status" in product_data:
         product.status = safe_str(product_data["status"])
-        product.is_active = product_data.get("status") == 1 or product_data.get("status") == "1"
+        product.is_active = (
+            product_data.get("status") == 1 or product_data.get("status") == "1"
+        )
 
     # Update images
     if "images" in product_data:
-        product.images = product_data.get("images", []) if isinstance(product_data.get("images"), list) else []
+        product.images = (
+            product_data.get("images", [])
+            if isinstance(product_data.get("images"), list)
+            else []
+        )
 
 
 async def main():

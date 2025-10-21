@@ -164,7 +164,8 @@ class ProductCRUD:
             )
             if existing_emag:
                 raise ValueError(
-                    f"Product with eMAG part number key '{product_data.emag_part_number_key}' already exists"
+                    "Product with eMAG part number key "
+                    f"'{product_data.emag_part_number_key}' already exists"
                 )
 
         # Prepare product data

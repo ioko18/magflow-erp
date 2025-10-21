@@ -146,7 +146,8 @@ async def test_emag_integration():
                 headers={"Authorization": f"Bearer {API_KEY}"}
             ) as response:
                 result = await response.json()
-                print(f"✅ eMAG Connection: {result.get('connection_test', {}).get('status', 'unknown')}")
+                connection_status = result.get('connection_test', {}).get('status', 'unknown')
+                print(f"✅ eMAG Connection: {connection_status}")
                 return result.get("success", False)
 
         except Exception as e:

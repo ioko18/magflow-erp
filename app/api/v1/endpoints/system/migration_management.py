@@ -47,7 +47,7 @@ async def check_migration_health(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to check migration health: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/statistics", response_model=dict)
@@ -78,7 +78,7 @@ async def get_migration_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get migration statistics: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/suggestions", response_model=list[dict])
@@ -109,7 +109,7 @@ async def get_consolidation_suggestions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get consolidation suggestions: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/backup", response_model=dict)
@@ -149,7 +149,7 @@ async def create_migration_backup(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create backup: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/validate", response_model=dict)
@@ -198,7 +198,7 @@ async def validate_all_migrations(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to validate migrations: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/dashboard", response_model=dict)
@@ -234,4 +234,4 @@ async def get_migration_dashboard(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get migration dashboard: {str(e)}",
-        )
+        ) from e

@@ -126,7 +126,8 @@ async def test_real_emag_sync():
                         else "N/A"
                     )
                     print(
-                        f"  {i+1}. [{product.account_type.upper()}] {product.name[:50]}... (SKU: {product.sku}) - {sync_time}"
+                        f"  {i+1}. [{product.account_type.upper()}] {product.name[:50]}... "
+                        f"(SKU: {product.sku}) - {sync_time}"
                     )
 
             break

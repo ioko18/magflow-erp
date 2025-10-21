@@ -33,7 +33,7 @@ async def sync_emag_offers(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/status", response_model=dict[str, Any])
@@ -89,7 +89,7 @@ async def get_emag_sync_status(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/products", response_model=dict[str, Any])
@@ -136,7 +136,7 @@ async def get_emag_products(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/progress", response_model=dict[str, Any])
@@ -192,7 +192,7 @@ async def get_emag_sync_progress(
         return progress_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def get_emag_sync_history(
@@ -239,4 +239,4 @@ async def get_emag_sync_history(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

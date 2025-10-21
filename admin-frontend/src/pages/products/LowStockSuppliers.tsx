@@ -7,11 +7,14 @@ import {
   WarningOutlined, DownloadOutlined, ReloadOutlined,
   CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined,
   ShopOutlined, DollarOutlined, LinkOutlined, FilterOutlined,
-  CloudSyncOutlined, FileAddOutlined, EditOutlined, SaveOutlined
+  CloudSyncOutlined, FileAddOutlined, EditOutlined, SaveOutlined,
+  FireOutlined, RiseOutlined, FallOutlined, LineChartOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../../services/api';
 import { bulkCreateDrafts } from '../../api/purchaseOrders';
+import { updateSupplierProduct, updateSheetSupplierPrice } from '../../api/suppliers';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -43,6 +46,7 @@ interface LowStockProduct {
   name: string;
   chinese_name: string | null;
   part_number_key: string | null;
+  product_url: string | null;
   image_url: string | null;
   warehouse_id: number;
   warehouse_name: string;
@@ -63,6 +67,9 @@ interface LowStockProduct {
   is_discontinued: boolean;
   suppliers: Supplier[];
   supplier_count: number;
+  sold_last_6_months: number;
+  avg_monthly_sales: number;
+  sales_sources: Record<string, number>;
 }
 
 interface Statistics {
@@ -100,11 +107,13 @@ const LowStockSuppliersPage: React.FC = () => {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 50, total: 0 });
   const [selectedSuppliers, setSelectedSuppliers] = useState<Map<number, SelectedSupplier>>(new Map());
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
-  const [showOnlyVerified, setShowOnlyVerified] = useState(true);
+  const [showOnlyVerified, setShowOnlyVerified] = useState(false);
   const [editingReorder, setEditingReorder] = useState<Map<number, number>>(new Map());
   const [savingReorder, setSavingReorder] = useState<Set<number>>(new Set());
   const [editingReorderQty, setEditingReorderQty] = useState<Map<number, number>>(new Map());
   const [savingReorderQty, setSavingReorderQty] = useState<Set<number>>(new Set());
+  const [editingPrice, setEditingPrice] = useState<Map<string, number>>(new Map());
+  const [savingPrice, setSavingPrice] = useState<Set<string>>(new Set());
 
   // ============================================================================
   // Data Loading
@@ -240,6 +249,63 @@ const LowStockSuppliersPage: React.FC = () => {
       setSavingReorderQty(prev => {
         const newSet = new Set(prev);
         newSet.delete(inventoryItemId);
+        return newSet;
+      });
+    }
+  };
+
+  // ============================================================================
+  // Supplier Price Update
+  // ============================================================================
+
+  const handleUpdateSupplierPrice = async (supplierId: string, newPrice: number, currency: string = 'CNY') => {
+    try {
+      setSavingPrice(prev => new Set(prev).add(supplierId));
+      
+      // Parse supplier ID to determine type (sheet_123 or 1688_456)
+      const [type, id] = supplierId.split('_');
+      const numericId = parseInt(id);
+      
+      if (type === 'sheet') {
+        // Update Google Sheets supplier
+        await updateSheetSupplierPrice(numericId, newPrice);
+      } else if (type === '1688') {
+        // Update 1688 supplier - need to extract supplier_id from SupplierProduct
+        // For now, we'll use a generic update endpoint
+        await updateSupplierProduct(numericId, numericId, {
+          supplier_price: newPrice,
+          supplier_currency: currency
+        });
+      }
+      
+      antMessage.success('Supplier price updated successfully!');
+      
+      // Update local state
+      setProducts(prevProducts => 
+        prevProducts.map(p => ({
+          ...p,
+          suppliers: p.suppliers.map(s => 
+            s.supplier_id === supplierId 
+              ? { ...s, price: newPrice, currency: currency }
+              : s
+          )
+        }))
+      );
+      
+      // Clear editing state
+      setEditingPrice(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(supplierId);
+        return newMap;
+      });
+      
+    } catch (error: any) {
+      console.error('Error updating supplier price:', error);
+      antMessage.error(error.response?.data?.detail || 'Failed to update supplier price');
+    } finally {
+      setSavingPrice(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(supplierId);
         return newSet;
       });
     }
@@ -520,6 +586,28 @@ const LowStockSuppliersPage: React.FC = () => {
     return status.toUpperCase().replace('_', ' ');
   };
 
+  const getSalesVelocityIcon = (soldQty: number, avgMonthly: number) => {
+    if (soldQty === 0) return null;
+    if (avgMonthly >= 10) return <FireOutlined style={{ color: '#ff4d4f' }} />;
+    if (avgMonthly >= 5) return <RiseOutlined style={{ color: '#faad14' }} />;
+    if (avgMonthly >= 1) return <LineChartOutlined style={{ color: '#1890ff' }} />;
+    return <FallOutlined style={{ color: '#8c8c8c' }} />;
+  };
+
+  const getSalesVelocityColor = (avgMonthly: number): string => {
+    if (avgMonthly >= 10) return '#ff4d4f';
+    if (avgMonthly >= 5) return '#faad14';
+    if (avgMonthly >= 1) return '#1890ff';
+    return '#8c8c8c';
+  };
+
+  const getSalesVelocityLabel = (avgMonthly: number): string => {
+    if (avgMonthly >= 10) return 'High Demand';
+    if (avgMonthly >= 5) return 'Medium Demand';
+    if (avgMonthly >= 1) return 'Low Demand';
+    return 'Very Low';
+  };
+
   const resetFilters = () => {
     setStatusFilter('all');
     setAccountFilter('all');
@@ -574,16 +662,31 @@ const LowStockSuppliersPage: React.FC = () => {
   // Supplier Card Component
   // ============================================================================
 
-  const SupplierCard: React.FC<{ supplier: Supplier; product: LowStockProduct }> = ({ supplier, product }) => {
+  const SupplierCard: React.FC<{ 
+    supplier: Supplier; 
+    product: LowStockProduct;
+    isCheapest?: boolean;
+  }> = ({ supplier, product, isCheapest = false }) => {
     const isSelected = isSupplierSelected(product.product_id, supplier.supplier_id);
+    const isEditingPrice = editingPrice.has(supplier.supplier_id);
+    const isSavingPrice = savingPrice.has(supplier.supplier_id);
+    const editPriceValue = editingPrice.get(supplier.supplier_id) ?? supplier.price;
     
     return (
       <Card
         size="small"
         style={{
           marginBottom: 8,
-          border: isSelected ? '2px solid #1890ff' : '1px solid #d9d9d9',
-          backgroundColor: isSelected ? '#e6f7ff' : 'white'
+          border: isSelected 
+            ? '2px solid #1890ff' 
+            : isCheapest 
+              ? '2px solid #52c41a' 
+              : '1px solid #d9d9d9',
+          backgroundColor: isSelected 
+            ? '#e6f7ff' 
+            : isCheapest 
+              ? '#f6ffed' 
+              : 'white'
         }}
       >
         <Space direction="vertical" style={{ width: '100%' }} size="small">
@@ -594,24 +697,112 @@ const LowStockSuppliersPage: React.FC = () => {
                 onChange={(e) => handleSupplierSelect(product, supplier, e.target.checked)}
               />
               <Text strong>{supplier.supplier_name}</Text>
-              {supplier.is_preferred && <Tag color="blue">Preferred</Tag>}
-              {supplier.is_verified && <Tag color="green">Verified</Tag>}
+              {supplier.is_preferred && <Tag color="blue" icon={<CheckCircleOutlined />}>Preferred</Tag>}
+              {supplier.is_verified ? (
+                <Tag color="green" icon={<CheckCircleOutlined />}>Verified</Tag>
+              ) : (
+                <Tag color="orange" icon={<ClockCircleOutlined />}>Pending Verification</Tag>
+              )}
               <Tag color="purple">{supplier.supplier_type}</Tag>
             </Space>
           </Space>
           
           <Row gutter={16}>
-            <Col span={8}>
-              <Statistic
-                title="Price"
-                value={supplier.price}
-                precision={2}
-                suffix={supplier.currency}
-                valueStyle={{ fontSize: 16 }}
-              />
+            <Col span={12}>
+              <div style={{ marginBottom: 8 }}>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                  Price {isEditingPrice && <Text type="warning">(Editing...)</Text>}
+                </Text>
+                {isEditingPrice ? (
+                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                    <Space size={8} style={{ width: '100%' }}>
+                      <InputNumber
+                        size="middle"
+                        min={0}
+                        step={0.01}
+                        precision={2}
+                        value={editPriceValue}
+                        onChange={(value) => {
+                          if (value !== null) {
+                            setEditingPrice(prev => new Map(prev).set(supplier.supplier_id, value));
+                          }
+                        }}
+                        style={{ width: 150 }}
+                        disabled={isSavingPrice}
+                        placeholder="Enter price"
+                        autoFocus
+                      />
+                      <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
+                        {supplier.currency}
+                      </Tag>
+                    </Space>
+                    <Space size={8}>
+                      <Button
+                        type="primary"
+                        size="middle"
+                        icon={<SaveOutlined />}
+                        onClick={() => handleUpdateSupplierPrice(supplier.supplier_id, editPriceValue, supplier.currency)}
+                        loading={isSavingPrice}
+                      >
+                        Save Price
+                      </Button>
+                      <Button
+                        size="middle"
+                        onClick={() => {
+                          setEditingPrice(prev => {
+                            const newMap = new Map(prev);
+                            newMap.delete(supplier.supplier_id);
+                            return newMap;
+                          });
+                        }}
+                        disabled={isSavingPrice}
+                      >
+                        Cancel
+                      </Button>
+                    </Space>
+                    {editPriceValue !== supplier.price && (
+                      <Alert
+                        message={
+                          <span>
+                            Original: <strong>{supplier.price.toFixed(2)} {supplier.currency}</strong> → 
+                            New: <strong>{editPriceValue.toFixed(2)} {supplier.currency}</strong>
+                            {' '}(Difference: <strong style={{ color: editPriceValue > supplier.price ? '#cf1322' : '#52c41a' }}>
+                              {editPriceValue > supplier.price ? '+' : ''}{(editPriceValue - supplier.price).toFixed(2)}
+                            </strong>)
+                          </span>
+                        }
+                        type="info"
+                        showIcon
+                        style={{ marginTop: 4 }}
+                      />
+                    )}
+                  </Space>
+                ) : (
+                  <Space size={8} align="center">
+                    <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
+                      {supplier.price.toFixed(2)}
+                    </Text>
+                    <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
+                      {supplier.currency}
+                    </Tag>
+                    <Tooltip title="Click to edit price">
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => {
+                          setEditingPrice(prev => new Map(prev).set(supplier.supplier_id, supplier.price));
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </Tooltip>
+                  </Space>
+                )}
+              </div>
             </Col>
-            {supplier.price_ron && (
-              <Col span={8}>
+            {supplier.price_ron && !isEditingPrice && (
+              <Col span={6}>
                 <Statistic
                   title="Price (RON)"
                   value={supplier.price_ron}
@@ -621,13 +812,22 @@ const LowStockSuppliersPage: React.FC = () => {
                 />
               </Col>
             )}
-            <Col span={8}>
+            <Col span={supplier.price_ron && !isEditingPrice ? 6 : 12}>
               <Statistic
-                title="Total Cost"
-                value={supplier.price * product.reorder_quantity}
+                title={
+                  <span>
+                    Total Cost 
+                    {isEditingPrice && (
+                      <Text type="secondary" style={{ fontSize: 11, marginLeft: 4 }}>
+                        (for {product.reorder_quantity} units)
+                      </Text>
+                    )}
+                  </span>
+                }
+                value={(isEditingPrice ? editPriceValue : supplier.price) * product.reorder_quantity}
                 precision={2}
                 suffix={supplier.currency}
-                valueStyle={{ fontSize: 16, color: '#cf1322' }}
+                valueStyle={{ fontSize: 18, color: '#cf1322', fontWeight: 'bold' }}
               />
             </Col>
           </Row>
@@ -694,9 +894,25 @@ const LowStockSuppliersPage: React.FC = () => {
           <Text strong>{record.name}</Text>
           <Text type="secondary" style={{ fontSize: 12 }}>SKU: {record.sku}</Text>
           {record.part_number_key && record.part_number_key !== record.sku && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              PNK: {record.part_number_key}
-            </Text>
+            <div>
+              {record.product_url ? (
+                <Tooltip title="Click to open product page on your website">
+                  <a 
+                    href={record.product_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 12, color: '#1890ff' }}
+                  >
+                    <LinkOutlined style={{ marginRight: 4 }} />
+                    PNK: {record.part_number_key}
+                  </a>
+                </Tooltip>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  PNK: {record.part_number_key}
+                </Text>
+              )}
+            </div>
           )}
           {record.chinese_name && (
             <Text type="secondary" style={{ fontSize: 12, color: '#52c41a' }}> {record.chinese_name}</Text>
@@ -878,6 +1094,48 @@ const LowStockSuppliersPage: React.FC = () => {
                 </>
               )}
             </Space>
+
+            {/* Sold in Last 6 Months */}
+            <Space size={4} style={{ width: '100%', marginTop: 4 }}>
+              <Tooltip title={
+                <div>
+                  <div><strong>Sales in Last 6 Months</strong></div>
+                  <div>Total Sold: {record.sold_last_6_months} units</div>
+                  <div>Avg/Month: {record.avg_monthly_sales} units</div>
+                  {record.sales_sources && Object.keys(record.sales_sources).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <strong>Sources:</strong>
+                      {Object.entries(record.sales_sources).map(([source, qty]) => (
+                        <div key={source}>• {source}: {qty} units</div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 4 }}>
+                    <strong>Velocity:</strong> {getSalesVelocityLabel(record.avg_monthly_sales)}
+                  </div>
+                </div>
+              }>
+                <Space size={4}>
+                  {getSalesVelocityIcon(record.sold_last_6_months, record.avg_monthly_sales)}
+                  <Text style={{ fontSize: 12 }}>Sold (6m):</Text>
+                  <Text 
+                    strong 
+                    style={{ 
+                      color: getSalesVelocityColor(record.avg_monthly_sales),
+                      fontSize: 12
+                    }}
+                  >
+                    {record.sold_last_6_months}
+                  </Text>
+                  <Tag 
+                    color={getSalesVelocityColor(record.avg_monthly_sales)} 
+                    style={{ fontSize: 10, padding: '0 4px', margin: 0 }}
+                  >
+                    ~{record.avg_monthly_sales}/mo
+                  </Tag>
+                </Space>
+              </Tooltip>
+            </Space>
           </Space>
         );
       },
@@ -940,6 +1198,13 @@ const LowStockSuppliersPage: React.FC = () => {
       ? record.suppliers.filter(s => s.is_verified)
       : record.suppliers;
     
+    // Find cheapest supplier for highlighting
+    const cheapestSupplier = filteredSuppliers.length > 0 
+      ? filteredSuppliers.reduce((prev, current) => 
+          (current.price < prev.price) ? current : prev
+        )
+      : null;
+    
     if (record.suppliers.length === 0) {
       return (
         <Alert
@@ -954,10 +1219,22 @@ const LowStockSuppliersPage: React.FC = () => {
     if (filteredSuppliers.length === 0 && showOnlyVerified) {
       return (
         <Alert
-          message="No Verified Suppliers"
-          description="This product has no verified suppliers. Uncheck 'Show Only Verified' to see all suppliers."
-          type="info"
+          message="No Verified Suppliers Found"
+          description={
+            <div>
+              <p>This product has <strong>{record.suppliers.length} supplier(s)</strong>, but none are verified yet.</p>
+              <p>To verify a supplier:</p>
+              <ol style={{ marginTop: 8, marginBottom: 8 }}>
+                <li>Go to <strong>&quot;Produse Furnizori&quot;</strong> page</li>
+                <li>Find the supplier product for <strong>SKU: {record.sku}</strong></li>
+                <li>Click <strong>&quot;Confirma Match&quot;</strong> to verify the match</li>
+              </ol>
+              <p>Or <a onClick={() => setShowOnlyVerified(false)} style={{ cursor: 'pointer', color: '#1890ff' }}>click here to show all suppliers</a> including unverified ones.</p>
+            </div>
+          }
+          type="warning"
           showIcon
+          style={{ marginBottom: 16 }}
         />
       );
     }
@@ -972,12 +1249,21 @@ const LowStockSuppliersPage: React.FC = () => {
           {showOnlyVerified && (
             <Text type="success" strong> (Showing only verified suppliers)</Text>
           )}
+          {cheapestSupplier && filteredSuppliers.length > 1 && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+              💰 <strong>Best price:</strong> {cheapestSupplier.price.toFixed(2)} {cheapestSupplier.currency} from {cheapestSupplier.supplier_name}
+            </Text>
+          )}
         </Paragraph>
         
         <Row gutter={[16, 16]}>
           {filteredSuppliers.map((supplier) => (
             <Col span={24} key={supplier.supplier_id}>
-              <SupplierCard supplier={supplier} product={record} />
+              <SupplierCard 
+                supplier={supplier} 
+                product={record} 
+                isCheapest={cheapestSupplier?.supplier_id === supplier.supplier_id && filteredSuppliers.length > 1}
+              />
             </Col>
           ))}
         </Row>
@@ -1158,15 +1444,29 @@ const LowStockSuppliersPage: React.FC = () => {
                   <Option value="low_stock">🟡 Low Stock</Option>
                 </Select>
                 
-                <Checkbox
-                  checked={showOnlyVerified}
-                  onChange={(e) => setShowOnlyVerified(e.target.checked)}
-                >
-                  <Space>
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    <Text strong>Show Only Verified Suppliers</Text>
-                  </Space>
-                </Checkbox>
+                <Tooltip title="When enabled, only suppliers that have been manually verified in 'Produse Furnizori' page will be shown">
+                  <Checkbox
+                    checked={showOnlyVerified}
+                    onChange={(e) => setShowOnlyVerified(e.target.checked)}
+                    style={{
+                      padding: '8px 12px',
+                      border: showOnlyVerified ? '2px solid #52c41a' : '1px solid #d9d9d9',
+                      borderRadius: '4px',
+                      backgroundColor: showOnlyVerified ? '#f6ffed' : 'white'
+                    }}
+                  >
+                    <Space>
+                      {showOnlyVerified ? (
+                        <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
+                      ) : (
+                        <CloseCircleOutlined style={{ color: '#8c8c8c', fontSize: 16 }} />
+                      )}
+                      <Text strong style={{ color: showOnlyVerified ? '#52c41a' : '#262626' }}>
+                        Show Only Verified Suppliers
+                      </Text>
+                    </Space>
+                  </Checkbox>
+                </Tooltip>
                 
                 <Button onClick={resetFilters}>
                   Reset Filters

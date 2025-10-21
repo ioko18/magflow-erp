@@ -7,3 +7,4 @@ export { default as ProductImport } from './ProductImport';
 export { default as ProductMatching } from './ProductMatching';
 export { default as Inventory } from './Inventory';
 export { default as LowStockSuppliers } from './LowStockSuppliers';
+export { default as ProductMatchingSuggestions } from './ProductMatchingSuggestions';

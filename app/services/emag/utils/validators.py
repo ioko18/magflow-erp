@@ -45,8 +45,8 @@ def validate_product_data(product: dict[str, Any]) -> bool:
             price = float(product["price"])
             if price < 0:
                 raise ValidationError("Product price cannot be negative")
-        except (ValueError, TypeError):
-            raise ValidationError(f"Invalid price value: {product['price']}")
+        except (ValueError, TypeError) as e:
+            raise ValidationError(f"Invalid price value: {product['price']}") from e
 
     logger.debug(f"Product data validated successfully: {product.get('id')}")
     return True

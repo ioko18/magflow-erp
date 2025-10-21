@@ -194,7 +194,8 @@ def _extract_part_number_key_from_url(url):
     """Extract part_number_key from eMAG product URL.
 
     Args:
-        url (str): The eMAG product URL (e.g., for .../pd/D5DD9BBBM/ the part_number_key is D5DD9BBBM)
+        url (str): The eMAG product URL (e.g., for .../pd/D5DD9BBBM/
+            the part_number_key is D5DD9BBBM)
 
     Returns:
         str: The extracted part number key or empty string if not found
@@ -284,12 +285,14 @@ def load_credentials():
     if requested_account_type == "main":
         if "main" not in available_accounts:
             raise ValueError(
-                "MAIN account credentials not found. Please set EMAG_API_USERNAME and EMAG_API_PASSWORD environment variables."
+                "MAIN account credentials not found. Please set EMAG_API_USERNAME "
+                "and EMAG_API_PASSWORD environment variables."
             )
     elif requested_account_type == "fbe":
         if "fbe" not in available_accounts:
             raise ValueError(
-                "FBE account credentials not found. Please set EMAG_FBE_API_USERNAME and EMAG_FBE_API_PASSWORD environment variables."
+                "FBE account credentials not found. Please set EMAG_FBE_API_USERNAME "
+                "and EMAG_FBE_API_PASSWORD environment variables."
             )
     else:  # auto mode
         if "main" in available_accounts:
@@ -399,7 +402,7 @@ async def fetch_emag_products(session, page=1, items_per_page=100):
 
 
 def _apply_db_host_override(db_url: str) -> str:
-    """Override the database host when an explicit override is provided or when default hosts are unreachable"""
+    """Override DB host when override is provided or defaults unreachable."""
     if not db_url:
         return db_url
 
@@ -502,8 +505,8 @@ def get_db_engine():
             else:
                 redacted = db_url
             logger.info(f"DB connection URL resolved: {redacted}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Could not parse DB URL for logging: {str(e)}")
 
         # Create engine with connection pooling and pre-ping
         _db_engine = create_engine(
@@ -565,17 +568,16 @@ def update_sync_status(sync_id, status, offers_processed=0, error_message=None):
         with get_db() as session:
             if error_message:
                 session.execute(
-                    text(
-                        f"""
-                    UPDATE {EMAG_OFFER_SYNCS_TABLE}
+                    text("""
+                    UPDATE emag_offer_syncs
                     SET status = :status,
                         total_offers_processed = :processed,
                         error_count = error_count + 1,
-                        errors = COALESCE(errors, '[]'::jsonb) || jsonb_build_array(CAST(:error_message AS text)),
+                        errors = COALESCE(errors, '[]'::jsonb)
+                            || jsonb_build_array(CAST(:error_message AS text)),
                         updated_at = NOW()
                     WHERE sync_id = :sync_id
-                """
-                    ),
+                    """),
                     {
                         "sync_id": sync_id,
                         "status": status,
@@ -585,15 +587,13 @@ def update_sync_status(sync_id, status, offers_processed=0, error_message=None):
                 )
             else:
                 session.execute(
-                    text(
-                        f"""
-                    UPDATE {EMAG_OFFER_SYNCS_TABLE}
+                    text("""
+                    UPDATE emag_offer_syncs
                     SET status = :status,
                         total_offers_processed = :processed,
                         updated_at = NOW()
                     WHERE sync_id = :sync_id
-                """
-                    ),
+                    """),
                     {
                         "sync_id": sync_id,
                         "status": status,
@@ -681,7 +681,9 @@ def check_table_columns_exist():
                 OFFERS_PART_NUMBER_KEY_COLUMN = True
 
         logger.info(
-            f"Database schema check: products.part_number_key={PRODUCTS_PART_NUMBER_KEY_COLUMN}, offers.part_number_key={OFFERS_PART_NUMBER_KEY_COLUMN}"
+            "Database schema check: products.part_number_key=%s, offers.part_number_key=%s",
+            PRODUCTS_PART_NUMBER_KEY_COLUMN,
+            OFFERS_PART_NUMBER_KEY_COLUMN,
         )
         return True
 
@@ -721,7 +723,8 @@ def get_offers_metadata_column():
                     connection.execute(
                         text(
                             f"""
-                        ALTER TABLE {DB_SCHEMA}.emag_product_offers ADD COLUMN IF NOT EXISTS metadata_payload JSONB
+                        ALTER TABLE {DB_SCHEMA}.emag_product_offers
+                        ADD COLUMN IF NOT EXISTS metadata_payload JSONB
                     """
                         )
                     )
@@ -732,7 +735,8 @@ def get_offers_metadata_column():
                     OFFERS_METADATA_COLUMN = "metadata_payload"
                 except Exception as alter_e:
                     logger.warning(
-                        "Could not add metadata_payload column to %s.emag_product_offers: %s; skipping metadata payload",
+                        "Could not add metadata_payload column to %s.emag_product_offers: %s; "
+                        "skipping metadata payload",
                         DB_SCHEMA,
                         alter_e,
                     )
@@ -760,7 +764,8 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
     global current_sync_id, sync_start_time, shutdown_requested
 
     logger.info(
-        f"🔐 Starting eMAG synchronization for {account_type.upper()} account..."
+        "🔐 Starting eMAG synchronization for %s account...",
+        account_type.upper(),
     )
 
     # Set credentials for this account
@@ -774,20 +779,18 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
     try:
         with get_db() as session:
             session.execute(
-                text(
-                    f"""
-                INSERT INTO {EMAG_OFFER_SYNCS_TABLE}
+                text("""
+                INSERT INTO emag_offer_syncs
                 (sync_id, account_type, operation_type, status, started_at,
                  total_offers_processed, offers_created, offers_updated,
                  offers_failed, offers_skipped, error_count, errors, filters,
                  metadata, created_at, updated_at)
                 VALUES (
                     :sync_id, :account_type, 'full_import', 'running', :started_at,
-                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{{}}'::jsonb,
-                    '{{}}'::jsonb, NOW(), NOW()
+                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{}'::jsonb,
+                    '{}'::jsonb, NOW(), NOW()
                 )
-                """
-                ),
+                """),
                 {
                     "sync_id": sync_id,
                     "account_type": account_type,
@@ -841,7 +844,9 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
                 # Check maximum pages limit
                 if page > MAX_PAGES:
                     logger.warning(
-                        f"Maximum pages limit reached ({MAX_PAGES}) for {account_type}, stopping sync..."
+                        "Maximum pages limit reached (%s) for %s, stopping sync...",
+                        MAX_PAGES,
+                        account_type,
                     )
                     update_sync_status(
                         sync_id,
@@ -854,13 +859,17 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
 
                 try:
                     logger.info(
-                        f"[{account_type.upper()}] Fetching page {page}/{MAX_PAGES}..."
+                        "[%s] Fetching page %s/%s...",
+                        account_type.upper(),
+                        page,
+                        MAX_PAGES,
                     )
                     data = await fetch_emag_products(session, page)
 
                     if not data or not data.get("results"):
                         logger.info(
-                            f"🔚 [{account_type.upper()}] No more results found, sync completed successfully"
+                            "🔚 [%s] No more results found, sync completed successfully",
+                            account_type.upper(),
                         )
                         update_sync_status(sync_id, "completed", total_processed)
                         SYNC_RUN_STATUS.labels(account_type).set(2)
@@ -869,7 +878,10 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
 
                     page_offers = len(data.get("results", []))
                     logger.info(
-                        f"📦 [{account_type.upper()}] Processing {page_offers} offers from page {page}"
+                        "📦 [%s] Processing %s offers from page %s",
+                        account_type.upper(),
+                        page_offers,
+                        page,
                     )
 
                     # Process offers in batches with improved error handling
@@ -883,7 +895,9 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
                         update_sync_status(sync_id, "running", total_processed)
                         last_progress_update = 0
                         logger.info(
-                            f"📊 [{account_type.upper()}] Progress update: {total_processed} offers processed so far"
+                            "📊 [%s] Progress update: %s offers processed so far",
+                            account_type.upper(),
+                            total_processed,
                         )
 
                     # Increment page for next iteration
@@ -892,7 +906,10 @@ async def sync_emag_offers_for_account(account_type, account_credentials):
 
                 except Exception as e:
                     logger.error(
-                        f"Error processing page {page} for {account_type}: {e}"
+                        "Error processing page %s for %s: %s",
+                        page,
+                        account_type,
+                        e,
                     )
                     SYNC_REQUEST_ERRORS.labels(
                         endpoint="product_offer/read",
@@ -954,17 +971,16 @@ async def sync_emag_offers():
     try:
         with get_db() as session:
             session.execute(
-                text(
-                    f"""
-                INSERT INTO {EMAG_OFFER_SYNCS_TABLE}
+                text("""
+                INSERT INTO emag_offer_syncs
                 (sync_id, account_type, operation_type, status, started_at,
                  total_offers_processed, offers_created, offers_updated,
                  offers_failed, offers_skipped, error_count, errors, filters,
                  metadata, created_at, updated_at)
                 VALUES (
                     :sync_id, :account_type, 'full_import', 'running', :started_at,
-                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{{}}'::jsonb,
-                    '{{}}'::jsonb, NOW(), NOW()
+                    0, 0, 0, 0, 0, 0, '[]'::jsonb, '{}'::jsonb,
+                    '{}'::jsonb, NOW(), NOW()
                 )
                 """
                 ),
@@ -1081,15 +1097,13 @@ async def sync_emag_offers():
                 try:
                     with get_db() as final_db:
                         final_db.execute(
-                            text(
-                                f"""
-                            UPDATE {EMAG_OFFER_SYNCS_TABLE}
+                            text("""
+                            UPDATE emag_offer_syncs
                             SET status = 'completed',
                                 completed_at = :completed_at,
                                 updated_at = NOW()
                             WHERE sync_id = :sync_id
-                            """
-                            ),
+                            """),
                             {"sync_id": sync_id, "completed_at": _now_utc()},
                         )
 
@@ -1268,7 +1282,9 @@ def process_offers_batch(offers, sync_id):
         return 0
 
     logger.info(
-        f"Starting database operations with {len(products_batch)} products and {len(offers_batch)} offers"
+        "Starting database operations with %s products and %s offers",
+        len(products_batch),
+        len(offers_batch),
     )
 
     try:
@@ -1288,9 +1304,10 @@ def process_offers_batch(offers, sync_id):
 
                         # Try to get existing product ID
                         result = db.execute(
-                            text(
-                                f"SELECT id, emag_id FROM {DB_SCHEMA}.emag_products WHERE emag_id = :emag_id"
-                            ),
+                            text("""
+                                SELECT id, emag_id FROM emag_products
+                                WHERE emag_id = :emag_id
+                            """),
                             {"emag_id": emag_id},
                         ).fetchone()
 
@@ -1312,17 +1329,20 @@ def process_offers_batch(offers, sync_id):
 
                         # Prepare the SQL query based on whether part_number_key exists
                         if "part_number_key" in product and columns_exist:
-                            sql = f"""
-                                INSERT INTO {DB_SCHEMA}.emag_products (
-                                    emag_id, name, description, part_number, part_number_key, emag_category_id,
+                            sql = """
+                                INSERT INTO emag_products (
+                                    emag_id, name, description, part_number,
+                                    part_number_key, emag_category_id,
                                     emag_brand_id, emag_category_name, emag_brand_name,
-                                    characteristics, images, is_active, last_imported_at, emag_updated_at,
-                                    raw_data, created_at, updated_at
+                                    characteristics, images, is_active, last_imported_at,
+                                    emag_updated_at, raw_data, created_at, updated_at
                                 )
                                 VALUES (
-                                    :emag_id, :name, :description, :part_number, :part_number_key, :emag_category_id,
+                                    :emag_id, :name, :description, :part_number,
+                                    :part_number_key, :emag_category_id,
                                     :emag_brand_id, :emag_category_name, :emag_brand_name,
-                                    :characteristics, :images, :is_active, :last_imported_at, :emag_updated_at,
+                                    :characteristics, :images, :is_active,
+                                    :last_imported_at, :emag_updated_at,
                                     :raw_data, NOW(), NOW()
                                 )
                                 ON CONFLICT (emag_id) DO UPDATE SET
@@ -1344,17 +1364,19 @@ def process_offers_batch(offers, sync_id):
                                 RETURNING id
                             """
                         else:
-                            sql = f"""
-                                INSERT INTO {DB_SCHEMA}.emag_products (
+                            sql = """
+                                INSERT INTO emag_products (
                                     emag_id, name, description, part_number, emag_category_id,
                                     emag_brand_id, emag_category_name, emag_brand_name,
-                                    characteristics, images, is_active, last_imported_at, emag_updated_at,
-                                    raw_data, created_at, updated_at
+                                    characteristics, images, is_active, last_imported_at,
+                                    emag_updated_at, raw_data, created_at, updated_at
                                 )
                                 VALUES (
-                                    :emag_id, :name, :description, :part_number, :emag_category_id,
-                                    :emag_brand_id, :emag_category_name, :emag_brand_name,
-                                    :characteristics, :images, :is_active, :last_imported_at, :emag_updated_at,
+                                    :emag_id, :name, :description, :part_number,
+                                    :emag_category_id, :emag_brand_id,
+                                    :emag_category_name, :emag_brand_name,
+                                    :characteristics, :images, :is_active,
+                                    :last_imported_at, :emag_updated_at,
                                     :raw_data, NOW(), NOW()
                                 )
                                 ON CONFLICT (emag_id) DO UPDATE SET
@@ -1384,11 +1406,14 @@ def process_offers_batch(offers, sync_id):
                             product_id = product_row[0]
                             product_id_map[emag_id] = product_id
                             logger.info(
-                                f"Successfully processed product with emag_id: {emag_id}, id: {product_id}"
+                                "Successfully processed product with emag_id: %s, id: %s",
+                                emag_id,
+                                product_id,
                             )
                         else:
                             logger.warning(
-                                f"No ID returned when inserting/updating product with emag_id: {emag_id}"
+                                "No ID returned when inserting/updating product with emag_id: %s",
+                                emag_id,
                             )
                             continue
 
@@ -1414,7 +1439,9 @@ def process_offers_batch(offers, sync_id):
             # Now process the offers with the product IDs we have
             if offers_batch:
                 logger.info(
-                    f"Processing {len(offers_batch)} offers with {len(product_id_map)} available products..."
+                    "Processing %s offers with %s available products...",
+                    len(offers_batch),
+                    len(product_id_map),
                 )
                 valid_offers = []
                 skipped_offers = 0
@@ -1432,15 +1459,18 @@ def process_offers_batch(offers, sync_id):
                         offer["product_id"] = product_id_map[emag_id]
                         valid_offers.append(offer)
                         logger.debug(
-                            f"Mapped offer {offer.get('emag_offer_id')} to product_id: {offer['product_id']}"
+                            "Mapped offer %s to product_id: %s",
+                            offer.get("emag_offer_id"),
+                            offer["product_id"],
                         )
                     else:
                         # Try to get the product from the database
                         try:
                             result = db.execute(
-                                text(
-                                    f"SELECT id, emag_id FROM {DB_SCHEMA}.emag_products WHERE emag_id = :emag_id"
-                                ),
+                                text("""
+                                    SELECT id, emag_id FROM emag_products
+                                    WHERE emag_id = :emag_id
+                                """),
                                 {"emag_id": emag_id},
                             ).fetchone()
 
@@ -1451,23 +1481,31 @@ def process_offers_batch(offers, sync_id):
                                 product_id_map[emag_id] = product_id
                                 valid_offers.append(offer)
                                 logger.info(
-                                    f"Found existing product for emag_id: {emag_id}, product_id: {product_id}"
+                                    "Found existing product for emag_id: %s, product_id: %s",
+                                    emag_id,
+                                    product_id,
                                 )
                             else:
                                 logger.warning(
-                                    f"No product found for emag_id: {emag_id}, skipping offer {offer.get('emag_offer_id')}"
+                                    "No product found for emag_id: %s, skipping offer %s",
+                                    emag_id,
+                                    offer.get("emag_offer_id"),
                                 )
                                 skipped_offers += 1
                         except Exception as e:
                             logger.error(
-                                f"Error looking up product for emag_id {emag_id}: {str(e)}"
+                                "Error looking up product for emag_id %s: %s",
+                                emag_id,
+                                e,
                             )
                             skipped_offers += 1
 
                 # Update offers_batch to only include valid offers
                 offers_batch = valid_offers
                 logger.info(
-                    f"After validation, {len(offers_batch)} offers remain for processing, {skipped_offers} skipped"
+                    "After validation, %s offers remain for processing, %s skipped",
+                    len(offers_batch),
+                    skipped_offers,
                 )
 
                 # If no valid offers left, log and return
@@ -1480,38 +1518,52 @@ def process_offers_batch(offers, sync_id):
                 chunk = offers_batch
                 chunk_size = 100  # Reducem dimensiunea lotului pentru a evita problemele de memorie
                 logger.info(
-                    f"Processing {len(chunk)} offers in chunks of {chunk_size}"
+                    "Processing %s offers in chunks of %s",
+                    len(chunk),
+                    chunk_size,
                 )
                 for i in range(0, len(chunk), chunk_size):
                     batch = chunk[i : i + chunk_size]
                     batch_num = i // chunk_size + 1
                     total_batches = (len(chunk) + chunk_size - 1) // chunk_size
                     logger.info(
-                        f"Processing batch {batch_num}/{total_batches} with {len(batch)} offers"
+                        "Processing batch %s/%s with %s offers",
+                        batch_num,
+                        total_batches,
+                        len(batch),
                     )
 
                     # Log first offer in batch for debugging
                     if batch:
                         first_offer = batch[0]
                         logger.debug(
-                            f"First offer in batch {batch_num}: {json.dumps(first_offer, default=str, ensure_ascii=False, indent=2)}"
+                            "First offer in batch %s: %s",
+                            batch_num,
+                            json.dumps(
+                                first_offer,
+                                default=str,
+                                ensure_ascii=False,
+                                indent=2,
+                            ),
                         )
                     chunk_batch = chunk[i : i + chunk_size]
 
-                    if metadata_column:
-                        sql = text(
-                            f"""
-                            INSERT INTO {DB_SCHEMA}.emag_product_offers (
+                    # Definim un dicționar cu interogări SQL predefinite pentru fiecare caz
+                    sql_templates = {
+                        'metadata1': """
+                            INSERT INTO emag_product_offers (
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, metadata, raw_data, created_at, updated_at
+                                account_type, warranty, metadata, raw_data, created_at, updated_at,
+                                metadata1
                             )
                             VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
                                 :stock, :stock_status, :handling_time, :status, :is_available,
-                                :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :metadata, :raw_data, NOW(), NOW()
+                                :is_visible, :vat_rate, :vat_included, :warehouse_id,
+                                :warehouse_name, :account_type, :warranty, :metadata, :raw_data,
+                                NOW(), NOW(), :metadata_payload
                             )
                             ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
                                 price = EXCLUDED.price,
@@ -1531,10 +1583,50 @@ def process_offers_batch(offers, sync_id):
                                 warranty = EXCLUDED.warranty,
                                 raw_data = EXCLUDED.raw_data,
                                 metadata = EXCLUDED.metadata,
-                                {metadata_column} = :metadata_payload,
+                                metadata1 = EXCLUDED.metadata1,
                                 updated_at = NOW()
-                        """.format(metadata_column=metadata_column)
-                        )
+                        """,
+                        'metadata2': """
+                            INSERT INTO emag_product_offers (
+                                emag_product_id, emag_offer_id, price, sale_price, currency,
+                                stock, stock_status, handling_time, status, is_available,
+                                is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
+                                account_type, warranty, metadata, raw_data, created_at, updated_at,
+                                metadata2
+                            )
+                            VALUES (
+                                :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
+                                :stock, :stock_status, :handling_time, :status, :is_available,
+                                :is_visible, :vat_rate, :vat_included, :warehouse_id,
+                                :warehouse_name, :account_type, :warranty, :metadata, :raw_data,
+                                NOW(), NOW(), :metadata_payload
+                            )
+                            ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
+                                price = EXCLUDED.price,
+                                sale_price = EXCLUDED.sale_price,
+                                currency = EXCLUDED.currency,
+                                stock = EXCLUDED.stock,
+                                stock_status = EXCLUDED.stock_status,
+                                handling_time = EXCLUDED.handling_time,
+                                status = EXCLUDED.status,
+                                is_available = EXCLUDED.is_available,
+                                is_visible = EXCLUDED.is_visible,
+                                vat_rate = EXCLUDED.vat_rate,
+                                vat_included = EXCLUDED.vat_included,
+                                warehouse_id = EXCLUDED.warehouse_id,
+                                warehouse_name = EXCLUDED.warehouse_name,
+                                account_type = EXCLUDED.account_type,
+                                warranty = EXCLUDED.warranty,
+                                raw_data = EXCLUDED.raw_data,
+                                metadata = EXCLUDED.metadata,
+                                metadata2 = EXCLUDED.metadata2,
+                                updated_at = NOW()
+                        """
+                    }
+                    if metadata_column and metadata_column in sql_templates:
+                        sql = text(sql_templates[metadata_column])
+                    elif metadata_column:
+                        raise ValueError(f"Nume de coloană necunoscut: {metadata_column}")
                     else:
                         # Use the same SQL as above but without the metadata column
                         sql = text(
@@ -1543,13 +1635,15 @@ def process_offers_batch(offers, sync_id):
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, metadata, raw_data, created_at, updated_at
+                                account_type, warranty, metadata, raw_data,
+                                created_at, updated_at
                             )
                             VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
                                 :stock, :stock_status, :handling_time, :status, :is_available,
-                                :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :metadata, :raw_data, NOW(), NOW()
+                                :is_visible, :vat_rate, :vat_included, :warehouse_id,
+                                :warehouse_name, :account_type, :warranty, :metadata,
+                                :raw_data, NOW(), NOW()
                             )
                             ON CONFLICT (emag_offer_id) DO UPDATE SET
                                 price = EXCLUDED.price,
@@ -1649,12 +1743,15 @@ def process_offers_batch(offers, sync_id):
                                 emag_product_id, emag_offer_id, price, sale_price, currency,
                                 stock, stock_status, handling_time, status, is_available,
                                 is_visible, vat_rate, vat_included, warehouse_id, warehouse_name,
-                                account_type, warranty, part_number_key, metadata, raw_data, created_at, updated_at
+                                account_type, warranty, part_number_key, metadata,
+                                raw_data, created_at, updated_at
                             ) VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
-                                :stock, :stock_status, :handling_time, :status, :is_available,
-                                :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :part_number_key, :metadata, :raw_data, NOW(), NOW()
+                                :stock, :stock_status, :handling_time, :status,
+                                :is_available, :is_visible, :vat_rate, :vat_included,
+                                :warehouse_id, :warehouse_name, :account_type,
+                                :warranty, :part_number_key, :metadata,
+                                :raw_data, NOW(), NOW()
                             )
                             ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
                                 emag_product_id = EXCLUDED.emag_product_id,
@@ -1688,9 +1785,10 @@ def process_offers_batch(offers, sync_id):
                                 account_type, warranty, metadata, raw_data, created_at, updated_at
                             ) VALUES (
                                 :emag_product_id, :emag_offer_id, :price, :sale_price, :currency,
-                                :stock, :stock_status, :handling_time, :status, :is_available,
-                                :is_visible, :vat_rate, :vat_included, :warehouse_id, :warehouse_name,
-                                :account_type, :warranty, :metadata, :raw_data, NOW(), NOW()
+                                :stock, :stock_status, :handling_time, :status,
+                                :is_available, :vat_rate, :vat_included, :warehouse_id,
+                                :warehouse_name, :account_type, :warranty, :metadata,
+                                :raw_data, NOW(), NOW()
                             )
                             ON CONFLICT (emag_offer_id, account_type) DO UPDATE SET
                                 emag_product_id = EXCLUDED.emag_product_id,
@@ -1731,23 +1829,36 @@ def process_offers_batch(offers, sync_id):
                                 except Exception as e:
                                     error_count += 1
                                     logger.error(
-                                        f"Error processing offer_id {item.get('emag_offer_id')} (account_type: {item.get('account_type')}): {str(e)}"
+                                        "Error processing offer_id %s (account_type: %s): %s",
+                                        item.get("emag_offer_id"),
+                                        item.get("account_type"),
+                                        e,
                                     )
                                     logger.error(
-                                        f"Problematic item data: {json.dumps(item, default=str, ensure_ascii=False, indent=2)}"
+                                        "Problematic item data: %s",
+                                        json.dumps(
+                                            item,
+                                            default=str,
+                                            ensure_ascii=False,
+                                            indent=2,
+                                        ),
                                     )
-                                    # Continue with the next item even if one fails
-                                    continue
 
                             db.commit()
                             logger.info(
-                                f"Successfully processed chunk {i//chunk_size + 1}/{(len(batch_data) + chunk_size - 1)//chunk_size} - Success: {success_count}, Errors: {error_count}"
+                                "✅ Successfully processed chunk %s/%s - Success: %s, Errors: %s",
+                                i // chunk_size + 1,
+                                (len(batch_data) + chunk_size - 1) // chunk_size,
+                                success_count,
+                                error_count,
                             )
 
                         except Exception as e:
                             db.rollback()
                             logger.error(
-                                f"Error processing chunk {i//chunk_size + 1}: {str(e)}"
+                                "Error processing chunk %s: %s",
+                                i // chunk_size + 1,
+                                e,
                             )
                             logger.exception("Chunk processing error details:")
 
@@ -1761,16 +1872,27 @@ def process_offers_batch(offers, sync_id):
                                     db.rollback()
                                     error_count += 1
                                     logger.error(
-                                        f"Error processing item {i + idx + 1}: {str(single_err)}"
+                                        "Error processing item %s: %s",
+                                        i + idx + 1,
+                                        single_err,
                                     )
                                     logger.error(
-                                        f"Problematic item data: {json.dumps(item, default=str, ensure_ascii=False, indent=2)}"
+                                        "Problematic item data: %s",
+                                        json.dumps(
+                                            item,
+                                            default=str,
+                                            ensure_ascii=False,
+                                            indent=2,
+                                        ),
                                     )
                                     # Skip this item and continue with the next one
                                     continue
 
                 logger.info(
-                    f"✅ Successfully processed batch - Success: {success_count}, Errors: {error_count}, Total: {len(offers_batch)}"
+                    "✅ Successfully processed batch - Success: %s, Errors: %s, Total: %s",
+                    success_count,
+                    error_count,
+                    len(offers_batch),
                 )
 
                 # Commit the transaction if we got this far
@@ -1828,7 +1950,8 @@ async def sync_both_accounts():
 
     if len(available_accounts) == 1:
         logger.warning(
-            f"Only {available_accounts[0][0].upper()} account available, falling back to single account sync"
+            "Only %s account available, falling back to single account sync",
+            available_accounts[0][0].upper(),
         )
         # Use the existing single account sync
         global EMAG_ACCOUNT_TYPE, EMAG_USER, EMAG_PASS
@@ -1881,7 +2004,8 @@ async def sync_both_accounts():
         else:
             if isinstance(result, dict) and result.get("sync_failed"):
                 logger.warning(
-                    f"⚠️ [{account_type.upper()}] Sync completed with errors. Processed: {result.get('total_processed', 0)}"
+                    f"⚠️ [{account_type.upper()}] Sync completed with errors. "
+                    f"Processed: {result.get('total_processed', 0)}"
                 )
                 failed_syncs += 1
                 total_processed += result.get("total_processed", 0)
@@ -1892,7 +2016,8 @@ async def sync_both_accounts():
                     else result.get("total_processed", 0)
                 )
                 logger.info(
-                    f"✅ [{account_type.upper()}] Sync completed successfully. Processed: {processed_count}"
+                    f"✅ [{account_type.upper()}] Sync completed successfully. "
+                    f"Processed: {processed_count}"
                 )
                 successful_syncs += 1
                 total_processed += processed_count
@@ -1933,17 +2058,16 @@ async def sync_single_account(account_type, credentials):
         try:
             with get_db() as session:
                 session.execute(
-                    text(
-                        f"""
-                    INSERT INTO {EMAG_OFFER_SYNCS_TABLE}
+                    text("""
+                    INSERT INTO emag_offer_syncs
                     (sync_id, account_type, operation_type, status, started_at,
                      total_offers_processed, offers_created, offers_updated,
                      offers_failed, offers_skipped, error_count, errors, filters,
                      metadata, created_at, updated_at)
                     VALUES (
                         :sync_id, :account_type, 'full_import', 'running', :started_at,
-                        0, 0, 0, 0, 0, 0, '[]'::jsonb, '{{}}'::jsonb,
-                        '{{}}'::jsonb, NOW(), NOW()
+                        0, 0, 0, 0, 0, 0, '[]'::jsonb, '{}'::jsonb,
+                        '{}'::jsonb, NOW(), NOW()
                     )
                     """
                     ),
@@ -1977,7 +2101,8 @@ async def sync_single_account(account_type, credentials):
                     # Check for shutdown request
                     if shutdown_requested:
                         logger.warning(
-                            f"[{account_type.upper()}] Shutdown requested, stopping sync gracefully..."
+                            f"[{account_type.upper()}] Shutdown requested, "
+                            "stopping sync gracefully..."
                         )
                         update_sync_status(
                             sync_id, "failed", total_processed, "Shutdown requested"
@@ -1989,7 +2114,8 @@ async def sync_single_account(account_type, credentials):
                     # Check for timeout
                     if check_sync_timeout():
                         logger.warning(
-                            f"[{account_type.upper()}] Sync timeout exceeded, stopping gracefully..."
+                            f"[{account_type.upper()}] Sync timeout exceeded, "
+                            "stopping gracefully..."
                         )
                         update_sync_status(
                             sync_id,
@@ -2004,7 +2130,8 @@ async def sync_single_account(account_type, credentials):
                     # Check maximum pages limit
                     if page > MAX_PAGES:
                         logger.warning(
-                            f"[{account_type.upper()}] Maximum pages limit reached ({MAX_PAGES}), stopping sync..."
+                            f"[{account_type.upper()}] Maximum pages limit reached "
+                            f"({MAX_PAGES}), stopping sync..."
                         )
                         update_sync_status(
                             sync_id,
@@ -2023,7 +2150,8 @@ async def sync_single_account(account_type, credentials):
 
                         if not data or not data.get("results"):
                             logger.info(
-                                f"🔚 [{account_type.upper()}] No more results found, sync completed successfully"
+                                f"🔚 [{account_type.upper()}] No more results found, "
+                                "sync completed successfully"
                             )
                             update_sync_status(sync_id, "completed", total_processed)
                             SYNC_RUN_STATUS.labels(account_type).set(2)
@@ -2032,7 +2160,8 @@ async def sync_single_account(account_type, credentials):
 
                         page_offers = len(data.get("results", []))
                         logger.info(
-                            f"📦 [{account_type.upper()}] Processing {page_offers} offers from page {page}"
+                            f"📦 [{account_type.upper()}] Processing {page_offers} "
+                            f"offers from page {page}"
                         )
 
                         # Process offers in batches with improved error handling
@@ -2048,7 +2177,9 @@ async def sync_single_account(account_type, credentials):
                             update_sync_status(sync_id, "running", total_processed)
                             last_progress_update = 0
                             logger.info(
-                                f"📊 [{account_type.upper()}] Progress update: {total_processed} offers processed so far"
+                                "📊 [%s] Progress update: %s offers processed so far",
+                                account_type.upper(),
+                                total_processed,
                             )
 
                         # Increment page for next iteration

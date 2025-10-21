@@ -55,7 +55,10 @@ async def main():
             print("\n🎉 Toate produsele sincronizate cu succes!")
 
         print("\n📋 Următorul pas:")
-        print("Rulează: docker exec -i magflow_db psql -U app -d magflow < scripts/sql/sync_emag_fbe_to_inventory.sql")
+        print(
+            "Rulează: docker exec -i magflow_db psql -U app -d magflow < "
+            "scripts/sql/sync_emag_fbe_to_inventory.sql"
+        )
 
         return 0
 

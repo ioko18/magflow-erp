@@ -1182,8 +1182,10 @@ class OfferService:
                 results.extend(batch_result.results)
                 processed += len(batch)
 
+                total_batches = (total_offers + batch_size - 1) // batch_size
+                current_batch = i // batch_size + 1
                 print(
-                    f"Processed batch {i // batch_size + 1}/{(total_offers + batch_size - 1) // batch_size} "
+                    f"Processed batch {current_batch}/{total_batches} "
                     f"({processed}/{total_offers} offers)"
                 )
 
@@ -1279,7 +1281,9 @@ async def test_offer_service():
                 offer = ProductOfferResponse(**offer)
             print(f"   Found offer: {offer.name} (Status: {offer.status})")
             print(
-                f"   Price: {offer.price.current} {offer.price.currency} (VAT: {offer.price.vat_rate}%)"
+                "   Price: "
+                f"{offer.price.current} {offer.price.currency} "
+                f"(VAT: {offer.price.vat_rate}%)"
             )
             print(f"   Stock: {offer.stock.available_quantity} available")
 
@@ -1317,7 +1321,9 @@ async def test_offer_service():
             f"   New price: {updated_offer.price.current} (was: {created_offer.price.current})"
         )
         print(
-            f"   New stock: {updated_offer.stock.available_quantity} (was: {created_offer.stock.available_quantity})"
+            "   New stock: "
+            f"{updated_offer.stock.available_quantity} "
+            f"(was: {created_offer.stock.available_quantity})"
         )
 
         # Test 5: Bulk update offers
@@ -1330,9 +1336,11 @@ async def test_offer_service():
             ]
         )
         bulk_result = await service.bulk_update_offers(bulk_updates)
+        success_count = sum(1 for r in bulk_result.results if r.success)
+        failure_count = sum(1 for r in bulk_result.results if not r.success)
         print(
-            f"   Bulk update results: {sum(1 for r in bulk_result.results if r.success)} succeeded, "
-            f"{sum(1 for r in bulk_result.results if not r.success)} failed"
+            f"   Bulk update results: {success_count} succeeded, "
+            f"{failure_count} failed"
         )
 
         # Test 6: Filter offers

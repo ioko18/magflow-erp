@@ -23,7 +23,11 @@ try:
     async def apply_migration():
         """Apply the user auth migration."""
         # Database connection string
-        db_url = f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASS}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+        db_url = (
+            "postgresql+asyncpg://"
+            f"{settings.DB_USER}:{settings.DB_PASS}"
+            f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+        )
 
         # Create async engine
         engine = create_async_engine(db_url, echo=True)
@@ -93,27 +97,83 @@ try:
             """))
 
             # Create indexes
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_email ON app.users(email)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_is_active ON app.users(is_active)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_users_is_superuser ON app.users(is_superuser)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_users_email "
+                    "ON app.users(email)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_users_is_active "
+                    "ON app.users(is_active)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_users_is_superuser "
+                    "ON app.users(is_superuser)"
+                )
+            )
 
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON app.refresh_tokens(token)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON app.refresh_tokens(user_id)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON app.refresh_tokens(expires_at)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token "
+                    "ON app.refresh_tokens(token)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id "
+                    "ON app.refresh_tokens(user_id)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at "
+                    "ON app.refresh_tokens(expires_at)"
+                )
+            )
 
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_roles_name ON app.roles(name)"))
-            await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_roles_is_active ON app.roles(is_active)"))
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_roles_name "
+                    "ON app.roles(name)"
+                )
+            )
+            await conn.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_roles_is_active "
+                    "ON app.roles(is_active)"
+                )
+            )
 
             await conn.commit()
             print("✅ Database migration applied successfully!")
 
             # Create a default admin user
-            result = await conn.execute(text("""
-                INSERT INTO app.users (email, hashed_password, full_name, is_superuser, email_verified)
-                VALUES ('admin@magflow.local', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCa3B5K/8N4lU3jK', 'Admin User', true, true)
-                ON CONFLICT (email) DO NOTHING
-                RETURNING id
-            """))
+            result = await conn.execute(
+                text(
+                    """
+                    INSERT INTO app.users (
+                        email,
+                        hashed_password,
+                        full_name,
+                        is_superuser,
+                        email_verified
+                    )
+                    VALUES (
+                        'admin@magflow.local',
+                        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCa3B5K/8N4lU3jK',
+                        'Admin User',
+                        true,
+                        true
+                    )
+                    ON CONFLICT (email) DO NOTHING
+                    RETURNING id
+                    """
+                )
+            )
             user = result.fetchone()
 
             if user:
@@ -136,8 +196,75 @@ try:
                         ON CONFLICT (user_id, role_id) DO NOTHING
                     """), {"user_id": user.id, "role_id": role.id})
 
+                # Create permissions table
+                await conn.execute(text("""
+                    CREATE TABLE IF NOT EXISTS app.permissions (
+                        id SERIAL PRIMARY KEY,
+                        name VARCHAR(50) UNIQUE NOT NULL,
+                        description VARCHAR(255),
+                        created_at TIMESTAMP DEFAULT now() NOT NULL,
+                        updated_at TIMESTAMP DEFAULT now() NOT NULL
+                    )
+                """))
+
+                # Insert permissions
+                await conn.execute(
+                    text(
+                        """
+                        INSERT INTO app.permissions (name, description, created_at, updated_at)
+                        VALUES
+                            (
+                                'view_dashboard',
+                                'View dashboard metrics and reports',
+                                now(),
+                                now()
+                            ),
+                            (
+                                'manage_users',
+                                'Create, update, and deactivate users',
+                                now(),
+                                now()
+                            ),
+                            (
+                                'view_orders',
+                                'View order data and export reports',
+                                now(),
+                                now()
+                            ),
+                            (
+                                'manage_orders',
+                                'Update order status and manage order workflow',
+                                now(),
+                                now()
+                            ),
+                            (
+                                'manage_products',
+                                'Create and update product catalog data',
+                                now(),
+                                now()
+                            ),
+                            (
+                                'manage_inventory',
+                                'Adjust inventory levels and stock settings',
+                                now(),
+                                now()
+                            ),
+                            (
+                                'manage_settings',
+                                'Update system configuration and integrations',
+                                now(),
+                                now()
+                            )
+                        ON CONFLICT (name) DO NOTHING
+                        """
+                    )
+                )
+
                 await conn.commit()
-                print("✅ Default admin user created (email: admin@magflow.local, password: secret)")
+                print(
+                    "✅ Default admin user created (email: admin@magflow.local, "
+                    "password: secret)"
+                )
             else:
                 print("ℹ️  Admin user already exists")
 

@@ -59,7 +59,9 @@ async def get_dashboard_data(
                     COALESCE(SUM(total_amount), 0) as total_sales,
                     COUNT(*) as total_orders
                 FROM app.sales_orders
-                WHERE DATE_TRUNC('month', order_date) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+                WHERE DATE_TRUNC('month', order_date) = DATE_TRUNC(
+                    'month', CURRENT_DATE - INTERVAL '1 month'
+                )
                 AND status NOT IN ('cancelled', 'rejected')
             """)
         )
@@ -114,7 +116,9 @@ async def get_dashboard_data(
             text("""
                 SELECT
                     COUNT(*) as total_products,
-                    COUNT(*) FILTER (WHERE updated_at > NOW() - INTERVAL '24 hours') as recent_updates,
+                    COUNT(*) FILTER (
+                        WHERE updated_at > NOW() - INTERVAL '24 hours'
+                    ) as recent_updates,
                     0 as main_products,
                     0 as fbe_products
                 FROM app.emag_products_v2
@@ -150,7 +154,10 @@ async def get_dashboard_data(
                     COUNT(*) as total_products,
                     COUNT(*) FILTER (WHERE COALESCE(stock_quantity, 0) > 0) as in_stock_count,
                     COUNT(*) FILTER (WHERE COALESCE(stock_quantity, 0) <= 0) as out_of_stock_count,
-                    COUNT(*) FILTER (WHERE COALESCE(stock_quantity, 0) > 0 AND COALESCE(stock_quantity, 0) <= 10) as low_stock_count
+                    COUNT(*) FILTER (
+                        WHERE COALESCE(stock_quantity, 0) > 0
+                        AND COALESCE(stock_quantity, 0) <= 10
+                    ) as low_stock_count
                 FROM app.emag_products_v2
                 WHERE is_active = true
             """)
@@ -219,7 +226,10 @@ async def get_dashboard_data(
                 SELECT
                     'All Products' as category,
                     COUNT(*) FILTER (WHERE COALESCE(stock_quantity, 0) > 10) as inStock,
-                    COUNT(*) FILTER (WHERE COALESCE(stock_quantity, 0) > 0 AND COALESCE(stock_quantity, 0) <= 10) as lowStock,
+                    COUNT(*) FILTER (
+                        WHERE COALESCE(stock_quantity, 0) > 0
+                          AND COALESCE(stock_quantity, 0) <= 10
+                    ) as lowStock,
                     COUNT(*) FILTER (WHERE COALESCE(stock_quantity, 0) <= 0) as outOfStock
                 FROM app.emag_products_v2
                 WHERE is_active = true
@@ -245,9 +255,18 @@ async def get_dashboard_data(
         realtime_result = await db.execute(
             text("""
                 SELECT
-                    (SELECT COUNT(*) FROM app.sales_orders WHERE status IN ('pending', 'confirmed')) as pending_orders,
-                    (SELECT COUNT(*) FROM app.emag_products_v2
-                     WHERE is_active = true AND COALESCE(stock_quantity, 0) > 0 AND COALESCE(stock_quantity, 0) <= 10) as low_stock_items
+                    (
+                        SELECT COUNT(*)
+                        FROM app.sales_orders
+                        WHERE status IN ('pending', 'confirmed')
+                    ) as pending_orders,
+                    (
+                        SELECT COUNT(*)
+                        FROM app.emag_products_v2
+                        WHERE is_active = true
+                          AND COALESCE(stock_quantity, 0) > 0
+                          AND COALESCE(stock_quantity, 0) <= 10
+                    ) as low_stock_items
             """)
         )
         realtime_data = realtime_result.fetchone()
@@ -521,8 +540,12 @@ async def admin_get_emag_products_by_account(
                 COUNT(*) AS total_products,
                 COUNT(*) FILTER (WHERE p.is_active = true) AS active_products,
                 COUNT(*) FILTER (WHERE p.is_active = false) AS inactive_products,
-                COUNT(*) FILTER (WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) > 0) AS available_products,
-                COUNT(*) FILTER (WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) <= 0) AS unavailable_products,
+                COUNT(*) FILTER (
+                    WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) > 0
+                ) AS available_products,
+                COUNT(*) FILTER (
+                    WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) <= 0
+                ) AS unavailable_products,
                 COUNT(*) FILTER (WHERE {price_expression} = 0) AS zero_price_products,
                 AVG({price_expression}) AS avg_price,
                 MIN({price_expression}) AS min_price,
@@ -1023,7 +1046,8 @@ async def get_emag_orders(
         # Calculate recent activity
         from datetime import timedelta
 
-        # Orders created in last 24 hours (timezone-naive for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
+        # Orders created in last 24 hours
+        # (timezone-naive for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)
         twenty_four_hours_ago = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=24)
         new_orders_24h_query = (
             select(func.count())
@@ -1108,7 +1132,10 @@ async def get_unified_products(
     limit: int = Query(50, ge=1, le=200, description="Number of records to return"),
     marketplace_presence: str | None = Query(
         None,
-        description="Filter by marketplace presence: local_only, emag_only, main_only, fbe_only, both_accounts, all",
+        description=(
+            "Filter by marketplace presence: local_only, emag_only, "
+            "main_only, fbe_only, both_accounts, all"
+        ),
     ),
     sync_status: str | None = Query(
         None, description="Filter by sync status: synced, pending, failed, never_synced"
@@ -1249,14 +1276,28 @@ async def get_unified_products(
                     CASE WHEN ef.emag_id IS NOT NULL THEN true ELSE false END as has_emag_fbe,
                     -- Computed fields
                     CASE
-                        WHEN lp.local_id IS NOT NULL AND em.emag_id IS NULL AND ef.emag_id IS NULL THEN 'local_only'
-                        WHEN lp.local_id IS NULL AND (em.emag_id IS NOT NULL OR ef.emag_id IS NOT NULL) THEN 'emag_only'
-                        WHEN em.emag_id IS NOT NULL AND ef.emag_id IS NOT NULL THEN 'both_accounts'
-                        WHEN em.emag_id IS NOT NULL AND ef.emag_id IS NULL THEN 'main_only'
+                        WHEN lp.local_id IS NOT NULL
+                             AND em.emag_id IS NULL
+                             AND ef.emag_id IS NULL
+                        THEN 'local_only'
+                        WHEN lp.local_id IS NULL
+                             AND (
+                                 em.emag_id IS NOT NULL
+                                 OR ef.emag_id IS NOT NULL
+                             )
+                        THEN 'emag_only'
+                        WHEN em.emag_id IS NOT NULL AND ef.emag_id IS NOT NULL
+                        THEN 'both_accounts'
+                        WHEN em.emag_id IS NOT NULL AND ef.emag_id IS NULL
+                        THEN 'main_only'
                         WHEN em.emag_id IS NULL AND ef.emag_id IS NOT NULL THEN 'fbe_only'
                         ELSE 'unknown'
                     END as marketplace_presence,
-                    GREATEST(lp.local_updated_at, em.emag_main_last_synced, ef.emag_fbe_last_synced) as last_updated
+                    GREATEST(
+                        lp.local_updated_at,
+                        em.emag_main_last_synced,
+                        ef.emag_fbe_last_synced
+                    ) as last_updated,
                 FROM local_products lp
                 FULL OUTER JOIN emag_main_products em ON lp.sku = em.sku
                 FULL OUTER JOIN emag_fbe_products ef ON COALESCE(lp.sku, em.sku) = ef.sku
@@ -1288,7 +1329,11 @@ async def get_unified_products(
                     lp.local_id,
                     em.emag_id as emag_main_id,
                     ef.emag_id as emag_fbe_id,
-                    GREATEST(lp.local_updated_at, em.emag_main_last_synced, ef.emag_fbe_last_synced) as last_updated
+                    GREATEST(
+                        lp.local_updated_at,
+                        em.emag_main_last_synced,
+                        ef.emag_fbe_last_synced
+                    ) as last_updated
                 FROM local_products lp
                 FULL OUTER JOIN emag_main_products em ON lp.sku = em.sku
                 FULL OUTER JOIN emag_fbe_products ef ON COALESCE(lp.sku, em.sku) = ef.sku
@@ -1302,10 +1347,14 @@ async def get_unified_products(
                 SELECT p.id as local_id, p.sku FROM app.products p
             ),
             emag_main_products AS (
-                SELECT em.id as emag_id, em.sku FROM app.emag_products_v2 em WHERE em.account_type = 'main'
+                SELECT em.id as emag_id, em.sku
+                FROM app.emag_products_v2 em
+                WHERE em.account_type = 'main'
             ),
             emag_fbe_products AS (
-                SELECT em.id as emag_id, em.sku FROM app.emag_products_v2 em WHERE em.account_type = 'fbe'
+                SELECT em.id as emag_id, em.sku
+                FROM app.emag_products_v2 em
+                WHERE em.account_type = 'fbe'
             ),
             unified AS (
                 SELECT
@@ -1321,11 +1370,27 @@ async def get_unified_products(
                 COUNT(local_id) as local_products,
                 COUNT(emag_main_id) as emag_main_products,
                 COUNT(emag_fbe_id) as emag_fbe_products,
-                COUNT(*) FILTER (WHERE local_id IS NOT NULL AND emag_main_id IS NULL AND emag_fbe_id IS NULL) as local_only,
-                COUNT(*) FILTER (WHERE local_id IS NULL AND (emag_main_id IS NOT NULL OR emag_fbe_id IS NOT NULL)) as emag_only,
-                COUNT(*) FILTER (WHERE emag_main_id IS NOT NULL AND emag_fbe_id IS NOT NULL) as both_accounts,
-                COUNT(*) FILTER (WHERE emag_main_id IS NOT NULL AND emag_fbe_id IS NULL) as main_only,
-                COUNT(*) FILTER (WHERE emag_main_id IS NULL AND emag_fbe_id IS NOT NULL) as fbe_only
+                COUNT(*) FILTER (
+                    WHERE local_id IS NOT NULL
+                      AND emag_main_id IS NULL
+                      AND emag_fbe_id IS NULL
+                ) as local_only,
+                COUNT(*) FILTER (
+                    WHERE local_id IS NULL
+                      AND (
+                          emag_main_id IS NOT NULL
+                          OR emag_fbe_id IS NOT NULL
+                      )
+                ) as emag_only,
+                COUNT(*) FILTER (
+                    WHERE emag_main_id IS NOT NULL AND emag_fbe_id IS NOT NULL
+                ) as both_accounts,
+                COUNT(*) FILTER (
+                    WHERE emag_main_id IS NOT NULL AND emag_fbe_id IS NULL
+                ) as main_only,
+                COUNT(*) FILTER (
+                    WHERE emag_main_id IS NULL AND emag_fbe_id IS NOT NULL
+                ) as fbe_only
             FROM unified
         """)
 

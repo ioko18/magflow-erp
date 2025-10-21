@@ -108,7 +108,10 @@ class SalesOrderLine(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<SalesOrderLine order:{self.sales_order_id} product:{self.product_id} qty:{self.quantity}>"
+        return (
+            f"<SalesOrderLine order:{self.sales_order_id} product:{self.product_id} "
+            f"qty:{self.quantity}>"
+        )
 
 
 class SalesQuote(Base, TimestampMixin):

@@ -12,7 +12,10 @@ import {
   Col,
   App as AntApp,
   Descriptions,
-  Modal
+  Modal,
+  Alert,
+  Divider,
+  Select
 } from 'antd';
 import {
   SearchOutlined,
@@ -23,7 +26,9 @@ import {
   GlobalOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined
+  CloseCircleOutlined,
+  UploadOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../../services/api';
@@ -35,6 +40,7 @@ const { Search } = Input;
 interface SupplierProduct {
   id: number;
   sku: string;
+  supplier_id: number | null;
   supplier_name: string;
   price_cny: number;
   calculated_price_ron: number;
@@ -49,6 +55,13 @@ interface SupplierProduct {
   created_at: string;
 }
 
+interface Supplier {
+  id: number;
+  name: string;
+  country: string;
+  is_active: boolean;
+}
+
 interface Statistics {
   total_supplier_entries: number;
   unique_skus_with_suppliers: number;
@@ -58,15 +71,18 @@ interface Statistics {
 
 const SupplierProductsSheetPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const { message } = AntApp.useApp();
+  const { message, modal } = AntApp.useApp();
   
   const [products, setProducts] = useState<SupplierProduct[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [searchSku, setSearchSku] = useState('');
   const [searchSupplier, setSearchSupplier] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<SupplierProduct | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [supplierModalVisible, setSupplierModalVisible] = useState(false);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -77,6 +93,7 @@ const SupplierProductsSheetPage: React.FC = () => {
     if (isAuthenticated) {
       loadData();
       loadStatistics();
+      loadSuppliers();
     }
   }, [isAuthenticated, pagination.current, pagination.pageSize]);
 
@@ -114,6 +131,17 @@ const SupplierProductsSheetPage: React.FC = () => {
     }
   };
 
+  const loadSuppliers = async () => {
+    try {
+      const response = await api.get('/suppliers', {
+        params: { limit: 1000, active_only: true }
+      });
+      setSuppliers(response.data?.data?.suppliers || []);
+    } catch (error: any) {
+      console.error('Failed to load suppliers:', error);
+    }
+  };
+
   const handleSearch = () => {
     setPagination(prev => ({ ...prev, current: 1 }));
     loadData();
@@ -129,6 +157,83 @@ const SupplierProductsSheetPage: React.FC = () => {
   const showProductDetails = (product: SupplierProduct) => {
     setSelectedProduct(product);
     setDetailModalVisible(true);
+  };
+
+  const handleSetSupplier = () => {
+    setSupplierModalVisible(true);
+    setSelectedSupplierId(selectedProduct?.supplier_id || null);
+  };
+
+  const handleSaveSupplier = async () => {
+    if (!selectedProduct?.id || !selectedSupplierId) return;
+
+    try {
+      await api.post(
+        `/suppliers/sheets/${selectedProduct.id}/set-supplier`,
+        { supplier_id: selectedSupplierId }
+      );
+
+      message.success('Furnizor setat cu succes!');
+
+      // Reload data
+      await loadData();
+
+      // Update selected product
+      setSelectedProduct({
+        ...selectedProduct,
+        supplier_id: selectedSupplierId
+      });
+
+      setSupplierModalVisible(false);
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || 'Eroare la setare furnizor');
+    }
+  };
+
+  const handlePromoteProduct = () => {
+    if (!selectedProduct?.id) return;
+
+    modal.confirm({
+      title: 'Transformă în Produs Intern?',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>Acest produs va fi transformat din Google Sheets în produs intern (1688).</p>
+          <p><strong>Beneficii:</strong></p>
+          <ul>
+            <li>✅ Management mai bun și mai rapid</li>
+            <li>✅ Integrare cu workflow-ul 1688</li>
+            <li>✅ Editare simplificată</li>
+            <li>✅ Tracking și history</li>
+          </ul>
+          <p><strong>⚠️ ATENȚIE:</strong> Produsul Google Sheets va fi <strong>ȘTERS DEFINITIV</strong> din baza de date după promovare.</p>
+          <p>Toate datele vor fi copiate în produsul intern. Această acțiune nu poate fi anulată.</p>
+        </div>
+      ),
+      okText: 'Transformă și Șterge',
+      okType: 'danger',
+      cancelText: 'Anulează',
+      onOk: async () => {
+        try {
+          await api.post(
+            `/suppliers/sheets/${selectedProduct.id}/promote`,
+            null,
+            { params: { delete_sheet: true } }
+          );
+
+          message.success('Produs transformat cu succes și șters din Google Sheets!');
+
+          // Reload data
+          await loadData();
+          await loadStatistics();
+
+          // Close modal
+          setDetailModalVisible(false);
+        } catch (error: any) {
+          message.error(error.response?.data?.detail || 'Eroare la transformare');
+        }
+      },
+    });
   };
 
   const columns: ColumnsType<SupplierProduct> = [
@@ -426,6 +531,71 @@ const SupplierProductsSheetPage: React.FC = () => {
             </Descriptions.Item>
           </Descriptions>
         )}
+
+        {selectedProduct && (
+          <>
+            <Divider />
+            
+            {/* Promote Section */}
+            {selectedProduct.supplier_id ? (
+              <Alert
+                message="Acest produs poate fi transformat în produs intern"
+                description="Produsul are un furnizor asociat și poate fi promovat pentru management mai bun."
+                type="info"
+                showIcon
+                action={
+                  <Button
+                    type="primary"
+                    icon={<UploadOutlined />}
+                    onClick={handlePromoteProduct}
+                  >
+                    Transformă în Produs Intern
+                  </Button>
+                }
+              />
+            ) : (
+              <Alert
+                message="Furnizor lipsă"
+                description="Trebuie să setezi un furnizor înainte de a putea promova produsul."
+                type="warning"
+                showIcon
+                action={
+                  <Button
+                    icon={<TeamOutlined />}
+                    onClick={handleSetSupplier}
+                  >
+                    Setează Furnizor
+                  </Button>
+                }
+              />
+            )}
+          </>
+        )}
+      </Modal>
+
+      {/* Supplier Selection Modal */}
+      <Modal
+        title="Setează Furnizor"
+        open={supplierModalVisible}
+        onCancel={() => setSupplierModalVisible(false)}
+        onOk={handleSaveSupplier}
+        okText="Salvează"
+        cancelText="Anulează"
+      >
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Selectează furnizor"
+          value={selectedSupplierId}
+          onChange={setSelectedSupplierId}
+          showSearch
+          filterOption={(input, option) =>
+            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+          }
+          options={suppliers.map(s => ({
+            value: s.id,
+            label: s.name
+          }))}
+        />
       </Modal>
     </div>
   );

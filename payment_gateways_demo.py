@@ -7,15 +7,15 @@ handling refunds, and managing transactions.
 """
 
 import asyncio
-import json
-from datetime import datetime
 from decimal import Decimal
 
-from app.services.payment_service import (
-    PaymentService, PaymentGatewayType, PaymentMethod, PaymentStatus
-)
-from app.core.dependency_injection import ServiceContext
 from app.core.config import get_settings
+from app.core.dependency_injection import ServiceContext
+from app.services.payment_service import (
+    PaymentGatewayType,
+    PaymentMethod,
+    PaymentService,
+)
 
 
 async def demonstrate_payment_gateways():
@@ -77,7 +77,10 @@ async def demonstrate_payment_gateways():
         transactions = []
         for i, payment in enumerate(test_payments, 1):
             try:
-                print(f"  Creating payment {i}/3: {payment['description']} ({payment['amount']} {payment['currency']})")
+                print(
+                    f"  Creating payment {i}/3: {payment['description']} "
+                    f"({payment['amount']} {payment['currency']})"
+                )
 
                 transaction = await payment_service.create_payment(
                     gateway_type=payment["gateway"],
@@ -98,8 +101,7 @@ async def demonstrate_payment_gateways():
             except Exception as e:
                 print(f"    ❌ Failed to create payment: {e}")
 
-        print("
-🔄 Processing Payments..."
+        print("\n🔄 Processing Payments...")
         # Process the payments
         for i, transaction in enumerate(transactions, 1):
             try:
@@ -115,15 +117,14 @@ async def demonstrate_payment_gateways():
                     }
                 )
 
-                print(f"    ✅ Payment processed successfully")
+                print("    ✅ Payment processed successfully")
                 print(f"       Status: {processed_transaction.status.value}")
                 print(f"       Completed at: {processed_transaction.completed_at}")
 
             except Exception as e:
                 print(f"    ❌ Failed to process payment: {e}")
 
-        print("
-🔍 Getting Payment Status..."
+        print("\n🔍 Getting Payment Status...")
         # Check payment status
         for i, transaction in enumerate(transactions, 1):
             try:
@@ -133,13 +134,15 @@ async def demonstrate_payment_gateways():
 
                 print(f"    ✅ Status: {status_transaction.status.value}")
                 print(f"       Amount: {status_transaction.amount} {status_transaction.currency}")
-                print(f"       Gateway Status: {status_transaction.gateway_response.get('status', 'unknown')}")
+                print(
+                    "       Gateway Status: "
+                    f"{status_transaction.gateway_response.get('status', 'unknown')}"
+                )
 
             except Exception as e:
                 print(f"    ❌ Failed to get payment status: {e}")
 
-        print("
-💸 Testing Refund Functionality..."
+        print("\n💸 Testing Refund Functionality...")
         # Test refund for the first successful transaction
         if transactions:
             try:
@@ -151,15 +154,14 @@ async def demonstrate_payment_gateways():
                     reason="Customer requested partial refund"
                 )
 
-                print(f"    ✅ Refund processed successfully")
+                print("    ✅ Refund processed successfully")
                 print(f"       Refund Amount: {refund_transaction.refund_amount}")
                 print(f"       Status: {refund_transaction.status.value}")
 
             except Exception as e:
                 print(f"    ❌ Failed to process refund: {e}")
 
-        print("
-📊 Payment Methods Available..."
+        print("\n📊 Payment Methods Available...")
         # Get supported payment methods
         methods = {
             "credit_card": {
@@ -183,14 +185,13 @@ async def demonstrate_payment_gateways():
         }
 
         print(f"✅ Available payment methods: {len(methods)}")
-        for method_id, method_info in methods.items():
+        for _, method_info in methods.items():
             print(f"  • {method_info['name']}")
             print(f"    - Supported by: {', '.join(method_info['gateways'])}")
             print(f"    - Processing: {method_info['processing_time']}")
             print(f"    - Fees: {method_info['fees']}")
 
-        print("
-📈 Payment Statistics (Demo Data)...")
+        print("\n📈 Payment Statistics (Demo Data)...")
 
         # Mock statistics
         stats = {
@@ -212,12 +213,15 @@ async def demonstrate_payment_gateways():
         print(f"  • Success Rate: {stats['success_rate']}%")
         print(f"  • Total Volume: {stats['total_volume']} RON")
         print(f"  • Average Transaction: {stats['average_transaction']} RON")
-        print("
-  Gateway Performance:"        for gateway, perf in stats['gateway_performance'].items():
-            print(f"    - {gateway.title()}: {perf['success_rate']}% success rate ({perf['transactions']} transactions)")
+        print("\n  Gateway Performance:")
+        for gateway, perf in stats['gateway_performance'].items():
+            print(
+                f"    - {gateway.title()}: {perf['success_rate']}% success rate "
+                f"({perf['transactions']} transactions)"
+            )
 
-        print("
-🎯 Available API Endpoints:"        print("  POST /api/v1/payments/create     - Create payment transaction")
+        print("\n🎯 Available API Endpoints:")
+        print("  POST /api/v1/payments/create     - Create payment transaction")
         print("  POST /api/v1/payments/process/{id} - Process payment")
         print("  POST /api/v1/payments/refund/{id}  - Refund payment")
         print("  GET  /api/v1/payments/status/{id}  - Get payment status")
@@ -227,23 +231,27 @@ async def demonstrate_payment_gateways():
         print("  GET  /api/v1/payments/methods      - List payment methods")
         print("  GET  /api/v1/payments/statistics   - Get statistics")
 
-        print("
-📝 API Usage Examples:"
+        print("\n📝 API Usage Examples:")
         print("  Create Payment:")
         print("  curl -X POST 'http://localhost:8000/api/v1/payments/create' \\")
         print("       -H 'Content-Type: application/json' \\")
-        print("       -d '{\"gateway_type\": \"stripe\", \"amount\": 100.00, \"currency\": \"RON\", ...}'")
+        print(
+            "       -d '{\"gateway_type\": \"stripe\", \"amount\": 100.00, "
+            "\"currency\": \"RON\", ...}'"
+        )
 
-        print("
-  Process Payment:"        print("  curl -X POST 'http://localhost:8000/api/v1/payments/process/txn_123' \\")
+        print("\n  Process Payment:")
+        print("  curl -X POST 'http://localhost:8000/api/v1/payments/process/txn_123' \\")
         print("       -H 'Content-Type: application/json' \\")
-        print("       -d '{\"payment_method\": \"credit_card\", \"payment_method_id\": \"pm_456\"}'")
+        print(
+            "       -d '{\"payment_method\": \"credit_card\", "
+            "\"payment_method_id\": \"pm_456\"}'"
+        )
 
-        print("
-  Get Payment Status:"        print("  curl 'http://localhost:8000/api/v1/payments/status/txn_123'")
+        print("\n  Get Payment Status:")
+        print("  curl 'http://localhost:8000/api/v1/payments/status/txn_123'")
 
-        print("
-✅ Payment Gateways Demo completed successfully!"
+        print("\n✅ Payment Gateways Demo completed successfully!")
     except Exception as e:
         print(f"❌ Error during demonstration: {e}")
         import traceback
@@ -257,8 +265,8 @@ async def demonstrate_payment_gateways():
 def demonstrate_configuration():
     """Show payment gateway configuration examples."""
 
-    print("
-⚙️  Payment Gateway Configuration:"    print("=" * 35)
+    print("\n⚙️  Payment Gateway Configuration:")
+    print("=" * 35)
 
     print("\n1️⃣ Stripe Configuration:")
     print("  STRIPE_API_KEY=sk_test_...")

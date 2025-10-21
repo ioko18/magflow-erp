@@ -22,16 +22,17 @@ Key Features:
 """
 
 import asyncio
-import time
-import psutil
 import json
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, AsyncGenerator
 import logging
 import statistics
+import time
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
 
+import psutil
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 # Configure logging
@@ -43,16 +44,16 @@ logger = logging.getLogger(__name__)
 class AdvancedMetrics:
     """Advanced performance metrics with memory and system monitoring."""
 
-    test_times: List[float] = field(default_factory=list)
-    setup_times: List[float] = field(default_factory=list)
-    execution_times: List[float] = field(default_factory=list)
-    memory_usage: List[float] = field(default_factory=list)
-    cpu_usage: List[float] = field(default_factory=list)
-    db_connections: List[int] = field(default_factory=list)
-    test_names: List[str] = field(default_factory=list)
-    timestamps: List[datetime] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
-    warnings: List[str] = field(default_factory=list)
+    test_times: list[float] = field(default_factory=list)
+    setup_times: list[float] = field(default_factory=list)
+    execution_times: list[float] = field(default_factory=list)
+    memory_usage: list[float] = field(default_factory=list)
+    cpu_usage: list[float] = field(default_factory=list)
+    db_connections: list[int] = field(default_factory=list)
+    test_names: list[str] = field(default_factory=list)
+    timestamps: list[datetime] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     def add_test_result(
         self,
@@ -63,8 +64,8 @@ class AdvancedMetrics:
         memory_mb: float = 0.0,
         cpu_percent: float = 0.0,
         db_connections: int = 0,
-        error: str = None,
-        warning: str = None,
+        error: str | None = None,
+        warning: str | None = None,
     ):
         """Add comprehensive test result metrics."""
         self.test_names.append(test_name)
@@ -81,7 +82,7 @@ class AdvancedMetrics:
         if warning:
             self.warnings.append(f"{test_name}: {warning}")
 
-    def get_performance_summary(self) -> Dict[str, Any]:
+    def get_performance_summary(self) -> dict[str, Any]:
         """Get comprehensive performance summary."""
         if not self.test_times:
             return {"status": "no_data"}
@@ -98,12 +99,18 @@ class AdvancedMetrics:
             "total_errors": len(self.errors),
             "total_warnings": len(self.warnings),
             "slowest_test": (
-                max(zip(self.test_names, self.test_times), key=lambda x: x[1])
+                max(
+                    zip(self.test_names, self.test_times, strict=False),
+                    key=lambda x: x[1],
+                )
                 if self.test_times
                 else None
             ),
             "fastest_test": (
-                min(zip(self.test_names, self.test_times), key=lambda x: x[1])
+                min(
+                    zip(self.test_names, self.test_times, strict=False),
+                    key=lambda x: x[1],
+                )
                 if self.test_times
                 else None
             ),
@@ -134,7 +141,7 @@ class AdvancedMetrics:
 
         return max(0, min(100, time_score - error_penalty + memory_bonus))
 
-    def _generate_recommendations(self) -> List[str]:
+    def _generate_recommendations(self) -> list[str]:
         """Generate performance optimization recommendations."""
         recommendations = []
 
@@ -175,7 +182,7 @@ class AdvancedDatabaseManager:
 
     def __init__(self, database_url: str):
         self.database_url = database_url
-        self._engine: Optional[AsyncEngine] = None
+        self._engine: AsyncEngine | None = None
         self._schema_initialized = False
         self._connection_count = 0
         self._max_connections = 10
@@ -266,15 +273,15 @@ class AdvancedDatabaseManager:
             if session:
                 try:
                     await session.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Failed to close session: %s", exc)
 
             if connection:
                 try:
                     await connection.close()
                     self._connection_count -= 1
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("Failed to close connection: %s", exc)
 
             # Schedule cleanup if needed
             if (
@@ -323,7 +330,7 @@ class AdvancedTestMonitor:
         """Get database session."""
         return self.db_manager.get_session()
 
-    def start_test(self, test_name: str) -> Dict[str, Any]:
+    def start_test(self, test_name: str) -> dict[str, Any]:
         """Start monitoring a test."""
         return {
             "test_name": test_name,
@@ -333,7 +340,10 @@ class AdvancedTestMonitor:
         }
 
     def end_test(
-        self, test_context: Dict[str, Any], error: str = None, warning: str = None
+        self,
+        test_context: dict[str, Any],
+        error: str | None = None,
+        warning: str | None = None,
     ):
         """End test monitoring and record metrics."""
         end_time = time.time()
@@ -381,7 +391,11 @@ class AdvancedTestMonitor:
             "uptime": time.time() - self._start_time,
             "summary": summary,
             "recent_tests": list(
-                zip(self.metrics.test_names[-5:], self.metrics.test_times[-5:])
+                zip(
+                    self.metrics.test_names[-5:],
+                    self.metrics.test_times[-5:],
+                    strict=False,
+                )
             ),
             "system_info": {
                 "memory_mb": self._get_memory_usage(),
@@ -390,7 +404,7 @@ class AdvancedTestMonitor:
             },
         }
 
-    def get_dashboard_data(self) -> Dict[str, Any]:
+    def get_dashboard_data(self) -> dict[str, Any]:
         """Get current dashboard data."""
         return self._dashboard_data
 
@@ -400,6 +414,17 @@ class AdvancedTestMonitor:
 
         if summary.get("status") == "no_data":
             return "📊 No test data available for reporting"
+
+        slowest_summary = (
+            f"{summary['slowest_test'][0]} ({summary['slowest_test'][1]:.3f}s)"
+            if summary["slowest_test"]
+            else "N/A"
+        )
+        fastest_summary = (
+            f"{summary['fastest_test'][0]} ({summary['fastest_test'][1]:.3f}s)"
+            if summary["fastest_test"]
+            else "N/A"
+        )
 
         report = f"""
 🚀 Advanced Test Performance Report - MagFlow ERP
@@ -419,8 +444,8 @@ class AdvancedTestMonitor:
   • Total Warnings: {summary['total_warnings']}
 
 🏆 Test Performance:
-  • Slowest Test: {summary['slowest_test'][0] if summary['slowest_test'] else 'N/A'} ({summary['slowest_test'][1]:.3f}s)
-  • Fastest Test: {summary['fastest_test'][0] if summary['fastest_test'] else 'N/A'} ({summary['fastest_test'][1]:.3f}s)
+  • Slowest Test: {slowest_summary}
+  • Fastest Test: {fastest_summary}
 
 💡 Recommendations:
 """
@@ -432,7 +457,7 @@ class AdvancedTestMonitor:
 
         return report
 
-    def save_metrics(self, filepath: str = None):
+    def save_metrics(self, filepath: str | None = None):
         """Save metrics to file."""
         if not filepath:
             filepath = f"test_metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -456,7 +481,7 @@ class AdvancedTestMonitor:
 
 
 # Global monitor instance
-_monitor: Optional[AdvancedTestMonitor] = None
+_monitor: AdvancedTestMonitor | None = None
 
 
 def get_advanced_monitor(database_url: str) -> AdvancedTestMonitor:
@@ -467,7 +492,6 @@ def get_advanced_monitor(database_url: str) -> AdvancedTestMonitor:
         _monitor = AdvancedTestMonitor(database_url)
 
     return _monitor
-
 
 async def cleanup_monitor():
     """Cleanup the global monitor."""

@@ -26,7 +26,7 @@ def get_public_ip():
     try:
         response = requests.get('https://api.ipify.org?format=json', timeout=5)
         return response.json().get('ip', 'Necunoscut')
-    except:
+    except requests.RequestException:
         return 'Nu s-a putut determina'
 
 def get_products(page=1, per_page=5):
@@ -66,7 +66,15 @@ def get_products(page=1, per_page=5):
         # Încearcă să parsezi răspunsul JSON
         try:
             response_data = response.json()
-            print("\n📄 Răspuns API:", json.dumps(response_data, indent=2, ensure_ascii=False, sort_keys=True))
+            print(
+                "\n📄 Răspuns API:",
+                json.dumps(
+                    response_data,
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                ),
+            )
 
             if response_data.get("isError"):
                 error_msg = response_data.get('messages', ['Eroare necunoscută'])
@@ -136,8 +144,14 @@ def display_products(products):
 
         # Stoc și preț
         print("\n💰 PRET SI STOC")
-        print(f"  Preț de vânzare: {product.get('sale_price')} {product.get('currency', 'RON')}")
-        print(f"  Preț recomandat: {product.get('recommended_price')} {product.get('currency', 'RON')}")
+        print(
+            f"  Preț de vânzare: {product.get('sale_price')} "
+            f"{product.get('currency', 'RON')}"
+        )
+        print(
+            f"  Preț recomandat: {product.get('recommended_price')} "
+            f"{product.get('currency', 'RON')}"
+        )
         print(f"  Stoc disponibil: {product.get('general_stock', 0)} bucăți")
         print(f"  Stoc estimat: {product.get('estimated_stock', 0)} bucăți")
 
@@ -146,15 +160,25 @@ def display_products(products):
         print(f"  Status: {'Activ' if product.get('status') == 1 else 'Inactiv'}")
 
         # 2. Statusul validării documentației
-        validation_status = product.get('validation_status', [{}])[0] if product.get('validation_status') else {}
+        validation_status = (
+            product.get("validation_status", [{}])[0]
+            if product.get("validation_status")
+            else {}
+        )
         print(f"  Status validare: {get_validation_status(validation_status.get('value'))}")
         if validation_status.get('errors'):
             print(f"  Erori validare: {', '.join(validation_status['errors'])}")
 
         # 3. Statutul traducerii (pentru produsele traduse)
         if 'translation_validation_status' in product:
-            trans_status = product['translation_validation_status'][0] if product['translation_validation_status'] else {}
-            print(f"  Status traducere: {get_validation_status(trans_status.get('value'))}")
+            trans_raw = product['translation_validation_status']
+            if trans_raw:
+                trans_status = trans_raw[0]
+            else:
+                trans_status = {}
+            translation_value = trans_status.get('value')
+            translation_label = get_validation_status(translation_value)
+            print(f"  Status traducere: {translation_label}")
 
         # 4. Statutul ofertei (vandabil/nu)
         offer_status = product.get('offer_validation_status', {})
@@ -167,7 +191,9 @@ def display_products(products):
         # 5. Competiție și prețuri
         print("\n🏆 COMPETITIE")
         print(f"  Număr oferte concurenți: {product.get('number_of_offers', 0)}")
-        print(f"  Cel mai bun preț pe eMAG: {product.get('best_offer_sale_price')} {product.get('currency', 'RON')}")
+        best_price = product.get('best_offer_sale_price', 'N/A')
+        currency = product.get('currency', 'RON')
+        print(f"  Cel mai bun preț pe eMAG: {best_price} {currency}")
 
         # 6. Poze și documentație
         print("\n📸 RESURSE")
@@ -183,8 +209,13 @@ def display_products(products):
         # 8. Statistici suplimentare
         if 'genius_eligibility' in product:
             genius_types = {1: 'Full', 2: 'EasyBox', 3: 'HD'}
-            genius_type = genius_types.get(product.get('genius_eligibility_type', 0), 'Nespecificat')
-            print(f"  Eligibil Genius: {'Da' if product.get('genius_eligibility') == 1 else 'Nu'} ({genius_type})")
+            genius_flag = product.get('genius_eligibility') == 1
+            genius_type = genius_types.get(
+                product.get('genius_eligibility_type', 0),
+                'Nespecificat',
+            )
+            genius_label = 'Da' if genius_flag else 'Nu'
+            print(f"  Eligibil Genius: {genius_label} ({genius_type})")
 
         print(f"\n{'='*60}")
 
@@ -204,7 +235,10 @@ def main():
 
     # Verifică dacă am primit un răspuns valid de la API
     if not result or not isinstance(result, list):
-        print("❌ Nu s-au putut prelua produsele. Verifică conexiunea la internet sau datele de autentificare.")
+        print(
+            "❌ Nu s-au putut prelua produsele. Verifică conexiunea la internet "
+            "sau datele de autentificare."
+        )
         return
 
     # Afișează numărul de produse găsite
@@ -225,8 +259,11 @@ def main():
 
         # Prețuri și stoc
         print("\n💰 PRETURI SI STOC")
-        print(f"  Preț de vânzare: {product.get('sale_price', 'N/A')} {product.get('currency', 'RON')}")
-        print(f"  Preț recomandat: {product.get('recommended_price', 'N/A')} {product.get('currency', 'RON')}")
+        sale_price = product.get('sale_price', 'N/A')
+        currency = product.get('currency', 'RON')
+        recommended_price = product.get('recommended_price', 'N/A')
+        print(f"  Preț de vânzare: {sale_price} {currency}")
+        print(f"  Preț recomandat: {recommended_price} {currency}")
         print(f"  Stoc disponibil: {product.get('general_stock', 0)} bucăți")
         print(f"  Stoc estimat: {product.get('estimated_stock', 0)} bucăți")
 
@@ -235,7 +272,13 @@ def main():
         print(f"  Status: {'Activ' if product.get('status') == 1 else 'Inactiv'}")
 
         # Validare documentație
-        validation = product.get('validation_status', [{}])[0] if isinstance(product.get('validation_status'), list) else {}
+        validation_raw = product.get('validation_status', [{}])
+        if isinstance(validation_raw, list) and validation_raw:
+            validation = validation_raw[0]
+        elif isinstance(validation_raw, dict):
+            validation = validation_raw
+        else:
+            validation = {}
         print(f"  Status validare: {validation.get('description', 'Necunoscut')}")
 
         # Statut ofertă (vandabil/nevandabil)
@@ -247,7 +290,9 @@ def main():
         # Competiție
         print("\n🏆 COMPETITIE")
         print(f"  Număr oferte concurenți: {product.get('number_of_offers', 0)}")
-        print(f"  Cel mai bun preț pe eMAG: {product.get('best_offer_sale_price', 'N/A')} {product.get('currency', 'RON')}")
+        best_price = product.get('best_offer_sale_price', 'N/A')
+        currency = product.get('currency', 'RON')
+        print(f"  Cel mai bun preț pe eMAG: {best_price} {currency}")
 
         # Resurse
         print("\n📸 RESURSE")
@@ -265,19 +310,30 @@ def main():
         print("\n🏷️  DETALII SUPLIMENTARE")
         print(f"  Poziție în clasament 'Adaugă în coș': {product.get('buy_button_rank', 'N/A')}")
         print(f"  Număr total vânzători: {product.get('number_of_offers', 0)}")
-        print(f"  Prețul cel mai bun pe eMAG: {product.get('best_offer_sale_price', 'N/A')} {product.get('currency', 'RON')}")
+        print(f"  Prețul cel mai bun pe eMAG: {best_price} {currency}")
 
         # Detalii Genius
-        genius_type = {1: 'Full', 2: 'EasyBox', 3: 'HD'}.get(product.get('genius_eligibility_type', 0), 'Nespecificat')
-        print(f"  Eligibilitate Genius: {'Da' if product.get('genius_eligibility') else 'Nu'}{f' ({genius_type})' if product.get('genius_eligibility') else ''}")
+        genius_type_map = {1: 'Full', 2: 'EasyBox', 3: 'HD'}
+        genius_type = genius_type_map.get(product.get('genius_eligibility_type', 0), 'Nespecificat')
+        genius_flag = product.get('genius_eligibility')
+        genius_label = 'Da' if genius_flag else 'Nu'
+        genius_suffix = f" ({genius_type})" if genius_flag else ''
+        print(f"  Eligibilitate Genius: {genius_label}{genius_suffix}")
 
         # Drepturi de modificare
         ownership = product.get('ownership')
         print(f"  Drepturi de modificare: {'Da' if ownership == 1 else 'Nu'}")
 
         # Starea traducerii
-        translation_status = product.get('translation_validation_status', [{}])[0] if isinstance(product.get('translation_validation_status'), list) else {}
-        print(f"  Stare traducere: {translation_status.get('description', 'Necunoscut')}")
+        translation_raw = product.get('translation_validation_status')
+        if isinstance(translation_raw, list) and translation_raw:
+            translation_status = translation_raw[0]
+        elif isinstance(translation_raw, dict):
+            translation_status = translation_raw
+        else:
+            translation_status = {}
+        translation_description = translation_status.get('description', 'Necunoscut')
+        print(f"  Stare traducere: {translation_description}")
 
         # Detalii stocare
         handling_time = product.get('handling_time')

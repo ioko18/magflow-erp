@@ -85,7 +85,10 @@ async def test_empty_result_set(async_client, auth_headers):
     response = await async_client.get(
         "/api/items",
         params={
-            "after": "eyJpZCI6MTAwMDAwMDAwMCwiY3JlYXRlZF9hdCI6IjIwMjMtMTItMzFUMjM6NTk6NTkuOTk5OTk5WiJ9",
+            "after": (
+                "eyJpZCI6MTAwMDAwMDAwMCwiY3JlYXRlZF9hdCI6IjIwMjMtMTItMzFUMjM6NTk6NTku"
+                "OTk5OTk5WiJ9"
+            ),
         },
         headers=auth_headers,
     )

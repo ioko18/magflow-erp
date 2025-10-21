@@ -99,15 +99,6 @@ class EmagMeasurementsService:
         self._validate_measurement(height_mm, "height")
         self._validate_measurement(weight_g, "weight")
 
-        # Round to 2 decimals
-        payload = {
-            "id": product_id,
-            "length": round(length_mm, 2),
-            "width": round(width_mm, 2),
-            "height": round(height_mm, 2),
-            "weight": round(weight_g, 2),
-        }
-
         logger.info(
             "Saving measurements for product %d: L=%.2fmm W=%.2fmm H=%.2fmm Wt=%.2fg",
             product_id,
@@ -118,13 +109,19 @@ class EmagMeasurementsService:
         )
 
         try:
-            response = await self.client.post("/measurements/save", payload)
+            response = await self.client.save_measurements(
+                product_id=product_id,
+                length=length_mm,
+                width=width_mm,
+                height=height_mm,
+                weight=weight_g,
+            )
             return self._validate_response(response, "measurements save")
         except EmagApiError as e:
             logger.error(
                 "Failed to save measurements for product %d: %s", product_id, str(e)
             )
-            raise ServiceError(f"Failed to save measurements: {str(e)}")
+            raise ServiceError(f"Failed to save measurements: {str(e)}") from e
 
     async def save_measurements_from_dict(
         self, product_id: int, measurements: dict[str, float]

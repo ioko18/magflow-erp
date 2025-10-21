@@ -190,7 +190,10 @@ async def performance_monitoring_middleware(request, call_next):
         # Log performance metrics
         if metrics.api_time > 5.0:  # Log slow requests
             logger.warning(
-                f"Slow request detected: {request.method} {request.url.path} took {metrics.api_time:.2f}s",
+                (
+                    f"Slow request detected: {request.method} {request.url.path} took "
+                    f"{metrics.api_time:.2f}s"
+                ),
                 extra={
                     "request_id": request_id,
                     "method": request.method,

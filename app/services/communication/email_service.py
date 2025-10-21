@@ -141,10 +141,28 @@ class EmailService:
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #007bff; color: white; padding: 20px; text-align: center; }
+                .header {
+                    background-color: #007bff;
+                    color: white;
+                    padding: 20px;
+                    text-align: center;
+                }
                 .content { padding: 30px; background-color: #f9f9f9; }
-                .button { background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }
-                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+                .button {
+                    background-color: #007bff;
+                    color: white;
+                    padding: 12px 24px;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    display: inline-block;
+                    margin: 20px 0;
+                }
+                .footer {
+                    text-align: center;
+                    padding: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }
             </style>
         </head>
         <body>
@@ -163,7 +181,10 @@ class EmailService:
                         <li><strong>Registration Date:</strong> {{ registration_date }}</li>
                     </ul>
 
-                    <p>You can now log in to your account and start using all the features available to you.</p>
+                    <p>
+                        You can now log in to your account
+                        and start using all the features available to you.
+                    </p>
 
                     <a href="{{ login_url }}" class="button">Login to Your Account</a>
 
@@ -248,11 +269,35 @@ class EmailService:
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #dc3545; color: white; padding: 20px; text-align: center; }
+                .header {
+                    background-color: #dc3545;
+                    color: white;
+                    padding: 20px;
+                    text-align: center;
+                }
                 .content { padding: 30px; background-color: #f9f9f9; }
-                .button { background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; }
-                .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 5px; }
-                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+                .button {
+                    background-color: #dc3545;
+                    color: white;
+                    padding: 12px 24px;
+                    text-decoration: none;
+                    border-radius: 5px;
+                    display: inline-block;
+                    margin: 20px 0;
+                }
+                .warning {
+                    background-color: #fff3cd;
+                    border: 1px solid #ffeaa7;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 5px;
+                }
+                .footer {
+                    text-align: center;
+                    padding: 20px;
+                    color: #666;
+                    font-size: 12px;
+                }
             </style>
         </head>
         <body>
@@ -263,10 +308,13 @@ class EmailService:
                 <div class="content">
                     <h2>Hello {{ user_name }}!</h2>
 
-                    <p>You have requested to reset your password for your {{ app_name }} account.</p>
+                    <p>
+                        You have requested to reset your password for your {{ app_name }} account.
+                    </p>
 
                     <div class="warning">
-                        <strong>Security Notice:</strong> This password reset link will expire in 24 hours for your security.
+                        <strong>Security Notice:</strong>
+                        This password reset link will expire in 24 hours for your security.
                     </div>
 
                     <p>To reset your password, click the button below:</p>
@@ -274,9 +322,15 @@ class EmailService:
                     <a href="{{ reset_url }}" class="button">Reset My Password</a>
 
                     <p>If the button doesn't work, copy and paste this link into your browser:</p>
-                    <p style="word-break: break-all; color: #007bff;">{{ reset_url }}</p>
+                    <p style="word-break: break-all; color: #007bff;">
+                        {{ reset_url }}
+                    </p>
 
-                    <p><strong>Important:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
+                    <p>
+                        <strong>Important:</strong>
+                        If you didn't request this password reset, please ignore this email.
+                        Your password will remain unchanged.
+                    </p>
 
                     <p>If you have any questions, feel free to contact our support team.</p>
 
@@ -302,7 +356,8 @@ class EmailService:
 
         To reset your password, click this link: {{ reset_url }}
 
-        If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+        If you didn't request this password reset,
+        please ignore this email. Your password will remain unchanged.
 
         If you have any questions, feel free to contact our support team.
 
@@ -360,10 +415,29 @@ class EmailService:
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background-color: #ffc107; color: #212529; padding: 20px; text-align: center; }
+                .header {
+                    background-color: #ffc107;
+                    color: #212529;
+                    padding: 20px;
+                    text-align: center;
+                }
                 .content { padding: 30px; background-color: #f9f9f9; }
-                .alert { background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; margin: 20px 0; border-radius: 5px; color: #721c24; }
-                .info { background-color: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; margin: 20px 0; border-radius: 5px; color: #0c5460; }
+                .alert {
+                    background-color: #f8d7da;
+                    border: 1px solid #f5c6cb;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 5px;
+                    color: #721c24;
+                }
+                .info {
+                    background-color: #d1ecf1;
+                    border: 1px solid #bee5eb;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 5px;
+                    color: #0c5460;
+                }
                 .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
             </style>
         </head>
@@ -379,13 +453,19 @@ class EmailService:
                         <strong>Security Alert:</strong> {{ alert_type.replace('_', ' ').title() }}
                     </div>
 
-                    <p>We detected some activity on your {{ app_name }} account that requires your attention.</p>
+                    <p>
+                        We detected some activity on your {{ app_name }} account that requires
+                        your attention.
+                    </p>
 
                     <div class="info">
                         <h4>Activity Details:</h4>
                         <ul>
                             {% for key, value in details.items() %}
-                            <li><strong>{{ key.replace('_', ' ').title() }}:</strong> {{ value }}</li>
+                            <li>
+                                <strong>{{ key.replace('_', ' ').title() }}:</strong>
+                                {{ value }}
+                            </li>
                             {% endfor %}
                         </ul>
                     </div>
@@ -393,11 +473,17 @@ class EmailService:
                     <p><strong>What should you do?</strong></p>
                     <ul>
                         <li>Review the activity details above</li>
-                        <li>If this activity was not initiated by you, change your password immediately</li>
+                        <li>
+                            If this activity was not initiated by you,
+                            change your password immediately
+                        </li>
                         <li>Contact our security team if you have concerns</li>
                     </ul>
 
-                    <p>This is an automated security notification. Please take appropriate action if needed.</p>
+                    <p>
+                        This is an automated security notification.
+                        Please take appropriate action if needed.
+                    </p>
 
                     <p>Best regards,<br>The {{ app_name }} Security Team</p>
                 </div>

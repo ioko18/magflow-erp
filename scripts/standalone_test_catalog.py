@@ -308,7 +308,8 @@ class CatalogService:
 
         if hasattr(response, "is_error") and response.is_error:
             raise Exception(
-                f"Failed to fetch category characteristics: {getattr(response, 'messages', 'Unknown error')}"
+                "Failed to fetch category characteristics: "
+                f"{getattr(response, 'messages', 'Unknown error')}"
             )
 
         return response.results

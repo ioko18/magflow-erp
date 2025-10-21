@@ -16,11 +16,12 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import text
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_active_user
 from app.core.database import get_async_session
+from app.models.emag_offers import EmagProduct, EmagProductOffer
 
 router = APIRouter(tags=["emag-db"])
 
@@ -54,64 +55,79 @@ async def list_offers(
     db: AsyncSession = Depends(get_async_session),
     current_user=Depends(get_current_active_user),
 ) -> dict[str, Any]:
-    """List offers from the local database with optional filters and pagination."""
+    """List offers from the local database with optional filters and pagination.
+
+    Uses SQLAlchemy ORM with join to EmagProduct for safe, parameterized queries.
+    """
     try:
-        where_clauses = []
-        params: dict[str, Any] = {}
+        # Build filters using SQLAlchemy ORM - completely safe from SQL injection
+        filters = []
+
         if account_type:
-            where_clauses.append("account_type = :account_type")
-            params["account_type"] = account_type
+            filters.append(EmagProductOffer.account_type == account_type)
+
         if search:
-            where_clauses.append("LOWER(product_name) LIKE LOWER(:search)")
-            params["search"] = f"%{search}%"
+            # Join with EmagProduct to search by product name
+            filters.append(func.lower(EmagProduct.name).like(func.lower(f"%{search}%")))
+
         if min_price is not None:
-            where_clauses.append("sale_price >= :min_price")
-            params["min_price"] = min_price
+            filters.append(EmagProductOffer.sale_price >= min_price)
+
         if max_price is not None:
-            where_clauses.append("sale_price <= :max_price")
-            params["max_price"] = max_price
+            filters.append(EmagProductOffer.sale_price <= max_price)
+
         if stock_gt is not None:
-            where_clauses.append("stock > :stock_gt")
-            params["stock_gt"] = stock_gt
+            filters.append(EmagProductOffer.stock > stock_gt)
+
         if only_available:
-            where_clauses.append("is_available = true")
-        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+            filters.append(EmagProductOffer.is_available == True)  # noqa: E712
+
+        # Validate sort field against whitelist
+        allowed_sorts = {"updated_at": EmagProductOffer.updated_at,
+                        "sale_price": EmagProductOffer.sale_price,
+                        "stock": EmagProductOffer.stock}
+        sort_column = allowed_sorts.get(sort_by, EmagProductOffer.updated_at)
+
+        # Apply sort direction
+        if order.lower() == "asc":
+            sort_column = sort_column.asc().nullslast()
+        else:
+            sort_column = sort_column.desc().nullslast()
 
         offset = (page - 1) * limit
 
-        # Validate and build ORDER BY safely
-        allowed_sorts = {"updated_at", "sale_price", "stock"}
-        sort_field = sort_by if sort_by in allowed_sorts else "updated_at"
-        sort_dir = "ASC" if order.lower() == "asc" else "DESC"
-
-        # Use the convenience view for the data
-        # nosec B608 - sort_field and sort_dir are validated against whitelist above
-        rows_sql = text(  # noqa: S608
-            f"""
-            SELECT emag_offer_id, emag_product_id, product_name, currency,
-                   sale_price, stock, is_available, account_type, updated_at
-            FROM app.v_emag_offers
-            {where_sql}
-            ORDER BY {sort_field} {sort_dir} NULLS LAST
-            LIMIT :limit OFFSET :offset
-            """,
-        )
-        params.update({"limit": limit, "offset": offset})
-
-        # Use base table for count (same filters)
-        # Count using the same view with identical filters
-        count_sql = text(
-            f"""
-            SELECT COUNT(*)
-            FROM app.v_emag_offers
-            {where_sql}
-            """,
+        # Build query with join to get product name
+        query = (
+            select(
+                EmagProductOffer.emag_offer_id,
+                EmagProductOffer.emag_product_id,
+                EmagProduct.name.label("product_name"),
+                EmagProductOffer.currency,
+                EmagProductOffer.sale_price,
+                EmagProductOffer.stock,
+                EmagProductOffer.is_available,
+                EmagProductOffer.account_type,
+                EmagProductOffer.updated_at,
+            )
+            .join(EmagProduct, EmagProductOffer.product_id == EmagProduct.id, isouter=True)
+            .where(and_(*filters) if filters else True)
+            .order_by(sort_column)
+            .limit(limit)
+            .offset(offset)
         )
 
-        result = await db.execute(rows_sql, params)
-        items = [dict(r._mapping) for r in result.fetchall()]
+        # Count query
+        count_query = (
+            select(func.count(EmagProductOffer.id))
+            .join(EmagProduct, EmagProductOffer.product_id == EmagProduct.id, isouter=True)
+            .where(and_(*filters) if filters else True)
+        )
 
-        total = (await db.execute(count_sql, params)).scalar() or 0
+        result = await db.execute(query)
+        items = [dict(row._mapping) for row in result.fetchall()]
+
+        total = (await db.execute(count_query)).scalar() or 0
+
         return {
             "items": items,
             "total": total,
@@ -122,7 +138,7 @@ async def list_offers(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        ) from e
 
 
 @router.get("/products")
@@ -136,41 +152,46 @@ async def list_products(
     db: AsyncSession = Depends(get_async_session),
     current_user=Depends(get_current_active_user),
 ) -> dict[str, Any]:
-    """List products from the local database with optional filters and pagination."""
+    """List products from the local database with optional filters and pagination.
+
+    Uses SQLAlchemy ORM for safe, parameterized queries.
+    """
     try:
-        where = []
-        params: dict[str, Any] = {}
+        # Build filters using SQLAlchemy ORM - completely safe from SQL injection
+        filters = []
+
         if search:
-            where.append("LOWER(name) LIKE LOWER(:search)")
-            params["search"] = f"%{search}%"
+            filters.append(func.lower(EmagProduct.name).like(func.lower(f"%{search}%")))
+
         if is_active is not None:
-            where.append("is_active = :is_active")
-            params["is_active"] = is_active
-        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+            filters.append(EmagProduct.is_active == is_active)
 
         offset = (page - 1) * limit
-        rows_sql = text(
-            f"""
-            SELECT emag_id, name, is_active, updated_at
-            FROM app.emag_products
-            {where_sql}
-            ORDER BY updated_at DESC NULLS LAST
-            LIMIT :limit OFFSET :offset
-            """,
-        )
-        params.update({"limit": limit, "offset": offset})
 
-        count_sql = text(
-            f"""
-            SELECT COUNT(*)
-            FROM app.emag_products
-            {where_sql}
-            """,
+        # Build query using SQLAlchemy ORM
+        query = (
+            select(
+                EmagProduct.emag_id,
+                EmagProduct.name,
+                EmagProduct.is_active,
+                EmagProduct.updated_at,
+            )
+            .where(and_(*filters) if filters else True)
+            .order_by(EmagProduct.updated_at.desc().nullslast())
+            .limit(limit)
+            .offset(offset)
         )
 
-        result = await db.execute(rows_sql, params)
-        items = [dict(r._mapping) for r in result.fetchall()]
-        total = (await db.execute(count_sql, params)).scalar() or 0
+        # Count query
+        count_query = (
+            select(func.count(EmagProduct.id))
+            .where(and_(*filters) if filters else True)
+        )
+
+        result = await db.execute(query)
+        items = [dict(row._mapping) for row in result.fetchall()]
+
+        total = (await db.execute(count_query)).scalar() or 0
 
         return {
             "items": items,
@@ -182,4 +203,4 @@ async def list_products(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        ) from e

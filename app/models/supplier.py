@@ -26,6 +26,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from app.models.product import Product
+    from app.models.product_supplier_sheet import ProductSupplierSheet
     from app.models.purchase import PurchaseOrder
 
 from app.db.base_class import Base
@@ -93,6 +94,12 @@ class Supplier(Base, TimestampMixin):
         "SupplierProduct", back_populates="supplier", cascade="all, delete-orphan"
     )
 
+    sheet_products: Mapped[list["ProductSupplierSheet"]] = relationship(
+        "ProductSupplierSheet",
+        back_populates="supplier",
+        foreign_keys="[ProductSupplierSheet.supplier_id]",
+    )
+
     performance_records: Mapped[list["SupplierPerformance"]] = relationship(
         "SupplierPerformance", back_populates="supplier", cascade="all, delete-orphan"
     )
@@ -134,6 +141,14 @@ class SupplierProduct(Base, TimestampMixin):
     supplier_price: Mapped[float] = mapped_column(Float)
     supplier_currency: Mapped[str] = mapped_column(String(3), default="CNY")
     supplier_specifications: Mapped[dict | None] = mapped_column(JSON)
+
+    # Price calculation fields (for Google Sheets promotion compatibility)
+    exchange_rate: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Exchange rate CNY to RON"
+    )
+    calculated_price_ron: Mapped[float | None] = mapped_column(
+        Float, nullable=True, comment="Calculated price in RON using exchange rate"
+    )
 
     # Matching Information
     confidence_score: Mapped[float] = mapped_column(Float, default=0.0)
@@ -199,7 +214,10 @@ class SupplierPerformance(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<SupplierPerformance(supplier={self.supplier_id}, type={self.metric_type}, value={self.metric_value})>"
+        return (
+            f"<SupplierPerformance(supplier={self.supplier_id}, "
+            f"type={self.metric_type}, value={self.metric_value})>"
+        )
 
 
 # PurchaseOrder and related models are now defined in app.models.purchase

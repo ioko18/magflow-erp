@@ -99,17 +99,17 @@ async def send_sms(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid SMS data: {e!s}",
-        )
+        ) from e
     except ConfigurationError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"SMS service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send SMS: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/send/order-confirmation")
@@ -163,12 +163,12 @@ async def send_order_confirmation_sms(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid order confirmation data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send order confirmation SMS: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/send/order-shipped")
@@ -220,12 +220,12 @@ async def send_order_shipped_sms(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid shipping data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send order shipped SMS: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/send/payment-confirmation")
@@ -277,12 +277,12 @@ async def send_payment_confirmation_sms(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid payment data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send payment confirmation SMS: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/send/inventory-alert")
@@ -332,12 +332,12 @@ async def send_inventory_alert_sms(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid alert data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send inventory alert SMS: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/send/bulk")
@@ -400,12 +400,12 @@ async def send_bulk_sms(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid bulk SMS data: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to send bulk SMS: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/providers")
@@ -433,7 +433,7 @@ async def get_sms_providers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get SMS providers: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/statistics")
@@ -467,7 +467,7 @@ async def get_sms_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get SMS statistics: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/templates")
@@ -509,7 +509,7 @@ async def get_sms_templates(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get SMS templates: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/templates/preview")
@@ -553,12 +553,12 @@ async def preview_sms_template(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid template request: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to preview SMS template: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/countries")
@@ -634,7 +634,7 @@ async def get_supported_countries(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get supported countries: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test")
@@ -684,14 +684,14 @@ async def test_sms_service(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid test request: {e!s}",
-        )
+        ) from e
     except ConfigurationError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"SMS service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"SMS test failed: {e!s}",
-        )
+        ) from e

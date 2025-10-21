@@ -120,4 +120,4 @@ async def update_chinese_name_from_supplier(
         logger.error(f"Failed to update chinese name: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to update chinese name: {str(e)}"
-        )
+        ) from e

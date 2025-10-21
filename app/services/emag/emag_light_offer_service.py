@@ -39,13 +39,17 @@ class EmagLightOfferService:
         """
         self.account_type = account_type
         self.config = get_emag_config(account_type)
-        self.client = EmagApiClient(self.config)
+        self.client = EmagApiClient(
+            username=self.config.api_username,
+            password=self.config.api_password,
+            base_url=self.config.base_url or "https://marketplace-api.emag.ro/api-3",
+        )
 
         logger.info("Initialized EmagLightOfferService for %s account", account_type)
 
     async def initialize(self):
         """Initialize the service."""
-        await self.client.initialize()
+        await self.client.start()
 
     async def close(self):
         """Close the service and cleanup resources."""
@@ -67,9 +71,14 @@ class EmagLightOfferService:
         recommended_price: float | None = None,
         min_sale_price: float | None = None,
         max_sale_price: float | None = None,
+        current_stock: int = 0,
+        vat_id: int = 9,
     ) -> dict[str, Any]:
         """
-        Update offer price using Light Offer API.
+        Update offer price using Light API (offer/save).
+
+        For FBE (Fulfilled by eMAG) products, this API allows updating ONLY price fields
+        without touching stock, which is managed by eMAG fulfillment.
 
         Args:
             product_id: Seller internal product ID
@@ -77,6 +86,8 @@ class EmagLightOfferService:
             recommended_price: Optional recommended retail price
             min_sale_price: Optional minimum sale price
             max_sale_price: Optional maximum sale price
+            current_stock: NOT USED (kept for compatibility)
+            vat_id: NOT USED (kept for compatibility)
 
         Returns:
             API response dictionary
@@ -84,29 +95,30 @@ class EmagLightOfferService:
         Raises:
             ServiceError: If update fails
         """
-        payload = {"id": product_id, "sale_price": sale_price}
-
-        if recommended_price is not None:
-            payload["recommended_price"] = recommended_price
-
-        if min_sale_price is not None:
-            payload["min_sale_price"] = min_sale_price
-
-        if max_sale_price is not None:
-            payload["max_sale_price"] = max_sale_price
-
         logger.info(
             "Updating price for product %d: sale_price=%.2f", product_id, sale_price
         )
 
         try:
-            response = await self.client.post("/offer/save", payload)
+            # IMPORTANT: Use offer/save (Light API) for FBE products
+            # For FBE (Fulfilled by eMAG), we CANNOT modify stock - it's managed by eMAG
+            # Light API allows us to update ONLY price fields without touching stock
+            # Traditional API (product_offer/save) requires stock field which causes errors for FBE
+            response = await self.client.update_offer_light(
+                product_id=product_id,
+                sale_price=sale_price,
+                recommended_price=recommended_price,
+                min_sale_price=min_sale_price,
+                max_sale_price=max_sale_price,
+                # DO NOT send stock, handling_time, status, or vat_id for FBE products
+                # These are managed by eMAG fulfillment
+            )
             return self._validate_response(response, "price update")
         except EmagApiError as e:
             logger.error(
                 "Failed to update price for product %d: %s", product_id, str(e)
             )
-            raise ServiceError(f"Failed to update offer price: {str(e)}")
+            raise ServiceError(f"Failed to update offer price: {str(e)}") from e
 
     async def update_offer_stock(
         self, product_id: int, stock: int, warehouse_id: int = 1
@@ -125,11 +137,6 @@ class EmagLightOfferService:
         Raises:
             ServiceError: If update fails
         """
-        payload = {
-            "id": product_id,
-            "stock": [{"warehouse_id": warehouse_id, "value": stock}],
-        }
-
         logger.info(
             "Updating stock for product %d: stock=%d (warehouse %d)",
             product_id,
@@ -138,13 +145,16 @@ class EmagLightOfferService:
         )
 
         try:
-            response = await self.client.post("/offer/save", payload)
+            response = await self.client.update_offer_light(
+                product_id=product_id,
+                stock=[{"warehouse_id": warehouse_id, "value": stock}],
+            )
             return self._validate_response(response, "stock update")
         except EmagApiError as e:
             logger.error(
                 "Failed to update stock for product %d: %s", product_id, str(e)
             )
-            raise ServiceError(f"Failed to update offer stock: {str(e)}")
+            raise ServiceError(f"Failed to update offer stock: {str(e)}") from e
 
     async def update_offer_price_and_stock(
         self,
@@ -171,14 +181,6 @@ class EmagLightOfferService:
         if sale_price is None and stock is None:
             raise ValueError("At least one of sale_price or stock must be provided")
 
-        payload = {"id": product_id}
-
-        if sale_price is not None:
-            payload["sale_price"] = sale_price
-
-        if stock is not None:
-            payload["stock"] = [{"warehouse_id": warehouse_id, "value": stock}]
-
         logger.info(
             "Updating offer for product %d: price=%s, stock=%s",
             product_id,
@@ -186,14 +188,20 @@ class EmagLightOfferService:
             f"{stock}" if stock else "unchanged",
         )
 
+        stock_data = [{"warehouse_id": warehouse_id, "value": stock}] if stock is not None else None
+
         try:
-            response = await self.client.post("/offer/save", payload)
+            response = await self.client.update_offer_light(
+                product_id=product_id,
+                sale_price=sale_price,
+                stock=stock_data,
+            )
             return self._validate_response(response, "offer update")
         except EmagApiError as e:
             logger.error(
                 "Failed to update offer for product %d: %s", product_id, str(e)
             )
-            raise ServiceError(f"Failed to update offer: {str(e)}")
+            raise ServiceError(f"Failed to update offer: {str(e)}") from e
 
     async def update_offer_status(self, product_id: int, status: int) -> dict[str, Any]:
         """
@@ -212,21 +220,22 @@ class EmagLightOfferService:
         if status not in [0, 1, 2]:
             raise ValueError("Status must be 0 (inactive), 1 (active), or 2 (deleted)")
 
-        payload = {"id": product_id, "status": status}
-
         status_text = {0: "inactive", 1: "active", 2: "deleted"}[status]
         logger.info(
             "Updating status for product %d: status=%s", product_id, status_text
         )
 
         try:
-            response = await self.client.post("/offer/save", payload)
+            response = await self.client.update_offer_light(
+                product_id=product_id,
+                status=status,
+            )
             return self._validate_response(response, "status update")
         except EmagApiError as e:
             logger.error(
                 "Failed to update status for product %d: %s", product_id, str(e)
             )
-            raise ServiceError(f"Failed to update offer status: {str(e)}")
+            raise ServiceError(f"Failed to update offer status: {str(e)}") from e
 
     async def bulk_update_prices(
         self, updates: list[dict[str, Any]], batch_size: int = 25

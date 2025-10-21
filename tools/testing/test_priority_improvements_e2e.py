@@ -210,10 +210,18 @@ class PriorityImprovementsE2ETest:
                     data = response.json()
                     if data.get("status") == "success":
                         batch_data = data.get("data", {})
+                        rate_limit = batch_data.get("rate_limit_delay")
+                        batch_size = batch_data.get("batch_size")
+                        details = (
+                            "Batch size: "
+                            f"{batch_size}, "
+                            "Rate limit: "
+                            f"{rate_limit}s"
+                        )
                         self.print_test(
                             "Batch Processing - Status Endpoint",
                             "PASS",
-                            f"Batch size: {batch_data.get('batch_size')}, Rate limit: {batch_data.get('rate_limit_delay')}s"
+                            details,
                         )
                     else:
                         self.print_test(

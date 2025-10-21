@@ -65,7 +65,9 @@ def get_sync_db() -> Generator[Session, None, None]:
     """
     db = Session()
     try:
-        db.execute(text(f"SET search_path TO {settings.search_path}"))
+        # Use validated schema name to prevent SQL injection
+        schema_name = settings.db_schema_safe
+        db.execute(text(f'SET search_path TO "{schema_name}", public'))
         db.commit()
         yield db
         db.commit()

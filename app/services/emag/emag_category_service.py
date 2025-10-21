@@ -126,7 +126,7 @@ class EmagCategoryService:
 
         except EmagApiError as e:
             logger.error("Failed to fetch categories: %s", str(e))
-            raise ServiceError(f"Category fetch failed: {str(e)}")
+            raise ServiceError(f"Category fetch failed: {str(e)}") from e
 
     async def get_category_by_id(
         self, category_id: int, language: str = "ro", use_cache: bool = True
@@ -172,7 +172,7 @@ class EmagCategoryService:
 
         except EmagApiError as e:
             logger.error("Failed to fetch category %d: %s", category_id, str(e))
-            raise ServiceError(f"Category fetch failed: {str(e)}")
+            raise ServiceError(f"Category fetch failed: {str(e)}") from e
 
     async def get_characteristic_values(
         self,
@@ -243,7 +243,7 @@ class EmagCategoryService:
                 characteristic_id,
                 str(e),
             )
-            raise ServiceError(f"Characteristic values fetch failed: {str(e)}")
+            raise ServiceError(f"Characteristic values fetch failed: {str(e)}") from e
 
     async def count_categories(self) -> int:
         """
@@ -269,7 +269,7 @@ class EmagCategoryService:
 
         except EmagApiError as e:
             logger.error("Failed to count categories: %s", str(e))
-            raise ServiceError(f"Category count failed: {str(e)}")
+            raise ServiceError(f"Category count failed: {str(e)}") from e
 
     async def get_all_categories(
         self, language: str = "ro", max_pages: int = 100
@@ -316,7 +316,7 @@ class EmagCategoryService:
 
         except Exception as e:
             logger.error("Failed to fetch all categories: %s", str(e))
-            raise ServiceError(f"Fetch all categories failed: {str(e)}")
+            raise ServiceError(f"Fetch all categories failed: {str(e)}") from e
 
     async def get_allowed_categories(
         self, language: str = "ro"

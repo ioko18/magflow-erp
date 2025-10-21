@@ -83,7 +83,10 @@ class FashionRMAManager:
                 current_month = datetime.utcnow().month
                 if current_month in [12, 1, 2]:  # Winter season
                     for item in return_request.return_items:
-                        if "winter" in item.product_name.lower() or "coat" in item.product_name.lower():
+                        if (
+                            "winter" in item.product_name.lower()
+                            or "coat" in item.product_name.lower()
+                        ):
                             seasonal_items.append(item)
                             workflow_result["fashion_rules_applied"].append("seasonal_item_detected")
                             workflow_result["exchange_preferred"] = True
@@ -120,7 +123,10 @@ class FashionRMAManager:
                 workflow_result["processed_at"] = datetime.utcnow().isoformat()
                 workflow_result["success"] = True
 
-                logger.info(f"Fashion return processed: {len(workflow_result['fashion_rules_applied'])} rules applied")
+                logger.info(
+                    "Fashion return processed: "
+                    f"{len(workflow_result['fashion_rules_applied'])} rules applied"
+                )
 
                 return workflow_result
 
@@ -263,7 +269,9 @@ class EMAGSyncWorkflow:
 
             except Exception as e:
                 results["failed"] += 1
-                logger.error(f"Medium-priority sync failed for {item['type']} {item['id']}: {str(e)}")
+                logger.error(
+                    f"Medium-priority sync failed for {item['type']} {item['id']}: {str(e)}"
+                )
 
         return results
 
@@ -319,8 +327,12 @@ class InventoryAutoOrderWorkflow:
 
                 return {
                     "total_products_checked": len(reorder_suggestions),
-                    "high_priority_reorders": len([p for p in reorder_suggestions if p["priority"] == "high"]),
-                    "medium_priority_reorders": len([p for p in reorder_suggestions if p["priority"] == "medium"]),
+                    "high_priority_reorders": len(
+                        [p for p in reorder_suggestions if p["priority"] == "high"]
+                    ),
+                    "medium_priority_reorders": len(
+                        [p for p in reorder_suggestions if p["priority"] == "medium"]
+                    ),
                     "reorder_suggestions": reorder_suggestions
                 }
 

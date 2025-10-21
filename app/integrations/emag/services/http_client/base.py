@@ -72,7 +72,8 @@ class EmagBaseClient:
             base_url: Base URL for the eMAG API
             username: eMAG API username
             password: eMAG API password
-            rate_limiter: Optional rate limiter instance. If not provided, a default one will be created.
+            rate_limiter: Optional rate limiter instance.
+                If not provided, a default one will be created.
             session: Optional aiohttp ClientSession to reuse
             timeout: Request timeout in seconds
             max_retries: Maximum number of retries for failed requests
@@ -490,7 +491,8 @@ class EmagClient(EmagBaseClient):
 
         Args:
             account_type: Either 'main' or 'fbe'
-            rate_limiter: Optional rate limiter instance. If not provided, a default one will be created.
+            rate_limiter: Optional rate limiter instance.
+                If not provided, a default one will be created.
             session: Optional aiohttp ClientSession to reuse
             enable_rate_limiting: Whether to enable rate limiting (default: True)
             **kwargs: Additional arguments to pass to EmagBaseClient

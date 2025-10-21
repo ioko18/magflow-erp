@@ -14,10 +14,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+from app.models.emag_models import EmagProductV2
 from app.models.user import User
 from app.security.jwt import get_current_user
 
@@ -124,7 +125,10 @@ def validate_product_compliance(
             "name",
             "Nume produs (1-255 caractere)",
             "fail",
-            "Numele produsului este obligatoriu și trebuie să aibă între 1 și 255 de caractere.",
+            (
+                "Numele produsului este obligatoriu și trebuie să aibă între 1 și "
+                "255 de caractere."
+            ),
         )
 
     # Required: Brand (1-255 characters)
@@ -158,7 +162,10 @@ def validate_product_compliance(
             "part_number",
             "Part Number (1-25 caractere)",
             "fail",
-            "Part number este obligatoriu și trebuie să aibă 1-25 caractere (fără spații, virgule sau punct și virgulă).",
+            (
+                'Part number este obligatoriu și trebuie să aibă 1-25 caractere '
+                '(fără spații, virgule sau punct și virgulă).'
+            ),
         )
 
     # Required: Category ID
@@ -255,7 +262,10 @@ def validate_product_compliance(
                 "sale_price_bounds",
                 "Sale price în intervalul [min, max]",
                 "fail",
-                "sale_price trebuie să rămână între min_sale_price și max_sale_price conform regulilor eMAG.",
+                (
+                    "sale_price trebuie să rămână între min_sale_price și "
+                    "max_sale_price conform regulilor eMAG."
+                ),
             )
 
     # Recommended: Recommended Price (> sale price)
@@ -273,7 +283,10 @@ def validate_product_compliance(
                 "recommended_price",
                 "Recommended price (> sale price)",
                 "warn",
-                "recommended_price trebuie să fie mai mare decât sale_price pentru a activa promoțiile recomandate.",
+                (
+                    "recommended_price trebuie să fie mai mare decât sale_price pentru "
+                    "a activa promoțiile recomandate."
+                ),
             )
 
     # Required: VAT ID
@@ -327,14 +340,19 @@ def validate_product_compliance(
             "ean_presence",
             "EAN asociat ofertei",
             "pass",
-            "EAN-urile sunt completate corect.",
+            (
+                "EAN-urile sunt completate corect. "
+            ),
         )
     else:
         add_check(
-            "ean_presence",
+            "ean",
             "EAN asociat ofertei",
             "warn",
-            "Adaugă EAN-uri valide atunci când categoria le solicită. Ele ajută la atașarea la catalogul eMAG.",
+            (
+                "Adaugă EAN-uri valide atunci când categoria le solicită. "
+                "Ele ajută la atașarea la catalogul eMAG."
+            ),
         )
 
     # Recommended: Description
@@ -431,7 +449,7 @@ async def validate_product(
         return validation_result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}") from e
 
 
 @router.post("/bulk-update")
@@ -444,6 +462,7 @@ async def bulk_update_products(
     Bulk update multiple products.
 
     Maximum 50 products per request (eMAG API limit).
+    Uses SQLAlchemy ORM for safe, parameterized queries.
     """
     try:
         if len(request.product_ids) > 50:
@@ -451,46 +470,48 @@ async def bulk_update_products(
                 status_code=400, detail="Maximum 50 products can be updated at once"
             )
 
-        # Build update query
-        set_clauses = []
-        params = {"product_ids": tuple(request.product_ids)}
-
-        allowed_fields = {
-            "name",
-            "description",
-            "brand",
-            "manufacturer",
-            "price",
-            "sale_price",
-            "stock",
-            "status",
-            "category_id",
-            "warranty",
-            "handling_time",
-            "safety_information",
-            "green_tax",
-            "supply_lead_time",
+        # Map request fields to model attributes with strict validation
+        field_mapping = {
+            "name": "name",
+            "description": "description",
+            "brand": "brand",
+            "manufacturer": "manufacturer",
+            "price": "price",
+            "sale_price": "price",  # Assuming sale_price maps to price
+            "stock": "stock_quantity",
+            "status": "status",
+            "category_id": "category_id",
+            "warranty": "warranty",
+            "handling_time": "supply_lead_time",
+            "safety_information": "safety_information",
+            "green_tax": "green_tax",
+            "supply_lead_time": "supply_lead_time",
         }
 
+        # Build update values dictionary with validated fields only
+        update_values = {}
         for field, value in request.updates.items():
-            if field in allowed_fields:
-                set_clauses.append(f"{field} = :{field}")
-                params[field] = value
+            if field in field_mapping:
+                model_field = field_mapping[field]
+                # Verify the field exists on the model
+                if hasattr(EmagProductV2, model_field):
+                    update_values[model_field] = value
 
-        if not set_clauses:
+        if not update_values:
             raise HTTPException(status_code=400, detail="No valid fields to update")
 
-        set_clauses.append("updated_at = :updated_at")
-        params["updated_at"] = datetime.now(UTC)
+        # Add updated_at timestamp
+        update_values["updated_at"] = datetime.now(UTC).replace(tzinfo=None)
 
-        update_query = text(f"""
-            UPDATE app.emag_products_v2
-            SET {", ".join(set_clauses)}
-            WHERE id IN :product_ids
-            RETURNING id
-        """)
+        # Use SQLAlchemy ORM update statement - completely safe from SQL injection
+        stmt = (
+            update(EmagProductV2)
+            .where(EmagProductV2.id.in_(request.product_ids))
+            .values(**update_values)
+            .returning(EmagProductV2.id)
+        )
 
-        result = await db.execute(update_query, params)
+        result = await db.execute(stmt)
         updated_ids = [row[0] for row in result.fetchall()]
         await db.commit()
 
@@ -504,7 +525,7 @@ async def bulk_update_products(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail=f"Bulk update failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Bulk update failed: {str(e)}") from e
 
 
 @router.get("/categories")
@@ -538,7 +559,7 @@ async def get_emag_categories(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch categories: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/vat-rates")
@@ -568,7 +589,7 @@ async def get_vat_rates(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch VAT rates: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/handling-times")
@@ -599,7 +620,7 @@ async def get_handling_times(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch handling times: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/match-ean")
@@ -662,7 +683,7 @@ async def match_products_by_ean(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"EAN matching failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"EAN matching failed: {str(e)}") from e
 
 
 @router.post("/publish")
@@ -729,7 +750,10 @@ async def publish_products_to_emag(
 
         return {
             "status": "success",
-            "message": f"Validated {len(rows)} products, {len(valid_products)} ready for publishing",
+            "message": (
+                f"Validated {len(rows)} products, "
+                f"{len(valid_products)} ready for publishing"
+            ),
             "data": {
                 "validation_results": validation_results,
                 "publishable_count": len(valid_products),
@@ -740,7 +764,7 @@ async def publish_products_to_emag(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Publishing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Publishing failed: {str(e)}") from e
 
 
 @router.get("/statistics")
@@ -758,20 +782,21 @@ async def get_product_statistics(
     validation status, and competition metrics.
     """
     try:
-        account_filter = ""
         params = {}
 
-        if account_type and account_type in ["main", "fbe"]:
-            account_filter = "WHERE p.account_type = :account_type"
-            params["account_type"] = account_type
-
-        query = text(f"""
+        # Construim query-ul în mod sigur fără concatenare dinamică
+        # Folosim parametri pentru toate valorile variabile
+        base_query = """
             SELECT
                 COUNT(*) as total_products,
                 COUNT(*) FILTER (WHERE p.is_active = true) as active_products,
                 COUNT(*) FILTER (WHERE p.is_active = false) as inactive_products,
-                COUNT(*) FILTER (WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) > 0) as in_stock,
-                COUNT(*) FILTER (WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) = 0) as out_of_stock,
+                COUNT(*) FILTER (
+                    WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) > 0
+                ) as in_stock,
+                COUNT(*) FILTER (
+                    WHERE COALESCE(o.stock_quantity, p.stock_quantity, 0) = 0
+                ) as out_of_stock,
                 COUNT(*) FILTER (WHERE p.account_type = 'main') as main_account,
                 COUNT(*) FILTER (WHERE p.account_type = 'fbe') as fbe_account,
                 AVG(COALESCE(o.price, p.price, 0)) as avg_price,
@@ -783,9 +808,15 @@ async def get_product_statistics(
                 COUNT(*) FILTER (WHERE p.sync_status = 'failed') as failed_sync
             FROM app.emag_products_v2 p
             LEFT JOIN app.emag_product_offers_v2 o ON o.product_id = p.id
-            {account_filter}
-        """)
+        """
 
+        # Adăugăm filtrul WHERE doar dacă account_type este valid
+        # Validare strictă: doar 'main' sau 'fbe' sunt permise
+        if account_type and account_type in ["main", "fbe"]:
+            base_query += " WHERE p.account_type = :account_type"
+            params["account_type"] = account_type
+
+        query = text(base_query)
         result = await db.execute(query, params)
         stats = result.mappings().first()
 
@@ -794,7 +825,7 @@ async def get_product_statistics(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch statistics: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/export")
@@ -857,7 +888,7 @@ async def export_products(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}") from e
 
 
 @router.get("/export-template")
@@ -894,7 +925,7 @@ async def export_template(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Template download failed: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/import")
@@ -919,7 +950,7 @@ async def import_products(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}") from e
 
 
 @router.patch("/{product_id}/chinese-name")
@@ -939,8 +970,6 @@ async def update_product_chinese_name(
     Returns:
         Success message with updated product info
     """
-    from sqlalchemy import select
-
     from app.models.product import Product
 
     try:
@@ -982,7 +1011,7 @@ async def update_product_chinese_name(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.patch("/{product_id}/name")
@@ -1002,8 +1031,6 @@ async def update_product_name(
     Returns:
         Success message with updated product info
     """
-    from sqlalchemy import select
-
     from app.models.product import Product
 
     try:
@@ -1048,4 +1075,4 @@ async def update_product_name(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

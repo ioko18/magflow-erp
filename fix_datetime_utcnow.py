@@ -108,7 +108,11 @@ def main():
         if result['status'] == 'modified':
             modified_files.append(filepath)
             total_replacements += result['replacements']
-            print(f"✅ {filepath.relative_to(app_dir.parent)}: {result['replacements']} replacements")
+            relative_path = filepath.relative_to(app_dir.parent)
+            print(
+                "✅ %s: %s replacements"
+                % (relative_path, result['replacements'])
+            )
         elif result['status'] == 'error':
             error_files.append((filepath, result['error']))
             print(f"❌ {filepath.relative_to(app_dir.parent)}: ERROR - {result['error']}")

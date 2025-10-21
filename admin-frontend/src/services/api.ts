@@ -25,6 +25,7 @@ const api: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Important for sending cookies with CORS
+  timeout: 300000, // 5 minutes timeout for long-running operations (imports, exports)
 });
 
 let isRefreshing = false;

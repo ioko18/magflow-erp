@@ -266,7 +266,8 @@ def sample_product_data():
 
 @pytest_asyncio.fixture
 async def async_client(db_engine: AsyncEngine) -> AsyncGenerator[AsyncClient, None]:
-    """Create an async test client for FastAPI endpoints using httpx.AsyncClient with ASGITransport."""
+    """Create an async test client for FastAPI endpoints using httpx.AsyncClient
+    with ASGITransport."""
     from app.api.v1.api import api_router as v1_router
     from app.api.health import router as health_router
     from app.api.admin import router as admin_router

@@ -19,11 +19,15 @@ import {
   Divider,
   notification,
   message,
+  InputNumber,
+  Tooltip,
+  Modal,
 } from 'antd';
 import { 
   ReloadOutlined, UndoOutlined, ShoppingCartOutlined, DatabaseOutlined,
   SyncOutlined, CheckCircleOutlined, ClockCircleOutlined,
-  DollarOutlined, CalendarOutlined, TagOutlined
+  DollarOutlined, CalendarOutlined, TagOutlined, SettingOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
@@ -184,6 +188,15 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<EmagOrderDetails | null>(null);
   const [orderDetailsVisible, setOrderDetailsVisible] = useState(false);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
+  const [syncSettingsVisible, setSyncSettingsVisible] = useState(false);
+  const [maxPagesIncremental, setMaxPagesIncremental] = useState<number>(() => {
+    const saved = localStorage.getItem('emag_sync_max_pages_incremental');
+    return saved ? parseInt(saved, 10) : 10;
+  });
+  const [maxPagesFull, setMaxPagesFull] = useState<number>(() => {
+    const saved = localStorage.getItem('emag_sync_max_pages_full');
+    return saved ? parseInt(saved, 10) : 50;
+  });
 
   const hasActiveFilters = useMemo(
     () =>
@@ -323,6 +336,7 @@ export default function OrdersPage() {
   const handleSyncOrders = async (syncMode: 'incremental' | 'full' = 'incremental') => {
     setLoading(true);
     try {
+      const maxPages = syncMode === 'incremental' ? maxPagesIncremental : maxPagesFull;
       const modeLabels = {
         incremental: 'Incrementală (ultimele 7 zile)',
         full: 'Completă (toate comenzile)'
@@ -330,14 +344,14 @@ export default function OrdersPage() {
       
       notification.info({
         message: 'Sincronizare Pornită',
-        description: `Se sincronizează comenzile din ambele conturi (MAIN + FBE). Mod: ${modeLabels[syncMode]}. Vă rugăm așteptați...`,
+        description: `Se sincronizează comenzile din ambele conturi (MAIN + FBE). Mod: ${modeLabels[syncMode]}. Max pagini: ${maxPages}. Vă rugăm așteptați...`,
         duration: 5,
       });
 
       const response = await api.post('/emag/orders/sync', {
         account_type: 'both',
         status_filter: null, // All statuses
-        max_pages: syncMode === 'incremental' ? 10 : 50,
+        max_pages: maxPages,
         days_back: null,
         sync_mode: syncMode,
         start_date: null,
@@ -463,6 +477,31 @@ export default function OrdersPage() {
   const handleCloseOrderDetails = () => {
     setOrderDetailsVisible(false);
     setSelectedOrder(null);
+  };
+
+  const handleOpenSyncSettings = () => {
+    setSyncSettingsVisible(true);
+  };
+
+  const handleCloseSyncSettings = () => {
+    setSyncSettingsVisible(false);
+  };
+
+  const handleSaveSyncSettings = () => {
+    // Save to localStorage
+    localStorage.setItem('emag_sync_max_pages_incremental', maxPagesIncremental.toString());
+    localStorage.setItem('emag_sync_max_pages_full', maxPagesFull.toString());
+    
+    messageApi.success('Setări salvate cu succes!');
+    setSyncSettingsVisible(false);
+  };
+
+  const handleResetSyncSettings = () => {
+    setMaxPagesIncremental(10);
+    setMaxPagesFull(50);
+    localStorage.removeItem('emag_sync_max_pages_incremental');
+    localStorage.removeItem('emag_sync_max_pages_full');
+    messageApi.info('Setări resetate la valorile implicite');
   };
 
   // Search is now handled on backend, no need for client-side filtering
@@ -714,6 +753,122 @@ export default function OrdersPage() {
         order={selectedOrder}
         loading={orderDetailsLoading}
       />
+      
+      {/* Sync Settings Modal */}
+      <Modal
+        title={
+          <Space>
+            <SettingOutlined />
+            Setări Sincronizare eMAG
+          </Space>
+        }
+        open={syncSettingsVisible}
+        onOk={handleSaveSyncSettings}
+        onCancel={handleCloseSyncSettings}
+        okText="Salvează"
+        cancelText="Anulează"
+        width={600}
+      >
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Alert
+            message="Informații"
+            description="Configurează numărul maxim de pagini pentru fiecare tip de sincronizare. O pagină conține aproximativ 100 de comenzi."
+            type="info"
+            showIcon
+            icon={<InfoCircleOutlined />}
+          />
+          
+          <div>
+            <Typography.Title level={5}>
+              <SyncOutlined /> Sincronizare Rapidă (Incrementală)
+            </Typography.Title>
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+              Pentru sincronizări frecvente (ultimele 7 zile)
+            </Typography.Text>
+            <Space>
+              <InputNumber
+                min={1}
+                max={500}
+                value={maxPagesIncremental}
+                onChange={(value) => setMaxPagesIncremental(value || 10)}
+                style={{ width: 120 }}
+                addonAfter="pagini"
+              />
+              <Typography.Text type="secondary">
+                ≈ {(maxPagesIncremental * 100).toLocaleString()} comenzi
+              </Typography.Text>
+            </Space>
+            <div style={{ marginTop: 8 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>Presets rapide: </Typography.Text>
+              <Space size="small">
+                <Button size="small" onClick={() => setMaxPagesIncremental(5)}>5</Button>
+                <Button size="small" onClick={() => setMaxPagesIncremental(10)}>10</Button>
+                <Button size="small" onClick={() => setMaxPagesIncremental(20)}>20</Button>
+                <Button size="small" onClick={() => setMaxPagesIncremental(50)}>50</Button>
+              </Space>
+            </div>
+          </div>
+
+          <Divider style={{ margin: '12px 0' }} />
+
+          <div>
+            <Typography.Title level={5}>
+              <SyncOutlined spin /> Sincronizare Completă (Full)
+            </Typography.Title>
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+              Pentru sincronizări complete (toate comenzile)
+            </Typography.Text>
+            <Space>
+              <InputNumber
+                min={1}
+                max={1000}
+                value={maxPagesFull}
+                onChange={(value) => setMaxPagesFull(value || 50)}
+                style={{ width: 120 }}
+                addonAfter="pagini"
+              />
+              <Typography.Text type="secondary">
+                ≈ {(maxPagesFull * 100).toLocaleString()} comenzi
+              </Typography.Text>
+            </Space>
+            <div style={{ marginTop: 8 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>Presets rapide: </Typography.Text>
+              <Space size="small">
+                <Button size="small" onClick={() => setMaxPagesFull(50)}>50</Button>
+                <Button size="small" onClick={() => setMaxPagesFull(100)}>100</Button>
+                <Button size="small" onClick={() => setMaxPagesFull(200)}>200</Button>
+                <Button size="small" onClick={() => setMaxPagesFull(500)}>500</Button>
+                <Button size="small" onClick={() => setMaxPagesFull(1000)}>Toate</Button>
+              </Space>
+            </div>
+          </div>
+
+          <Divider style={{ margin: '12px 0' }} />
+
+          <Alert
+            message="Recomandări"
+            description={
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                <li><strong>Rapid (10 pagini)</strong>: Ideal pentru sincronizări zilnice</li>
+                <li><strong>Complet (50-100 pagini)</strong>: Pentru sincronizări săptămânale</li>
+                <li><strong>Toate (500+ pagini)</strong>: Doar pentru sincronizare inițială sau recuperare</li>
+              </ul>
+            }
+            type="warning"
+            showIcon
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Button type="link" onClick={handleResetSyncSettings}>
+              Resetează la valorile implicite
+            </Button>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Setările sunt salvate local în browser
+            </Typography.Text>
+          </div>
+        </Space>
+      </Modal>
+
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -732,12 +887,21 @@ export default function OrdersPage() {
               status={summary.emagSyncStats.failed > 0 ? 'error' : summary.emagSyncStats.pending > 0 ? 'warning' : 'success'}
               text={`Sync Status: ${summary.emagSyncStats.synced} synced, ${summary.emagSyncStats.pending} pending`}
             />
-            <Button icon={<SyncOutlined />} type="primary" onClick={() => handleSyncOrders('incremental')} loading={loading}>
-              Sincronizare eMAG (Rapid)
-            </Button>
-            <Button icon={<SyncOutlined spin />} onClick={() => handleSyncOrders('full')} loading={loading}>
-              Sincronizare Completă
-            </Button>
+            <Tooltip title={`Sincronizare rapidă (max ${maxPagesIncremental} pagini)`}>
+              <Button icon={<SyncOutlined />} type="primary" onClick={() => handleSyncOrders('incremental')} loading={loading}>
+                Sincronizare eMAG (Rapid)
+              </Button>
+            </Tooltip>
+            <Tooltip title={`Sincronizare completă (max ${maxPagesFull} pagini)`}>
+              <Button icon={<SyncOutlined spin />} onClick={() => handleSyncOrders('full')} loading={loading}>
+                Sincronizare Completă
+              </Button>
+            </Tooltip>
+            <Tooltip title="Configurează numărul maxim de pagini pentru sincronizare">
+              <Button icon={<SettingOutlined />} onClick={handleOpenSyncSettings} disabled={loading}>
+                Setări Sync
+              </Button>
+            </Tooltip>
             <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={loading}>
               Reîmprospătează
             </Button>

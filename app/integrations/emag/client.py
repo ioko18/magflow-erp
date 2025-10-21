@@ -6,7 +6,7 @@ with built-in support for authentication, rate limiting, and automatic retries.
 
 import base64
 import logging
-import random
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -244,7 +244,9 @@ class EmagAPIClient(Generic[T]):
         _rate_limit_key = "orders" if is_order_endpoint else "other"
 
         # Apply rate limiting with jitter
-        _jitter = 1.0 + (random.random() * 0.1)  # 0-10% jitter
+        # Use secrets for cryptographically secure random jitter
+        random_gen = secrets.SystemRandom()
+        _jitter = 1.0 + (random_gen.random() * 0.1)  # 0-10% jitter
         await self._rate_limiter.acquire()
 
         # Get auth token
@@ -348,7 +350,7 @@ class EmagAPIClient(Generic[T]):
                     response_data = await response.json()
                 except ValueError as e:
                     self._record_failure()
-                    raise EmagError(f"Failed to parse JSON response: {e}")
+                    raise EmagError(f"Failed to parse JSON response: {e}") from e
 
                 # VALIDARE CRITICĂ: Verifică isError conform API v4.4.8
                 if isinstance(response_data, dict):
@@ -400,21 +402,21 @@ class EmagAPIClient(Generic[T]):
                     except Exception as e:
                         raise EmagError(
                             f"Failed to parse response into {response_model.__name__}: {e}",
-                        )
+                        ) from e
 
                 return cast("T", response_data)
 
         except aiohttp.ClientError as e:
             self._logger.error("Network error during API request: %s", str(e))
             self._record_failure()
-            raise EmagError(f"Network error: {e!s}")
+            raise EmagError(f"Network error: {e!s}") from e
         except EmagError:
             self._record_failure()
             raise
         except Exception as e:
             self._logger.exception("Unexpected error during API request")
             self._record_failure()
-            raise EmagError(f"Unexpected error: {e!s}")
+            raise EmagError(f"Unexpected error: {e!s}") from e
 
     # Convenience methods for common HTTP methods
 

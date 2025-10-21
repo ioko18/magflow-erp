@@ -44,7 +44,7 @@ async def get_session_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get session statistics: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/active-users", response_model=dict)
@@ -78,7 +78,7 @@ async def get_active_users(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get active users: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/user/{user_id}/sessions", response_model=dict)
@@ -112,7 +112,7 @@ async def get_user_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get user sessions: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/session/{session_id}", response_model=dict)
@@ -154,7 +154,7 @@ async def invalidate_session(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to invalidate session: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/cleanup", response_model=dict)
@@ -189,4 +189,4 @@ async def cleanup_expired_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cleanup sessions: {str(e)}",
-        )
+        ) from e

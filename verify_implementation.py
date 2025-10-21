@@ -19,6 +19,14 @@ def verify_imports():
     try:
         from app.core import emag_constants, emag_errors, emag_rate_limiter
         from app.services import backup_service, emag_monitoring, order_validation
+        _ = (
+            emag_constants,
+            emag_errors,
+            emag_rate_limiter,
+            backup_service,
+            emag_monitoring,
+            order_validation,
+        )
         print("✅ All modules imported successfully")
         return True
     except ImportError as e:
@@ -32,7 +40,36 @@ def verify_constants():
 
     from app.core.emag_constants import CANCELLATION_REASONS, get_cancellation_reason_text
 
-    expected_codes = [1, 2, 3, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+    expected_codes = [
+        1,
+        2,
+        3,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+    ]
 
     for code in expected_codes:
         if code not in CANCELLATION_REASONS:

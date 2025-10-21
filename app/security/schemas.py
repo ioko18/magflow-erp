@@ -176,7 +176,10 @@ class UserCreate(BaseModel):
         ...,
         min_length=12,
         max_length=128,
-        description="Must be at least 12 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character",
+        description=(
+            "Must be at least 12 characters long and contain at least one uppercase "
+            "letter, one lowercase letter, one number and one special character"
+        ),
         example="Str0ngP@ssword!",
     )
     full_name: str | None = Field(

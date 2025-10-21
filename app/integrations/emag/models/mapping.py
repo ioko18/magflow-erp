@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 def utc_now():
-    """Return current UTC time without timezone info (for PostgreSQL TIMESTAMP WITHOUT TIME ZONE)."""
+    """Return current UTC time without timezone info for PostgreSQL."""
     return datetime.now(UTC).replace(tzinfo=None)
 
 

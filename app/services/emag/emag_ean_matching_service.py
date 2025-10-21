@@ -108,7 +108,7 @@ class EmagEANMatchingService:
         except EmagApiError as e:
             logger.error("Failed to search EAN %s: %s", ean, str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to search EAN: {str(e)}")
+            raise ServiceError(f"Failed to search EAN: {str(e)}") from e
 
     async def bulk_find_products_by_eans(self, eans: list[str]) -> dict[str, Any]:
         """Find multiple products by EAN codes (max 100 per request).
@@ -223,7 +223,10 @@ class EmagEANMatchingService:
                     "action": "submit_new_product_to_emag",
                     "local_product": local_product,
                     "details": {
-                        "message": "Product not found on eMAG. You can create a new product listing.",
+                        "message": (
+                            "Product not found on eMAG. You can create a new product "
+                            "listing."
+                        ),
                         "required_fields": [
                             "product_name",
                             "brand",
@@ -238,7 +241,7 @@ class EmagEANMatchingService:
         except Exception as e:
             logger.error("Failed to match product for EAN %s: %s", ean, str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to match product: {str(e)}")
+            raise ServiceError(f"Failed to match product: {str(e)}") from e
 
     async def _find_local_product_by_ean(self, ean: str) -> dict[str, Any] | None:
         """Find product in local database by EAN.

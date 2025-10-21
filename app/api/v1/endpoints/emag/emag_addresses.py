@@ -202,7 +202,10 @@ async def get_addresses(
                 total=len(addresses),
                 page=page,
                 items_per_page=items_per_page,
-                message=f"Retrieved {len(addresses)} addresses from eMAG {account_type.upper()} account",
+                message=(
+                    f"Retrieved {len(addresses)} addresses from eMAG "
+                    f"{account_type.upper()} account"
+                ),
             )
 
     except HTTPException:
@@ -211,7 +214,7 @@ async def get_addresses(
         logger.error(f"Error fetching addresses: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch addresses: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/pickup", response_model=AddressesListResponse)
@@ -274,7 +277,7 @@ async def get_pickup_addresses(
         logger.error(f"Error fetching pickup addresses: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch pickup addresses: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/return", response_model=AddressesListResponse)
@@ -337,7 +340,7 @@ async def get_return_addresses(
         logger.error(f"Error fetching return addresses: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch return addresses: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/awb/create")
@@ -455,4 +458,4 @@ async def create_awb_with_address(
         raise
     except Exception as e:
         logger.error(f"Error creating AWB: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create AWB: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create AWB: {str(e)}") from e

@@ -110,7 +110,7 @@ def sync_emag_orders_task(self) -> dict[str, Any]:
     except Exception as exc:
         logger.error(f"Order sync failed: {exc}", exc_info=True)
         # Retry with exponential backoff
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 async def _sync_orders_async() -> dict[str, Any]:
@@ -141,19 +141,17 @@ async def _sync_orders_async() -> dict[str, Any]:
 
                     results["accounts"][account_type] = {
                         "success": True,
-                        "orders_synced": sync_result.get("orders_synced", 0),
-                        "new_orders": sync_result.get("new_orders", 0),
-                        "updated_orders": sync_result.get("updated_orders", 0),
+                        "orders_synced": sync_result.get("synced", 0),
+                        "new_orders": sync_result.get("created", 0),
+                        "updated_orders": sync_result.get("updated", 0),
                     }
 
-                    results["total_orders_synced"] += sync_result.get(
-                        "orders_synced", 0
-                    )
-                    results["total_new_orders"] += sync_result.get("new_orders", 0)
+                    results["total_orders_synced"] += sync_result.get("synced", 0)
+                    results["total_new_orders"] += sync_result.get("created", 0)
 
                     logger.info(
-                        f"{account_type}: Synced {sync_result.get('orders_synced', 0)} orders, "
-                        f"{sync_result.get('new_orders', 0)} new"
+                        f"{account_type}: Synced {sync_result.get('synced', 0)} orders, "
+                        f"{sync_result.get('created', 0)} new"
                     )
 
             except Exception as e:
@@ -193,7 +191,7 @@ def sync_emag_products_task(
         return result
     except Exception as exc:
         logger.error(f"Product sync failed: {exc}", exc_info=True)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 async def _sync_products_async(
@@ -242,6 +240,38 @@ async def _sync_products_async(
                     f"{results['created']} created, {results['updated']} updated"
                 )
 
+                # Auto-sync inventory after product sync
+                try:
+                    logger.info(f"Auto-syncing inventory for {account_type} account")
+                    from app.api.v1.endpoints.inventory.emag_inventory_sync import (
+                        _sync_emag_to_inventory,
+                    )
+
+                    inventory_stats = await _sync_emag_to_inventory(db, account_type)
+                    results["inventory_sync"] = {
+                        "success": True,
+                        "products_synced": inventory_stats.get("products_synced", 0),
+                        "low_stock_count": inventory_stats.get("low_stock_count", 0),
+                        "skipped": inventory_stats.get("skipped_no_product", 0),
+                    }
+
+                    logger.info(
+                        f"{account_type}: Inventory synced - "
+                        f"{inventory_stats.get('products_synced', 0)} items, "
+                        f"{inventory_stats.get('low_stock_count', 0)} low stock"
+                    )
+
+                except Exception as inv_error:
+                    logger.warning(
+                        f"Failed to auto-sync inventory for {account_type}: {inv_error}",
+                        exc_info=True,
+                    )
+                    results["inventory_sync"] = {
+                        "success": False,
+                        "error": str(inv_error),
+                    }
+                    # Don't fail the whole task if inventory sync fails
+
         except Exception as e:
             logger.error(f"Failed to sync products: {e}", exc_info=True)
             results["errors"].append(str(e))
@@ -272,7 +302,7 @@ def auto_acknowledge_orders_task(self) -> dict[str, Any]:
         return result
     except Exception as exc:
         logger.error(f"Auto-acknowledgment failed: {exc}", exc_info=True)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 async def _auto_acknowledge_async() -> dict[str, Any]:
@@ -303,22 +333,43 @@ async def _auto_acknowledge_async() -> dict[str, Any]:
                     new_orders = result.scalars().all()
 
                     acknowledged = 0
+                    failed_orders = []
                     for order in new_orders:
                         try:
                             await order_service.acknowledge_order(order.emag_order_id)
                             acknowledged += 1
                         except Exception as e:
+                            error_msg = str(e)
+                            # Log detailed error information
                             logger.warning(
-                                f"Failed to acknowledge order {order.emag_order_id}: {e}"
+                                f"Failed to acknowledge order {order.emag_order_id}: {error_msg}",
+                                extra={
+                                    "order_id": order.emag_order_id,
+                                    "account": account_type,
+                                    "error_type": type(e).__name__,
+                                }
                             )
+                            failed_orders.append({
+                                "order_id": order.emag_order_id,
+                                "error": error_msg
+                            })
+                            # Continue with next order instead of failing completely
 
                     results["accounts"][account_type] = {
                         "success": True,
                         "acknowledged": acknowledged,
+                        "failed": len(failed_orders),
+                        "failed_orders": failed_orders if failed_orders else None,
                     }
                     results["total_acknowledged"] += acknowledged
 
-                    logger.info(f"{account_type}: Acknowledged {acknowledged} orders")
+                    if failed_orders:
+                        logger.warning(
+                            f"{account_type}: Acknowledged {acknowledged} orders, "
+                            f"{len(failed_orders)} failed"
+                        )
+                    else:
+                        logger.info(f"{account_type}: Acknowledged {acknowledged} orders")
 
             except Exception as e:
                 logger.error(
@@ -352,7 +403,7 @@ def cleanup_old_sync_logs_task(self, days_to_keep: int = 30) -> dict[str, Any]:
         return result
     except Exception as exc:
         logger.error(f"Cleanup failed: {exc}", exc_info=True)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
 
 
 async def _cleanup_logs_async(days_to_keep: int) -> dict[str, Any]:
@@ -366,7 +417,8 @@ async def _cleanup_logs_async(days_to_keep: int) -> dict[str, Any]:
 
     from sqlalchemy import delete
 
-    cutoff_date = datetime.now(UTC) - timedelta(days=days_to_keep)
+    # Remove timezone info to match database column type (TIMESTAMP WITHOUT TIME ZONE)
+    cutoff_date = (datetime.now(UTC) - timedelta(days=days_to_keep)).replace(tzinfo=None)
 
     async with async_session_factory() as db:
         try:
@@ -451,7 +503,8 @@ async def _health_check_async() -> dict[str, Any]:
             # Check recent syncs
             from datetime import timedelta
 
-            recent_cutoff = datetime.now(UTC) - timedelta(hours=1)
+            # Remove timezone info to match database column type (TIMESTAMP WITHOUT TIME ZONE)
+            recent_cutoff = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
 
             result = await db.execute(
                 select(func.count(EmagSyncLog.id)).where(

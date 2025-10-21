@@ -322,9 +322,13 @@ class OfferService:
                 results.extend(batch_result.results)
                 processed += len(batch)
 
+                total_batches = (total_offers + batch_size - 1) // batch_size
                 logger.info(
-                    f"Processed batch {i // batch_size + 1}/{(total_offers + batch_size - 1) // batch_size} "
-                    f"({processed}/{total_offers} offers)",
+                    "Processed batch %d/%d (%d/%d offers)",
+                    (i // batch_size) + 1,
+                    total_batches,
+                    processed,
+                    total_offers,
                 )
 
             except Exception as e:

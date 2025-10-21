@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import load_only
 
 from app.models.emag_models import EmagProductV2
+from app.models.product_history import ProductSKUHistory
 from app.models.product_mapping import GoogleSheetsProductMapping, ImportLog
 from app.models.product_supplier_sheet import ProductSupplierSheet
 from app.models.supplier import Supplier
@@ -66,6 +67,8 @@ class ProductImportService:
             logger.info(f"Found {len(sheet_products)} products in Google Sheets")
 
             processed_skus = set()
+            products_created = 0
+            products_updated = 0
 
             # Process each product
             for sheet_product in sheet_products:
@@ -84,17 +87,26 @@ class ProductImportService:
                     continue
 
                 processed_skus.add(sku)
-                try:
-                    await self._import_single_product(
-                        sheet_product, import_log, auto_map
-                    )
-                    import_log.successful_imports += 1
-                except Exception as e:
-                    logger.error(f"Failed to import product {sheet_product.sku}: {e}")
-                    import_log.failed_imports += 1
-                    await self.db.rollback()
-                    # Re-attach the import log to the session after rollback
-                    self.db.add(import_log)
+
+                # Use nested transaction (savepoint) to handle individual product errors
+                async with self.db.begin_nested():
+                    try:
+                        created, updated = await self._import_single_product(
+                            sheet_product, import_log, auto_map
+                        )
+                        if created:
+                            products_created += 1
+                        if updated:
+                            products_updated += 1
+                        import_log.successful_imports += 1
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to import product {sheet_product.sku}: {e}",
+                            exc_info=True,
+                        )
+                        import_log.failed_imports += 1
+                        # Rollback will happen automatically when exiting the nested context
+                        # but import_log remains in the parent transaction
 
             # Import suppliers if requested
             if import_suppliers:
@@ -111,11 +123,16 @@ class ProductImportService:
                 import_log.completed_at - import_log.started_at
             ).total_seconds()
 
+            # Store products created/updated in auto_mapped fields (repurposed)
+            import_log.auto_mapped_main = products_created
+            import_log.auto_mapped_fbe = products_updated
+
             await self.db.commit()
 
             logger.info(
                 f"Import completed: {import_log.successful_imports} successful, "
-                f"{import_log.failed_imports} failed"
+                f"{import_log.failed_imports} failed, "
+                f"{products_created} created, {products_updated} updated"
             )
 
             return import_log
@@ -130,7 +147,7 @@ class ProductImportService:
 
     async def _import_single_product(
         self, sheet_product: ProductFromSheet, import_log: ImportLog, auto_map: bool
-    ) -> GoogleSheetsProductMapping:
+    ) -> tuple[bool, bool]:
         """
         Import a single product and create/update mapping
 
@@ -140,8 +157,51 @@ class ProductImportService:
             auto_map: Whether to automatically map to eMAG
 
         Returns:
-            GoogleSheetsProductMapping: Created or updated mapping
+            tuple[bool, bool]: (product_created, product_updated)
         """
+        # First, ensure the product exists in the products table
+        from app.models.product import Product
+
+        product_stmt = select(Product).where(Product.sku == sheet_product.sku)
+        product_result = await self.db.execute(product_stmt)
+        product = product_result.scalar_one_or_none()
+
+        product_created = False
+        product_updated = False
+
+        if not product:
+            # Create new product in products table
+            product = Product(
+                sku=sheet_product.sku,
+                name=sheet_product.romanian_name,
+                base_price=sheet_product.emag_fbe_ro_price_ron or 0.0,
+                currency="RON",
+                is_active=True,
+                image_url=sheet_product.image_url,
+                brand=sheet_product.brand,
+                ean=sheet_product.ean,
+                weight_kg=sheet_product.weight_kg,
+                display_order=sheet_product.sort_product,
+            )
+            self.db.add(product)
+            # Flush will happen at the end to get product.id for SKU history
+            product_created = True
+            logger.info(f"Created new product: {sheet_product.sku}")
+        else:
+            # Update existing product
+            product.name = sheet_product.romanian_name
+            if sheet_product.emag_fbe_ro_price_ron:
+                product.base_price = sheet_product.emag_fbe_ro_price_ron
+            # Update additional fields from Google Sheets
+            product.image_url = sheet_product.image_url
+            product.brand = sheet_product.brand
+            product.ean = sheet_product.ean
+            product.weight_kg = sheet_product.weight_kg
+            if sheet_product.sort_product is not None:
+                product.display_order = sheet_product.sort_product
+            product_updated = True
+            logger.debug(f"Updated existing product: {sheet_product.sku}")
+
         # Check if mapping already exists
         stmt = select(GoogleSheetsProductMapping).where(
             GoogleSheetsProductMapping.local_sku == sheet_product.sku
@@ -171,12 +231,56 @@ class ProductImportService:
             )
             self.db.add(mapping)
 
+        # Flush to get product.id before importing SKU history
+        await self.db.flush()
+
+        # Import SKU history if available (needs product.id)
+        if sheet_product.sku_history:
+            await self._import_sku_history(product, sheet_product.sku_history)
+
         # Auto-map to eMAG if requested
         if auto_map:
             await self._auto_map_to_emag(mapping, import_log)
 
-        await self.db.flush()
-        return mapping
+        return product_created, product_updated
+
+    async def _import_sku_history(
+        self, product, old_skus: list[str]
+    ) -> None:
+        """
+        Import historical SKUs from Google Sheets
+
+        Args:
+            product: Product instance
+            old_skus: List of old SKUs from SKU_History column
+        """
+        for old_sku in old_skus:
+            # Check if this SKU history entry already exists
+            existing_query = select(ProductSKUHistory).where(
+                ProductSKUHistory.product_id == product.id,
+                ProductSKUHistory.old_sku == old_sku,
+                ProductSKUHistory.new_sku == product.sku,
+            )
+            result = await self.db.execute(existing_query)
+            existing = result.scalar_one_or_none()
+
+            if not existing:
+                # Create new SKU history entry
+                # Note: changed_at must be timezone-naive to match DB column type
+                sku_history = ProductSKUHistory(
+                    product_id=product.id,
+                    old_sku=old_sku,
+                    new_sku=product.sku,
+                    changed_at=datetime.now(UTC).replace(tzinfo=None),
+                    changed_by_id=None,  # System import, no user
+                    change_reason="Imported from Google Sheets SKU_History column",
+                    ip_address=None,
+                    user_agent="Google Sheets Import Service",
+                )
+                self.db.add(sku_history)
+                logger.debug(
+                    f"Added SKU history for {product.sku}: {old_sku} -> {product.sku}"
+                )
 
     async def _auto_map_to_emag(
         self, mapping: GoogleSheetsProductMapping, import_log: ImportLog
@@ -448,7 +552,8 @@ class ProductImportService:
         Args:
             skip: Number of records to skip
             limit: Maximum number of records to return
-            filter_status: Filter by mapping status (fully_mapped, partially_mapped, unmapped, conflict)
+            filter_status: Filter by mapping status
+                (fully_mapped, partially_mapped, unmapped, conflict)
 
         Returns:
             Tuple of (list of mappings, total count)
@@ -583,94 +688,103 @@ class ProductImportService:
         exchange_rate_cny_ron = 0.65  # 1 CNY = ~0.65 RON (update as needed)
 
         for sheet_supplier in sheet_suppliers:
-            try:
-                # First, ensure the supplier exists in the suppliers table
+            # Use nested transaction (savepoint) for each supplier
+            async with self.db.begin_nested():
                 try:
+                    # First, ensure the supplier exists in the suppliers table
                     await self._ensure_supplier_exists(
                         supplier_name=sheet_supplier.supplier_name,
                         supplier_contact=sheet_supplier.supplier_contact,
                         supplier_url=sheet_supplier.supplier_url,
                         stats=stats,
                     )
-                except Exception as supplier_error:
+
+                    # Use upsert (ON CONFLICT UPDATE) for better performance and avoid duplicates
+                    from sqlalchemy.dialects.postgresql import insert
+
+                    # Get current time as timezone-naive (matching database schema)
+                    now_naive = datetime.now(UTC).replace(tzinfo=None)
+
+                    values = {
+                        "sku": sheet_supplier.sku,
+                        "supplier_name": sheet_supplier.supplier_name,
+                        "price_cny": sheet_supplier.price_cny,
+                        "supplier_contact": sheet_supplier.supplier_contact,
+                        "supplier_url": sheet_supplier.supplier_url,
+                        "supplier_notes": sheet_supplier.supplier_notes,
+                        "supplier_product_chinese_name": (
+                            sheet_supplier.supplier_product_chinese_name
+                        ),
+                        "supplier_product_specification": (
+                            sheet_supplier.supplier_product_specification
+                        ),
+                        "google_sheet_row": sheet_supplier.row_number,
+                        "last_imported_at": datetime.now(UTC),
+                        "import_source": "google_sheets",
+                        "exchange_rate_cny_ron": exchange_rate_cny_ron,
+                        "calculated_price_ron": sheet_supplier.price_cny
+                        * exchange_rate_cny_ron,
+                        "is_active": True,
+                        "created_at": now_naive,
+                        "updated_at": now_naive,
+                    }
+
+                    # Check if exists first (for stats tracking)
+                    check_stmt = select(ProductSupplierSheet.id).where(
+                        ProductSupplierSheet.sku == sheet_supplier.sku,
+                        ProductSupplierSheet.supplier_name == sheet_supplier.supplier_name,
+                    )
+                    check_result = await self.db.execute(check_stmt)
+                    exists = check_result.scalar_one_or_none() is not None
+
+                    # Insert with ON CONFLICT UPDATE (upsert)
+                    insert_stmt = insert(ProductSupplierSheet).values(**values)
+                    upsert_stmt = insert_stmt.on_conflict_do_update(
+                        constraint="uq_product_supplier_sku_name",
+                        set_={
+                            "price_cny": insert_stmt.excluded.price_cny,
+                            "supplier_contact": insert_stmt.excluded.supplier_contact,
+                            "supplier_url": insert_stmt.excluded.supplier_url,
+                            "supplier_notes": insert_stmt.excluded.supplier_notes,
+                            "supplier_product_chinese_name": (
+                                insert_stmt.excluded.supplier_product_chinese_name
+                            ),
+                            "supplier_product_specification": (
+                                insert_stmt.excluded.supplier_product_specification
+                            ),
+                            "google_sheet_row": insert_stmt.excluded.google_sheet_row,
+                            "last_imported_at": insert_stmt.excluded.last_imported_at,
+                            "exchange_rate_cny_ron": insert_stmt.excluded.exchange_rate_cny_ron,
+                            "calculated_price_ron": insert_stmt.excluded.calculated_price_ron,
+                            "updated_at": insert_stmt.excluded.updated_at,
+                        },
+                    )
+
+                    await self.db.execute(upsert_stmt)
+
+                    # Update stats based on whether it existed
+                    if exists:
+                        stats["updated"] += 1
+                        logger.debug(
+                            f"Updated supplier {sheet_supplier.supplier_name} "
+                            f"for SKU {sheet_supplier.sku}"
+                        )
+                    else:
+                        stats["created"] += 1
+                        logger.debug(
+                            f"Created supplier {sheet_supplier.supplier_name} "
+                            f"for SKU {sheet_supplier.sku}"
+                        )
+
+                except Exception as e:
                     logger.error(
-                        f"Failed to create/get supplier {sheet_supplier.supplier_name}: {supplier_error}"
+                        f"Failed to import supplier {sheet_supplier.supplier_name} "
+                        f"for SKU {sheet_supplier.sku}: {e}",
+                        exc_info=True,
                     )
-                    # Rollback and continue with next supplier
-                    await self.db.rollback()
                     stats["skipped"] += 1
+                    # Rollback happens automatically when exiting nested context
                     continue
-
-                # Use upsert (ON CONFLICT UPDATE) for better performance and avoid duplicates
-                from sqlalchemy.dialects.postgresql import insert
-
-                values = {
-                    "sku": sheet_supplier.sku,
-                    "supplier_name": sheet_supplier.supplier_name,
-                    "price_cny": sheet_supplier.price_cny,
-                    "supplier_contact": sheet_supplier.supplier_contact,
-                    "supplier_url": sheet_supplier.supplier_url,
-                    "supplier_notes": sheet_supplier.supplier_notes,
-                    "supplier_product_chinese_name": sheet_supplier.supplier_product_chinese_name,
-                    "supplier_product_specification": sheet_supplier.supplier_product_specification,
-                    "google_sheet_row": sheet_supplier.row_number,
-                    "last_imported_at": datetime.now(UTC),
-                    "import_source": "google_sheets",
-                    "exchange_rate_cny_ron": exchange_rate_cny_ron,
-                    "calculated_price_ron": sheet_supplier.price_cny
-                    * exchange_rate_cny_ron,
-                    "is_active": True,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-
-                # Check if exists first (for stats tracking)
-                check_stmt = select(ProductSupplierSheet.id).where(
-                    ProductSupplierSheet.sku == sheet_supplier.sku,
-                    ProductSupplierSheet.supplier_name == sheet_supplier.supplier_name,
-                )
-                check_result = await self.db.execute(check_stmt)
-                exists = check_result.scalar_one_or_none() is not None
-
-                # Insert with ON CONFLICT UPDATE (upsert)
-                insert_stmt = insert(ProductSupplierSheet).values(**values)
-                upsert_stmt = insert_stmt.on_conflict_do_update(
-                    constraint="uq_product_supplier_sku_name",
-                    set_={
-                        "price_cny": insert_stmt.excluded.price_cny,
-                        "supplier_contact": insert_stmt.excluded.supplier_contact,
-                        "supplier_url": insert_stmt.excluded.supplier_url,
-                        "supplier_notes": insert_stmt.excluded.supplier_notes,
-                        "supplier_product_chinese_name": insert_stmt.excluded.supplier_product_chinese_name,
-                        "supplier_product_specification": insert_stmt.excluded.supplier_product_specification,
-                        "google_sheet_row": insert_stmt.excluded.google_sheet_row,
-                        "last_imported_at": insert_stmt.excluded.last_imported_at,
-                        "exchange_rate_cny_ron": insert_stmt.excluded.exchange_rate_cny_ron,
-                        "calculated_price_ron": insert_stmt.excluded.calculated_price_ron,
-                        "updated_at": insert_stmt.excluded.updated_at,
-                    },
-                )
-
-                await self.db.execute(upsert_stmt)
-
-                # Update stats based on whether it existed
-                if exists:
-                    stats["updated"] += 1
-                    logger.debug(
-                        f"Updated supplier {sheet_supplier.supplier_name} for SKU {sheet_supplier.sku}"
-                    )
-                else:
-                    stats["created"] += 1
-                    logger.debug(
-                        f"Created supplier {sheet_supplier.supplier_name} for SKU {sheet_supplier.sku}"
-                    )
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to import supplier {sheet_supplier.supplier_name} for SKU {sheet_supplier.sku}: {e}"
-                )
-                stats["skipped"] += 1
-                continue
 
         await self.db.flush()
 
@@ -694,7 +808,9 @@ class ProductImportService:
 
         # Migrate to supplier_products table using dedicated service
         logger.info("Migrating to supplier_products table...")
-        from app.services.supplier_migration_service import SupplierMigrationService
+        from app.services.suppliers.supplier_migration_service import (
+            SupplierMigrationService,
+        )
 
         migration_service = SupplierMigrationService(self.db)
         migration_stats = await migration_service.migrate_all()

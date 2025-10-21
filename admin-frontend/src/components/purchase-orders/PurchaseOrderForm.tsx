@@ -402,11 +402,15 @@ export const PurchaseOrderForm: React.FC = () => {
                       Unit Cost *
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      type="text"
                       value={line.unit_cost}
-                      onChange={(e) => updateLine(index, 'unit_cost', Number(e.target.value))}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || /^[0-9]*[.,]?[0-9]*$/.test(value)) {
+                          updateLine(index, 'unit_cost', value === '' ? 0 : Number(value.replace(',', '.')));
+                        }
+                      }}
+                      placeholder="0.00"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -418,12 +422,18 @@ export const PurchaseOrderForm: React.FC = () => {
                       Discount %
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
+                      type="text"
                       value={line.discount_percent || 0}
-                      onChange={(e) => updateLine(index, 'discount_percent', Number(e.target.value))}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || /^[0-9]*[.,]?[0-9]*$/.test(value)) {
+                          const numValue = value === '' ? 0 : Number(value.replace(',', '.'));
+                          if (numValue >= 0 && numValue <= 100) {
+                            updateLine(index, 'discount_percent', numValue);
+                          }
+                        }
+                      }}
+                      placeholder="0.00"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -434,12 +444,18 @@ export const PurchaseOrderForm: React.FC = () => {
                       Tax %
                     </label>
                     <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
+                      type="text"
                       value={line.tax_percent || 19}
-                      onChange={(e) => updateLine(index, 'tax_percent', Number(e.target.value))}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === '' || /^[0-9]*[.,]?[0-9]*$/.test(value)) {
+                          const numValue = value === '' ? 0 : Number(value.replace(',', '.'));
+                          if (numValue >= 0 && numValue <= 100) {
+                            updateLine(index, 'tax_percent', numValue);
+                          }
+                        }
+                      }}
+                      placeholder="19.00"
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>

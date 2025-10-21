@@ -115,7 +115,7 @@ async def get_task_result(task_id: str) -> TaskResult:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get task result: {e!s}",
-        )
+        ) from e
 
 
 # Add tasks router to v1 API

@@ -42,7 +42,8 @@ class SupplierService:
 
         if existing_supplier:
             raise ValueError(
-                f"Supplier '{supplier_data['name']}' already exists in {supplier_data.get('country', 'China')}"
+                f"Supplier '{supplier_data['name']}' already exists in "
+                f"{supplier_data.get('country', 'China')}"
             )
 
         # Validate email format if provided
@@ -77,7 +78,8 @@ class SupplierService:
             valid_currencies = ["USD", "CNY", "EUR", "GBP", "JPY"]
             if update_data["currency"] not in valid_currencies:
                 raise ValueError(
-                    f"Invalid currency '{update_data['currency']}'. Must be one of: {', '.join(valid_currencies)}"
+                    f"Invalid currency '{update_data['currency']}'. Must be one of: "
+                    f"{', '.join(valid_currencies)}"
                 )
             if supplier.currency != update_data["currency"]:
                 changes["currency"] = {
@@ -204,7 +206,13 @@ class SupplierService:
         # Now delete supplier (cascade will handle remaining related records)
         await self.db.delete(supplier)
         logger.info(
-            f"Permanently deleted supplier: {supplier.name} (ID: {supplier_id}) with {len(matching_scores) if raw_product_ids else 0} matching scores, {len(raw_products)} raw products and {len(products)} matched products"
+            "Permanently deleted supplier: %s (ID: %s) with %s matching scores, %s raw products "
+            "and %s matched products",
+            supplier.name,
+            supplier_id,
+            len(matching_scores) if raw_product_ids else 0,
+            len(raw_products),
+            len(products),
         )
 
     async def get_supplier_performance(

@@ -81,7 +81,10 @@ async def get_or_create_emag_category(session: AsyncSession, category_name: str)
     }
 
 
-async def update_or_create_emag_product(session: AsyncSession, offer: dict[str, Any]) -> EmagProduct:
+async def update_or_create_emag_product(
+    session: AsyncSession,
+    offer: dict[str, Any],
+) -> EmagProduct:
     """Update or create an eMAG product in the database from eMAG offer data."""
     emag_id = str(offer.get('id'))
     name = extract_product_name(offer)
@@ -137,13 +140,20 @@ async def update_or_create_emag_product(session: AsyncSession, offer: dict[str, 
     # Create or update the offer
     offer_data = {
         'emag_product_id': emag_id,
-        'emag_offer_id': offer.get('offer_id', emag_id),  # Use offer_id if available, otherwise use product_id
+        'emag_offer_id': offer.get(
+            'offer_id',
+            emag_id,
+        ),  # Use offer_id if available, otherwise use product_id
         'price': float(offer.get('sale_price', 0)),
         'sale_price': float(offer.get('sale_price', 0)),
         'currency': offer.get('currency', 'RON'),
         'stock': int(offer.get('stock', 0)),
         'stock_status': 'in_stock' if offer.get('stock', 0) > 0 else 'out_of_stock',
-        'handling_time': offer.get('handling_time', [{}])[0].get('value') if isinstance(offer.get('handling_time'), list) else None,
+        'handling_time': (
+            offer.get('handling_time', [{}])[0].get('value')
+            if isinstance(offer.get('handling_time'), list)
+            else None
+        ),
         'status': 'active' if offer.get('status') == 1 else 'inactive',
         'is_available': bool(offer.get('status') == 1 and offer.get('stock', 0) > 0),
         'is_visible': bool(offer.get('status') == 1),
@@ -194,7 +204,11 @@ async def update_or_create_emag_product(session: AsyncSession, offer: dict[str, 
     return emag_product
 
 
-async def fetch_emag_offers(session: aiohttp.ClientSession, page: int = 1, per_page: int = 10) -> list[dict[str, Any]]:
+async def fetch_emag_offers(
+    session: aiohttp.ClientSession,
+    page: int = 1,
+    per_page: int = 10,
+) -> list[dict[str, Any]]:
     """Fetch product offers from eMAG API asynchronously."""
     auth = aiohttp.BasicAuth(EMAG_API_USERNAME, EMAG_API_PASSWORD)
     headers = {"Content-Type": "application/json"}
@@ -205,7 +219,7 @@ async def fetch_emag_offers(session: aiohttp.ClientSession, page: int = 1, per_p
             f"{EMAG_API_URL}/product_offer/read",
             auth=auth,
             headers=headers,
-            json=data
+            json=data,
         ) as response:
             response.raise_for_status()
             result = await response.json()
@@ -231,7 +245,10 @@ async def main():
             try:
                 # Fetch offers from eMAG
                 print("Fetching products from eMAG...")
-                offers = await fetch_emag_offers(http_session, per_page=5)  # Adjust per_page as needed
+                offers = await fetch_emag_offers(
+                    http_session,
+                    per_page=5,
+                )  # Adjust per_page as needed
 
                 if not offers:
                     print("No offers found or error fetching offers.")
@@ -243,7 +260,14 @@ async def main():
                         product_name = extract_product_name(offer)
                         print(f"Processing product {i}/{len(offers)}: {product_name[:50]}...")
                         emag_product = await update_or_create_emag_product(db_session, offer)
-                        print(f"  - {'Updated' if hasattr(emag_product, 'id') and emag_product.id else 'Created'} eMAG product: {emag_product.name}")
+                        status = (
+                            'Updated'
+                            if hasattr(emag_product, 'id') and emag_product.id
+                            else 'Created'
+                        )
+                        print(
+                            f"  - {status} eMAG product: {emag_product.name}"
+                        )
                     except Exception as e:
                         print(f"Error processing offer {i}: {e}")
                         import traceback

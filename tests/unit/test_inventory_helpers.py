@@ -131,8 +131,12 @@ class TestIntegration:
             status = calculate_stock_status(stock)
             reorder = calculate_reorder_quantity(stock)
             
-            assert status == expected_status, f"Stock {stock}: expected status {expected_status}, got {status}"
-            assert reorder == expected_reorder, f"Stock {stock}: expected reorder {expected_reorder}, got {reorder}"
+            assert status == expected_status, (
+                f"Stock {stock}: expected status {expected_status}, got {status}"
+            )
+            assert reorder == expected_reorder, (
+                f"Stock {stock}: expected reorder {expected_reorder}, got {reorder}"
+            )
     
     def test_realistic_scenarios(self):
         """Test realistic inventory scenarios."""

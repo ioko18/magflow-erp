@@ -236,7 +236,12 @@ class RetryManager:
                     raise e
 
                 delay = self.calculate_delay(attempt)
-                logger.info(f"Retrying in {delay:.2f} seconds (attempt {attempt + 2}/{self.config.max_attempts})")
+                logger.info(
+                    "Retrying in %.2f seconds (attempt %d/%d)",
+                    delay,
+                    attempt + 2,
+                    self.config.max_attempts,
+                )
                 await asyncio.sleep(delay)
 
         # If we get here, all retries failed
@@ -285,7 +290,10 @@ class CircuitBreaker:
                     if (self.state == CircuitBreakerState.CLOSED and
                         self.failure_count >= self.config.failure_threshold):
                         self.state = CircuitBreakerState.OPEN
-                        logger.warning(f"Circuit breaker opened after {self.failure_count} failures")
+                        logger.warning(
+                            "Circuit breaker opened after %d failures",
+                            self.failure_count,
+                        )
 
                     elif self.state == CircuitBreakerState.HALF_OPEN:
                         self.state = CircuitBreakerState.OPEN
@@ -315,7 +323,11 @@ class CircuitBreaker:
             "state": self.state.value,
             "failure_count": self.failure_count,
             "success_count": self.success_count,
-            "last_failure_time": self.last_failure_time.isoformat() if self.last_failure_time else None
+            "last_failure_time": (
+                self.last_failure_time.isoformat()
+                if self.last_failure_time
+                else None
+            )
         }
 
 class EnhancedEMAGClient:

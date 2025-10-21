@@ -123,7 +123,7 @@ class ServiceProvider(Generic[T]):
             )
             raise ConfigurationError(
                 f"Failed to initialize {self.service_class.__name__}: {e}",
-            )
+            ) from e
 
     def _resolve_dependency(self, param_name: str, context: ServiceContext) -> Any:
         """Resolve dependency automatically based on type hints."""

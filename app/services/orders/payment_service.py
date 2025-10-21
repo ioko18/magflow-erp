@@ -922,7 +922,7 @@ class PaymentService(ServiceBase):
 
         except Exception as e:
             logger.error("Failed to create payment: %s", e)
-            raise PaymentGatewayError(f"Payment creation failed: {e}", gateway_type)
+            raise PaymentGatewayError(f"Payment creation failed: {e}", gateway_type) from e
 
     async def process_payment(
         self,
@@ -968,7 +968,7 @@ class PaymentService(ServiceBase):
                 transaction.status = PaymentStatus.FAILED
                 transaction.gateway_response.update({"error": str(e)})
 
-            raise PaymentGatewayError(f"Payment processing failed: {e}")
+            raise PaymentGatewayError(f"Payment processing failed: {e}") from e
 
     async def refund_payment(
         self,
@@ -1011,7 +1011,7 @@ class PaymentService(ServiceBase):
 
         except Exception as e:
             logger.error("Failed to refund payment %s: %s", transaction_id, e)
-            raise PaymentGatewayError(f"Payment refund failed: {e}")
+            raise PaymentGatewayError(f"Payment refund failed: {e}") from e
 
     async def get_payment_status(self, transaction_id: str) -> PaymentTransaction:
         """Get payment transaction status."""
@@ -1046,7 +1046,7 @@ class PaymentService(ServiceBase):
 
         except Exception as e:
             logger.error("Failed to get payment status %s: %s", transaction_id, e)
-            raise PaymentGatewayError(f"Payment status retrieval failed: {e}")
+            raise PaymentGatewayError(f"Payment status retrieval failed: {e}") from e
 
     async def handle_webhook(
         self,
@@ -1069,7 +1069,7 @@ class PaymentService(ServiceBase):
 
         except Exception as e:
             logger.error("Failed to handle webhook from %s: %s", gateway_type, e)
-            raise PaymentGatewayError(f"Webhook handling failed: {e}", gateway_type)
+            raise PaymentGatewayError(f"Webhook handling failed: {e}", gateway_type) from e
 
     async def get_supported_gateways(self) -> list[dict[str, Any]]:
         """Get list of supported gateways."""

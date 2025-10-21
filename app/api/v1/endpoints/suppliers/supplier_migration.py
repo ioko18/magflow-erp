@@ -39,7 +39,7 @@ async def migrate_all_suppliers(
     except Exception as e:
         await db.rollback()
         logger.error(f"Migration failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/migrate/{supplier_name}")
@@ -63,7 +63,7 @@ async def migrate_supplier(
     except Exception as e:
         await db.rollback()
         logger.error(f"Migration failed for {supplier_name}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/unmigrated")
@@ -90,7 +90,7 @@ async def get_unmigrated_products(
         }
     except Exception as e:
         logger.error(f"Failed to get unmigrated products: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/validate")
@@ -113,4 +113,4 @@ async def validate_migration_readiness(
         return {"status": "success", "data": validation}
     except Exception as e:
         logger.error(f"Validation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

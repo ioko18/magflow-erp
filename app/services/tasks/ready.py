@@ -32,7 +32,7 @@ async def tasks_readiness() -> dict[str, Any]:
                     "message": f"Celery worker not responding within timeout: {e!s}",
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
-            )
+            ) from e
 
         return {
             "status": "ready",
@@ -53,4 +53,4 @@ async def tasks_readiness() -> dict[str, Any]:
                 "message": str(e),
                 "timestamp": datetime.now(UTC).isoformat(),
             },
-        )
+        ) from e

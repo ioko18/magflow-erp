@@ -5,6 +5,7 @@ Comprehensive validation of environment variables, database connections,
 API credentials, and system requirements
 """
 
+import importlib.util
 import logging
 import os
 import socket
@@ -16,7 +17,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
 logger = logging.getLogger(__name__)
 
 class ValidationLevel(Enum):
@@ -128,19 +132,22 @@ class ConfigurationValidator:
 
             # Validate type
             try:
-                if expected_type == int:
+                if expected_type is int:
                     int(value)
-                elif expected_type == bool:
+                elif expected_type is bool:
                     if value.lower() not in ['true', 'false', '1', '0']:
                         raise ValueError
-                elif expected_type == str:
+                elif expected_type is str:
                     if not value.strip():
                         raise ValueError("Empty string")
             except (ValueError, TypeError):
                 self.add_result(
                     f"env_var_{var_name}",
                     ValidationLevel.ERROR,
-                    f"Environment variable '{var_name}' has invalid format: expected {expected_type.__name__}",
+                    (
+                        f"Environment variable '{var_name}' has invalid format: "
+                        f"expected {expected_type.__name__}"
+                    ),
                     details={'value': value},
                     passed=False
                 )
@@ -168,20 +175,26 @@ class ConfigurationValidator:
 
             # Validate type
             try:
-                if expected_type == int:
+                if expected_type is int:
                     int(value)
-                elif expected_type == bool:
+                elif expected_type is bool:
                     if value.lower() not in ['true', 'false', '1', '0']:
                         raise ValueError
-                elif expected_type == str:
+                elif expected_type is str:
                     if not value.strip():
                         raise ValueError("Empty string")
             except (ValueError, TypeError):
                 self.add_result(
                     f"env_var_{var_name}",
                     ValidationLevel.WARNING,
-                    f"Optional environment variable '{var_name}' has invalid format: expected {expected_type.__name__}",
-                    details={'value': value, 'default': self._get_default_value(var_name)},
+                    (
+                        f"Optional environment variable '{var_name}' has invalid format: "
+                        f"expected {expected_type.__name__}"
+                    ),
+                    details={
+                        'value': value,
+                        'default': self._get_default_value(var_name),
+                    },
                     passed=False
                 )
                 continue
@@ -215,7 +228,7 @@ class ConfigurationValidator:
 
         try:
             import psycopg2
-            from sqlalchemy import create_engine
+            from sqlalchemy import create_engine, text
 
             # Try multiple connection methods
             connection_successful = False
@@ -229,11 +242,16 @@ class ConfigurationValidator:
                         result = conn.execute(text("SELECT 1"))
                         result.fetchone()
 
+                    sanitized_db_url = db_url
+                    db_password = os.getenv('DB_PASS')
+                    if db_password:
+                        sanitized_db_url = db_url.replace(db_password, '***')
+
                     self.add_result(
                         "database_direct",
                         ValidationLevel.INFO,
                         "Direct database connection successful",
-                        details={'url': db_url.replace(os.getenv('DB_PASS', ''), '***') if 'DB_PASS' in os.environ else 'No password'}
+                        details={'url': sanitized_db_url if db_url else 'No password'}
                     )
                     connection_successful = True
                 except Exception as e:
@@ -387,7 +405,8 @@ class ConfigurationValidator:
         logger.info("🔍 Validating eMAG credentials...")
 
         try:
-            import aiohttp
+            if importlib.util.find_spec("aiohttp") is None:
+                raise ImportError("aiohttp package not available")
 
             # Test MAIN account credentials
             main_username = os.getenv('EMAG_API_USERNAME')
@@ -545,7 +564,11 @@ class ConfigurationValidator:
         cert_found = False
         for cert_path in cert_paths:
             if os.path.exists(cert_path):
-                cert_files = [f for f in os.listdir(cert_path) if f.endswith(('.pem', '.crt', '.key'))]
+                cert_files = [
+                    file_name
+                    for file_name in os.listdir(cert_path)
+                    if file_name.endswith(('.pem', '.crt', '.key'))
+                ]
                 if cert_files:
                     self.add_result(
                         f"ssl_certificates_{cert_path}",

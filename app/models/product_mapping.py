@@ -101,7 +101,7 @@ class GoogleSheetsProductMapping(Base, TimestampMixin):
 
     # Import tracking
     last_imported_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
         comment="Last time data was imported from Google Sheets",
     )
@@ -123,7 +123,10 @@ class GoogleSheetsProductMapping(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<GoogleSheetsProductMapping sku:{self.local_sku} main:{self.emag_main_status} fbe:{self.emag_fbe_status}>"
+        return (
+            f"<GoogleSheetsProductMapping sku:{self.local_sku} "
+            f"main:{self.emag_main_status} fbe:{self.emag_fbe_status}>"
+        )
 
     def get_mapping_status(self) -> str:
         """Get overall mapping status"""
@@ -199,9 +202,9 @@ class ImportLog(Base, TimestampMixin):
 
     # Timing
     started_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None)
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Status and errors
@@ -219,4 +222,7 @@ class ImportLog(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<ImportLog {self.import_type} {self.status} {self.successful_imports}/{self.total_rows}>"
+        return (
+            f"<ImportLog {self.import_type} {self.status} "
+            f"{self.successful_imports}/{self.total_rows}>"
+        )

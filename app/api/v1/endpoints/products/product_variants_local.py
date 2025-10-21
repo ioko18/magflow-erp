@@ -11,6 +11,8 @@ Use Case:
 """
 
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -23,6 +25,8 @@ from app.security.jwt import get_current_user
 from app.services.product.product_relationship_service import ProductRelationshipService
 
 router = APIRouter(prefix="/product-variants-local", tags=["product-variants-local"])
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -168,16 +172,16 @@ async def create_local_variant(
                 supersede_reason=request.reason,
                 product_type="local",
             )
-        except Exception:
+        except Exception as e:
             # Genealogy is optional
-            pass
+            logger.warning("Failed to create product genealogy: %s", str(e))
 
     except Exception as e:
         # Rollback product creation if variant creation fails
         await db.rollback()
         raise HTTPException(
             status_code=500, detail=f"Failed to create variant relationship: {str(e)}"
-        )
+        ) from e
 
     return LocalVariantResponse(
         local_product_id=new_product.id,
@@ -318,7 +322,11 @@ async def delete_local_variant(
     if product.emag_part_number_key and not force:
         raise HTTPException(
             status_code=400,
-            detail=f"Product has eMAG PNK ({product.emag_part_number_key}). Use force=true to delete anyway.",
+            detail=(
+                "Product has eMAG PNK ("
+                f"{product.emag_part_number_key}"
+                "). Use force=true to delete anyway."
+            ),
         )
 
     await db.delete(product)

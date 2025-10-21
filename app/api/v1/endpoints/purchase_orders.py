@@ -702,7 +702,11 @@ async def bulk_create_purchase_order_drafts(
                     "order_date": datetime.now(UTC).replace(tzinfo=None),  # Remove timezone for DB
                     "currency": supplier_currency,
                     "exchange_rate": exchange_rate,
-                    "notes": f"Auto-generated draft from Low Stock Suppliers page. Products: {len(order_lines)}. Currency: {supplier_currency}",
+                    "notes": (
+                        "Auto-generated draft from Low Stock Suppliers page. "
+                        f"Products: {len(order_lines)}. "
+                        f"Currency: {supplier_currency}"
+                    ),
                     "lines": order_lines,
                 }
 

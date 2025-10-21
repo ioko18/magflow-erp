@@ -4,9 +4,13 @@ Maps products to their suppliers with pricing information from Google Sheets
 """
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.supplier import Supplier
 
 from app.db.base_class import Base
 from app.models.mixins import TimestampMixin
@@ -31,6 +35,15 @@ class ProductSupplierSheet(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+
+    # Supplier reference (FK - added to sync with database migration)
+    supplier_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("app.suppliers.id"),
+        nullable=True,
+        index=True,
+        comment="Foreign key to supplier (replaces supplier_name text for better data integrity)",
+    )
 
     # Product reference
     sku: Mapped[str] = mapped_column(
@@ -81,7 +94,7 @@ class ProductSupplierSheet(Base, TimestampMixin):
 
     # Pricing metadata
     price_updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
         comment="When the price was last updated in Google Sheets",
     )
@@ -102,7 +115,7 @@ class ProductSupplierSheet(Base, TimestampMixin):
     )
 
     last_imported_at: Mapped[datetime | None] = mapped_column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
         comment="Last time this supplier was imported from Google Sheets",
     )
@@ -137,11 +150,21 @@ class ProductSupplierSheet(Base, TimestampMixin):
     )
 
     verified_at: Mapped[datetime | None] = mapped_column(
-        DateTime, nullable=True, comment="When this mapping was verified"
+        DateTime(timezone=True), nullable=True, comment="When this mapping was verified"
+    )
+
+    # Relationships
+    supplier: Mapped["Supplier | None"] = relationship(
+        "Supplier",
+        foreign_keys=[supplier_id],
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:
-        return f"<ProductSupplierSheet sku:{self.sku} supplier:{self.supplier_name} price:{self.price_cny} CNY>"
+        return (
+            f"<ProductSupplierSheet sku:{self.sku} supplier:{self.supplier_name} "
+            f"price:{self.price_cny} CNY>"
+        )
 
     def get_price_display(self) -> str:
         """Get formatted price display"""

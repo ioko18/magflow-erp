@@ -87,7 +87,10 @@ class InventoryItem(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<InventoryItem product:{self.product_id} warehouse:{self.warehouse_id} qty:{self.quantity}>"
+        return (
+            f"<InventoryItem product:{self.product_id} warehouse:{self.warehouse_id} "
+            f"qty:{self.quantity}>"
+        )
 
 
 class StockMovement(Base, TimestampMixin):
@@ -230,4 +233,7 @@ class StockTransfer(Base, TimestampMixin):
     inventory_item: Mapped["InventoryItem"] = relationship("InventoryItem")
 
     def __repr__(self) -> str:
-        return f"<StockTransfer {self.transfer_number} {self.from_warehouse_id}->{self.to_warehouse_id}>"
+        return (
+            f"<StockTransfer {self.transfer_number} "
+            f"{self.from_warehouse_id}->{self.to_warehouse_id}>"
+        )

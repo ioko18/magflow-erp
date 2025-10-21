@@ -162,8 +162,16 @@ class PerformanceAnalyzer:
                         {
                             "endpoint": row.endpoint,
                             "total_requests": row.total_requests,
-                            "avg_duration": round(row.avg_duration * 1000, 2) if row.avg_duration else 0,  # Convert to ms
-                            "success_rate": round((row.successful / row.total_requests) * 100, 2) if row.total_requests > 0 else 0,
+                            "avg_duration": (
+                                round(row.avg_duration * 1000, 2)
+                                if row.avg_duration
+                                else 0
+                            ),  # Convert to ms
+                            "success_rate": (
+                                round((row.successful / row.total_requests) * 100, 2)
+                                if row.total_requests > 0
+                                else 0
+                            ),
                             "failed": row.failed
                         }
                         for row in emag_performance
@@ -216,7 +224,10 @@ class PerformanceAnalyzer:
             }
         }
 
-    async def generate_optimization_recommendations(self, metrics: dict[str, Any]) -> list[dict[str, Any]]:
+    async def generate_optimization_recommendations(
+        self,
+        metrics: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         """Generate optimization recommendations based on metrics."""
         logger.info("Generating optimization recommendations...")
 
@@ -230,7 +241,10 @@ class PerformanceAnalyzer:
                     "category": "database",
                     "priority": "high",
                     "title": "Optimize Slow Database Queries",
-                    "description": f"Found {len(slow_queries)} slow queries (>100ms average). Consider adding indexes or optimizing query structure.",
+                    "description": (
+                        f"Found {len(slow_queries)} slow queries (>100ms average). "
+                        "Consider adding indexes or optimizing query structure."
+                    ),
                     "impact": "high",
                     "effort": "medium"
                 })
@@ -242,7 +256,10 @@ class PerformanceAnalyzer:
                 "category": "api",
                 "priority": "high",
                 "title": "Improve API Response Times",
-                "description": "P95 response time is over 500ms. Consider implementing caching, optimizing database queries, or adding more workers.",
+                "description": (
+                    "P95 response time is over 500ms. Consider implementing caching, "
+                    "optimizing database queries, or adding more workers."
+                ),
                 "impact": "high",
                 "effort": "medium"
             })
@@ -256,7 +273,11 @@ class PerformanceAnalyzer:
                         "category": "emag_integration",
                         "priority": "high",
                         "title": f"Improve {endpoint['endpoint']} Success Rate",
-                        "description": f"Success rate for {endpoint['endpoint']} is only {endpoint['success_rate']}%. Investigate error patterns and improve error handling.",
+                        "description": (
+                            f"Success rate for {endpoint['endpoint']} is only "
+                            f"{endpoint['success_rate']}%. Investigate error patterns "
+                            "and improve error handling."
+                        ),
                         "impact": "high",
                         "effort": "medium"
                     })
@@ -268,7 +289,10 @@ class PerformanceAnalyzer:
                 "category": "rate_limiting",
                 "priority": "medium",
                 "title": "Optimize Rate Limiting Strategy",
-                "description": "Frequent rate limit hits detected. Consider implementing request batching or increasing rate limits for specific endpoints.",
+                "description": (
+                    "Frequent rate limit hits detected. Consider implementing "
+                    "request batching or increasing rate limits for specific endpoints."
+                ),
                 "impact": "medium",
                 "effort": "low"
             })
@@ -280,7 +304,10 @@ class PerformanceAnalyzer:
                 "category": "memory",
                 "priority": "medium",
                 "title": "Optimize Memory Usage",
-                "description": "Memory usage is over 80%. Consider implementing connection pooling, caching strategies, or increasing available memory.",
+                "description": (
+                    "Memory usage is over 80%. Consider implementing connection "
+                    "pooling, caching strategies, or increasing available memory."
+                ),
                 "impact": "medium",
                 "effort": "medium"
             })
@@ -341,7 +368,10 @@ class PerformanceAnalyzer:
         report.append("-" * 30)
 
         api_metrics = analysis_results.get("api", {})
-        report.append(f"  • Average Response Time: {api_metrics.get('average_response_time', 'N/A')}")
+        report.append(
+            "  • Average Response Time: "
+            f"{api_metrics.get('average_response_time', 'N/A')}"
+        )
         report.append(f"  • P95 Response Time: {api_metrics.get('p95_response_time', 'N/A')}")
         report.append(f"  • Requests/Second: {api_metrics.get('requests_per_second', 'N/A')}")
         report.append(f"  • Error Rate: {api_metrics.get('error_rate', 'N/A')}")
@@ -368,7 +398,10 @@ class PerformanceAnalyzer:
         system_metrics = analysis_results.get("system", {})
         report.append(f"  • CPU Usage: {system_metrics.get('cpu_percent', 'N/A')}%")
         report.append(f"  • Memory Usage: {system_metrics.get('memory_percent', 'N/A')}%")
-        report.append(f"  • Process Memory: {system_metrics.get('process_info', {}).get('memory_mb', 'N/A')} MB")
+        report.append(
+            "  • Process Memory: "
+            f"{system_metrics.get('process_info', {}).get('memory_mb', 'N/A')} MB"
+        )
         report.append("")
 
         # Recommendations
@@ -378,10 +411,23 @@ class PerformanceAnalyzer:
         recommendations = analysis_results.get("recommendations", [])
         priority_order = {"high": 0, "medium": 1, "low": 2}
 
-        for rec in sorted(recommendations, key=lambda x: priority_order.get(x.get("priority", "medium"), 1)):
-            priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(rec.get("priority", "medium"), "🟢")
-            report.append(f"{priority_icon} [{rec.get('priority', 'medium').upper()}] {rec.get('title', 'N/A')}")
-            report.append(f"    Impact: {rec.get('impact', 'N/A')} | Effort: {rec.get('effort', 'N/A')}")
+        for rec in sorted(
+            recommendations,
+            key=lambda x: priority_order.get(x.get("priority", "medium"), 1),
+        ):
+            priority_icon = {
+                "high": "🔴",
+                "medium": "🟡",
+                "low": "🟢",
+            }.get(rec.get("priority", "medium"), "🟢")
+            report.append(
+                f"{priority_icon} [{rec.get('priority', 'medium').upper()}] "
+                f"{rec.get('title', 'N/A')}"
+            )
+            report.append(
+                f"    Impact: {rec.get('impact', 'N/A')} "
+                f"| Effort: {rec.get('effort', 'N/A')}"
+            )
             report.append(f"    {rec.get('description', 'N/A')}")
             report.append("")
 

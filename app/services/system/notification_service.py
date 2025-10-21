@@ -589,13 +589,15 @@ class NotificationService:
                 return
 
             # Send notification email
+            base_url = getattr(settings, "APP_URL", "http://localhost:8000")
+            notification_path = f"/notifications/{notification.id}"
             success = await email_service.send_notification_email(
                 to_email=user_email,
                 notification_type=notification.category.value,
                 title=notification.title,
                 message=notification.message,
                 priority=notification.priority.value,
-                action_url=f"{getattr(settings, 'APP_URL', 'http://localhost:8000')}/notifications/{notification.id}",
+                action_url=f"{base_url}{notification_path}",
                 action_text="View Notification",
             )
 

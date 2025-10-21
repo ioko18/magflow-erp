@@ -74,7 +74,7 @@ async def get_performance_overview(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get performance overview: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/endpoints", response_model=dict)
@@ -158,7 +158,7 @@ async def get_endpoint_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get endpoint metrics: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/slowest", response_model=dict)
@@ -229,7 +229,7 @@ async def get_slowest_endpoints(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get slowest endpoints: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/reset", response_model=dict)
@@ -275,4 +275,4 @@ async def reset_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reset metrics: {str(e)}",
-        )
+        ) from e

@@ -225,7 +225,10 @@ class EmagOfferSync(Base, TimestampMixin):
         return (successful / self.total_offers_processed) * 100
 
     def __repr__(self):
-        return f"<EmagOfferSync {self.sync_id}: {self.status} ({self.total_offers_processed} offers)>"
+        return (
+            f"<EmagOfferSync {self.sync_id}: {self.status} "
+            f"({self.total_offers_processed} offers)>"
+        )
 
 
 class EmagImportConflict(Base, TimestampMixin):

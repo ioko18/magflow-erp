@@ -74,7 +74,8 @@ class DatabaseHealthChecker:
                 await session.execute(text("SET search_path TO app, public"))
                 schema_check = await session.execute(
                     text(
-                        "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'app'",
+                        "SELECT schema_name FROM information_schema.schemata "
+                        "WHERE schema_name = 'app'",
                     ),
                 )
                 if schema_check.scalar_one_or_none() is None:

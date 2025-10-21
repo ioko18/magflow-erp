@@ -17,7 +17,11 @@ async def test_successful_login(client, create_test_user):
         "password": test_user["password"],
     }
 
-    response = await client.post("/api/v1/auth/login", json=login_data, headers={"Content-Type": "application/json"})
+    response = await client.post(
+        "/api/v1/auth/login",
+        json=login_data,
+        headers={"Content-Type": "application/json"},
+    )
 
     # Assert the response
     assert response.status_code == status.HTTP_200_OK, f"Login failed: {response.text}"

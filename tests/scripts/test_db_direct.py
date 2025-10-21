@@ -165,7 +165,10 @@ def test_connection():
             tables = _list_tables(conn)
             if not tables or _has_only_alembic_table(tables):
                 logger.warning(
-                    "❌ Schema '%s' is still missing required tables after migrations. Attempting fallback creation...",
+                    (
+                        "❌ Schema '%s' is still missing required tables after migrations. "
+                        "Attempting fallback creation..."
+                    ),
                     cfg.TEST_DB_SCHEMA,
                 )
                 conn.close()
@@ -182,7 +185,10 @@ def test_connection():
                 )
             else:
                 logger.error(
-                    "❌ Schema '%s' is still empty after all attempts. Ensure the database has been initialised.",
+                    (
+                        "❌ Schema '%s' is still empty after all attempts. "
+                        "Ensure the database has been initialised."
+                    ),
                     cfg.TEST_DB_SCHEMA,
                 )
                 return False
@@ -260,7 +266,10 @@ def test_connection():
 
     except errors.UndefinedTable:
         logger.error(
-            "❌ Required tables are missing. Run 'alembic upgrade head' or 'make db-migrate' to initialise the schema before rerunning.",
+            (
+                "❌ Required tables are missing. Run 'alembic upgrade head' or 'make db-migrate' "
+                "to initialise the schema before rerunning."
+            ),
         )
         return False
     except Exception as e:

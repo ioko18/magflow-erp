@@ -503,7 +503,8 @@ class EmagValidationService:
             if not re.match(r"^\d+(\.\d+)?\s+\w+$", value_str):
                 return (
                     False,
-                    f"{char_name}: Must be 'number unit' format (e.g., '30 cm'), got '{value}'",
+                    f"{char_name}: Must be 'number unit' format (e.g., '30 cm'), "
+                    f"got '{value}'",
                 )
 
         elif type_id == 11:  # Text Fixed
@@ -519,7 +520,8 @@ class EmagValidationService:
             if not re.match(r"^\d+\s*x\s*\d+$", value_str, re.IGNORECASE):
                 return (
                     False,
-                    f"{char_name}: Must be 'Width x Height' format (e.g., '1920 x 1080'), got '{value}'",
+                    f"{char_name}: Must be 'Width x Height' format (e.g., '1920 x 1080'), "
+                    f"got '{value}'",
                 )
 
         elif type_id == 40:  # Volume
@@ -528,7 +530,8 @@ class EmagValidationService:
             ):
                 return (
                     False,
-                    f"{char_name}: Must be 'W x H x D' or 'W x H x D - D2' format, got '{value}'",
+                    f"{char_name}: Must be 'W x H x D' or 'W x H x D - D2' format, "
+                    f"got '{value}'",
                 )
 
         elif type_id == 60:  # Size

@@ -106,7 +106,10 @@ class ProductVariant(Base):
         Index("idx_product_variants_active", "is_active"),
         Index("idx_product_variants_type", "variant_type"),
         CheckConstraint(
-            "variant_type IN ('original', 'republished', 'competitor_hijacked', 'variation', 'test')",
+            (
+                "variant_type IN ('original', 'republished', 'competitor_hijacked', "
+                "'variation', 'test')"
+            ),
             name="ck_product_variants_type",
         ),
         CheckConstraint(

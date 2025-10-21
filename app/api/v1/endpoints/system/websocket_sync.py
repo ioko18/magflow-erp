@@ -85,7 +85,12 @@ async def get_sync_progress_from_db():
                     processed_items,
                     total_items,
                     EXTRACT(EPOCH FROM (NOW() - started_at)) as duration_seconds,
-                    COALESCE(ARRAY_TO_STRING(ARRAY(SELECT jsonb_array_elements_text(errors)), ', '), NULL) as error_message
+                    COALESCE(
+                        ARRAY_TO_STRING(
+                            ARRAY(SELECT jsonb_array_elements_text(errors)), ', '
+                        ),
+                        NULL
+                    ) as error_message
                 FROM app.emag_sync_logs
                 WHERE status = 'running'
                   AND sync_type IN ('products', 'offers', 'orders')

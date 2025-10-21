@@ -281,7 +281,7 @@ async def search_products_by_ean(
         raise
     except Exception as e:
         logger.error(f"Error searching products by EAN: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/pricing/recommendations", response_model=PricingRecommendationResponse)
@@ -370,7 +370,9 @@ async def get_pricing_recommendations(
                 net_revenue = request.current_price - commission_value
                 margin_percentage = (net_revenue / request.current_price) * 100
                 recommendations.append(
-                    f"Net revenue after commission: {net_revenue:.2f} RON ({margin_percentage:.1f}% margin)"
+                    "Net revenue after commission: "
+                    f"{net_revenue:.2f} RON "
+                    f"({margin_percentage:.1f}% margin)"
                 )
 
             return PricingRecommendationResponse(
@@ -386,7 +388,7 @@ async def get_pricing_recommendations(
 
     except Exception as e:
         logger.error(f"Error getting pricing recommendations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/pricing/bulk-recommendations")
@@ -471,4 +473,4 @@ async def get_bulk_pricing_recommendations(
         raise
     except Exception as e:
         logger.error(f"Error getting bulk pricing recommendations: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

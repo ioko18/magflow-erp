@@ -51,7 +51,7 @@ class RepositoryBase(Generic[ModelType]):
             )
             raise DatabaseServiceError(
                 f"Failed to retrieve {self.model_class.__name__}",
-            )
+            ) from e
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> list[ModelType]:
         """Get all entities with pagination."""
@@ -64,7 +64,7 @@ class RepositoryBase(Generic[ModelType]):
             self.logger.error("Failed to get all %s: %s", self.model_class.__name__, e)
             raise DatabaseServiceError(
                 f"Failed to retrieve {self.model_class.__name__} list",
-            )
+            ) from e
 
     async def create(self, data: dict[str, Any]) -> ModelType:
         """Create new entity."""
@@ -83,7 +83,7 @@ class RepositoryBase(Generic[ModelType]):
         except Exception as e:
             await session.rollback()
             self.logger.error("Failed to create %s: %s", self.model_class.__name__, e)
-            raise DatabaseServiceError(f"Failed to create {self.model_class.__name__}")
+            raise DatabaseServiceError(f"Failed to create {self.model_class.__name__}") from e
 
     async def update(
         self,
@@ -118,7 +118,7 @@ class RepositoryBase(Generic[ModelType]):
                 id,
                 e,
             )
-            raise DatabaseServiceError(f"Failed to update {self.model_class.__name__}")
+            raise DatabaseServiceError(f"Failed to update {self.model_class.__name__}") from e
 
     async def delete(self, id: int | str) -> bool:
         """Delete entity by ID."""
@@ -140,7 +140,7 @@ class RepositoryBase(Generic[ModelType]):
                 id,
                 e,
             )
-            raise DatabaseServiceError(f"Failed to delete {self.model_class.__name__}")
+            raise DatabaseServiceError(f"Failed to delete {self.model_class.__name__}") from e
 
     async def exists(self, id: int | str) -> bool:
         """Check if entity exists."""
@@ -162,7 +162,7 @@ class RepositoryBase(Generic[ModelType]):
             )
             raise DatabaseServiceError(
                 f"Failed to check {self.model_class.__name__} existence",
-            )
+            ) from e
 
     async def count(self, filters: dict[str, Any] = None) -> int:
         """Count entities with optional filters."""
@@ -182,7 +182,7 @@ class RepositoryBase(Generic[ModelType]):
             return result.scalar()
         except Exception as e:
             self.logger.error("Failed to count %s: %s", self.model_class.__name__, e)
-            raise DatabaseServiceError(f"Failed to count {self.model_class.__name__}")
+            raise DatabaseServiceError(f"Failed to count {self.model_class.__name__}") from e
 
 
 class UserRepository(RepositoryBase[User]):
@@ -200,7 +200,7 @@ class UserRepository(RepositoryBase[User]):
             return result.scalar_one_or_none()
         except Exception as e:
             self.logger.error("Failed to get user by email %s: %s", email, e)
-            raise DatabaseServiceError("Failed to retrieve user by email")
+            raise DatabaseServiceError("Failed to retrieve user by email") from e
 
     async def get_by_username(self, username: str) -> User | None:
         """Get user by username."""
@@ -211,7 +211,7 @@ class UserRepository(RepositoryBase[User]):
             return result.scalar_one_or_none()
         except Exception as e:
             self.logger.error("Failed to get user by username %s: %s", username, e)
-            raise DatabaseServiceError("Failed to retrieve user by username")
+            raise DatabaseServiceError("Failed to retrieve user by username") from e
 
     async def get_active_users(self, skip: int = 0, limit: int = 100) -> list[User]:
         """Get active users with pagination."""
@@ -222,7 +222,7 @@ class UserRepository(RepositoryBase[User]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get active users: %s", e)
-            raise DatabaseServiceError("Failed to retrieve active users")
+            raise DatabaseServiceError("Failed to retrieve active users") from e
 
     async def get_users_by_role(
         self,
@@ -238,7 +238,7 @@ class UserRepository(RepositoryBase[User]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get users by role %s: %s", role, e)
-            raise DatabaseServiceError("Failed to retrieve users by role")
+            raise DatabaseServiceError("Failed to retrieve users by role") from e
 
     async def search_users(
         self,
@@ -265,7 +265,7 @@ class UserRepository(RepositoryBase[User]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to search users with term %s: %s", search_term, e)
-            raise DatabaseServiceError("Failed to search users")
+            raise DatabaseServiceError("Failed to search users") from e
 
 
 class ProductRepository(RepositoryBase[Product]):
@@ -283,7 +283,7 @@ class ProductRepository(RepositoryBase[Product]):
             return result.scalar_one_or_none()
         except Exception as e:
             self.logger.error("Failed to get product by SKU %s: %s", sku, e)
-            raise DatabaseServiceError("Failed to retrieve product by SKU")
+            raise DatabaseServiceError("Failed to retrieve product by SKU") from e
 
     async def get_active_products(
         self,
@@ -298,7 +298,7 @@ class ProductRepository(RepositoryBase[Product]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get active products: %s", e)
-            raise DatabaseServiceError("Failed to retrieve active products")
+            raise DatabaseServiceError("Failed to retrieve active products") from e
 
     async def get_products_by_category(
         self,
@@ -323,7 +323,7 @@ class ProductRepository(RepositoryBase[Product]):
                 category_id,
                 e,
             )
-            raise DatabaseServiceError("Failed to retrieve products by category")
+            raise DatabaseServiceError("Failed to retrieve products by category") from e
 
     async def get_low_stock_products(self, threshold: int = 10) -> list[Product]:
         """Get products with low stock."""
@@ -334,7 +334,7 @@ class ProductRepository(RepositoryBase[Product]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get low stock products: %s", e)
-            raise DatabaseServiceError("Failed to retrieve low stock products")
+            raise DatabaseServiceError("Failed to retrieve low stock products") from e
 
     async def update_stock(
         self,
@@ -356,7 +356,7 @@ class ProductRepository(RepositoryBase[Product]):
                 product_id,
                 e,
             )
-            raise DatabaseServiceError("Failed to update product stock")
+            raise DatabaseServiceError("Failed to update product stock") from e
 
 
 class OrderRepository(RepositoryBase[Order]):
@@ -387,7 +387,7 @@ class OrderRepository(RepositoryBase[Order]):
                 external_source,
                 e,
             )
-            raise DatabaseServiceError("Failed to retrieve order by external ID")
+            raise DatabaseServiceError("Failed to retrieve order by external ID") from e
 
     async def upsert_by_external_id(
         self,
@@ -441,7 +441,7 @@ class OrderRepository(RepositoryBase[Order]):
                 external_source,
                 e,
             )
-            raise DatabaseServiceError("Failed to upsert order by external ID")
+            raise DatabaseServiceError("Failed to upsert order by external ID") from e
 
     async def get_by_customer_id(
         self,
@@ -462,7 +462,7 @@ class OrderRepository(RepositoryBase[Order]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get orders by customer %s: %s", customer_id, e)
-            raise DatabaseServiceError("Failed to retrieve orders by customer")
+            raise DatabaseServiceError("Failed to retrieve orders by customer") from e
 
     async def get_by_status(
         self,
@@ -478,7 +478,7 @@ class OrderRepository(RepositoryBase[Order]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get orders by status %s: %s", status, e)
-            raise DatabaseServiceError("Failed to retrieve orders by status")
+            raise DatabaseServiceError("Failed to retrieve orders by status") from e
 
     async def get_by_date_range(
         self,
@@ -507,7 +507,7 @@ class OrderRepository(RepositoryBase[Order]):
                 end_date,
                 e,
             )
-            raise DatabaseServiceError("Failed to retrieve orders by date range")
+            raise DatabaseServiceError("Failed to retrieve orders by date range") from e
 
     async def get_order_total(self, order_id: int) -> float | None:
         """Calculate order total from order lines."""
@@ -520,7 +520,7 @@ class OrderRepository(RepositoryBase[Order]):
             return result.scalar()
         except Exception as e:
             self.logger.error("Failed to get order total for order %s: %s", order_id, e)
-            raise DatabaseServiceError("Failed to calculate order total")
+            raise DatabaseServiceError("Failed to calculate order total") from e
 
 
 class AuditLogRepository(RepositoryBase[AuditLog]):
@@ -548,7 +548,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get audit logs by user %s: %s", user_id, e)
-            raise DatabaseServiceError("Failed to retrieve audit logs by user")
+            raise DatabaseServiceError("Failed to retrieve audit logs by user") from e
 
     async def get_by_action(
         self,
@@ -569,7 +569,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get audit logs by action %s: %s", action, e)
-            raise DatabaseServiceError("Failed to retrieve audit logs by action")
+            raise DatabaseServiceError("Failed to retrieve audit logs by action") from e
 
     async def get_by_date_range(
         self,
@@ -601,7 +601,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
                 end_date,
                 e,
             )
-            raise DatabaseServiceError("Failed to retrieve audit logs by date range")
+            raise DatabaseServiceError("Failed to retrieve audit logs by date range") from e
 
     async def get_failed_logins(self, hours: int = 24) -> list[AuditLog]:
         """Get failed login attempts within specified hours."""
@@ -618,7 +618,7 @@ class AuditLogRepository(RepositoryBase[AuditLog]):
             return result.scalars().all()
         except Exception as e:
             self.logger.error("Failed to get failed login attempts: %s", e)
-            raise DatabaseServiceError("Failed to retrieve failed login attempts")
+            raise DatabaseServiceError("Failed to retrieve failed login attempts") from e
 
 
 class RepositoryFactory:

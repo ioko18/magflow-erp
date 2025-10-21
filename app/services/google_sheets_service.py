@@ -4,11 +4,14 @@ Handles authentication and data retrieval from Google Sheets
 """
 
 import logging
+import time
 from typing import Any
 
 import gspread
+from gspread.exceptions import APIError
 from oauth2client.service_account import ServiceAccountCredentials
 from pydantic import BaseModel
+from requests.exceptions import ConnectionError, ReadTimeout, Timeout
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,7 @@ class ProductFromSheet(BaseModel):
     brand: str | None = None
     ean: str | None = None
     weight_kg: float | None = None
+    sku_history: list[str] | None = None  # Old SKUs from SKU_History column
     row_number: int
     raw_data: dict[str, Any] = {}
 
@@ -85,41 +89,143 @@ class GoogleSheetsService:
         self._client = None
         self._spreadsheet = None
 
-    def authenticate(self) -> bool:
+    def authenticate(self, max_retries: int = 3, retry_delay: float = 2.0) -> bool:
         """
-        Authenticate with Google Sheets API
+        Authenticate with Google Sheets API with retry logic
+
+        Args:
+            max_retries: Maximum number of retry attempts
+            retry_delay: Delay between retries in seconds
 
         Returns:
             bool: True if authentication successful
-        """
-        try:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(
-                self.config.service_account_file, self.config.scopes
-            )
-            self._client = gspread.authorize(creds)
-            logger.info("Successfully authenticated with Google Sheets API")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to authenticate with Google Sheets: {e}")
-            return False
 
-    def open_spreadsheet(self) -> bool:
+        Raises:
+            Exception: With detailed error message if authentication fails
         """
-        Open the configured spreadsheet
+        import os
+
+        # Check if file exists
+        if not os.path.exists(self.config.service_account_file):
+            error_msg = (
+                f"Service account file not found: {self.config.service_account_file}. "
+                f"Current directory: {os.getcwd()}. "
+                f"Please ensure the file exists and is accessible."
+            )
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    f"Attempting to authenticate with service account file: "
+                    f"{self.config.service_account_file} "
+                    f"(attempt {attempt + 1}/{max_retries})"
+                )
+
+                creds = ServiceAccountCredentials.from_json_keyfile_name(
+                    self.config.service_account_file, self.config.scopes
+                )
+                self._client = gspread.authorize(creds)
+                logger.info("Successfully authenticated with Google Sheets API")
+                return True
+
+            except FileNotFoundError:
+                raise
+            except (ConnectionError, Timeout, ReadTimeout) as e:
+                last_error = e
+                logger.warning(
+                    f"Network error during authentication "
+                    f"(attempt {attempt + 1}/{max_retries}): {e}"
+                )
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5  # Exponential backoff
+                continue
+            except Exception as e:
+                error_msg = (
+                    f"Failed to authenticate with Google Sheets: {type(e).__name__}: {str(e)}. "
+                    f"Please check:\n"
+                    f"1. Service account file exists: {self.config.service_account_file}\n"
+                    f"2. File contains valid JSON credentials\n"
+                    f"3. Service account has access to the spreadsheet\n"
+                    f"4. Google Sheets API is enabled in Google Cloud Console\n"
+                    f"5. Internet connection is stable"
+                )
+                logger.error(error_msg, exc_info=True)
+                raise Exception(error_msg) from e
+
+        # All retries failed
+        error_msg = (
+            f"Failed to authenticate after {max_retries} attempts. "
+            f"Network error: {type(last_error).__name__}: {str(last_error)}. "
+            f"Please check your internet connection and try again."
+        )
+        logger.error(error_msg)
+        raise Exception(error_msg) from last_error
+
+    def open_spreadsheet(self, max_retries: int = 3, retry_delay: float = 2.0) -> bool:
+        """
+        Open the configured spreadsheet with retry logic
+
+        Args:
+            max_retries: Maximum number of retry attempts
+            retry_delay: Delay between retries in seconds
 
         Returns:
             bool: True if spreadsheet opened successfully
-        """
-        try:
-            if not self._client and not self.authenticate():
-                return False
 
-            self._spreadsheet = self._client.open(self.config.sheet_name)
-            logger.info(f"Successfully opened spreadsheet: {self.config.sheet_name}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to open spreadsheet: {e}")
-            return False
+        Raises:
+            Exception: With detailed error message if opening fails
+        """
+        if not self._client:
+            self.authenticate(max_retries=max_retries, retry_delay=retry_delay)
+
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    f"Attempting to open spreadsheet: {self.config.sheet_name} "
+                    f"(attempt {attempt + 1}/{max_retries})"
+                )
+                self._spreadsheet = self._client.open(self.config.sheet_name)
+                logger.info(f"Successfully opened spreadsheet: {self.config.sheet_name}")
+                return True
+
+            except (ConnectionError, Timeout, ReadTimeout, APIError) as e:
+                last_error = e
+                logger.warning(
+                    f"Network/API error opening spreadsheet "
+                    f"(attempt {attempt + 1}/{max_retries}): {e}"
+                )
+                if attempt < max_retries - 1:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5  # Exponential backoff
+                continue
+            except Exception as e:
+                error_msg = (
+                    f"Failed to open spreadsheet '{self.config.sheet_name}': "
+                    f"{type(e).__name__}: {str(e)}. "
+                    f"Please check:\n"
+                    f"1. Spreadsheet name is correct: '{self.config.sheet_name}'\n"
+                    f"2. Service account has access to the spreadsheet\n"
+                    f"3. Spreadsheet is shared with service account email\n"
+                    f"4. Internet connection is stable"
+                )
+                logger.error(error_msg, exc_info=True)
+                raise Exception(error_msg) from e
+
+        # All retries failed
+        error_msg = (
+            f"Failed to open spreadsheet after {max_retries} attempts. "
+            f"Error: {type(last_error).__name__}: {str(last_error)}. "
+            f"Please check your internet connection and spreadsheet access."
+        )
+        logger.error(error_msg)
+        raise Exception(error_msg) from last_error
 
     def get_products_worksheet(self):
         """Get the products worksheet"""
@@ -135,9 +241,12 @@ class GoogleSheetsService:
 
         return self._spreadsheet.worksheet(self.config.suppliers_sheet_tab)
 
-    def get_all_products(self) -> list[ProductFromSheet]:
+    def get_all_products(self, max_retries: int = 3) -> list[ProductFromSheet]:
         """
-        Retrieve all products from Google Sheets
+        Retrieve all products from Google Sheets with retry logic
+
+        Args:
+            max_retries: Maximum number of retry attempts for network operations
 
         Returns:
             List[ProductFromSheet]: List of products from the sheet
@@ -145,8 +254,32 @@ class GoogleSheetsService:
         try:
             worksheet = self.get_products_worksheet()
 
-            # Get all records as dictionaries
-            records = worksheet.get_all_records()
+            # Retry logic for fetching records
+            last_error = None
+            retry_delay = 2.0
+            for attempt in range(max_retries):
+                try:
+                    logger.info(
+                        f"Fetching product records "
+                        f"(attempt {attempt + 1}/{max_retries})..."
+                    )
+                    records = worksheet.get_all_records()
+                    break
+                except (ConnectionError, Timeout, ReadTimeout, APIError) as e:
+                    last_error = e
+                    logger.warning(
+                        f"Network error fetching records "
+                        f"(attempt {attempt + 1}/{max_retries}): {e}"
+                    )
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 1.5
+                    else:
+                        raise Exception(
+                            f"Failed to fetch product records after "
+                            f"{max_retries} attempts: {str(last_error)}"
+                        ) from last_error
 
             # Statistics tracking
             total_rows = len(records)
@@ -207,7 +340,8 @@ class GoogleSheetsService:
                         image_url = None
                     elif len(image_url) > 1000:
                         logger.warning(
-                            f"Image URL too long ({len(image_url)} chars) in row {idx}, truncating to 1000"
+                            f"Image URL too long ({len(image_url)} chars) "
+                            f"in row {idx}, truncating to 1000"
                         )
                         image_url = image_url[:1000]
 
@@ -217,7 +351,8 @@ class GoogleSheetsService:
                         brand = None
                     elif len(brand) > 100:
                         logger.warning(
-                            f"Brand name too long ({len(brand)} chars) in row {idx}, truncating to 100"
+                            f"Brand name too long ({len(brand)} chars) "
+                            f"in row {idx}, truncating to 100"
                         )
                         brand = brand[:100]
 
@@ -232,7 +367,8 @@ class GoogleSheetsService:
                             ean = None
                         elif len(ean) > 18:
                             logger.warning(
-                                f"EAN code too long ({len(ean)} digits) in row {idx}, truncating to 18"
+                                f"EAN code too long ({len(ean)} digits) "
+                                f"in row {idx}, truncating to 18"
                             )
                             ean = ean[:18]
 
@@ -245,8 +381,10 @@ class GoogleSheetsService:
                             weight_str_normalized = weight_str.replace(",", ".")
                             weight_value = float(weight_str_normalized)
 
-                            # Auto-detect if value is in grams (values >= 1 without decimal point are likely grams)
-                            # If the original string has no decimal separator and value >= 1, assume it's in grams
+                            # Auto-detect if value is in grams
+                            # (values >= 1 without decimal point are likely grams)
+                            # If the original string has no decimal separator
+                            # and value >= 1, assume it's in grams
                             if (
                                 weight_value >= 1.0
                                 and "." not in weight_str_normalized
@@ -264,16 +402,35 @@ class GoogleSheetsService:
                             # Validate reasonable weight (0 to 1000 kg)
                             if weight_kg < 0:
                                 logger.warning(
-                                    f"Negative weight ({weight_kg} kg) in row {idx}, setting to None"
+                                    f"Negative weight ({weight_kg} kg) "
+                                    f"in row {idx}, setting to None"
                                 )
                                 weight_kg = None
                             elif weight_kg > 1000:
                                 logger.warning(
-                                    f"Weight too high ({weight_kg} kg) in row {idx}, might be incorrect"
+                                    f"Weight too high ({weight_kg} kg) "
+                                    f"in row {idx}, might be incorrect"
                                 )
                         except ValueError:
                             logger.warning(
                                 f"Invalid weight format in row {idx}: {weight_str}"
+                            )
+
+                    # Parse SKU_History (old SKUs separated by comma)
+                    sku_history_str = str(record.get("SKU_History", "")).strip()
+                    sku_history = None
+                    if sku_history_str:
+                        # Split by comma and clean up each SKU
+                        old_skus = [
+                            s.strip()
+                            for s in sku_history_str.split(",")
+                            if s.strip()
+                        ]
+                        if old_skus:
+                            sku_history = old_skus
+                            logger.debug(
+                                f"Row {idx} ({sku}): Found {len(old_skus)} old SKUs: "
+                                f"{', '.join(old_skus)}"
                             )
 
                     product = ProductFromSheet(
@@ -285,6 +442,7 @@ class GoogleSheetsService:
                         brand=brand,
                         ean=ean,
                         weight_kg=weight_kg,
+                        sku_history=sku_history,
                         row_number=idx,
                         raw_data=record,
                     )
@@ -298,6 +456,8 @@ class GoogleSheetsService:
             # Log detailed statistics
             successful_products = len(products)
             total_skipped = skipped_no_sku + skipped_errors
+            products_with_history = sum(1 for p in products if p.sku_history)
+            total_old_skus = sum(len(p.sku_history) for p in products if p.sku_history)
 
             logger.info("=" * 80)
             logger.info("Google Sheets Import Summary:")
@@ -309,6 +469,8 @@ class GoogleSheetsService:
             logger.info(
                 f"  Products with fallback name (SKU as name): {products_with_fallback_name}"
             )
+            logger.info(f"  Products with SKU history: {products_with_history}")
+            logger.info(f"  Total old SKUs found: {total_old_skus}")
             logger.info("=" * 80)
 
             if total_skipped > 0:
@@ -354,9 +516,12 @@ class GoogleSheetsService:
 
         return [p for p in all_products if p.sku in sku_set]
 
-    def get_all_suppliers(self) -> list[SupplierFromSheet]:
+    def get_all_suppliers(self, max_retries: int = 3) -> list[SupplierFromSheet]:
         """
-        Retrieve all product suppliers from Google Sheets Product_Suppliers tab
+        Retrieve all product suppliers from Google Sheets Product_Suppliers tab with retry logic
+
+        Args:
+            max_retries: Maximum number of retry attempts for network operations
 
         Returns:
             List[SupplierFromSheet]: List of suppliers from the sheet
@@ -364,8 +529,32 @@ class GoogleSheetsService:
         try:
             worksheet = self.get_suppliers_worksheet()
 
-            # Get all values as raw strings to preserve comma decimal separator
-            all_values = worksheet.get_all_values()
+            # Retry logic for fetching values
+            last_error = None
+            retry_delay = 2.0
+            for attempt in range(max_retries):
+                try:
+                    logger.info(
+                        f"Fetching supplier records "
+                        f"(attempt {attempt + 1}/{max_retries})..."
+                    )
+                    all_values = worksheet.get_all_values()
+                    break
+                except (ConnectionError, Timeout, ReadTimeout, APIError) as e:
+                    last_error = e
+                    logger.warning(
+                        f"Network error fetching supplier records "
+                        f"(attempt {attempt + 1}/{max_retries}): {e}"
+                    )
+                    if attempt < max_retries - 1:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                        retry_delay *= 1.5
+                    else:
+                        raise Exception(
+                            f"Failed to fetch supplier records after "
+                            f"{max_retries} attempts: {str(last_error)}"
+                        ) from last_error
 
             if not all_values or len(all_values) < 2:
                 logger.warning("No data found in suppliers worksheet")

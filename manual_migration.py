@@ -28,19 +28,60 @@ def create_missing_tables():
 
         # Create enum types
         enum_queries = [
-            "CREATE TYPE IF NOT EXISTS mappingstatus AS ENUM ('active', 'inactive', 'pending', 'deprecated')",
-            "CREATE TYPE IF NOT EXISTS mappingtype AS ENUM ('product_id', 'category_id', 'brand_id', 'characteristic_id')",
-            "CREATE TYPE IF NOT EXISTS returnstatus AS ENUM ('pending', 'approved', 'rejected', 'processing', 'completed', 'cancelled')",
-            "CREATE TYPE IF NOT EXISTS returnreason AS ENUM ('defective_product', 'wrong_item', 'damaged_in_transit', 'customer_dissatisfaction', 'late_delivery', 'other')",
-            "CREATE TYPE IF NOT EXISTS refundmethod AS ENUM ('original_payment', 'store_credit', 'bank_transfer', 'cash')",
-            "CREATE TYPE IF NOT EXISTS emagreturnstatus AS ENUM ('new', 'in_progress', 'approved', 'rejected', 'completed', 'cancelled')",
-            "CREATE TYPE IF NOT EXISTS cancellationstatus AS ENUM ('pending', 'approved', 'rejected', 'processing', 'completed', 'cancelled')",
-            "CREATE TYPE IF NOT EXISTS cancellationreason AS ENUM ('customer_request', 'payment_failed', 'inventory_unavailable', 'shipping_delay', 'fraud_suspected', 'administrative', 'other')",
-            "CREATE TYPE IF NOT EXISTS refundstatus AS ENUM ('pending', 'processing', 'completed', 'failed', 'partial')",
-            "CREATE TYPE IF NOT EXISTS invoicestatus AS ENUM ('draft', 'issued', 'sent', 'paid', 'overdue', 'cancelled', 'refunded')",
-            "CREATE TYPE IF NOT EXISTS invoicetype AS ENUM ('sales_invoice', 'credit_note', 'proforma_invoice', 'corrected_invoice')",
-            "CREATE TYPE IF NOT EXISTS paymentmethod AS ENUM ('cash', 'bank_transfer', 'card', 'online_payment', 'check', 'other')",
-            "CREATE TYPE IF NOT EXISTS taxcategory AS ENUM ('standard', 'reduced', 'super_reduced', 'zero', 'exempt')"
+            (
+                "CREATE TYPE IF NOT EXISTS mappingstatus AS ENUM "
+                "('active', 'inactive', 'pending', 'deprecated')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS mappingtype AS ENUM "
+                "('product_id', 'category_id', 'brand_id', 'characteristic_id')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS returnstatus AS ENUM "
+                "('pending', 'approved', 'rejected', 'processing', 'completed', 'cancelled')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS returnreason AS ENUM "
+                "('defective_product', 'wrong_item', 'damaged_in_transit', "
+                "'customer_dissatisfaction', 'late_delivery', 'other')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS refundmethod AS ENUM "
+                "('original_payment', 'store_credit', 'bank_transfer', 'cash')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS emagreturnstatus AS ENUM "
+                "('new', 'in_progress', 'approved', 'rejected', 'completed', 'cancelled')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS cancellationstatus AS ENUM "
+                "('pending', 'approved', 'rejected', 'processing', 'completed', 'cancelled')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS cancellationreason AS ENUM "
+                "('customer_request', 'payment_failed', 'inventory_unavailable', "
+                "'shipping_delay', 'fraud_suspected', 'administrative', 'other')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS refundstatus AS ENUM "
+                "('pending', 'processing', 'completed', 'failed', 'partial')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS invoicestatus AS ENUM "
+                "('draft', 'issued', 'sent', 'paid', 'overdue', 'cancelled', 'refunded')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS invoicetype AS ENUM "
+                "('sales_invoice', 'credit_note', 'proforma_invoice', 'corrected_invoice')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS paymentmethod AS ENUM "
+                "('cash', 'bank_transfer', 'card', 'online_payment', 'check', 'other')"
+            ),
+            (
+                "CREATE TYPE IF NOT EXISTS taxcategory AS ENUM "
+                "('standard', 'reduced', 'super_reduced', 'zero', 'exempt')"
+            )
         ]
 
         for query in enum_queries:
@@ -214,13 +255,22 @@ def create_missing_tables():
             "CREATE INDEX IF NOT EXISTS idx_permissions_resource ON app.permissions(resource)",
             "CREATE INDEX IF NOT EXISTS idx_permissions_action ON app.permissions(action)",
             "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON app.refresh_tokens(user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON app.refresh_tokens(expires_at)",
+            (
+                "CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON "
+                "app.refresh_tokens(expires_at)"
+            ),
             "CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON app.audit_logs(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON app.audit_logs(action)",
             "CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON app.audit_logs(timestamp)",
             "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON app.user_sessions(user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON app.user_sessions(expires_at)",
-            "CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON app.categories(parent_id)",
+            (
+                "CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON "
+                "app.user_sessions(expires_at)"
+            ),
+            (
+                "CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON "
+                "app.categories(parent_id)"
+            ),
             "CREATE INDEX IF NOT EXISTS idx_products_sku ON app.products(sku)",
             "CREATE INDEX IF NOT EXISTS idx_products_category_id ON app.products(category_id)",
             "CREATE INDEX IF NOT EXISTS idx_products_is_active ON app.products(is_active)",
@@ -243,7 +293,14 @@ def create_missing_tables():
         print("  ✅ Inserted default roles")
 
         cursor.execute('''
-            INSERT INTO app.permissions (name, description, resource, action, created_at, updated_at)
+            INSERT INTO app.permissions (
+                name,
+                description,
+                resource,
+                action,
+                created_at,
+                updated_at
+            )
             VALUES
                 ('user_read', 'View user information', 'users', 'read', now(), now()),
                 ('user_write', 'Create and edit users', 'users', 'write', now(), now()),

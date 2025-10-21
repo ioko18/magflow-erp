@@ -101,7 +101,10 @@ DEFAULT_ALERT_RULES = {
             ),
             AlertRule(
                 name="high_api_latency",
-                metric='http_request_duration_seconds_bucket{le="1"} / http_request_duration_seconds_count',
+                metric=(
+                    'http_request_duration_seconds_bucket{le="1"} '
+                    '/ http_request_duration_seconds_count'
+                ),
                 condition="< 0.95",  # 95th percentile > 1s
                 duration="10m",
                 severity="warning",

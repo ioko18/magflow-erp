@@ -12,8 +12,10 @@ from typing import Any
 
 # Re-export startup timing knobs to enable monkeypatching in tests
 from app.api.health import (
-    STARTUP_TIME,  # noqa: F401  # datetime of app start - used by tests for monkeypatching
-    WARMUP_PERIOD,  # noqa: F401  # int seconds for startup readiness - used by tests for monkeypatching
+    STARTUP_TIME,  # noqa: F401  # datetime of app start - used by tests for
+    # monkeypatching
+    WARMUP_PERIOD,  # noqa: F401  # int seconds for startup readiness - used by
+    # tests for monkeypatching
 )
 from app.api.health import _ready_state as _ready_state  # re-export for tests
 

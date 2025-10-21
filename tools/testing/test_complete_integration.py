@@ -16,6 +16,7 @@ def get_auth_token():
     response = requests.post(
         "http://localhost:8000/api/v1/auth/login",
         json={"username": "admin@example.com", "password": "secret"},
+        timeout=10.0,
     )
     return response.json()["access_token"]
 
@@ -23,7 +24,11 @@ def get_auth_token():
 def test_api_endpoint(endpoint, token, description):
     """Testează un endpoint API."""
     headers = {"Authorization": f"Bearer {token}"}
-    response = requests.get(f"http://localhost:8000{endpoint}", headers=headers)
+    response = requests.get(
+        f"http://localhost:8000{endpoint}",
+        headers=headers,
+        timeout=10.0,
+    )
 
     if response.status_code == 200:
         data = response.json()
@@ -82,10 +87,11 @@ async def test_database_content():
                 else "N/A"
             )
             print(
-                f"   {i+1}. [{product.account_type.upper()}] {product.name[:50]}... (SKU: {product.sku}) - {sync_time}"
+                f"   {i+1}. [{product.account_type.upper()}] "
+                f"{product.name[:50]}... (SKU: {product.sku}) - {sync_time}"
             )
 
-        break
+        return total_products
 
 
 async def main():
@@ -112,29 +118,29 @@ async def main():
     )
 
     # Test produse MAIN
-    main_products = test_api_endpoint(
-        "/api/v1/emag/enhanced/products/all?account_type=main&max_pages_per_account=1",
-        token,
-        f"Produse MAIN (găsite: {test_api_endpoint('/api/v1/emag/enhanced/products/all?account_type=main&max_pages_per_account=1', token, '')['total_count'] if test_api_endpoint('/api/v1/emag/enhanced/products/all?account_type=main&max_pages_per_account=1', token, '') else 0})",
-    )
+    main_endpoint = "/api/v1/emag/enhanced/products/all?account_type=main&max_pages_per_account=1"
+    main_products = test_api_endpoint(main_endpoint, token, "Produse MAIN")
+    if main_products:
+        main_total = main_products.get("total_count", 0)
+        print(f"   Produse MAIN găsite: {main_total}")
 
     # Test produse FBE
-    fbe_products = test_api_endpoint(
-        "/api/v1/emag/enhanced/products/all?account_type=fbe&max_pages_per_account=1",
-        token,
-        f"Produse FBE (găsite: {test_api_endpoint('/api/v1/emag/enhanced/products/all?account_type=fbe&max_pages_per_account=1', token, '')['total_count'] if test_api_endpoint('/api/v1/emag/enhanced/products/all?account_type=fbe&max_pages_per_account=1', token, '') else 0})",
-    )
+    fbe_endpoint = "/api/v1/emag/enhanced/products/all?account_type=fbe&max_pages_per_account=1"
+    fbe_products = test_api_endpoint(fbe_endpoint, token, "Produse FBE")
+    if fbe_products:
+        fbe_total = fbe_products.get("total_count", 0)
+        print(f"   Produse FBE găsite: {fbe_total}")
 
     # Test produse ambele conturi
-    both_products = test_api_endpoint(
-        "/api/v1/emag/enhanced/products/all?account_type=both&max_pages_per_account=1",
-        token,
-        f"Produse BOTH (găsite: {test_api_endpoint('/api/v1/emag/enhanced/products/all?account_type=both&max_pages_per_account=1', token, '')['total_count'] if test_api_endpoint('/api/v1/emag/enhanced/products/all?account_type=both&max_pages_per_account=1', token, '') else 0})",
-    )
+    both_endpoint = "/api/v1/emag/enhanced/products/all?account_type=both&max_pages_per_account=1"
+    both_products = test_api_endpoint(both_endpoint, token, "Produse BOTH")
+    if both_products:
+        both_total = both_products.get("total_count", 0)
+        print(f"   Produse BOTH găsite: {both_total}")
 
     # 3. Test baza de date
     print("\n🗄️  3. Test baza de date...")
-    await test_database_content()
+    total_products = await test_database_content()
 
     # 4. Afișează exemple de produse
     if both_products and both_products.get("products"):
@@ -144,16 +150,15 @@ async def main():
             print(
                 f"   {i+1}. [{product['account_type'].upper()}] {product['name'][:60]}..."
             )
-            print(
-                f"      SKU: {product['sku']} | Preț: {product['price']} {product['currency']} | Stock: {product['stock_quantity']}"
-            )
+            price_info = f"Preț: {product['price']} {product['currency']}"
+            stock_info = f"Stock: {product['stock_quantity']}"
+            print(f"      SKU: {product['sku']} | {price_info} | {stock_info}")
 
     # 5. Sumar final
     print("\n✅ 5. Sumar integrare completă:")
     print("   🔗 API eMAG: Conectat și funcțional")
-    print(
-        f"   🗄️  Baza de date: {total_products if 'total_products' in locals() else 'N/A'} produse sincronizate"
-    )
+    db_products = total_products if "total_products" in locals() else "N/A"
+    print(f"   🗄️  Baza de date: {db_products} produse sincronizate")
     print("   🌐 Endpoint-uri: Toate funcționale")
     print("   🔐 Autentificare: JWT funcțional")
     print("   📱 Frontend: Disponibil la http://localhost:5173")

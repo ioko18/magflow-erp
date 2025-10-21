@@ -102,7 +102,8 @@ async def websocket_notifications(
 
     Message format:
     {
-        "type": "order_new" | "order_update" | "sync_progress" | "awb_generated" | "invoice_generated",
+        "type": "order_new" | "order_update" | "sync_progress" |
+                "awb_generated" | "invoice_generated",
         "data": {...},
         "timestamp": "ISO8601"
     }

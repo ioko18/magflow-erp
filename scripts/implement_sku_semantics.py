@@ -112,7 +112,9 @@ class SKUImplementationManager:
                         validation_results["recommendations"].append("Inventory SKUs are unique")
                     else:
                         validation_results["checks"]["inventory_sku_format"] = "duplicate_found"
-                        validation_results["recommendations"].append(f"Found {total_items - unique_skus} duplicate SKUs in inventory")
+                        validation_results["recommendations"].append(
+                            f"Found {total_items - unique_skus} duplicate SKUs in inventory"
+                        )
                 else:
                     validation_results["checks"]["inventory_sku_format"] = "no_data"
                     validation_results["recommendations"].append("No inventory items found")

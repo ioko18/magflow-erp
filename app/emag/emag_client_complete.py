@@ -199,7 +199,7 @@ class EmagClient:
 
         except aiohttp.ClientError as e:
             logger.error(f"eMAG API request failed: {e!s}")
-            raise EmagAPIError(f"Network error: {e!s}")
+            raise EmagAPIError(f"Network error: {e!s}") from e
 
     async def get(
         self,

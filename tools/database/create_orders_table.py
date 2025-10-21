@@ -100,12 +100,30 @@ async def create_orders_table():
     """
 
     indexes = [
-        "CREATE INDEX IF NOT EXISTS idx_emag_orders_emag_id_account ON app.emag_orders (emag_order_id, account_type)",
-        "CREATE INDEX IF NOT EXISTS idx_emag_orders_account ON app.emag_orders (account_type)",
-        "CREATE INDEX IF NOT EXISTS idx_emag_orders_status ON app.emag_orders (status)",
-        "CREATE INDEX IF NOT EXISTS idx_emag_orders_sync_status ON app.emag_orders (sync_status)",
-        "CREATE INDEX IF NOT EXISTS idx_emag_orders_order_date ON app.emag_orders (order_date)",
-        "CREATE INDEX IF NOT EXISTS idx_emag_orders_customer_email ON app.emag_orders (customer_email)",
+        (
+            "CREATE INDEX IF NOT EXISTS idx_emag_orders_emag_id_account "
+            "ON app.emag_orders (emag_order_id, account_type)"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_emag_orders_account "
+            "ON app.emag_orders (account_type)"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_emag_orders_status "
+            "ON app.emag_orders (status)"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_emag_orders_sync_status "
+            "ON app.emag_orders (sync_status)"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_emag_orders_order_date "
+            "ON app.emag_orders (order_date)"
+        ),
+        (
+            "CREATE INDEX IF NOT EXISTS idx_emag_orders_customer_email "
+            "ON app.emag_orders (customer_email)"
+        ),
     ]
 
     async with async_session_factory() as session:

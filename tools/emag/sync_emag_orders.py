@@ -347,13 +347,19 @@ def _extract_order_total(
 
 
 # Backoff configuration for API requests
+def _log_backoff_retry(details):
+    logger.warning(
+        "Retrying API call (attempt %s): %s",
+        details["tries"],
+        details.get("exception", "Unknown error"),
+    )
+
+
 BACKOFF_CONFIG = {
     "max_tries": 5,
     "jitter": backoff.full_jitter,
     "max_time": 300,  # 5 minutes max
-    "on_backoff": lambda details: logger.warning(
-        f"Retrying API call (attempt {details['tries']}): {details.get('exception', 'Unknown error')}"
-    ),
+    "on_backoff": _log_backoff_retry,
 }
 
 
@@ -506,9 +512,27 @@ async def ensure_default_customer(session: AsyncSession) -> int:
                 query = text(
                     """
                     INSERT INTO app.users
-                    (id, email, full_name, is_active, is_superuser, hashed_password, created_at, updated_at)
+                    (
+                        id,
+                        email,
+                        full_name,
+                        is_active,
+                        is_superuser,
+                        hashed_password,
+                        created_at,
+                        updated_at
+                    )
                     VALUES
-                    (:id, :email, :full_name, true, false, '', NOW(), NOW())
+                    (
+                        :id,
+                        :email,
+                        :full_name,
+                        true,
+                        false,
+                        '',
+                        NOW(),
+                        NOW()
+                    )
                     RETURNING id
                     """
                 )
@@ -536,14 +560,18 @@ async def ensure_default_customer(session: AsyncSession) -> int:
         except Exception as e:
             if attempt < max_retries - 1:
                 logger.warning(
-                    f"Attempt {attempt + 1}/{max_retries} failed to ensure default customer: {str(e)[:200]}"
+                    "Attempt %s/%s failed to ensure default customer: %s",
+                    attempt + 1,
+                    max_retries,
+                    str(e)[:200],
                 )
                 await asyncio.sleep(retry_delay * (attempt + 1))
                 continue
 
             # Last attempt failed, log and use a fallback
             logger.error(
-                f"All attempts to ensure default customer failed. Error: {str(e)[:500]}"
+                "All attempts to ensure default customer failed. Error: %s",
+                str(e)[:500],
             )
             return DEFAULT_CUSTOMER_ID  # Return default ID as fallback
 
@@ -783,7 +811,8 @@ async def _process_order_batch(
 
                             if existing_order and force_update:
                                 logger.info(
-                                    f"Order {order_id} exists, updating as --force-update is enabled"
+                                    "Order %s exists, updating as --force-update is enabled",
+                                    order_id,
                                 )
 
                             # Determine status code using documented mapping
@@ -828,7 +857,8 @@ async def _process_order_batch(
                                     product, "is_active", True
                                 ):
                                     logger.warning(
-                                        f"Product with ID {product_id_int} not found or inactive, creating placeholder"
+                                        "Product %s missing or inactive; creating placeholder",
+                                        product_id_int,
                                     )
                                     created_product_id = await _create_missing_product(
                                         batch_session,
@@ -958,7 +988,7 @@ async def _process_order_batch(
                 continue
 
     logger.info(
-        "✅ Completed processing batch: %s successful, %s errors, %s skipped (%s were old orders from before %s)",
+        "✅ Batch summary: %s successful, %s errors, %s skipped (%s older than %s)",
         success_count,
         error_count,
         skipped_count,
@@ -977,7 +1007,7 @@ async def sync_orders(
     show_summary: bool = False,
     limit: int | None = None,
 ) -> dict[str, Any]:
-    """Synchronize orders for a specific account type with enhanced error handling and performance."""
+    """Synchronize orders for an account type with enhanced error handling."""
     global STATS
     STATS["start_time"] = time.time()
     STATS["last_progress_update"] = STATS["start_time"]
@@ -985,7 +1015,9 @@ async def sync_orders(
     STATS["errors"] = 0
 
     logger.info(
-        f"Starting order sync for {account_type.upper()} account (last {days} days)"
+        "Starting order sync for %s account (last %s days)",
+        account_type.upper(),
+        days,
     )
 
     sync_config = load_order_sync_config(account_type)
@@ -1010,13 +1042,17 @@ async def sync_orders(
         service: EmagIntegrationService = await _init_emag_service(account_type)
 
         # Debug: Log service details
-        logger.debug(f"Initialized service for {account_type.upper()} account")
+        logger.debug("Initialized service for %s account", account_type.upper())
         logger.debug(
-            f"Service config: username={service.config.api_username[:10]}..., account_type={service.account_type}"
+            "Service config: username=%s..., account_type=%s",
+            service.config.api_username[:10],
+            service.account_type,
         )
         if hasattr(service, "api_client") and service.api_client:
             logger.debug(
-                f"API client: username={service.api_client.username[:10]}..., account_type={getattr(service.api_client, 'account_type', 'NOT_SET')}"
+                "API client: username=%s..., account_type=%s",
+                service.api_client.username[:10],
+                getattr(service.api_client, "account_type", "NOT_SET"),
             )
 
         # Calculate date range
@@ -1039,7 +1075,7 @@ async def sync_orders(
             try:
                 if page > sync_config.max_pages:
                     logger.info(
-                        "Reached configured maximum of %s pages for %s account; stopping pagination",
+                        "Reached max of %s pages for %s account; stopping pagination",
                         sync_config.max_pages,
                         account_type.upper(),
                     )
@@ -1069,7 +1105,7 @@ async def sync_orders(
                     f"Processing {len(orders['results'])} orders from page {page}"
                 )
 
-                # Early exit if API returns only very old orders (more than 30 days before requested range)
+                # Early exit if API returns very old orders (>30 days before range)
                 current_orders = orders["results"]
                 if current_orders:
                     oldest_order_date = None
@@ -1099,8 +1135,10 @@ async def sync_orders(
                             days_difference > 30
                         ):  # If oldest order is more than 30 days before our target
                             logger.info(
-                                f"🚫 API returned very old orders (oldest: {oldest_order_date.strftime('%Y-%m-%d')}, "
-                                f"target start: {start_date.strftime('%Y-%m-%d')}). Stopping early to save API calls."
+                                "🚫 API returned very old orders (oldest: %s, target start: %s). "
+                                "Stopping early to save API calls.",
+                                oldest_order_date.strftime("%Y-%m-%d"),
+                                start_date.strftime("%Y-%m-%d"),
                             )
                             has_more = False
                             break
@@ -1286,14 +1324,20 @@ async def _init_emag_service(account_type: str) -> EmagIntegrationService:
         )
 
     if not api_username or not api_password:
-        raise ValueError(
-            f"Missing required credentials for {account_type} account. "
-            f"Please set {'EMAG_USERNAME_FBE and EMAG_PASSWORD_FBE' if account_type.lower() == 'fbe' else 'EMAG_USERNAME and EMAG_PASSWORD'} "
-            f"in your .env file or ensure they are loaded into the environment."
+        required_credentials = (
+            "EMAG_USERNAME_FBE and EMAG_PASSWORD_FBE"
+            if account_type.lower() == "fbe"
+            else "EMAG_USERNAME and EMAG_PASSWORD"
+        )
+        raise RuntimeError(
+            f"Missing credentials for {account_type} account. Ensure "
+            f"{required_credentials} are configured in the environment."
         )
 
     logger.info(
-        f"Initializing eMAG {account_type} service with username: {api_username[:3]}..."
+        "Initializing eMAG %s service with username: %s...",
+        account_type,
+        api_username[:3],
     )
 
     # Create service context
@@ -1645,7 +1689,8 @@ def print_summary(result: dict[str, Any]) -> None:
             f"Orders with missing products: {metrics_data.get('orders_with_missing_products', 0)}"
         )
         print(
-            f"Total missing product occurrences: {metrics_data.get('missing_product_occurrences', 0)}"
+            "Total missing product occurrences: "
+            f"{metrics_data.get('missing_product_occurrences', 0)}"
         )
 
         # Show first 10 missing product IDs with counts if available
@@ -1717,7 +1762,7 @@ def main() -> int:
             # Exit if schema validation failed
             if not validation_results["schema_valid"]:
                 logger.error(
-                    "Database schema validation failed. Please fix the schema issues before running sync."
+                    "Database schema validation failed. Fix schema issues before running sync."
                 )
                 return 1
 

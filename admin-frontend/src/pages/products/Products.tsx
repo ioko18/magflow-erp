@@ -38,11 +38,13 @@ import {
   EyeOutlined,
   MenuOutlined,
   SaveOutlined,
-  SortAscendingOutlined
+  HistoryOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import api from '../../services/api';
 import { logError } from '../../utils/errorLogger';
+import SKUHistoryModal from '../../components/products/SKUHistoryModal';
+import PriceUpdateModal from '../../components/products/PriceUpdateModal';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -121,12 +123,23 @@ const ProductsPage: React.FC = () => {
   const [form] = Form.useForm();
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 100,
     total: 0,
   });
   const [draggedProduct, setDraggedProduct] = useState<Product | null>(null);
   const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
   const [tempOrderValue, setTempOrderValue] = useState<number | undefined>();
+  const [skuHistoryVisible, setSkuHistoryVisible] = useState(false);
+  const [selectedProductForHistory, setSelectedProductForHistory] = useState<{
+    id: number;
+    sku: string;
+  } | null>(null);
+  const [priceUpdateVisible, setPriceUpdateVisible] = useState(false);
+  const [selectedProductForPrice, setSelectedProductForPrice] = useState<{
+    id: number;
+    name: string;
+    sku: string;
+  } | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -154,7 +167,7 @@ const ProductsPage: React.FC = () => {
         params.search = searchText;
       }
       
-      const response = await api.get('/products', { params });
+      const response = await api.get('/products/update/products', { params });
 
       const data = response.data?.data;
       setProducts(data?.products || []);
@@ -172,7 +185,7 @@ const ProductsPage: React.FC = () => {
 
   const loadStatistics = async () => {
     try {
-      const response = await api.get('/products/statistics');
+      const response = await api.get('/products/update/statistics');
       setStatistics(response.data?.data || null);
     } catch (error) {
       logError(error as Error, { component: 'Products', action: 'loadStatistics' });
@@ -344,46 +357,6 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleInitializeOrder = async () => {
-    modal.confirm({
-      title: 'Inițializează Ordine Produse',
-      content: 'Aceasta va seta automat o ordine pentru toate produsele din baza de date. Continuați?',
-      okText: 'Da, inițializează',
-      cancelText: 'Anulează',
-      onOk: async () => {
-        try {
-          setLoading(true);
-          
-          // Get all products (without pagination)
-          const response = await api.get('/products', { 
-            params: { skip: 0, limit: 10000 } 
-          });
-          
-          const allProducts = response.data?.data?.products || [];
-          
-          // Create reorder payload with sequential order
-          const reorderData = allProducts.map((product: Product, index: number) => ({
-            product_id: product.id,
-            display_order: index
-          }));
-
-          // Send bulk reorder
-          await api.post('/products/reorder', {
-            product_orders: reorderData
-          });
-
-          message.success(`Ordine inițializată pentru ${allProducts.length} produse`);
-          await loadProducts();
-        } catch (error) {
-          logError(error as Error, { component: 'Products', action: 'initializeOrder' });
-          message.error('Eroare la inițializarea ordinii');
-        } finally {
-          setLoading(false);
-        }
-      }
-    });
-  };
-
   const columns: ColumnsType<Product> = [
     {
       title: '',
@@ -421,18 +394,20 @@ const ProductsPage: React.FC = () => {
         return 0;
       },
       render: (_, record, index) => {
+        // Display order should show the actual display_order value (1-based)
+        // If not set, show calculated position (also 1-based for consistency)
         const actualPosition = record.display_order !== undefined 
           ? record.display_order 
-          : (pagination.current - 1) * pagination.pageSize + index;
+          : (pagination.current - 1) * pagination.pageSize + index + 1;
         
         return editingOrderId === record.id ? (
           <Space.Compact style={{ width: '100%' }}>
             <InputNumber
               size="small"
-              min={0}
+              min={1}
               max={9999}
               value={tempOrderValue}
-              onChange={(value) => setTempOrderValue(value || 0)}
+              onChange={(value) => setTempOrderValue(value || 1)}
               style={{ width: '70px' }}
               autoFocus
               onPressEnter={() => handleOrderSave(record.id)}
@@ -564,29 +539,55 @@ const ProductsPage: React.FC = () => {
             )
           : [];
         
-        return uniqueSuppliers.length > 0 ? (
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
-            {uniqueSuppliers.slice(0, 3).map((supplier) => (
-              <Tag 
-                key={supplier.id}
-                color={supplier.is_active ? 'orange' : 'default'}
-                style={{ 
-                  fontSize: '11px',
-                  marginRight: 0,
-                  width: '100%',
-                  textAlign: 'center'
-                }}
-              >
-                {supplier.name}
-                
-              </Tag>
+        // Tooltip cu toți furnizorii și prețurile lor
+        const supplierTooltip = uniqueSuppliers.length > 0 ? (
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+              Furnizori ({uniqueSuppliers.length}):
+            </div>
+            {uniqueSuppliers.map((supplier, index) => (
+              <div key={supplier.id} style={{ marginBottom: '6px' }}>
+                <div style={{ fontWeight: 500 }}>
+                  {index + 1}. {supplier.name} {supplier.country ? `(${supplier.country})` : ''}
+                </div>
+                {supplier.supplier_price && (
+                  <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                    Preț: {supplier.supplier_price.toFixed(2)} {supplier.supplier_currency || 'RON'}
+                  </div>
+                )}
+                <div style={{ fontSize: '11px', color: supplier.is_active ? '#52c41a' : '#ff4d4f' }}>
+                  {supplier.is_active ? '✓ Activ' : '✗ Inactiv'}
+                </div>
+              </div>
             ))}
-            {uniqueSuppliers.length > 3 && (
-              <Text type="secondary" style={{ fontSize: '10px' }}>
-                +{uniqueSuppliers.length - 3} furnizori
-              </Text>
-            )}
-          </Space>
+          </div>
+        ) : null;
+        
+        return uniqueSuppliers.length > 0 ? (
+          <Tooltip title={supplierTooltip} placement="left">
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              {uniqueSuppliers.slice(0, 5).map((supplier) => (
+                <Tag 
+                  key={supplier.id}
+                  color={supplier.is_active ? 'orange' : 'default'}
+                  style={{ 
+                    fontSize: '11px',
+                    marginRight: 0,
+                    width: '100%',
+                    textAlign: 'center',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {supplier.name}
+                </Tag>
+              ))}
+              {uniqueSuppliers.length > 5 && (
+                <Text type="secondary" style={{ fontSize: '10px', textAlign: 'center', display: 'block' }}>
+                  +{uniqueSuppliers.length - 5} furnizori
+                </Text>
+              )}
+            </Space>
+          </Tooltip>
         ) : (
           <Text type="secondary" style={{ fontSize: '12px' }}>Fără furnizori</Text>
         );
@@ -638,9 +639,35 @@ const ProductsPage: React.FC = () => {
       title: 'Acțiuni',
       key: 'actions',
       fixed: 'right',
-      width: 120,
+      width: 160,
       render: (_, record) => (
         <Space size="small">
+          <Tooltip title="Actualizare Preț eMAG FBE">
+            <Button
+              type="text"
+              icon={<DollarOutlined />}
+              onClick={() => {
+                setSelectedProductForPrice({ 
+                  id: record.id, 
+                  name: record.name,
+                  sku: record.sku 
+                });
+                setPriceUpdateVisible(true);
+              }}
+              style={{ color: '#52c41a' }}
+            />
+          </Tooltip>
+          <Tooltip title="Istoric SKU">
+            <Button
+              type="text"
+              icon={<HistoryOutlined />}
+              onClick={() => {
+                setSelectedProductForHistory({ id: record.id, sku: record.sku });
+                setSkuHistoryVisible(true);
+              }}
+              style={{ color: '#722ed1' }}
+            />
+          </Tooltip>
           <Tooltip title="Vezi detalii">
             <Button
               type="text"
@@ -696,7 +723,7 @@ const ProductsPage: React.FC = () => {
                 Management Produse
               </Title>
               <Text type="secondary" style={{ fontSize: '14px' }}>
-                Gestionează catalogul complet de produse din baza de date locală
+                Gestionează catalogul complet de produse din baza de date locală (sortare automată după Ordine)
               </Text>
             </Space>
           </Col>
@@ -709,14 +736,6 @@ const ProductsPage: React.FC = () => {
                 size="large"
               >
                 Refresh
-              </Button>
-              <Button 
-                icon={<SortAscendingOutlined />}
-                onClick={handleInitializeOrder}
-                size="large"
-                style={{ marginRight: '8px' }}
-              >
-                Inițializează Ordine
               </Button>
               <Button 
                 type="primary" 
@@ -820,7 +839,7 @@ const ProductsPage: React.FC = () => {
           <Col xs={24} md={10}>
             <Input
               size="large"
-              placeholder="Caută după nume, SKU, EAN, brand..."
+              placeholder="Caută după nume, SKU (inclusiv SKU-uri vechi), EAN, brand..."
               prefix={<SearchOutlined style={{ color: '#1890ff' }} />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
@@ -885,7 +904,8 @@ const ProductsPage: React.FC = () => {
                 {range[0]}-{range[1]} din {total} produse
               </Text>
             ),
-            pageSizeOptions: ['10', '20', '50', '100'],
+            pageSizeOptions: ['50', '100', '200', '300', '500', '1000'],
+            showLessItems: false,
           }}
           onChange={handleTableChange}
           scroll={{ x: 1400 }}
@@ -1275,6 +1295,33 @@ const ProductsPage: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* SKU History Modal */}
+      <SKUHistoryModal
+        visible={skuHistoryVisible}
+        productId={selectedProductForHistory?.id || null}
+        currentSKU={selectedProductForHistory?.sku || null}
+        onClose={() => {
+          setSkuHistoryVisible(false);
+          setSelectedProductForHistory(null);
+        }}
+      />
+
+      {/* Price Update Modal */}
+      <PriceUpdateModal
+        visible={priceUpdateVisible}
+        productId={selectedProductForPrice?.id || null}
+        productName={selectedProductForPrice?.name}
+        currentSKU={selectedProductForPrice?.sku}
+        onClose={() => {
+          setPriceUpdateVisible(false);
+          setSelectedProductForPrice(null);
+        }}
+        onSuccess={() => {
+          loadProducts(); // Reload products after price update
+          loadStatistics(); // Reload statistics
+        }}
+      />
     </div>
   );
 };

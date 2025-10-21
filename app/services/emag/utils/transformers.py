@@ -161,8 +161,8 @@ def _parse_datetime(value: Any) -> datetime | None:
                     return datetime.strptime(str(value), fmt)
                 except ValueError:
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Exception while parsing datetime %s: %s", value, str(e))
 
     logger.warning(f"Could not parse datetime: {value}")
     return None

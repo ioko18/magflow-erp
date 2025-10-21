@@ -4,8 +4,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Category, Product
 from app.main import app
+from app.models import Category, Product
 
 
 @pytest.mark.skip(reason="Test needs network/Redis configuration - gaierror")
@@ -83,7 +83,8 @@ def test_cursor_pagination(db: Session):
     response = client.get("/api/v1/products?q=Product 1")
     assert response.status_code == 200
     data = response.json()
-    # Should find products with "1" in name (e.g., Product 1, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21)
+    # Should find products with "1" in name (e.g., Product 1, 10, 11, 12, 13, 14)
+    # and further matches like 15, 16, 17, 18, 19, 21
     assert len(data["data"]) > 0
 
     # Clean up

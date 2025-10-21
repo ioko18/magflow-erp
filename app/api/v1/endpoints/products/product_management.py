@@ -203,7 +203,7 @@ async def log_field_change(
         field_name=field_name,
         old_value=old_str,
         new_value=new_str,
-        changed_at=datetime.now(UTC),
+        changed_at=datetime.now(UTC).replace(tzinfo=None),
         changed_by_id=user_id,
         change_type="update",
         ip_address=ip_address,
@@ -229,7 +229,7 @@ async def log_sku_change(
         product_id=product_id,
         old_sku=old_sku,
         new_sku=new_sku,
-        changed_at=datetime.now(UTC),
+        changed_at=datetime.now(UTC).replace(tzinfo=None),
         changed_by_id=user_id,
         change_reason=change_reason,
         ip_address=ip_address,
@@ -899,7 +899,7 @@ async def create_product(
             field_name="product",
             old_value=None,
             new_value="created",
-            changed_at=datetime.now(UTC),
+            changed_at=datetime.now(UTC).replace(tzinfo=None),
             changed_by_id=current_user.id,
             change_type="create",
             ip_address=ip_address,
@@ -923,7 +923,7 @@ async def create_product(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/{product_id}")
@@ -999,7 +999,7 @@ async def update_product_full(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{product_id}")
@@ -1031,7 +1031,7 @@ async def delete_product(
             field_name="product",
             old_value="active",
             new_value="deleted",
-            changed_at=datetime.now(UTC),
+            changed_at=datetime.now(UTC).replace(tzinfo=None),
             changed_by_id=current_user.id,
             change_type="delete",
             ip_address=ip_address,
@@ -1049,7 +1049,7 @@ async def delete_product(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{product_id}/toggle-discontinued")
@@ -1106,7 +1106,11 @@ async def toggle_discontinued_status(
                 "sku": product.sku,
                 "is_discontinued": product.is_discontinued,
                 "is_active": product.is_active,
-                "message": f"Product {'discontinued' if new_status else 'reactivated'} successfully",
+                "message": (
+                    "Product "
+                    f"{'discontinued' if new_status else 'reactivated'} "
+                    "successfully"
+                ),
             },
         }
 
@@ -1114,7 +1118,7 @@ async def toggle_discontinued_status(
         raise
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/bulk-toggle-discontinued")
@@ -1205,7 +1209,7 @@ async def bulk_toggle_discontinued(
 
     except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # ============================================================================
@@ -1269,7 +1273,7 @@ async def update_product_display_order(
 
     # Update the product's display order
     product.display_order = new_order
-    product.updated_at = datetime.now(UTC)
+    product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     await db.commit()
     await db.refresh(product)
@@ -1367,7 +1371,7 @@ async def remove_product_display_order(
 
     old_order = product.display_order
     product.display_order = None
-    product.updated_at = datetime.now(UTC)
+    product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
     await db.commit()
 
@@ -1378,5 +1382,88 @@ async def remove_product_display_order(
             "sku": product.sku,
             "old_display_order": old_order,
             "message": "Display order removed successfully",
+        },
+    }
+
+
+@router.get("/search-by-old-sku/{old_sku}")
+async def search_product_by_old_sku(
+    old_sku: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Search for a product by its old SKU from SKU history.
+
+    This is useful when you need to find a product that previously had a different SKU.
+    For example, if a product currently has SKU "EMG469" but previously had "a.1108E",
+    you can search for "a.1108E" and find the current product.
+
+    Returns:
+        Product information with current SKU and all historical SKUs
+    """
+    # Search in SKU history for the old SKU
+    history_query = (
+        select(ProductSKUHistory)
+        .where(ProductSKUHistory.old_sku == old_sku)
+        .order_by(ProductSKUHistory.changed_at.desc())
+    )
+    history_result = await db.execute(history_query)
+    history_entry = history_result.scalar_one_or_none()
+
+    if not history_entry:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No product found with old SKU: {old_sku}"
+        )
+
+    # Get the product
+    product_query = select(Product).where(Product.id == history_entry.product_id)
+    product_result = await db.execute(product_query)
+    product = product_result.scalar_one_or_none()
+
+    if not product:
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found for SKU history entry"
+        )
+
+    # Get all SKU history for this product
+    all_history_query = (
+        select(ProductSKUHistory)
+        .where(ProductSKUHistory.product_id == product.id)
+        .order_by(ProductSKUHistory.changed_at.desc())
+    )
+    all_history_result = await db.execute(all_history_query)
+    all_history = all_history_result.scalars().all()
+
+    return {
+        "status": "success",
+        "data": {
+            "product": {
+                "id": product.id,
+                "current_sku": product.sku,
+                "name": product.name,
+                "base_price": product.base_price,
+                "currency": product.currency,
+                "is_active": product.is_active,
+                "brand": product.brand,
+                "ean": product.ean,
+            },
+            "sku_history": [
+                {
+                    "old_sku": entry.old_sku,
+                    "new_sku": entry.new_sku,
+                    "changed_at": (
+                        entry.changed_at.isoformat() if entry.changed_at else None
+                    ),
+                    "changed_by_email": (
+                        entry.changed_by.email if entry.changed_by else "System Import"
+                    ),
+                    "change_reason": entry.change_reason,
+                }
+                for entry in all_history
+            ],
+            "searched_sku": old_sku,
         },
     }

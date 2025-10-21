@@ -82,9 +82,16 @@ class ProductVariant(Base):
     last_competitor_check = Column(DateTime, nullable=True)
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
     updated_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
     )
     deactivated_at = Column(DateTime, nullable=True)
 
@@ -106,7 +113,10 @@ class ProductVariant(Base):
         Index("idx_product_variants_active", "is_active"),
         Index("idx_product_variants_type", "variant_type"),
         CheckConstraint(
-            "variant_type IN ('original', 'republished', 'competitor_hijacked', 'variation', 'test')",
+            (
+                "variant_type IN ('original', 'republished', 'competitor_hijacked', "
+                "'variation', 'test')"
+            ),
             name="ck_product_variants_type",
         ),
         CheckConstraint(
@@ -153,8 +163,16 @@ class ProductPNKTracking(Base):
     )  # pending, consistent, inconsistent, missing
 
     # Timestamps
-    first_detected = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
-    last_checked = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    first_detected = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
+    last_checked = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
     resolved_at = Column(DateTime, nullable=True)
 
     # Resolution tracking
@@ -205,7 +223,11 @@ class ProductCompetitionLog(Base):
     your_price = Column(Float, nullable=True)
 
     # Detection
-    detected_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    detected_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
     previous_offer_count = Column(Integer, nullable=True)
     new_competitors = Column(
         Integer, nullable=True
@@ -285,9 +307,16 @@ class ProductGenealogy(Base):
     supersede_reason = Column(Text, nullable=True)  # Why was this product replaced?
 
     # Timestamps
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
     updated_at = Column(
-        DateTime, nullable=False, default=lambda: datetime.now(UTC).replace(tzinfo=None), onupdate=lambda: datetime.now(UTC).replace(tzinfo=None)
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        onupdate=lambda: datetime.now(UTC).replace(tzinfo=None),
     )
 
     # Metadata

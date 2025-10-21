@@ -221,10 +221,16 @@ class ProductRelationshipService:
         if has_competitors:
             if number_of_offers >= 5:
                 requires_action = True
-                recommendation = "Mulți competitori (5+). Recomandăm re-publicare cu SKU/EAN diferit."
+                recommendation = (
+                    "Mulți competitori (5+). Recomandăm re-publicare cu "
+                    "SKU/EAN diferit."
+                )
             elif your_rank and your_rank > 3:
                 requires_action = True
-                recommendation = f"Rank scăzut ({your_rank}). Considerați ajustare preț sau re-publicare."
+                recommendation = (
+                    f"Rank scăzut ({your_rank}). Considerați ajustare preț sau "
+                    "re-publicare."
+                )
             elif new_competitors >= 2:
                 requires_action = True
                 recommendation = (

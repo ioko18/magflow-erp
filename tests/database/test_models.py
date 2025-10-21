@@ -19,7 +19,12 @@ async def _add_role(session, name: str, description: str) -> Role:
     return role
 
 
-async def _add_user(session, email: str, full_name: str, hashed_password: str = "hashed_password") -> User:
+async def _add_user(
+    session,
+    email: str,
+    full_name: str,
+    hashed_password: str = "hashed_password",
+) -> User:
     user = User(
         email=email,
         hashed_password=hashed_password,

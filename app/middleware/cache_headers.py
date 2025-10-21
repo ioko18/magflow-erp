@@ -74,8 +74,8 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _generate_etag(content: bytes) -> str:
-        """Generate an ETag for the given content."""
-        return f'"{hashlib.md5(content).hexdigest()}"'
+        """Generate an ETag for the given content (not for security, just cache validation)."""
+        return f'"{hashlib.md5(content, usedforsecurity=False).hexdigest()}"'
 
 
 def cache_control(

@@ -43,7 +43,10 @@ try:
         trace.get_tracer_provider().add_span_processor(span_processor)
 
 except Exception as e:
-    print(f"Warning: Failed to configure OpenTelemetry: {e}", file=sys.stderr)
+    # Use stderr for early logging before logger is configured
+    import logging
+    logging.basicConfig(level=logging.WARNING)
+    logging.warning(f"Failed to configure OpenTelemetry: {e}")
 
 
 class RequestIdFilter(Filter):

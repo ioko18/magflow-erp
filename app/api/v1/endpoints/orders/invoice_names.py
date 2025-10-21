@@ -166,7 +166,9 @@ async def update_invoice_names(
 
     Example:
     ```
-    PATCH /invoice-names/EMG331?invoice_name_ro=Generator%20XR2206&invoice_name_en=Signal%20Generator%20XR2206
+    PATCH /invoice-names/EMG331?
+        invoice_name_ro=Generator%20XR2206&
+        invoice_name_en=Signal%20Generator%20XR2206
     ```
 
     Use cases:

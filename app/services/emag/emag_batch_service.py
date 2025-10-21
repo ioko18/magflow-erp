@@ -107,7 +107,9 @@ class EmagBatchService:
         return batches
 
     async def batch_update_offers(
-        self, offers: list[dict[str, Any]], progress_callback: Callable[[int, int], None] | None = None
+        self,
+        offers: list[dict[str, Any]],
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> dict[str, Any]:
         """
         Update multiple offers in batches.

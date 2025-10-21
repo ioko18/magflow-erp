@@ -28,53 +28,62 @@ class SupplierMigrationService:
         """
         stats = {"total_in_sheets": 0, "migrated": 0, "skipped": 0, "errors": 0}
 
-        try:
-            # Count total in sheets
-            count_query = select(ProductSupplierSheet).where(
-                ProductSupplierSheet.is_active.is_(True)
-            )
-            count_result = await self.db.execute(count_query)
-            stats["total_in_sheets"] = len(count_result.scalars().all())
+        # Use nested transaction (savepoint) to isolate migration errors
+        async with self.db.begin_nested():
+            try:
+                # Count total in sheets
+                count_query = select(ProductSupplierSheet).where(
+                    ProductSupplierSheet.is_active.is_(True)
+                )
+                count_result = await self.db.execute(count_query)
+                stats["total_in_sheets"] = len(count_result.scalars().all())
 
-            # Use efficient bulk migration with raw SQL
-            query = text("""
-            INSERT INTO app.supplier_products (
-                supplier_id, local_product_id, supplier_product_name,
-                supplier_product_url, supplier_price, supplier_currency,
-                supplier_product_chinese_name, supplier_product_specification,
-                import_source, confidence_score, manual_confirmed,
-                is_active, is_preferred, created_at, updated_at
-            )
-            SELECT
-                s.id, p.id, pss.supplier_name,
-                pss.supplier_url, pss.price_cny, 'CNY',
-                pss.supplier_product_chinese_name, pss.supplier_product_specification,
-                'google_sheets', 100.0, COALESCE(pss.is_verified, false),
-                pss.is_active, COALESCE(pss.is_preferred, false),
-                pss.created_at, pss.updated_at
-            FROM app.product_supplier_sheets pss
-            JOIN app.suppliers s ON s.name = pss.supplier_name
-            JOIN app.products p ON p.sku = pss.sku
-            WHERE pss.is_active = true
-              AND NOT EXISTS (
-                SELECT 1 FROM app.supplier_products sp
-                WHERE sp.supplier_id = s.id
-                  AND sp.local_product_id = p.id
-                  AND sp.supplier_product_url = pss.supplier_url
-              )
-            """)
+                # Use efficient bulk migration with raw SQL
+                query = text("""
+                INSERT INTO app.supplier_products (
+                    supplier_id, local_product_id, supplier_product_name,
+                    supplier_product_url, supplier_image_url, supplier_price, supplier_currency,
+                    supplier_product_chinese_name, supplier_product_specification,
+                    import_source, confidence_score, manual_confirmed,
+                    is_active, is_preferred, created_at, updated_at
+                )
+                SELECT
+                    s.id, p.id, pss.supplier_name,
+                    COALESCE(pss.supplier_url, ''),
+                    COALESCE(pss.supplier_url, ''),
+                    pss.price_cny, 'CNY',
+                    pss.supplier_product_chinese_name,
+                    pss.supplier_product_specification,
+                    'google_sheets', 100.0, COALESCE(pss.is_verified, false),
+                    pss.is_active, COALESCE(pss.is_preferred, false),
+                    pss.created_at, pss.updated_at
+                FROM app.product_supplier_sheets pss
+                JOIN app.suppliers s ON s.name = pss.supplier_name
+                JOIN app.products p ON p.sku = pss.sku
+                WHERE pss.is_active = true
+                  AND NOT EXISTS (
+                    SELECT 1 FROM app.supplier_products sp
+                    WHERE sp.supplier_id = s.id
+                      AND sp.local_product_id = p.id
+                      AND sp.supplier_product_url = pss.supplier_url
+                  )
+                """)
 
-            result = await self.db.execute(query)
-            stats["migrated"] = result.rowcount
-            stats["skipped"] = stats["total_in_sheets"] - stats["migrated"]
+                result = await self.db.execute(query)
+                stats["migrated"] = result.rowcount
+                stats["skipped"] = stats["total_in_sheets"] - stats["migrated"]
 
-            logger.info(
-                f"Migration completed: {stats['migrated']} products migrated, {stats['skipped']} skipped"
-            )
+                logger.info(
+                    "Migration completed: %s products migrated, %s skipped",
+                    stats["migrated"],
+                    stats["skipped"],
+                )
 
-        except Exception as e:
-            logger.error(f"Migration failed: {e}")
-            stats["errors"] = 1
+            except Exception as e:
+                logger.error(f"Migration failed: {e}", exc_info=True)
+                stats["errors"] = 1
+                # Rollback happens automatically when exiting nested context
+                # This allows the parent transaction (import) to continue
 
         return stats
 
@@ -105,15 +114,18 @@ class SupplierMigrationService:
             query = text("""
             INSERT INTO app.supplier_products (
                 supplier_id, local_product_id, supplier_product_name,
-                supplier_product_url, supplier_price, supplier_currency,
+                supplier_product_url, supplier_image_url, supplier_price, supplier_currency,
                 supplier_product_chinese_name, supplier_product_specification,
                 import_source, confidence_score, manual_confirmed,
                 is_active, is_preferred, created_at, updated_at
             )
             SELECT
                 s.id, p.id, pss.supplier_name,
-                pss.supplier_url, pss.price_cny, 'CNY',
-                pss.supplier_product_chinese_name, pss.supplier_product_specification,
+                COALESCE(pss.supplier_url, ''),
+                COALESCE(pss.supplier_url, ''),
+                pss.price_cny, 'CNY',
+                pss.supplier_product_chinese_name,
+                pss.supplier_product_specification,
                 'google_sheets', 100.0, COALESCE(pss.is_verified, false),
                 pss.is_active, COALESCE(pss.is_preferred, false),
                 pss.created_at, pss.updated_at

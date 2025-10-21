@@ -12,6 +12,8 @@ Use Case:
 """
 
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,8 @@ from app.services.product.product_relationship_service import ProductRelationshi
 from app.services.stock_sync_service import StockSyncService
 
 router = APIRouter(prefix="/product-republish", tags=["product-republish"])
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -278,9 +282,9 @@ async def create_republished_variant(
             supersede_reason=request.reason,
             product_type="emag_main" if request.account_type == "main" else "emag_fbe",
         )
-    except Exception:
+    except Exception as e:
         # Genealogy is optional, continue even if it fails
-        pass
+        logger.warning("Failed to create product genealogy: %s", str(e))
 
     # Generate publishing instructions
     publishing_instructions = {
@@ -386,8 +390,8 @@ async def get_product_republish_history(
         try:
             analysis = await stock_service.analyze_stock_distribution(variant["sku"])
             variant_analyses.append(analysis)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to analyze stock for variant %s: %s", variant.get("sku"), str(e))
 
     return {
         "status": "success",

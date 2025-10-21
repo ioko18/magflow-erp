@@ -93,7 +93,10 @@ class RequestContextLogMiddleware(BaseHTTPMiddleware):
                 self.logger.info("request_completed", **log_data)
             else:
                 # Standard Python logger
-                log_msg = f"Request completed - Status: {response.status_code} in {process_time:.2f}ms"
+                log_msg = (
+                    f"Request completed - Status: {response.status_code} "
+                    f"in {process_time:.2f}ms"
+                )
                 self.logger.log(
                     logging.INFO,
                     log_msg,

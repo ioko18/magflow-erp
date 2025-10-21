@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.config import settings
@@ -69,11 +69,11 @@ def decode_token(token: str) -> dict[str, Any]:
             algorithms=[settings.ALGORITHM],
         )
         return payload
-    except JWTError:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-        )
+        ) from e
 
 
 async def get_current_active_user(
@@ -157,11 +157,11 @@ async def get_current_active_user(
 
         return user_data
 
-    except JWTError:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
-        )
+        ) from e
 
 
 @router.post("/login", response_model=Token)
@@ -288,7 +288,8 @@ async def login_for_access_token(
         if not verify_password(login_data.password, user_obj.hashed_password):
             logger.warning("Password verification failed for user: %s", user_obj.email)
 
-            # If we got user from cache, we need to get the actual user from DB to update failed attempts
+            # If we got user from cache, we need to get the actual user from DB
+            # to update failed attempts
             if cached_user_data:
                 result = await db.execute(
                     select(UserModel).where(UserModel.email == login_data.username),
@@ -383,7 +384,7 @@ async def login_for_access_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
-        )
+        ) from e
 
 
 @router.post("/simple-login")
@@ -419,12 +420,12 @@ async def test_database(
 ) -> dict[str, Any]:
     """Test database connection."""
     try:
-        # Simple query to test database connection
-        # Use parameterized schema name to prevent SQL injection
-        schema = settings.db_schema_safe
-        result = await db.execute(
-            text(f"SELECT COUNT(*) FROM {schema}.users"),
-        )
+        # Use SQLAlchemy ORM to prevent SQL injection
+        from sqlalchemy import func, select
+
+        from app.models.user import User
+
+        result = await db.execute(select(func.count(User.id)))
         user_count = result.scalar()
         return {"status": "success", "users_count": user_count}
     except Exception as e:

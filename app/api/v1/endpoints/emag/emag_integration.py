@@ -119,7 +119,9 @@ def _build_sync_env(
 
     if not username or not password:
         raise ConfigurationError(
-            f"Missing credentials for {account_type.upper()} account. Please set the appropriate environment variables."
+            "Missing credentials for "
+            f"{account_type.upper()} account. "
+            "Please set the appropriate environment variables."
         )
 
     env["EMAG_API_USERNAME"] = username
@@ -420,7 +422,7 @@ async def get_emag_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get eMAG status: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/products")
@@ -455,12 +457,12 @@ async def sync_products(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start product sync: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/orders")
@@ -489,12 +491,12 @@ async def sync_orders(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start order sync: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/inventory")
@@ -523,12 +525,12 @@ async def sync_inventory(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start inventory sync: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/full")
@@ -583,12 +585,12 @@ async def full_synchronization(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start full sync: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/start-auto")
@@ -627,12 +629,12 @@ async def start_auto_sync(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start auto sync: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/stop-auto")
@@ -672,7 +674,7 @@ async def stop_auto_sync(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to stop auto sync: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products")
@@ -717,12 +719,12 @@ async def get_emag_products(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get eMAG products: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/orders")
@@ -765,20 +767,20 @@ async def get_emag_orders(
                 start_date_obj = datetime.fromisoformat(
                     start_date.replace("Z", "+00:00"),
                 )
-            except ValueError:
+            except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid start_date format",
-                )
+                ) from e
 
         if end_date:
             try:
                 end_date_obj = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            except ValueError:
+            except ValueError as e:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid end_date format",
-                )
+                ) from e
 
         orders_data = await emag_service.api_client.get_orders(
             status=status,
@@ -802,12 +804,12 @@ async def get_emag_orders(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get eMAG orders: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/categories")
@@ -840,12 +842,12 @@ async def get_emag_categories(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get eMAG categories: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/inventory/update")
@@ -895,12 +897,12 @@ async def update_inventory(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update inventory: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/sync/history")
@@ -947,7 +949,7 @@ async def get_sync_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sync history: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/sync/tasks")
@@ -982,7 +984,7 @@ async def get_sync_tasks(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sync tasks: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/duplicates")
@@ -1031,7 +1033,7 @@ async def get_duplicate_analysis(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get duplicate analysis: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products/duplicates")
@@ -1115,7 +1117,7 @@ async def get_duplicate_products(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get duplicate products: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products/duplicates/{sku}")
@@ -1209,7 +1211,7 @@ async def get_duplicate_sku_details(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get duplicate SKU details: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/products/duplicates/resolve")
@@ -1254,7 +1256,7 @@ async def resolve_duplicate_sku(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to resolve duplicate SKU: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products/conflicts")
@@ -1313,7 +1315,7 @@ async def get_product_conflicts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get product conflicts: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test-connection")
@@ -1356,7 +1358,7 @@ async def test_emag_connection(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to test connection: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products/details/{product_id}")
@@ -1395,12 +1397,12 @@ async def get_product_details(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get product details: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/offers/details/{offer_id}")
@@ -1436,12 +1438,12 @@ async def get_offer_details(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get offer details: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/scheduled")
@@ -1487,9 +1489,13 @@ async def setup_scheduled_sync(
         }
 
         return {
+            "status": "success",
             "scheduled_sync": scheduled_sync,
             "message": "Scheduled sync configured successfully",
-            "note": f"Next sync will run in {sync_interval} minutes and repeat every {sync_interval} minutes",
+            "note": (
+                "Next sync will run in "
+                f"{sync_interval} minutes and repeat every {sync_interval} minutes"
+            ),
         }
 
     except HTTPException:
@@ -1498,7 +1504,7 @@ async def setup_scheduled_sync(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to setup scheduled sync: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/sync/export")
@@ -1579,12 +1585,12 @@ async def export_sync_data(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export sync data: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/sales")
@@ -1617,12 +1623,12 @@ async def get_sales_analytics(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Analytics service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sales analytics: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/inventory")
@@ -1653,12 +1659,12 @@ async def get_inventory_analytics(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Analytics service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get inventory analytics: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/pricing")
@@ -1689,12 +1695,12 @@ async def get_pricing_analytics(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Analytics service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get pricing analytics: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/trends")
@@ -1735,12 +1741,12 @@ async def get_market_trends(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Analytics service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get market trends: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/report")
@@ -1779,12 +1785,12 @@ async def get_comprehensive_report(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Analytics service not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get comprehensive report: {e!s}",
-        )
+        ) from e
 
 
 # @router.get("/security/audit")
@@ -1877,7 +1883,7 @@ async def get_security_alerts(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get security alerts: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/rate-limit/status")
@@ -1913,7 +1919,7 @@ async def get_rate_limit_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get rate limit status: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/tenants")
@@ -1962,7 +1968,7 @@ async def get_tenants(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get tenants: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/tenants/{tenant_id}/sync")
@@ -1996,7 +2002,7 @@ async def sync_tenant(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync tenant: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/analytics/dashboard")
@@ -2050,7 +2056,7 @@ async def get_analytics_dashboard(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get analytics dashboard: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/health/advanced")
@@ -2109,7 +2115,7 @@ async def get_advanced_health(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get advanced health: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test/credentials")
@@ -2199,7 +2205,7 @@ async def test_emag_credentials(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to test credentials: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test/full-suite")
@@ -2214,7 +2220,8 @@ async def run_full_test_suite(
     """Run complete test suite with eMAG credentials.
 
     **credentials**: Dictionary containing eMAG username, password, and optional settings
-    **test_types**: List of test types to run (connection, authentication, rate_limits, data_retrieval, sync_operation)
+    **test_types**: List of test types to run (connection, authentication,
+    rate_limits, data_retrieval, sync_operation)
     """
     try:
         from app.services.emag.emag_testing_service import (
@@ -2294,7 +2301,7 @@ async def run_full_test_suite(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to run test suite: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test/rate-limits")
@@ -2375,7 +2382,7 @@ async def test_emag_rate_limits(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to test rate limits: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test/data-retrieval")
@@ -2449,7 +2456,7 @@ async def test_data_retrieval(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to test data retrieval: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/test/status")
@@ -2493,7 +2500,7 @@ async def get_test_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get test status: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test/sync-operation")
@@ -2565,7 +2572,7 @@ async def test_sync_operation(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to test sync operation: {e!s}",
-        )
+        ) from e
 
 
 # RMA Integration endpoints (keeping existing functionality)
@@ -2603,7 +2610,7 @@ async def sync_rma_with_emag(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync RMA: {e!s}",
-        )
+        ) from e
 
 
 # Invoice Integration endpoints (keeping existing functionality)
@@ -2645,7 +2652,7 @@ async def sync_invoice_with_emag(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync invoice: {e!s}",
-        )
+        ) from e
 
 
 # Configuration endpoint
@@ -2851,7 +2858,7 @@ async def sync_all_products(
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=f"eMAG integration not configured: {exc}",
-            )
+            ) from exc
 
         # Execute sync script in background
         async def run_product_sync():
@@ -2881,12 +2888,12 @@ async def sync_all_products(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start product sync: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/all-offers")
@@ -2949,12 +2956,12 @@ async def sync_all_offers(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to start offer sync: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products/all")
@@ -2994,7 +3001,8 @@ async def get_all_products(
             # TODO: Join with emag_product_offers to filter by account_type if needed
             base_query = f"SELECT * FROM {EMAG_PRODUCTS_TABLE}"
 
-            # Note: account_type filter is not applied to products table as it doesn't have this column
+            # Note: account_type filter is not applied to products table as it
+            # doesn't have this column
             # Products are shared across accounts, offers are account-specific
 
             # Add pagination with parameterized query to prevent SQL injection
@@ -3045,7 +3053,7 @@ async def get_all_products(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve products: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/offers/all")
@@ -3126,7 +3134,7 @@ async def get_all_offers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve offers: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/products/{product_id}")
@@ -3175,7 +3183,7 @@ async def get_product_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve product: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/offers/{offer_id}")
@@ -3224,7 +3232,7 @@ async def get_offer_by_id(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve offer: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/sync/scheduled")
@@ -3285,12 +3293,13 @@ async def configure_scheduled_sync(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to configure scheduled sync: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/sync/progress")
 async def get_sync_progress(
-    # current_user: UserModel = Depends(get_current_active_user),  # Temporarily disabled for testing
+    # current_user: UserModel = Depends(get_current_active_user),
+    # Temporarily disabled for testing
 ) -> dict[str, Any]:
     """Get current sync progress and statistics.
     - **Returns**: Sync progress, statistics, and recent activity
@@ -3341,7 +3350,9 @@ async def get_sync_progress(
                             COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_syncs,
                             COUNT(CASE WHEN status = 'running' THEN 1 END) as running_syncs,
                             SUM(total_offers_processed) as total_offers_processed,
-                            AVG(EXTRACT(EPOCH FROM (completed_at - started_at))) as avg_duration_seconds
+                            AVG(
+                            EXTRACT(EPOCH FROM (completed_at - started_at))
+                        ) as avg_duration_seconds
                         FROM {EMAG_OFFER_SYNCS_TABLE}
                         WHERE started_at >= NOW() - INTERVAL '24 hours'
                         """
@@ -3406,11 +3417,14 @@ async def get_sync_progress(
                         "offers": 0,
                     },
                     "timestamp": datetime.now(UTC).isoformat(),
-                    "detail": "eMAG integration data is not available yet. Ensure sync tables are migrated and populated.",
+                    "detail": (
+                        "eMAG integration data is not available yet. "
+                        "Ensure sync tables are migrated and populated."
+                    ),
                 }
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sync progress: {e!s}",
-        )
+        ) from e

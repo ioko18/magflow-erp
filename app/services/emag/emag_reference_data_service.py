@@ -109,7 +109,7 @@ class EmagReferenceDataService:
 
         except EmagApiError as e:
             logger.error("Failed to fetch VAT rates: %s", str(e))
-            raise ServiceError(f"VAT rates fetch failed: {str(e)}")
+            raise ServiceError(f"VAT rates fetch failed: {str(e)}") from e
 
     async def get_vat_rate_by_id(self, vat_id: int) -> dict[str, Any] | None:
         """
@@ -170,7 +170,7 @@ class EmagReferenceDataService:
 
         except EmagApiError as e:
             logger.error("Failed to fetch handling times: %s", str(e))
-            raise ServiceError(f"Handling times fetch failed: {str(e)}")
+            raise ServiceError(f"Handling times fetch failed: {str(e)}") from e
 
     async def get_handling_time_by_value(self, value: int) -> dict[str, Any] | None:
         """
@@ -227,7 +227,7 @@ class EmagReferenceDataService:
 
         except Exception as e:
             logger.error("Failed to refresh cache: %s", str(e))
-            raise ServiceError(f"Cache refresh failed: {str(e)}")
+            raise ServiceError(f"Cache refresh failed: {str(e)}") from e
 
     def clear_cache(self):
         """Clear all cached data."""

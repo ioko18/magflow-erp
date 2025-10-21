@@ -154,33 +154,43 @@ class AdvancedProductValidator:
         """Validate basic required fields"""
         required_fields = ['name', 'part_number', 'sale_price', 'stock']
 
-        for field in required_fields:
-            if field not in product_data or product_data[field] is None:
-                result.errors.append(f"Required field '{field}' is missing")
+        for field_name in required_fields:
+            if field_name not in product_data or product_data[field_name] is None:
+                result.errors.append(f"Required field '{field_name}' is missing")
                 result.is_valid = False
 
         # Name validation
         name = product_data.get('name', '')
         if len(name) < 1 or len(name) > 255:
-            result.errors.append(f"Product name must be between 1 and 255 characters (current: {len(name)})")
+            result.errors.append(
+                "Product name must be between 1 and 255 characters "
+                f"(current: {len(name)})"
+            )
             result.is_valid = False
 
         # Part number validation with cleanup
         part_number = product_data.get('part_number', '')
         if len(part_number) > 25:
-            result.errors.append(f"Part number must be 25 characters or less (current: {len(part_number)})")
+            result.errors.append(
+                "Part number must be 25 characters or less "
+                f"(current: {len(part_number)})"
+            )
             result.is_valid = False
 
         # Clean part number
         cleaned_part_number = re.sub(r'[,";]', '', part_number)
         if len(cleaned_part_number) != len(part_number):
-            result.warnings.append(f"Part number cleaned: '{part_number}' → '{cleaned_part_number}'")
+            result.warnings.append(
+                f"Part number cleaned: '{part_number}' → '{cleaned_part_number}'"
+            )
 
     def _validate_category_requirements(self, product_data: dict[str, Any],
                                       category_id: int, result: ProductValidationResult):
         """Validate category-specific requirements"""
         if category_id not in self._category_cache:
-            result.warnings.append(f"Category {category_id} not in cache - using general validation")
+            result.warnings.append(
+                f"Category {category_id} not in cache - using general validation"
+            )
             return
 
         category = self._category_cache[category_id]
@@ -192,7 +202,9 @@ class AdvancedProductValidator:
                 result.errors.append(f"EAN is required for category {category_id}")
                 result.is_valid = False
         elif product_data.get('ean') and len(product_data['ean']) > 1:
-            result.warnings.append("Multiple EANs provided - only first will be used for category matching")
+            result.warnings.append(
+                "Multiple EANs provided - only first will be used for category matching"
+            )
 
     def _is_ean_required_for_category(self, category: ProductCategory) -> bool:
         """Determine if EAN is required based on category characteristics"""
@@ -200,7 +212,11 @@ class AdvancedProductValidator:
         # For now, assume EAN is required for most categories
         return True
 
-    def _validate_business_rules(self, product_data: dict[str, Any], result: ProductValidationResult):
+    def _validate_business_rules(
+        self,
+        product_data: dict[str, Any],
+        result: ProductValidationResult,
+    ) -> None:
         """Validate business rules and constraints"""
 
         # EAN vs Part Number Key mutual exclusivity
@@ -208,10 +224,15 @@ class AdvancedProductValidator:
         pnk_present = bool(product_data.get('part_number_key'))
 
         if ean_present and pnk_present:
-            result.errors.append("Cannot specify both 'ean' and 'part_number_key' - they are mutually exclusive")
+            result.errors.append(
+                "Cannot specify both 'ean' and 'part_number_key' - they are mutually exclusive"
+            )
             result.is_valid = False
         elif not ean_present and not pnk_present:
-            result.warnings.append("Neither EAN nor Part Number Key provided - product cannot be attached to existing items")
+            result.warnings.append(
+                "Neither EAN nor Part Number Key provided - product cannot be attached "
+                "to existing items"
+            )
 
         # Price range validations
         sale_price = product_data.get('sale_price', 0)
@@ -220,7 +241,9 @@ class AdvancedProductValidator:
 
         if min_price > 0 and max_price > 0:
             if sale_price < min_price or sale_price > max_price:
-                result.errors.append(f"Sale price {sale_price} must be between {min_price} and {max_price}")
+                result.errors.append(
+                    f"Sale price {sale_price} must be between {min_price} and {max_price}"
+                )
                 result.is_valid = False
 
         # Stock validations
@@ -229,7 +252,11 @@ class AdvancedProductValidator:
             result.errors.append("Stock cannot be negative")
             result.is_valid = False
 
-    def _validate_content_quality(self, product_data: dict[str, Any], result: ProductValidationResult):
+    def _validate_content_quality(
+        self,
+        product_data: dict[str, Any],
+        result: ProductValidationResult,
+    ) -> None:
         """Validate content quality and completeness"""
 
         description = product_data.get('description', '')
@@ -237,7 +264,9 @@ class AdvancedProductValidator:
             # Check for HTML content
             html_tags = re.findall(r'<[^>]+>', description)
             if html_tags:
-                result.warnings.append(f"HTML content detected in description: {len(html_tags)} tags")
+                result.warnings.append(
+                    f"HTML content detected in description: {len(html_tags)} tags"
+                )
 
             # Check description length
             if len(description) > 10000:
@@ -251,7 +280,11 @@ class AdvancedProductValidator:
         if len(name.split()) < 2:
             result.warnings.append("Product name should contain at least 2 words")
 
-    def _validate_images(self, product_data: dict[str, Any], result: ProductValidationResult):
+    def _validate_images(
+        self,
+        product_data: dict[str, Any],
+        result: ProductValidationResult,
+    ) -> None:
         """Validate product images"""
 
         images = product_data.get('images', [])
@@ -261,7 +294,10 @@ class AdvancedProductValidator:
 
         # Check image count
         if len(images) > 20:
-            result.warnings.append(f"Too many images ({len(images)}) - consider limiting to 20 or fewer")
+            result.warnings.append(
+                "Too many images "
+                f"({len(images)}) - consider limiting to 20 or fewer"
+            )
 
         # Validate image URLs
         for i, image in enumerate(images):
@@ -288,7 +324,9 @@ class AdvancedProductValidator:
         url_pattern = r'^https?://[^\s/$.?#].[^\s]*\.(jpg|jpeg|png|gif|webp)$'
         return bool(re.match(url_pattern, url, re.IGNORECASE))
 
-    def _validate_characteristics(self, product_data: dict[str, Any], result: ProductValidationResult):
+    def _validate_characteristics(
+        self, product_data: dict[str, Any], result: ProductValidationResult
+    ):
         """Validate product characteristics"""
 
         characteristics = product_data.get('characteristics', [])
@@ -314,7 +352,9 @@ class AdvancedProductValidator:
 
             # Check for tags
             if 'tag' in char:
-                result.warnings.append(f"Characteristic {i+1} uses tags - ensure multiple entries for different tags")
+                result.warnings.append(
+                    f"Characteristic {i+1} uses tags - ensure multiple entries for different tags"
+                )
 
     def _validate_pricing(self, product_data: dict[str, Any], result: ProductValidationResult):
         """Validate pricing information"""
@@ -331,12 +371,17 @@ class AdvancedProductValidator:
         if '.' in sale_price_str:
             decimal_places = len(sale_price_str.split('.')[1])
             if decimal_places > 4:
-                result.errors.append(f"Sale price has too many decimal places (max 4): {sale_price}")
+                result.errors.append(
+                    f"Sale price has too many decimal places (max 4): {sale_price}"
+                )
                 result.is_valid = False
 
         # Recommended price should be higher than sale price
         if recommended_price and recommended_price <= sale_price:
-            result.warnings.append(f"Recommended price ({recommended_price}) should be higher than sale price ({sale_price})")
+            result.warnings.append(
+                "Recommended price "
+                f"({recommended_price}) should be higher than sale price ({sale_price})"
+            )
 
         # Currency validation
         currency = product_data.get('currency')
@@ -368,11 +413,16 @@ class AdvancedProductValidator:
                     result.is_valid = False
 
                 if stock_item.get('value', 0) < 0:
-                    result.errors.append(f"Stock item {i+1} has negative stock")
+                    result.errors.append(
+                        f"Stock item {i+1} has negative stock"
+                    )
                     result.is_valid = False
 
-    def validate_ownership_and_permissions(self, product_data: dict[str, Any],
-                                         current_ownership: OwnershipStatus | None = None) -> ProductOwnershipInfo:
+    def validate_ownership_and_permissions(
+        self,
+        product_data: dict[str, Any],
+        current_ownership: OwnershipStatus | None = None,
+    ) -> ProductOwnershipInfo:
         """Validate product ownership and update permissions"""
 
         ownership_status = current_ownership or OwnershipStatus.NOT_ELIGIBLE_FOR_UPDATES
@@ -399,7 +449,9 @@ class AdvancedProductValidator:
         validation_status = product_data.get('validation_status')
         if validation_status:
             if validation_status in [5, 6, 10]:  # Brand rejected, EAN rejected, Blocked
-                restrictions.append(f"Product has validation status {validation_status} - updates restricted")
+                restrictions.append(
+                    f"Product has validation status {validation_status} - updates restricted"
+                )
 
         return ProductOwnershipInfo(
             ownership_status=ownership_status,

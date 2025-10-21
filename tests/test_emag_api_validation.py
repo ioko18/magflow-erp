@@ -53,11 +53,10 @@ class TestEmagApiResponseValidation:
 
         # Initialize session
         await api_client.start()
-        
         with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.json.return_value = mock_response_data
-            mock_response.text.return_value = '{"isError": false, "messages": [], "data": {"products": []}}'
+            mock_response.text.return_value = json.dumps(mock_response_data)
             mock_response.status = 200
             mock_response.raise_for_status = AsyncMock()
             mock_request.return_value.__aenter__.return_value = mock_response
@@ -65,7 +64,6 @@ class TestEmagApiResponseValidation:
             result = await api_client._request("GET", "/test")
 
             assert result == mock_response_data
-        
         await api_client.close()
 
     @pytest.mark.asyncio
@@ -79,7 +77,6 @@ class TestEmagApiResponseValidation:
         }
 
         await api_client.start()
-        
         with patch.object(api_client._session, "request") as mock_request:
             mock_response = AsyncMock()
             mock_response.json.return_value = mock_response_data
@@ -94,7 +91,7 @@ class TestEmagApiResponseValidation:
             assert "Invalid product ID" in str(exc_info.value)
             assert exc_info.value.status_code == 200
             assert exc_info.value.response == mock_response_data
-        
+
         await api_client.close()
 
     @pytest.mark.asyncio
@@ -119,10 +116,14 @@ class TestEmagApiResponseValidation:
             # Should not raise error if isError is missing or False
             result = await api_client._request("GET", "/test")
             assert result == mock_response_data
-        
+
         await api_client.close()
 
-    @pytest.mark.skip(reason="HTTP error handling is complex with tenacity retry - tested in integration")
+    @pytest.mark.skip(
+        reason=(
+            "HTTP error handling is complex with tenacity retry - tested in integration"
+        )
+    )
     @pytest.mark.asyncio
     async def test_http_error_handling(self, api_client):
         """Test handling of HTTP errors - SKIPPED."""
@@ -202,7 +203,12 @@ class TestEmagApiErrorHandling:
 
     def test_error_initialization(self):
         """Test EmagApiError initialization."""
-        error = EmagApiError("Test error", status_code=400, response={"details": "test"}, error_code="TEST_ERROR")
+        error = EmagApiError(
+            "Test error",
+            status_code=400,
+            response={"details": "test"},
+            error_code="TEST_ERROR",
+        )
 
         assert str(error) == "Test error"
         assert error.status_code == 400

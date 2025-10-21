@@ -10,6 +10,7 @@ This service handles automatic invoice generation and management:
 
 import asyncio
 import hashlib
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -51,12 +52,14 @@ class EmagInvoiceService:
         }
 
         # Invoice storage configuration
-        self.invoice_storage_path = Path("/tmp/magflow/invoices")
+        # Use system temp directory for development, configure via env var for production
+        temp_base = Path(tempfile.gettempdir())
+        self.invoice_storage_path = temp_base / "magflow" / "invoices"
         try:
             self.invoice_storage_path.mkdir(parents=True, exist_ok=True)
         except Exception:
             # Fallback to temp directory if creation fails
-            self.invoice_storage_path = Path("/tmp")
+            self.invoice_storage_path = temp_base
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -164,7 +167,7 @@ class EmagInvoiceService:
         except Exception as e:
             logger.error("Failed to generate invoice data: %s", str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to generate invoice data: {str(e)}")
+            raise ServiceError(f"Failed to generate invoice data: {str(e)}") from e
 
     async def generate_and_attach_invoice(
         self, order_id: int, invoice_url: str | None = None
@@ -229,7 +232,7 @@ class EmagInvoiceService:
             logger.error("Failed to attach invoice: %s", str(e))
             self._metrics["invoices_failed"] += 1
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to attach invoice: {str(e)}")
+            raise ServiceError(f"Failed to attach invoice: {str(e)}") from e
 
     async def bulk_generate_invoices(self, order_ids: list[int]) -> dict[str, Any]:
         """Generate invoices for multiple orders.
@@ -371,9 +374,9 @@ class EmagInvoiceService:
         # For now, return a placeholder URL
         # This should be replaced with actual PDF generation and upload to storage
 
-        # Generate hash for unique URL
+        # Generate hash for unique URL (not for security, just URL versioning)
         hash_input = f"{invoice_number}_{datetime.now(UTC).isoformat()}"
-        url_hash = hashlib.md5(hash_input.encode()).hexdigest()[:8]
+        url_hash = hashlib.md5(hash_input.encode(), usedforsecurity=False).hexdigest()[:8]
 
         # Return placeholder URL (should be actual storage URL in production)
         return f"https://storage.magflow.ro/invoices/{filename}?v={url_hash}"

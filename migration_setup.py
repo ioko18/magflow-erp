@@ -176,11 +176,30 @@ class MigrationEnhancementSetup:
 
         validation_checks = [
             ("Enhanced Alembic config", (self.project_root / "alembic.ini").exists()),
-            ("Migration templates", (self.alembic_dir / "templates").exists()),
-            ("Migration manager", (self.scripts_dir / "migration_manager.py").exists()),
-            ("Migration tests", (self.project_root / "tests" / "test_migration_safety.py").exists()),
-            ("Documentation", (self.docs_dir / "MIGRATION_IMPROVEMENTS.md").exists()),
-            ("Backup directory", (self.project_root / "backups").exists()),
+            (
+                "Migration templates",
+                (self.alembic_dir / "templates").exists(),
+            ),
+            (
+                "Migration manager",
+                (self.scripts_dir / "migration_manager.py").exists(),
+            ),
+            (
+                "Migration tests",
+                (
+                    self.project_root
+                    / "tests"
+                    / "test_migration_safety.py"
+                ).exists(),
+            ),
+            (
+                "Documentation",
+                (self.docs_dir / "MIGRATION_IMPROVEMENTS.md").exists(),
+            ),
+            (
+                "Backup directory",
+                (self.project_root / "backups").exists(),
+            ),
         ]
 
         all_valid = True

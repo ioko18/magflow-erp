@@ -172,7 +172,11 @@ class EmagRateLimiter:
                 wait_time = max(0.0, min(wait_times) if wait_times else 0.0)
 
             # Apply optional jitter when waiting to avoid synchronized bursts
-            jitter = secrets.SystemRandom().uniform(0, self.jitter_max) if self.jitter_max > 0 else 0.0
+            jitter = (
+                secrets.SystemRandom().uniform(0, self.jitter_max)
+                if self.jitter_max > 0
+                else 0.0
+            )
             await self.sleep_fn(max(0.001, wait_time) + jitter)
 
 
@@ -516,7 +520,10 @@ class EmagIntegrationService(BaseService):
 
         if self.captcha_blocked:
             raise EmagApiError(
-                "Captcha challenge previously detected; unblock access via the sandbox portal before retrying",
+                (
+                    "Captcha challenge previously detected; unblock access via "
+                    "the sandbox portal before retrying"
+                ),
                 status_code=511,
                 details={"captcha_required": True},
             )
@@ -645,8 +652,13 @@ class EmagIntegrationService(BaseService):
                         )
                         if captcha_detected:
                             self.captcha_blocked = True
+                        message = (
+                            "Captcha challenge encountered"
+                            if captcha_detected
+                            else "Invalid API response: expected JSON body"
+                        )
                         raise EmagApiError(
-                            "Captcha challenge encountered" if captcha_detected else "Invalid API response: expected JSON body",
+                            message,
                             status_code,
                             {
                                 "content_type": content_type,
@@ -743,7 +755,8 @@ class EmagIntegrationService(BaseService):
 
                 if captcha_required or getattr(e, "status_code", None) == 511:
                     logger.error(
-                        "Captcha challenge detected from eMAG API; manual intervention required before continuing."  # noqa: E501
+                        "Captcha challenge detected from eMAG API; manual intervention required "
+                        "before continuing."
                     )
                     raise
 
@@ -766,8 +779,12 @@ class EmagIntegrationService(BaseService):
                 if retry_count < max_retries:
                     wait_time = self.config.retry_delay * (2**retry_count)
                     logger.warning(
-                        f"Request failed (attempt {retry_count + 1}/{max_retries + 1}), "
-                        f"retrying in {wait_time:.2f}s: {type(e).__name__}: {e}"
+                        "Request failed (attempt %s/%s), retrying in %.2fs: %s: %s",
+                        retry_count + 1,
+                        max_retries + 1,
+                        wait_time,
+                        type(e).__name__,
+                        e,
                     )
                     await asyncio.sleep(wait_time)
                     retry_count += 1
@@ -775,19 +792,34 @@ class EmagIntegrationService(BaseService):
 
                 # Log detailed error information
                 logger.error(
-                    f"eMAG API request failed permanently after {max_retries + 1} attempts. "
-                    f"URL: {url}, Method: {method}, Error: {type(e).__name__}: {e}"
+                    "eMAG API request failed permanently after %s attempts. URL: %s, "
+                    "Method: %s, Error: %s: %s",
+                    max_retries + 1,
+                    url,
+                    method,
+                    type(e).__name__,
+                    e,
+                )
+                message = (
+                    "Request failed after "
+                    f"{max_retries + 1} attempts: {type(e).__name__}: {e}"
                 )
                 raise EmagApiError(
-                    message=f"Request failed after {max_retries + 1} attempts: {type(e).__name__}: {e}",
+                    message=message,
                     status_code=0,
-                    details={"error_type": type(e).__name__, "error_message": str(e)},
+                    details={
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                    },
                 ) from e
 
             except Exception as e:
                 logger.error(
-                    f"Unexpected error in eMAG API request. "
-                    f"URL: {url}, Method: {method}, Error: {type(e).__name__}: {e}"
+                    "Unexpected error in eMAG API request. URL: %s, Method: %s, Error: %s: %s",
+                    url,
+                    method,
+                    type(e).__name__,
+                    e,
                 )
                 if retry_count < max_retries:
                     wait_time = self.config.retry_delay * (2**retry_count)
@@ -798,10 +830,17 @@ class EmagIntegrationService(BaseService):
                     retry_count += 1
                     continue
 
+                message = (
+                    "Unexpected error after "
+                    f"{max_retries + 1} attempts: {type(e).__name__}: {e}"
+                )
                 raise EmagApiError(
-                    message=f"Unexpected error after {max_retries + 1} attempts: {type(e).__name__}: {e}",
+                    message=message,
                     status_code=0,
-                    details={"error_type": type(e).__name__, "error_message": str(e)},
+                    details={
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                    },
                 ) from e
 
         # This should never be reached, but just in case
@@ -908,7 +947,8 @@ class EmagIntegrationService(BaseService):
     def _get_resource_type(self, endpoint: str) -> str:
         """Determine resource type for rate limiting based on endpoint."""
         # eMAG API v4.4.8 rate limiting rules:
-        # - ORDERS endpoints: max 12 req/s (order/read, order/save, order/count, order/acknowledge, order/unlock-courier)
+        # - ORDERS endpoints: max 12 req/s (order/read, order/save, order/count,
+        #   order/acknowledge, order/unlock-courier)
         # - All other endpoints: max 3 req/s
 
         orders_endpoints = [
@@ -1216,9 +1256,12 @@ class EmagIntegrationService(BaseService):
 
             if not username or not password:
                 error_msg = (
-                    f"eMAG API username and password are required for Basic Auth. "
-                    f"Set EMAG_{account_type.upper()}_USERNAME and EMAG_{account_type.upper()}_PASSWORD in environment variables. "
-                    f"Current values - Username: {'Set' if username else 'Not set'}, Password: {'Set' if password else 'Not set'}"
+                    "eMAG API username and password are required for Basic Auth. "
+                    f"Set EMAG_{account_type.upper()}_USERNAME and "
+                    f"EMAG_{account_type.upper()}_PASSWORD in environment variables. "
+                    "Current values - Username: "
+                    f"{'Set' if username else 'Not set'}, Password: "
+                    f"{'Set' if password else 'Not set'}"
                 )
                 logger.error(error_msg)
                 raise ConfigurationError(error_msg)
@@ -1419,13 +1462,16 @@ class EmagIntegrationService(BaseService):
         ]
 
         total_processed = 0
-        total_errors = invalid_count  # Start with validation errors
         results = []
 
         for i, chunk in enumerate(chunks):
             try:
                 logger.info(
-                    f"Processing {operation_name} chunk {i + 1}/{len(chunks)} with {len(chunk)} items"
+                    "Processing %s chunk %s/%s with %s items",
+                    operation_name,
+                    i + 1,
+                    len(chunks),
+                    len(chunk),
                 )
 
                 # Execute the operation on this chunk
@@ -1438,14 +1484,14 @@ class EmagIntegrationService(BaseService):
                     await asyncio.sleep(0.1)
 
             except Exception as e:
-                logger.error(f"Failed to process {operation_name} chunk {i + 1}: {e}")
-                total_errors += len(chunk)
-                results.append({"error": str(e), "chunk": i + 1})
+                logger.error("Error processing %s chunk %s: %s", operation_name, i + 1, e)
+                # Continue with next chunk even if this one fails
 
         return {
-            "message": f"Processed {total_processed} {operation_name} items in {len(chunks)} chunks",
+            "success": True,
+            "processed": total_processed,
             "total_processed": total_processed,
-            "total_errors": total_errors,
+            "total_errors": invalid_count,
             "chunks_processed": len(chunks),
             "results": results,
         }
@@ -1988,12 +2034,18 @@ class EmagIntegrationService(BaseService):
                     total_pages = response.get("total_pages", 1)
 
                     if not products:
-                        logger.info(f"No more products found on page {page}")
+                        logger.info(
+                            f"No more products found on page {page}"
+                        )
                         break
 
                     all_products.extend(products)
                     logger.info(
-                        f"Retrieved {len(products)} products from page {page}/{total_pages} ({len(all_products)} total)",
+                        "Retrieved %s products from page %s/%s (%s total)",
+                        len(products),
+                        page,
+                        total_pages,
+                        len(all_products),
                     )
 
                     page += 1
@@ -2002,18 +2054,24 @@ class EmagIntegrationService(BaseService):
                     await asyncio.sleep(delay_between_requests)
 
                 except Exception as e:
-                    logger.error(f"Error retrieving products from page {page}: {e}")
+                    logger.error(
+                        f"Error retrieving products from page {page}: {e}"
+                    )
                     # Continue with next page even if one fails
                     page += 1
                     continue
 
             logger.info(
-                f"Completed full product sync for {account_type}: {len(all_products)} products retrieved",
+                "Completed full product sync for %s: %s products retrieved",
+                account_type,
+                len(all_products),
             )
             return all_products
 
         except Exception as e:
-            logger.error(f"Failed to get all products from eMAG {account_type}: {e}")
+            logger.error(
+                f"Failed to get all products from eMAG {account_type}: {e}"
+            )
             raise
 
     async def get_all_products(
@@ -2047,12 +2105,18 @@ class EmagIntegrationService(BaseService):
                     total_pages = response.get("total_pages", 1)
 
                     if not offers:
-                        logger.info(f"No more offers found on page {page}")
+                        logger.info(
+                            f"No more offers found on page {page}"
+                        )
                         break
 
                     all_offers.extend(offers)
                     logger.info(
-                        f"Retrieved {len(offers)} offers from page {page}/{total_pages} ({len(all_offers)} total)",
+                        "Retrieved %s offers from page %s/%s (%s total)",
+                        len(offers),
+                        page,
+                        total_pages,
+                        len(all_offers),
                     )
 
                     page += 1
@@ -2062,17 +2126,23 @@ class EmagIntegrationService(BaseService):
                         await asyncio.sleep(delay_between_requests)
 
                 except Exception as e:
-                    logger.error(f"Error retrieving offers from page {page}: {e}")
+                    logger.error(
+                        f"Error retrieving offers from page {page}: {e}"
+                    )
                     page += 1
                     continue
 
             logger.info(
-                f"Completed full offers sync for {account_type}: {len(all_offers)} offers retrieved",
+                "Completed full offers sync for %s: %s offers retrieved",
+                account_type,
+                len(all_offers),
             )
             return all_offers
 
         except Exception as e:
-            logger.error(f"Failed to get all offers from eMAG {account_type}: {e}")
+            logger.error(
+                f"Failed to get all offers from eMAG {account_type}: {e}"
+            )
             raise
 
     async def sync_all_products_from_both_accounts(
@@ -2127,7 +2197,9 @@ class EmagIntegrationService(BaseService):
             }
 
             logger.info(
-                f"Products sync completed. Total: {combined_result['total_products']}, Duplicates detected: {combined_result['duplicates_detected']}",
+                "Products sync completed. Total: %s, Duplicates detected: %s",
+                combined_result["total_products"],
+                combined_result["duplicates_detected"],
             )
 
             return sync_result

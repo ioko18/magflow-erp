@@ -88,7 +88,10 @@ class SupplierRawProduct(Base, TimestampMixin):
 
     # Metadata
     import_batch_id: Mapped[str | None] = mapped_column(String(50), index=True)
-    import_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None))
+    import_date: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+    )
     last_price_check: Mapped[datetime | None] = mapped_column(DateTime)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -105,7 +108,10 @@ class SupplierRawProduct(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<SupplierRawProduct(id={self.id}, supplier={self.supplier_id}, name='{self.chinese_name[:30]}...')>"
+        return (
+            f"<SupplierRawProduct(id={self.id}, supplier={self.supplier_id}, "
+            f"name='{self.chinese_name[:30]}...')>"
+        )
 
 
 class ProductMatchingGroup(Base, TimestampMixin):
@@ -178,7 +184,10 @@ class ProductMatchingGroup(Base, TimestampMixin):
     local_product = relationship("Product")
 
     def __repr__(self) -> str:
-        return f"<ProductMatchingGroup(id={self.id}, name='{self.group_name[:30]}...', products={self.product_count})>"
+        return (
+            f"<ProductMatchingGroup(id={self.id}, name='{self.group_name[:30]}...', "
+            f"products={self.product_count})>"
+        )
 
 
 class ProductMatchingScore(Base, TimestampMixin):
@@ -229,7 +238,10 @@ class ProductMatchingScore(Base, TimestampMixin):
     product_b = relationship("SupplierRawProduct", foreign_keys=[product_b_id])
 
     def __repr__(self) -> str:
-        return f"<ProductMatchingScore(a={self.product_a_id}, b={self.product_b_id}, score={self.total_score:.2f})>"
+        return (
+            f"<ProductMatchingScore(a={self.product_a_id}, b={self.product_b_id}, "
+            f"score={self.total_score:.2f})>"
+        )
 
 
 class SupplierPriceHistory(Base, TimestampMixin):
@@ -271,4 +283,7 @@ class SupplierPriceHistory(Base, TimestampMixin):
     raw_product = relationship("SupplierRawProduct")
 
     def __repr__(self) -> str:
-        return f"<SupplierPriceHistory(product={self.raw_product_id}, price={self.price_cny} CNY, date={self.recorded_at})>"
+        return (
+            f"<SupplierPriceHistory(product={self.raw_product_id}, "
+            f"price={self.price_cny} CNY, date={self.recorded_at})>"
+        )

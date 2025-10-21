@@ -13,12 +13,15 @@ Consolidated from:
 - 4242d9721c62_add_missing_tables.py (audit_logs)
 - 97aa49837ac6_add_product_relationships_tables.py (product_variants, product_genealogy)
 """
+import logging
 from collections.abc import Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from alembic import op
+
+logger = logging.getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision: str = '20251010_add_auxiliary'
@@ -58,10 +61,16 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id'),
             schema='app'
         )
-        op.create_index(op.f('ix_app_audit_logs_id'), 'audit_logs', ['id'], unique=False, schema='app')
-        print("✅ Created audit_logs table")
+        op.create_index(
+            op.f('ix_app_audit_logs_id'),
+            'audit_logs',
+            ['id'],
+            unique=False,
+            schema='app',
+        )
+        logger.info("Created audit_logs table")
     else:
-        print("⏭️  Skipped audit_logs table (already exists)")
+        logger.info("Skipped audit_logs table (already exists)")
 
     # ========================================
     # 2. CREATE PRODUCT_VARIANTS TABLE
@@ -71,15 +80,40 @@ def upgrade() -> None:
     missing_tables = [t for t in required_tables if t not in existing_tables]
 
     if missing_tables:
-        print(f"⚠️  Skipping product_variants migration - missing required tables: {missing_tables}")
-        print("ℹ️  These tables will be created by Base.metadata.create_all() or another migration")
+        logger.warning(
+            "Skipping product_variants migration - missing required tables: %s",
+            missing_tables,
+        )
+        logger.info(
+            "These tables will be created by Base.metadata.create_all() or another migration"
+        )
     elif 'product_variants' not in existing_tables:
         op.create_table(
             'product_variants',
-            sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
-            sa.Column('variant_group_id', postgresql.UUID(as_uuid=True), nullable=False, index=True),
-            sa.Column('local_product_id', sa.Integer(), sa.ForeignKey('app.products.id'), nullable=True),
-            sa.Column('emag_product_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('app.emag_products_v2.id'), nullable=True),
+            sa.Column(
+                'id',
+                postgresql.UUID(as_uuid=True),
+                primary_key=True,
+                server_default=sa.text('gen_random_uuid()'),
+            ),
+            sa.Column(
+                'variant_group_id',
+                postgresql.UUID(as_uuid=True),
+                nullable=False,
+                index=True,
+            ),
+            sa.Column(
+                'local_product_id',
+                sa.Integer(),
+                sa.ForeignKey('app.products.id'),
+                nullable=True,
+            ),
+            sa.Column(
+                'emag_product_id',
+                postgresql.UUID(as_uuid=True),
+                sa.ForeignKey('app.emag_products_v2.id'),
+                nullable=True,
+            ),
             sa.Column('sku', sa.String(100), nullable=False, index=True),
             sa.Column('ean', postgresql.JSONB(), nullable=True),
             sa.Column('part_number_key', sa.String(50), nullable=True, index=True),
@@ -88,35 +122,76 @@ def upgrade() -> None:
             sa.Column('is_primary', sa.Boolean(), nullable=False, default=False),
             sa.Column('is_active', sa.Boolean(), nullable=False, default=True),
             sa.Column('account_type', sa.String(10), nullable=True),
-            sa.Column('parent_variant_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('app.product_variants.id'), nullable=True),
+            sa.Column(
+                'parent_variant_id',
+                postgresql.UUID(as_uuid=True),
+                sa.ForeignKey('app.product_variants.id'),
+                nullable=True,
+            ),
             sa.Column('has_competitors', sa.Boolean(), nullable=False, default=False),
             sa.Column('competitor_count', sa.Integer(), nullable=True),
             sa.Column('last_competitor_check', sa.DateTime(), nullable=True),
-            sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('NOW()')),
-            sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('NOW()')),
+            sa.Column(
+                'created_at',
+                sa.DateTime(),
+                nullable=False,
+                server_default=sa.text('NOW()'),
+            ),
+            sa.Column(
+                'updated_at',
+                sa.DateTime(),
+                nullable=False,
+                server_default=sa.text('NOW()'),
+            ),
             sa.Column('deactivated_at', sa.DateTime(), nullable=True),
             sa.Column('notes', sa.Text(), nullable=True),
             sa.Column('extra_data', postgresql.JSONB(), nullable=True),
             sa.CheckConstraint(
-                "variant_type IN ('original', 'republished', 'competitor_hijacked', 'variation', 'test')",
-                name='ck_product_variants_type'
+                "variant_type IN ('original', 'republished', "
+                "'competitor_hijacked', 'variation', 'test')",
+                name='ck_product_variants_type',
             ),
             sa.CheckConstraint(
                 "account_type IN ('main', 'fbe', 'local', 'both') OR account_type IS NULL",
-                name='ck_product_variants_account'
+                name='ck_product_variants_account',
             ),
             schema='app'
         )
 
         # Create indexes for product_variants
-        op.create_index('idx_product_variants_group', 'product_variants', ['variant_group_id'], schema='app')
-        op.create_index('idx_product_variants_sku', 'product_variants', ['sku'], schema='app')
-        op.create_index('idx_product_variants_pnk', 'product_variants', ['part_number_key'], schema='app')
-        op.create_index('idx_product_variants_active', 'product_variants', ['is_active'], schema='app')
-        op.create_index('idx_product_variants_type', 'product_variants', ['variant_type'], schema='app')
-        print("✅ Created product_variants table")
+        op.create_index(
+            'idx_product_variants_group',
+            'product_variants',
+            ['variant_group_id'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_product_variants_sku',
+            'product_variants',
+            ['sku'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_product_variants_pnk',
+            'product_variants',
+            ['part_number_key'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_product_variants_active',
+            'product_variants',
+            ['is_active'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_product_variants_type',
+            'product_variants',
+            ['variant_type'],
+            schema='app',
+        )
+        logger.info("Created product_variants table")
     else:
-        print("⏭️  Skipped product_variants table (already exists)")
+        logger.info("Skipped product_variants table (already exists)")
 
     # ========================================
     # 3. CREATE PRODUCT_GENEALOGY TABLE
@@ -124,46 +199,96 @@ def upgrade() -> None:
     if not missing_tables and 'product_genealogy' not in existing_tables:
         op.create_table(
             'product_genealogy',
-            sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
-            sa.Column('family_id', postgresql.UUID(as_uuid=True), nullable=False, index=True),
+            sa.Column(
+                'id',
+                postgresql.UUID(as_uuid=True),
+                primary_key=True,
+                server_default=sa.text('gen_random_uuid()'),
+            ),
+            sa.Column(
+                'family_id',
+                postgresql.UUID(as_uuid=True),
+                nullable=False,
+                index=True,
+            ),
             sa.Column('family_name', sa.String(255), nullable=True),
             sa.Column('product_id', postgresql.UUID(as_uuid=True), nullable=False),
             sa.Column('product_type', sa.String(20), nullable=False),
             sa.Column('sku', sa.String(100), nullable=False, index=True),
             sa.Column('generation', sa.Integer(), nullable=False, default=1),
-            sa.Column('parent_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('app.product_genealogy.id'), nullable=True),
+            sa.Column(
+                'parent_id',
+                postgresql.UUID(as_uuid=True),
+                sa.ForeignKey('app.product_genealogy.id'),
+                nullable=True,
+            ),
             sa.Column('is_root', sa.Boolean(), nullable=False, default=False),
             sa.Column('lifecycle_stage', sa.String(50), nullable=False),
-            sa.Column('superseded_by_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('app.product_genealogy.id'), nullable=True),
+            sa.Column(
+                'superseded_by_id',
+                postgresql.UUID(as_uuid=True),
+                sa.ForeignKey('app.product_genealogy.id'),
+                nullable=True,
+            ),
             sa.Column('superseded_at', sa.DateTime(), nullable=True),
             sa.Column('supersede_reason', sa.Text(), nullable=True),
-            sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.text('NOW()')),
-            sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.text('NOW()')),
+            sa.Column(
+                'created_at',
+                sa.DateTime(),
+                nullable=False,
+                server_default=sa.text('NOW()'),
+            ),
+            sa.Column(
+                'updated_at',
+                sa.DateTime(),
+                nullable=False,
+                server_default=sa.text('NOW()'),
+            ),
             sa.Column('extra_data', postgresql.JSONB(), nullable=True),
             sa.Column('notes', sa.Text(), nullable=True),
             sa.CheckConstraint(
                 "product_type IN ('local', 'emag_main', 'emag_fbe')",
-                name='ck_genealogy_product_type'
+                name='ck_genealogy_product_type',
             ),
             sa.CheckConstraint(
                 "lifecycle_stage IN ('active', 'superseded', 'retired', 'archived', 'draft')",
-                name='ck_genealogy_lifecycle'
+                name='ck_genealogy_lifecycle',
             ),
             sa.CheckConstraint(
                 "generation >= 1",
-                name='ck_genealogy_generation'
+                name='ck_genealogy_generation',
             ),
             schema='app'
         )
 
         # Create indexes for product_genealogy
-        op.create_index('idx_genealogy_family', 'product_genealogy', ['family_id'], schema='app')
-        op.create_index('idx_genealogy_sku', 'product_genealogy', ['sku'], schema='app')
-        op.create_index('idx_genealogy_stage', 'product_genealogy', ['lifecycle_stage'], schema='app')
-        op.create_index('idx_genealogy_root', 'product_genealogy', ['is_root'], schema='app')
-        print("✅ Created product_genealogy table")
+        op.create_index(
+            'idx_genealogy_family',
+            'product_genealogy',
+            ['family_id'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_genealogy_sku',
+            'product_genealogy',
+            ['sku'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_genealogy_stage',
+            'product_genealogy',
+            ['lifecycle_stage'],
+            schema='app',
+        )
+        op.create_index(
+            'idx_genealogy_root',
+            'product_genealogy',
+            ['is_root'],
+            schema='app',
+        )
+        logger.info("Created product_genealogy table")
     else:
-        print("⏭️  Skipped product_genealogy table (already exists or missing dependencies)")
+        logger.info("Skipped product_genealogy table (already exists or missing dependencies)")
 
 
 def downgrade() -> None:
@@ -177,33 +302,83 @@ def downgrade() -> None:
     # Drop product_genealogy table
     if 'product_genealogy' in existing_tables:
         try:
-            op.drop_index('idx_genealogy_root', table_name='product_genealogy', schema='app', if_exists=True)
-            op.drop_index('idx_genealogy_stage', table_name='product_genealogy', schema='app', if_exists=True)
-            op.drop_index('idx_genealogy_sku', table_name='product_genealogy', schema='app', if_exists=True)
-            op.drop_index('idx_genealogy_family', table_name='product_genealogy', schema='app', if_exists=True)
+            op.drop_index(
+                'idx_genealogy_root',
+                table_name='product_genealogy',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_genealogy_stage',
+                table_name='product_genealogy',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_genealogy_sku',
+                table_name='product_genealogy',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_genealogy_family',
+                table_name='product_genealogy',
+                schema='app',
+                if_exists=True,
+            )
             op.drop_table('product_genealogy', schema='app')
-            print("✅ Dropped product_genealogy table")
+            logger.info("Dropped product_genealogy table")
         except Exception as e:
-            print(f"⚠️  Error dropping product_genealogy: {e}")
+            logger.warning(f"Error dropping product_genealogy: {e}")
 
     # Drop product_variants table
     if 'product_variants' in existing_tables:
         try:
-            op.drop_index('idx_product_variants_type', table_name='product_variants', schema='app', if_exists=True)
-            op.drop_index('idx_product_variants_active', table_name='product_variants', schema='app', if_exists=True)
-            op.drop_index('idx_product_variants_pnk', table_name='product_variants', schema='app', if_exists=True)
-            op.drop_index('idx_product_variants_sku', table_name='product_variants', schema='app', if_exists=True)
-            op.drop_index('idx_product_variants_group', table_name='product_variants', schema='app', if_exists=True)
+            op.drop_index(
+                'idx_product_variants_type',
+                table_name='product_variants',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_product_variants_active',
+                table_name='product_variants',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_product_variants_pnk',
+                table_name='product_variants',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_product_variants_sku',
+                table_name='product_variants',
+                schema='app',
+                if_exists=True,
+            )
+            op.drop_index(
+                'idx_product_variants_group',
+                table_name='product_variants',
+                schema='app',
+                if_exists=True,
+            )
             op.drop_table('product_variants', schema='app')
-            print("✅ Dropped product_variants table")
+            logger.info("Dropped product_variants table")
         except Exception as e:
-            print(f"⚠️  Error dropping product_variants: {e}")
+            logger.warning(f"Error dropping product_variants: {e}")
 
     # Drop audit_logs table
     if 'audit_logs' in existing_tables:
         try:
-            op.drop_index(op.f('ix_app_audit_logs_id'), table_name='audit_logs', schema='app', if_exists=True)
+            op.drop_index(
+                op.f('ix_app_audit_logs_id'),
+                table_name='audit_logs',
+                schema='app',
+                if_exists=True,
+            )
             op.drop_table('audit_logs', schema='app')
-            print("✅ Dropped audit_logs table")
+            logger.info("Dropped audit_logs table")
         except Exception as e:
-            print(f"⚠️  Error dropping audit_logs: {e}")
+            logger.warning(f"Error dropping audit_logs: {e}")

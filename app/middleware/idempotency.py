@@ -65,7 +65,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if any(ord(c) < 0x20 or ord(c) > 0x7E for c in key):
             return (
                 False,
-                "Idempotency key contains invalid characters. Only printable ASCII characters are allowed",
+                (
+                    "Idempotency key contains invalid characters. Only printable "
+                    "ASCII characters are allowed"
+                ),
             )
 
         return True, ""
@@ -265,7 +268,10 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             if "relation " in str(e) and " does not exist" in str(e):
                 logger.warning(
-                    "Idempotency keys table does not exist. Continuing without idempotency tracking.",
+                    (
+                        "Idempotency keys table does not exist. Continuing without "
+                        "idempotency tracking."
+                    ),
                 )
                 return await call_next(request)
             raise

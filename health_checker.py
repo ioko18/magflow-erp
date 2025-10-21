@@ -16,7 +16,10 @@ from typing import Any
 import psutil
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
 logger = logging.getLogger(__name__)
 
 class HealthStatus(Enum):
@@ -171,8 +174,14 @@ class HealthChecker:
                 return HealthCheckResult(
                     component="database",
                     status=HealthStatus.DEGRADED,
-                    message=f"Some database connections failed ({success_count}/{len(db_configs)} working)",
-                    details={"working_connections": success_count, "avg_response_time_ms": avg_response_time}
+                    message=(
+                        "Some database connections failed "
+                        f"({success_count}/{len(db_configs)} working)"
+                    ),
+                    details={
+                        "working_connections": success_count,
+                        "avg_response_time_ms": avg_response_time,
+                    }
                 )
             else:
                 return HealthCheckResult(
@@ -276,13 +285,20 @@ class HealthChecker:
                 emag_base_url = os.getenv('EMAG_API_BASE_URL', 'https://marketplace-api.emag.ro/api-3')
                 timeout = int(os.getenv('EMAG_REQUEST_TIMEOUT', '30'))
 
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+                async with aiohttp.ClientSession(
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                ) as session:
                     # Simple connectivity test (not a full API call)
                     try:
-                        async with session.get(emag_base_url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                        async with session.get(
+                            emag_base_url,
+                            timeout=aiohttp.ClientTimeout(total=10),
+                        ) as response:
                             # Just check if we get a response (even if it's an error)
                             status = response.status
-                            return status >= 200 and status < 500  # Any HTTP response is considered "reachable"
+                            is_reachable = 200 <= status < 500
+                            # Any HTTP response is considered "reachable"
+                            return is_reachable
                     except Exception:
                         # If we can't even reach the endpoint
                         return False
@@ -510,12 +526,16 @@ class HealthChecker:
             overall_status = HealthStatus.DEGRADED
 
         # Collect metrics
+        healthy_components = sum(
+            1 for result in components.values() if result.status == HealthStatus.HEALTHY
+        )
+
         metrics = {
             "uptime_seconds": self.get_uptime(),
             "total_components": len(components),
-            "healthy_components": sum(1 for r in components.values() if r.status == HealthStatus.HEALTHY),
+            "healthy_components": healthy_components,
             "degraded_components": degraded_count,
-            "unhealthy_components": unhealthy_count
+            "unhealthy_components": unhealthy_count,
         }
 
         return SystemHealthReport(
@@ -536,13 +556,32 @@ def format_health_report_html(report: SystemHealthReport) -> str:
         <title>MagFlow ERP - Health Report</title>
         <style>
             body {{ font-family: Arial, sans-serif; margin: 20px; }}
-            .header {{ background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px; }}
-            .component {{ margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }}
+            .header {{
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 5px;
+                margin-bottom: 20px;
+            }}
+            .component {{
+                margin: 10px 0;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }}
             .healthy {{ border-left: 5px solid green; }}
             .degraded {{ border-left: 5px solid orange; }}
             .unhealthy {{ border-left: 5px solid red; }}
-            .metrics {{ background-color: #e9ecef; padding: 15px; border-radius: 5px; }}
-            .status-badge {{ padding: 4px 8px; border-radius: 3px; color: white; font-weight: bold; }}
+            .metrics {{
+                background-color: #e9ecef;
+                padding: 15px;
+                border-radius: 5px;
+            }}
+            .status-badge {{
+                padding: 4px 8px;
+                border-radius: 3px;
+                color: white;
+                font-weight: bold;
+            }}
             .overall-healthy {{ background-color: green; }}
             .overall-degraded {{ background-color: orange; }}
             .overall-unhealthy {{ background-color: red; }}

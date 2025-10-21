@@ -45,7 +45,10 @@ async def get_all_emag_products(
         await service.initialize()
 
         logger.info(
-            f"Fetching products from eMAG - account: {account_type}, limit: {limit}, offset: {offset}"
+            "Fetching products from eMAG - account: %s, limit: %s, offset: %s",
+            account_type,
+            limit,
+            offset,
         )
 
         try:

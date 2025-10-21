@@ -29,7 +29,11 @@ MOCK_USER = UserInDB(
     full_name="Admin User",
     is_active=True,
     is_superuser=True,
-    hashed_password="$2b$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",  # password = "secret"
+    hashed_password=(
+        "$2b$12$92IXUNpkjO0rOQ5byMi.Ye4o"
+        "KoEa3Ro9llC/.og/at2.uheWG/igi"
+    ),
+    # password = "secret"
 )
 
 # OAuth2 scheme for token authentication
@@ -56,7 +60,8 @@ def _normalize_alg(algorithm: str | None) -> str:
     alg = (algorithm or settings.jwt_algorithm).upper()
     if alg not in SUPPORTED_ALGORITHMS:
         raise ValueError(
-            f"Unsupported JWT algorithm '{alg}'. Supported algorithms: {', '.join(SUPPORTED_ALGORITHMS)}",
+            "Unsupported JWT algorithm "
+            f"'{alg}'. Supported algorithms: {', '.join(SUPPORTED_ALGORITHMS)}",
         )
     return alg
 
@@ -206,8 +211,8 @@ def decode_token(
             try:
                 key = key_manager.get_key(kid)
                 verification_key = key.public_key
-            except KeyError:
-                raise JWTError(f"No public key found for kid: {kid}")
+            except KeyError as e:
+                raise JWTError(f"No public key found for kid: {kid}") from e
 
         # Set default options if not provided
         if options is None:
@@ -348,7 +353,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid token: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
     except Exception as e:
         import logging
 
@@ -357,7 +362,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Authentication error: {str(e)}",
-        )
+        ) from e
 
 
 async def get_current_active_user(

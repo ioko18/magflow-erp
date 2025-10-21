@@ -176,8 +176,14 @@ class EmagIntegrationVerifier:
         """Test all API endpoints"""
         endpoints = {
             "health": "/health",
-            "products_all": "/api/v1/emag/enhanced/products/all?account_type=both&max_pages_per_account=1",
-            "offers_all": "/api/v1/emag/enhanced/offers/all?account_type=both&max_pages_per_account=1",
+            "products_all": (
+                "/api/v1/emag/enhanced/products/all?account_type=both"
+                "&max_pages_per_account=1"
+            ),
+            "offers_all": (
+                "/api/v1/emag/enhanced/offers/all?account_type=both"
+                "&max_pages_per_account=1"
+            ),
             "status_main": "/api/v1/emag/enhanced/status?account_type=main",
             "status_fbe": "/api/v1/emag/enhanced/status?account_type=fbe",
             "sync_progress": "/api/v1/emag/enhanced/products/sync-progress",
@@ -311,7 +317,8 @@ class EmagIntegrationVerifier:
         print(f"🏪 FBE Products: {summary['fbe_products']} (Target: 100)")
         print(f"🛒 Total Offers: {summary['total_offers']}")
         print(
-            f"🌐 API Endpoints: {summary['api_endpoints_working']}/{summary['total_api_endpoints']} working"
+            f"🌐 API Endpoints: {summary['api_endpoints_working']}/"
+            f"{summary['total_api_endpoints']} working"
         )
         print(f"📱 Frontend: {'✅' if summary['frontend_accessible'] else '❌'}")
         print(f"❌ Errors: {summary['errors_count']}")

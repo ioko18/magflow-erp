@@ -508,8 +508,8 @@ async def startup_probe() -> dict[str, Any]:
     if v1_health and hasattr(v1_health, "update_health_metrics"):
         try:
             v1_health.update_health_metrics({"probe": "startup", "elapsed": elapsed})
-        except Exception:  # pragma: no cover - ignore metrics failures
-            pass
+        except Exception as e:  # pragma: no cover - ignore metrics failures
+            logger.debug("Failed to update health metrics: %s", str(e))
 
     services_ready = all(
         str(status).lower() in {"ready", "ok", "healthy"}
@@ -591,7 +591,9 @@ def get_circuit_breakers_status() -> dict[str, dict[str, Any]]:
         from app.core.circuit_breaker import DATABASE_CIRCUIT_BREAKER, CircuitState
 
         logger.debug(
-            f"[CIRCUIT_BREAKER] Getting circuit breaker status for database (instance id: {id(DATABASE_CIRCUIT_BREAKER)})"
+            "[CIRCUIT_BREAKER] Getting circuit breaker status for database "
+            "(instance id: %s)",
+            id(DATABASE_CIRCUIT_BREAKER),
         )
 
         # Get the current state and other attributes with the lock held
@@ -610,7 +612,9 @@ def get_circuit_breakers_status() -> dict[str, dict[str, Any]]:
             opened_at = DATABASE_CIRCUIT_BREAKER._opened_at
 
             logger.debug(
-                f"[CIRCUIT_BREAKER] Current state: {current_state} (raw state: {DATABASE_CIRCUIT_BREAKER._state})"
+                "[CIRCUIT_BREAKER] Current state: %s (raw state: %s)",
+                current_state,
+                DATABASE_CIRCUIT_BREAKER._state,
             )
             logger.debug(
                 f"[CIRCUIT_BREAKER] Failure count: {failure_count}/{failure_threshold}"

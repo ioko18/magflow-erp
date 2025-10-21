@@ -35,7 +35,12 @@ async def create_return_request(
     """Create a new return request."""
     # Generate return number
 
-    return_number = f"RMA-{datetime.now().strftime('%Y%m%d')}-{abs(hash(str(order_id or emag_order_id) + (customer_email or ''))) % 10000:04d}"
+    return_number = (
+        "RMA-"
+        f"{datetime.now().strftime('%Y%m%d')}"
+        "-"
+        f"{abs(hash(str(order_id or emag_order_id) + (customer_email or ''))) % 10000:04d}"
+    )
 
     # Create return request
     return_request = ReturnRequest(
@@ -251,7 +256,12 @@ async def process_return_refund(
         refund_amount = sum(item.total_amount for item in approved_items)
 
     # Create refund transaction
-    transaction_id = f"REF-{datetime.now().strftime('%Y%m%d')}-{abs(hash(str(request_id) + str(refund_amount))) % 10000:04d}"
+    transaction_id = (
+        "REF-"
+        f"{datetime.now().strftime('%Y%m%d')}"
+        "-"
+        f"{abs(hash(str(request_id) + str(refund_amount))) % 10000:04d}"
+    )
 
     from app.models.rma import RefundTransaction
 

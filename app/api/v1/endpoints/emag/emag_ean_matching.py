@@ -58,7 +58,7 @@ async def find_products_by_eans(
 
     except Exception as e:
         logger.error(f"EAN search error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"EAN search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"EAN search failed: {str(e)}") from e
 
 
 @router.get("/phase2/ean/validate/{ean}")
@@ -95,7 +95,7 @@ async def validate_ean(
 
     except Exception as e:
         logger.error(f"EAN validation error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"EAN validation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"EAN validation failed: {str(e)}") from e
 
 
 @router.post("/phase2/ean/search")
@@ -110,7 +110,9 @@ async def search_by_ean(
     """
     try:
         logger.info(
-            f"EAN search (phase2) requested by {current_user.email} for {len(request.ean_codes)} EANs"
+            "EAN search (phase2) requested by %s for %d EANs",
+            current_user.email,
+            len(request.ean_codes),
         )
 
         async with EmagEANMatchingService(request.account_type) as service:
@@ -125,4 +127,4 @@ async def search_by_ean(
 
     except Exception as e:
         logger.error(f"EAN search (phase2) error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"EAN search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"EAN search failed: {str(e)}") from e

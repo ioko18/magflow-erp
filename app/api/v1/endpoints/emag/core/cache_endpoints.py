@@ -39,7 +39,7 @@ async def get_cache_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get cache stats: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/invalidate/{cache_name}")
@@ -85,7 +85,7 @@ async def invalidate_cache_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to invalidate cache: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/invalidate-all")
@@ -115,4 +115,4 @@ async def invalidate_all_caches(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to invalidate all caches: {str(e)}",
-        )
+        ) from e

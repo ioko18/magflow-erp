@@ -2,7 +2,6 @@
 Enhanced eMAG API Client with improved error handling and retry logic.
 """
 
-import asyncio
 import logging
 from typing import Any
 
@@ -68,7 +67,7 @@ class EmagApiClient:
         "retry": retry_if_exception_type(
             (
                 aiohttp.ClientError,
-                asyncio.TimeoutError,
+                TimeoutError,
             )
         ),
         "before_sleep": before_sleep_log(logger, logging.WARNING),
@@ -80,7 +79,7 @@ class EmagApiClient:
         username: str,
         password: str,
         base_url: str = "https://marketplace-api.emag.ro/api-3",
-        timeout: int = 30,
+        timeout: int = 60,
         max_retries: int = 3,
         use_rate_limiter: bool = True,
     ):
@@ -90,14 +89,14 @@ class EmagApiClient:
             username: eMAG API username/email
             password: eMAG API password
             base_url: Base URL for the eMAG API
-            timeout: Request timeout in seconds
+            timeout: Request timeout in seconds (default 60s for large product lists)
             max_retries: Maximum number of retry attempts
             use_rate_limiter: Whether to use the new rate limiter
         """
         self.username = username
         self.password = password
         self.base_url = base_url.rstrip("/")
-        self.timeout = aiohttp.ClientTimeout(total=timeout)
+        self.timeout = aiohttp.ClientTimeout(total=timeout, connect=10, sock_read=timeout)
         self.max_retries = max_retries
         self._session: ClientSession | None = None
         self._auth = aiohttp.BasicAuth(username, password)
@@ -137,7 +136,7 @@ class EmagApiClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
-        retry=retry_if_exception_type((aiohttp.ClientError, asyncio.TimeoutError)),
+        retry=retry_if_exception_type((aiohttp.ClientError, TimeoutError)),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
@@ -157,6 +156,13 @@ class EmagApiClient:
                 raise
 
         url = f"{self.base_url}/{endpoint.lstrip('/')}"
+
+        # Log request details for debugging
+        request_data = kwargs.get('json', {})
+        logger.debug(
+            f"eMAG API Request: {method} {url}\n"
+            f"Payload: {request_data}"
+        )
 
         try:
             async with self._session.request(method, url, **kwargs) as response:
@@ -194,25 +200,29 @@ class EmagApiClient:
 
         except ClientResponseError as e:
             error_msg = str(e)
+            # Try to parse error response, but don't fail if connection is closed
             try:
-                error_data = await response.json()
-                if (
-                    isinstance(error_data, dict)
-                    and "messages" in error_data
-                    and error_data["messages"]
-                ):
-                    error_msg = error_data["messages"][0]
-                elif isinstance(error_data, dict) and "message" in error_data:
-                    error_msg = error_data["message"]
-                elif isinstance(error_data, str):
-                    error_msg = error_data
+                if hasattr(response, 'json'):
+                    error_data = await response.json()
+                    if (
+                        isinstance(error_data, dict)
+                        and "messages" in error_data
+                        and error_data["messages"]
+                    ):
+                        error_msg = error_data["messages"][0]
+                    elif isinstance(error_data, dict) and "message" in error_data:
+                        error_msg = error_data["message"]
+                    elif isinstance(error_data, str):
+                        error_msg = error_data
             except (
                 aiohttp.ClientError,
                 ValueError,
                 KeyError,
                 IndexError,
+                AttributeError,
             ) as parse_error:
-                logger.warning(f"Failed to parse error response: {parse_error}")
+                # Connection closed or other parsing error - use original error message
+                logger.debug(f"Could not parse error response: {parse_error}")
 
             raise EmagApiError(
                 f"HTTP {e.status}: {error_msg}",
@@ -220,8 +230,24 @@ class EmagApiClient:
                 response=getattr(e, "response", None),
             ) from e
 
-        except (TimeoutError, aiohttp.ClientError) as e:
-            raise EmagApiError(f"Request failed: {str(e)}") from e
+        except TimeoutError as e:
+            # Provide detailed timeout error message
+            error_msg = (
+                f"Request timeout after {self.timeout.total}s for {method} {endpoint}. "
+                "The eMAG API did not respond in time. This may be due to high server load or "
+                "network issues. Please try again later or contact support if the issue persists."
+            )
+            logger.error(error_msg)
+            raise EmagApiError(error_msg, status_code=408) from e
+        except aiohttp.ClientError as e:
+            # Provide detailed client error message
+            error_msg = (
+                f"Network error for {method} {endpoint}: {type(e).__name__} - "
+                f"{str(e) or 'Connection failed'}. "
+                "Please check your network connection and try again."
+            )
+            logger.error(error_msg)
+            raise EmagApiError(error_msg) from e
 
     async def get_products(
         self,
@@ -366,7 +392,78 @@ class EmagApiClient:
         if currency_type is not None:
             data["currency_type"] = currency_type
 
-        return await self._request("POST", "offer/save", json=data)
+        # IMPORTANT: Light Offer API expects an ARRAY of offers, not a single dict
+        payload = [data]
+        logger.info(f"Sending to offer/save endpoint: {payload}")
+        return await self._request("POST", "offer/save", json=payload)
+
+    async def update_product_offer(
+        self,
+        product_id: int,
+        sale_price: float | None = None,
+        recommended_price: float | None = None,
+        min_sale_price: float | None = None,
+        max_sale_price: float | None = None,
+        stock: list | None = None,
+        handling_time: list | None = None,
+        vat_id: int | None = None,
+        status: int | None = None,
+    ) -> dict[str, Any]:
+        """Update existing offer using Traditional API (product_offer/save).
+
+        This is the traditional endpoint that wraps payload in array format.
+        More reliable than Light API for price updates.
+
+        Args:
+            product_id: Seller internal product ID (required)
+            sale_price: Sale price without VAT
+            recommended_price: Recommended retail price without VAT
+            min_sale_price: Minimum sale price
+            max_sale_price: Maximum sale price
+            stock: Stock array [{"warehouse_id": 1, "value": 25}]
+            handling_time: Handling time array [{"warehouse_id": 1, "value": 1}]
+            vat_id: VAT rate ID
+            status: Offer status (0=inactive, 1=active, 2=end of life)
+
+        Returns:
+            Dictionary containing the API response
+
+        Example:
+            await client.update_product_offer(
+                product_id=243409,
+                sale_price=179.99,
+                status=1,
+                vat_id=1,
+                stock=[{"warehouse_id": 1, "value": 25}],
+                handling_time=[{"warehouse_id": 1, "value": 1}]
+            )
+        """
+        # Build payload (array format for product_offer/save)
+        payload_item = {"id": product_id}
+
+        # Only include fields that are provided
+        if sale_price is not None:
+            payload_item["sale_price"] = round(float(sale_price), 4)
+        if recommended_price is not None:
+            payload_item["recommended_price"] = round(float(recommended_price), 4)
+        if min_sale_price is not None:
+            payload_item["min_sale_price"] = round(float(min_sale_price), 4)
+        if max_sale_price is not None:
+            payload_item["max_sale_price"] = round(float(max_sale_price), 4)
+        if stock is not None:
+            payload_item["stock"] = stock
+        if handling_time is not None:
+            payload_item["handling_time"] = handling_time
+        if vat_id is not None:
+            payload_item["vat_id"] = int(vat_id)
+        if status is not None:
+            payload_item["status"] = int(status)
+
+        # Wrap in array (required by product_offer/save)
+        payload = [payload_item]
+
+        logger.debug(f"Sending to product_offer/save endpoint: {payload}")
+        return await self._request("POST", "product_offer/save", json=payload)
 
     async def find_products_by_eans(self, eans: list[str]) -> dict[str, Any]:
         """Search products by EAN codes (v4.4.9).
@@ -977,7 +1074,7 @@ class EmagApiClient:
 #         try:
 #             # Get products
 #             products = await client.get_products()
-#             print(f"Found {len(products.get('results', []))} products")
+#             logger.info(f"Found {len(products.get('results', []))} products")
 #
 #             # Update stock quickly
 #             await client.update_stock_only(243409, 1, 50)
@@ -988,4 +1085,4 @@ class EmagApiClient:
 #             # Acknowledge order
 #             await client.acknowledge_order(939393)
 #         except EmagApiError as e:
-#             print(f"Error: {e}")
+#             logger.error(f"Error: {e}")

@@ -199,7 +199,10 @@ class SupplierPerformance(Base, TimestampMixin):
     )
 
     def __repr__(self) -> str:
-        return f"<SupplierPerformance(supplier={self.supplier_id}, type={self.metric_type}, value={self.metric_value})>"
+        return (
+            f"<SupplierPerformance(supplier={self.supplier_id}, "
+            f"type={self.metric_type}, value={self.metric_value})>"
+        )
 
 
 # PurchaseOrder and related models are now defined in app.models.purchase

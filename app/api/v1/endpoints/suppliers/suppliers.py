@@ -26,9 +26,11 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.models.product import Product
+from app.models.product_supplier_sheet import ProductSupplierSheet
 from app.models.purchase import PurchaseOrder
 from app.models.supplier import Supplier, SupplierPerformance, SupplierProduct
 from app.security.jwt import get_current_user
@@ -426,7 +428,8 @@ async def get_supplier_products(
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Get all products for a specific supplier with optional status filtering and token analysis."""
+    """Get all products for a specific supplier with optional status filtering """
+    """and token analysis."""
 
     # Build query
     query = select(SupplierProduct).where(SupplierProduct.supplier_id == supplier_id)
@@ -905,42 +908,165 @@ async def match_supplier_product(
     """Manually match a supplier product to a local product."""
 
     try:
-        # Get supplier product
-        sp_query = select(SupplierProduct).where(
-            and_(
-                SupplierProduct.id == product_id,
-                SupplierProduct.supplier_id == supplier_id,
+        # Validate required fields
+        local_product_id = match_data.get("local_product_id")
+        if not local_product_id:
+            raise HTTPException(
+                status_code=400,
+                detail="local_product_id is required in match_data"
+            )
+
+        # Get supplier product with supplier relationship preloaded
+        sp_query = (
+            select(SupplierProduct)
+            .options(selectinload(SupplierProduct.supplier))
+            .where(
+                and_(
+                    SupplierProduct.id == product_id,
+                    SupplierProduct.supplier_id == supplier_id,
+                )
             )
         )
         sp_result = await db.execute(sp_query)
         supplier_product = sp_result.scalar_one_or_none()
 
         if not supplier_product:
-            raise HTTPException(status_code=404, detail="Supplier product not found")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Supplier product with ID {product_id} not found for supplier {supplier_id}"
+            )
+
+        # Validate that local product exists
+        local_product_query = select(Product).where(Product.id == local_product_id)
+        local_product_result = await db.execute(local_product_query)
+        local_product = local_product_result.scalar_one_or_none()
+
+        if not local_product:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Local product with ID {local_product_id} not found"
+            )
+
+        # Check if this supplier product is already matched to a different product
+        if (supplier_product.local_product_id and
+            supplier_product.local_product_id != local_product_id and
+            supplier_product.manual_confirmed):
+            logger.warning(
+                f"Supplier product {product_id} is already matched to product "
+                f"{supplier_product.local_product_id}, overwriting with {local_product_id}"
+            )
 
         # Update supplier product with match
-        supplier_product.local_product_id = match_data.get("local_product_id")
+        supplier_product.local_product_id = local_product_id
         supplier_product.confidence_score = match_data.get("confidence_score", 1.0)
         supplier_product.manual_confirmed = match_data.get("manual_confirmed", True)
         supplier_product.confirmed_by = current_user.id
-        supplier_product.confirmed_at = datetime.now(UTC)
+        supplier_product.confirmed_at = datetime.now(UTC).replace(tzinfo=None)
+        supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
+        # Auto-sync verification to ProductSupplierSheet BEFORE commit
+        sync_result = None
+        synced_count = 0
+        try:
+            supplier_name = supplier_product.supplier.name if supplier_product.supplier else None
+            supplier_url = supplier_product.supplier_product_url
+
+            if supplier_name or supplier_url:
+                # Get all sheet entries for this SKU
+                sheet_query = (
+                    select(ProductSupplierSheet)
+                    .where(
+                        and_(
+                            ProductSupplierSheet.sku == local_product.sku,
+                            ProductSupplierSheet.is_active.is_(True),
+                        )
+                    )
+                )
+                sheet_result = await db.execute(sheet_query)
+                supplier_sheets = sheet_result.scalars().all()
+
+                # Try to match by URL first (most reliable), then by name
+                for sheet in supplier_sheets:
+                    matched = False
+
+                    # Match by URL (if both have URLs)
+                    if supplier_url and sheet.supplier_url:
+                        if supplier_url.strip().lower() == sheet.supplier_url.strip().lower():
+                            matched = True
+                            logger.info(f"Matched by URL: {supplier_url}")
+
+                    # Match by name (fuzzy)
+                    if not matched and supplier_name:
+                        # Bidirectional fuzzy match
+                        name_lower = supplier_name.lower()
+                        sheet_name_lower = sheet.supplier_name.lower()
+                        if (name_lower in sheet_name_lower or
+                            sheet_name_lower in name_lower or
+                            sheet_name_lower.replace(" ", "") == name_lower.replace(" ", "")):
+                            matched = True
+                            logger.info(f"Matched by name: {supplier_name} ~ {sheet.supplier_name}")
+
+                    if matched:
+                        sheet.is_verified = supplier_product.manual_confirmed
+                        sheet.verified_by = str(current_user.id)
+                        sheet.verified_at = supplier_product.confirmed_at
+                        synced_count += 1
+                        logger.info(f"Synced verification for sheet ID {sheet.id}")
+
+                if synced_count > 0:
+                    sync_result = f"synced_{synced_count}_sheets"
+                    logger.info(
+                        "Auto-synced %s ProductSupplierSheet entries for SKU %s",
+                        synced_count,
+                        local_product.sku,
+                    )
+                else:
+                    sync_result = "no_matching_sheets_found"
+                    logger.info(
+                        "No matching ProductSupplierSheet found for SKU %s",
+                        local_product.sku,
+                    )
+
+        except Exception as sync_error:
+            logger.warning(f"Failed to auto-sync to ProductSupplierSheet: {sync_error}")
+            # Don't fail the main operation if sync fails
+            sync_result = "sync_failed"
+
+        # Commit everything together (SupplierProduct + ProductSupplierSheet)
         await db.commit()
+        await db.refresh(supplier_product)
+
+        logger.info(
+            f"Successfully matched supplier product {product_id} to local product "
+            f"{local_product_id} by user {current_user.id}"
+        )
 
         return {
             "status": "success",
             "data": {
                 "message": "Product matched successfully",
                 "supplier_product_id": product_id,
-                "local_product_id": match_data.get("local_product_id"),
+                "local_product_id": local_product_id,
+                "local_product_sku": local_product.sku,
+                "local_product_name": local_product.name,
+                "confidence_score": supplier_product.confidence_score,
+                "manual_confirmed": supplier_product.manual_confirmed,
+                "sync_status": sync_result,
             },
         }
 
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(
+            f"Error matching supplier product {product_id} to local product: {str(e)}",
+            exc_info=True
+        )
         await db.rollback()
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to match product: {str(e)}"
+        ) from e
 
 
 @router.delete("/{supplier_id}/products/{product_id}/match")
@@ -1012,6 +1138,430 @@ async def unmatch_supplier_product(
             f"Error unmatching product {product_id} from supplier {supplier_id}: {str(e)}",
             exc_info=True,
         )
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/{supplier_id}/products/{product_id}")
+async def get_supplier_product(
+    supplier_id: int,
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Get details of a specific supplier product."""
+
+    try:
+        # Get supplier product with relationships
+        query = (
+            select(SupplierProduct)
+            .where(
+                and_(
+                    SupplierProduct.supplier_id == supplier_id,
+                    SupplierProduct.id == product_id,
+                )
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        # Get local product if matched
+        local_product = None
+        if supplier_product.local_product_id:
+            local_query = select(Product).where(Product.id == supplier_product.local_product_id)
+            local_result = await db.execute(local_query)
+            local_product = local_result.scalar_one_or_none()
+
+        return {
+            "status": "success",
+            "data": {
+                "id": supplier_product.id,
+                "supplier_id": supplier_product.supplier_id,
+                "supplier_product_name": supplier_product.supplier_product_name,
+                "supplier_product_url": supplier_product.supplier_product_url,
+                "supplier_price": (
+                    float(supplier_product.supplier_price)
+                    if supplier_product.supplier_price
+                    else None
+                ),
+                "supplier_currency": supplier_product.supplier_currency,
+                "local_product_id": supplier_product.local_product_id,
+                "local_product": (
+                    {
+                        "id": local_product.id,
+                        "sku": local_product.sku,
+                        "name": local_product.name,
+                        "base_price": float(local_product.base_price),
+                    }
+                    if local_product
+                    else None
+                ),
+                "confidence_score": (
+                    float(supplier_product.confidence_score)
+                    if supplier_product.confidence_score
+                    else 0.0
+                ),
+                "manual_confirmed": supplier_product.manual_confirmed,
+                "confirmed_by": supplier_product.confirmed_by,
+                "confirmed_at": (
+                    supplier_product.confirmed_at.isoformat()
+                    if supplier_product.confirmed_at
+                    else None
+                ),
+                "created_at": (
+                    supplier_product.created_at.isoformat()
+                    if supplier_product.created_at
+                    else None
+                ),
+                "updated_at": (
+                    supplier_product.updated_at.isoformat()
+                    if supplier_product.updated_at
+                    else None
+                ),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting supplier product {product_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.delete("/{supplier_id}/products/{product_id}")
+async def delete_supplier_product(
+    supplier_id: int,
+    product_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Delete a specific supplier product."""
+
+    try:
+        # Get supplier product
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.id == product_id,
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        # Delete the product
+        await db.delete(supplier_product)
+        await db.commit()
+
+        logger.info(
+            "Successfully deleted supplier product %s from supplier %s",
+            product_id,
+            supplier_id,
+        )
+
+        return {
+            "status": "success",
+            "data": {
+                "message": "Supplier product deleted successfully",
+                "deleted_product_id": product_id,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting supplier product {product_id}: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/{supplier_id}/products/{product_id}")
+async def update_supplier_product(
+    supplier_id: int,
+    product_id: int,
+    update_data: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Update supplier product fields (price, name, etc.)."""
+
+    try:
+        # Get supplier product
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.id == product_id,
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        # Update allowed fields
+        allowed_fields = {
+            "supplier_price",
+            "supplier_product_name",
+            "supplier_product_url",
+            "supplier_currency",
+        }
+
+        updated_fields = []
+        for field, value in update_data.items():
+            if field in allowed_fields and hasattr(supplier_product, field):
+                setattr(supplier_product, field, value)
+                updated_fields.append(field)
+
+        if updated_fields:
+            supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await db.commit()
+            await db.refresh(supplier_product)
+
+            logger.info(
+                f"Updated supplier product {product_id}: {', '.join(updated_fields)}"
+            )
+
+        return {
+            "status": "success",
+            "data": {
+                "message": "Supplier product updated successfully",
+                "product_id": product_id,
+                "updated_fields": updated_fields,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating supplier product {product_id}: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/{supplier_id}/products/{product_id}/chinese-name")
+async def update_supplier_product_chinese_name(
+    supplier_id: int,
+    product_id: int,
+    update_data: dict[str, str],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Update supplier product Chinese name.
+
+    Args:
+        supplier_id: ID of the supplier
+        product_id: ID of the supplier product
+        update_data: Dictionary containing 'chinese_name' field
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Success response with updated chinese name
+
+    Raises:
+        HTTPException: If product not found or update fails
+    """
+
+    try:
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.id == product_id,
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        chinese_name = update_data.get("chinese_name")
+        if chinese_name is not None:
+            # Validate length
+            if len(chinese_name) > 500:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Chinese name too long (max 500 characters)"
+                )
+
+            supplier_product.supplier_product_chinese_name = chinese_name
+            supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await db.commit()
+            await db.refresh(supplier_product)
+
+        return {
+            "status": "success",
+            "data": {
+                "message": "Chinese name updated successfully",
+                "chinese_name": supplier_product.supplier_product_chinese_name,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/{supplier_id}/products/{product_id}/specification")
+async def update_supplier_product_specification(
+    supplier_id: int,
+    product_id: int,
+    update_data: dict[str, str],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Update supplier product specification.
+
+    Args:
+        supplier_id: ID of the supplier
+        product_id: ID of the supplier product
+        update_data: Dictionary containing 'specification' field
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Success response with updated specification
+
+    Raises:
+        HTTPException: If product not found or update fails
+    """
+
+    try:
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.id == product_id,
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        specification = update_data.get("specification")
+        if specification is not None:
+            # Validate length
+            if len(specification) > 1000:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Specification too long (max 1000 characters)"
+                )
+
+            supplier_product.supplier_product_specification = specification
+            supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await db.commit()
+            await db.refresh(supplier_product)
+
+        return {
+            "status": "success",
+            "data": {
+                "message": "Specification updated successfully",
+                "specification": supplier_product.supplier_product_specification,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/{supplier_id}/products/{product_id}/url")
+async def update_supplier_product_url(
+    supplier_id: int,
+    product_id: int,
+    update_data: dict[str, str],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Update supplier product URL."""
+
+    try:
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.id == product_id,
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        url = update_data.get("url")
+        if url is not None:
+            supplier_product.supplier_product_url = url
+            supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await db.commit()
+
+        return {
+            "status": "success",
+            "data": {"message": "URL updated successfully"},
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.patch("/{supplier_id}/products/{product_id}/change-supplier")
+async def change_supplier_product_supplier(
+    supplier_id: int,
+    product_id: int,
+    update_data: dict[str, int],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Change the supplier of a product."""
+
+    try:
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.id == product_id,
+            )
+        )
+        result = await db.execute(query)
+        supplier_product = result.scalar_one_or_none()
+
+        if not supplier_product:
+            raise HTTPException(status_code=404, detail="Supplier product not found")
+
+        new_supplier_id = update_data.get("new_supplier_id")
+        if new_supplier_id:
+            # Verify new supplier exists
+            supplier_query = select(Supplier).where(Supplier.id == new_supplier_id)
+            supplier_result = await db.execute(supplier_query)
+            new_supplier = supplier_result.scalar_one_or_none()
+
+            if not new_supplier:
+                raise HTTPException(status_code=404, detail="New supplier not found")
+
+            supplier_product.supplier_id = new_supplier_id
+            supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await db.commit()
+
+        return {
+            "status": "success",
+            "data": {"message": "Supplier changed successfully"},
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -1353,7 +1903,13 @@ async def import_supplier_products_from_excel(
         return {
             "status": "success",
             "data": {
-                "message": f"Import completed: {imported_count} products imported, {skipped_count} skipped",
+                "message": (
+                    "Import completed: "
+                    f"{imported_count} "
+                    "products imported, "
+                    f"{skipped_count} "
+                    "skipped"
+                ),
                 "imported_count": imported_count,
                 "skipped_count": skipped_count,
                 "total_rows": len(df),
@@ -1402,7 +1958,10 @@ async def generate_supplier_order_excel(
         if not mappings:
             raise HTTPException(
                 status_code=400,
-                detail="No confirmed supplier mappings found for selected products",
+                detail=(
+                    "No confirmed supplier mappings found for "
+                    "selected products"
+                ),
             )
 
         # Generate Excel
@@ -1410,10 +1969,15 @@ async def generate_supplier_order_excel(
             supplier, mappings
         )
 
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
         return {
             "status": "success",
             "data": {
-                "filename": f"order_{supplier.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                "filename": (
+                    f"order_{supplier.name}_"
+                    f"{timestamp}.xlsx"
+                ),
                 "excel_data": excel_data,
                 "supplier_id": supplier_id,
                 "product_count": len(mappings),
@@ -1747,6 +2311,550 @@ async def get_price_comparison(
         }
 
     except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/{supplier_id}/products/all")
+async def get_all_supplier_products(
+    supplier_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Get all products for a supplier without pagination (for bulk operations)."""
+
+    try:
+        # Validate supplier exists
+        supplier_query = select(Supplier).where(Supplier.id == supplier_id)
+        supplier_result = await db.execute(supplier_query)
+        supplier = supplier_result.scalar_one_or_none()
+
+        if not supplier:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Get all products for this supplier
+        query = select(SupplierProduct).where(SupplierProduct.supplier_id == supplier_id)
+        result = await db.execute(query.order_by(SupplierProduct.created_at.desc()))
+        supplier_products = result.scalars().all()
+
+        # Format response
+        products_data = []
+        for sp in supplier_products:
+            products_data.append({
+                "id": sp.id,
+                "supplier_id": sp.supplier_id,
+                "supplier_product_name": sp.supplier_product_name,
+                "supplier_product_chinese_name": sp.supplier_product_chinese_name,
+                "supplier_price": sp.supplier_price,
+                "supplier_currency": sp.supplier_currency,
+                "local_product_id": sp.local_product_id,
+                "confidence_score": sp.confidence_score,
+                "manual_confirmed": sp.manual_confirmed,
+                "is_active": sp.is_active,
+                "created_at": sp.created_at.isoformat() if sp.created_at else None,
+            })
+
+        return {
+            "status": "success",
+            "data": {
+                "supplier_id": supplier_id,
+                "supplier_name": supplier.name,
+                "products": products_data,
+                "total": len(products_data),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting all products for supplier {supplier_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.delete("/{supplier_id}/products/all")
+async def delete_all_supplier_products(
+    supplier_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Delete ALL products for a supplier (dangerous operation)."""
+
+    try:
+        # Validate supplier exists
+        supplier_query = select(Supplier).where(Supplier.id == supplier_id)
+        supplier_result = await db.execute(supplier_query)
+        supplier = supplier_result.scalar_one_or_none()
+
+        if not supplier:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Count products before deletion
+        count_query = select(func.count(SupplierProduct.id)).where(
+            SupplierProduct.supplier_id == supplier_id
+        )
+        count_result = await db.execute(count_query)
+        total_products = count_result.scalar()
+
+        if total_products == 0:
+            return {
+                "status": "success",
+                "data": {
+                    "deleted_count": 0,
+                    "message": "No products to delete",
+                },
+            }
+
+        # Delete all products for this supplier
+        from sqlalchemy import delete
+
+        stmt = delete(SupplierProduct).where(SupplierProduct.supplier_id == supplier_id)
+        await db.execute(stmt)
+        await db.commit()
+
+        logger.warning(
+            f"Deleted ALL {total_products} products for supplier {supplier_id} "
+            f"(supplier: {supplier.name}) by user {current_user.id}"
+        )
+
+        return {
+            "status": "success",
+            "data": {
+                "deleted_count": total_products,
+                "message": f"Successfully deleted all {total_products} products",
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error deleting all products for supplier {supplier_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/{supplier_id}/products/bulk-delete")
+async def bulk_delete_supplier_products(
+    supplier_id: int,
+    delete_data: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Bulk delete supplier products."""
+
+    try:
+        product_ids = delete_data.get("product_ids", [])
+
+        if not product_ids:
+            raise HTTPException(status_code=400, detail="product_ids is required")
+
+        # Validate supplier exists
+        supplier_query = select(Supplier).where(Supplier.id == supplier_id)
+        supplier_result = await db.execute(supplier_query)
+        supplier = supplier_result.scalar_one_or_none()
+
+        if not supplier:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Delete products
+        deleted_count = 0
+        for product_id in product_ids:
+            query = select(SupplierProduct).where(
+                and_(
+                    SupplierProduct.id == product_id,
+                    SupplierProduct.supplier_id == supplier_id,
+                )
+            )
+            result = await db.execute(query)
+            product = result.scalar_one_or_none()
+
+            if product:
+                await db.delete(product)
+                deleted_count += 1
+
+        await db.commit()
+
+        logger.info(
+            "Bulk deleted %s products for supplier %s by user %s",
+            deleted_count,
+            supplier_id,
+            current_user.id,
+        )
+
+        return {
+            "status": "success",
+            "data": {
+                "deleted_count": deleted_count,
+                "message": f"Successfully deleted {deleted_count} products",
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error bulk deleting products for supplier {supplier_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.patch("/sheets/{sheet_id}")
+async def update_supplier_sheet_price(
+    sheet_id: int,
+    update_data: dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Update ProductSupplierSheet price and other fields."""
+
+    try:
+        # Get supplier sheet
+        query = select(ProductSupplierSheet).where(ProductSupplierSheet.id == sheet_id)
+        result = await db.execute(query)
+        supplier_sheet = result.scalar_one_or_none()
+
+        if not supplier_sheet:
+            raise HTTPException(status_code=404, detail="Supplier sheet not found")
+
+        # Update allowed fields
+        allowed_fields = {
+            "price_cny",
+            "supplier_contact",
+            "supplier_url",
+            "supplier_notes",
+            "supplier_product_chinese_name",
+            "supplier_product_specification",
+            "is_preferred",
+            "is_verified",
+        }
+
+        updated_fields = []
+        for field, value in update_data.items():
+            if field in allowed_fields and hasattr(supplier_sheet, field):
+                setattr(supplier_sheet, field, value)
+                updated_fields.append(field)
+
+        # Recalculate RON price if price_cny was updated
+        if "price_cny" in updated_fields:
+            exchange_rate = 0.65  # Default exchange rate, can be made configurable
+            supplier_sheet.calculated_price_ron = supplier_sheet.price_cny * exchange_rate
+            supplier_sheet.exchange_rate_cny_ron = exchange_rate
+            supplier_sheet.price_updated_at = datetime.now(UTC).replace(tzinfo=None)
+
+        if updated_fields:
+            supplier_sheet.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await db.commit()
+            await db.refresh(supplier_sheet)
+
+            logger.info(
+                f"Updated supplier sheet {sheet_id}: {', '.join(updated_fields)}"
+            )
+
+        return {
+            "status": "success",
+            "data": {
+                "message": "Supplier sheet updated successfully",
+                "sheet_id": sheet_id,
+                "updated_fields": updated_fields,
+                "updated_price": (
+                    supplier_sheet.price_cny
+                    if "price_cny" in updated_fields
+                    else None
+                ),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating supplier sheet {sheet_id}: {str(e)}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/{supplier_id}/products/sync-chinese-names")
+async def sync_supplier_products_chinese_names(
+    supplier_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Synchronize Chinese names for supplier products.
+
+    This endpoint:
+    1. Finds all supplier products where supplier_product_chinese_name is NULL
+    2. Checks if supplier_product_name contains Chinese characters
+    3. If yes, copies supplier_product_name to supplier_product_chinese_name
+
+    This is useful for retroactively fixing products imported with Chinese names
+    in the wrong field.
+
+    Args:
+        supplier_id: ID of the supplier
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Success response with count of synchronized products
+    """
+    from app.core.utils.chinese_text_utils import (
+        contains_chinese,
+        normalize_chinese_name,
+    )
+
+    try:
+        # Get all supplier products for this supplier where chinese_name is NULL
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.supplier_product_chinese_name.is_(None),
+            )
+        )
+        result = await db.execute(query)
+        products = result.scalars().all()
+
+        synced_count = 0
+        skipped_count = 0
+        synced_products = []
+
+        for product in products:
+            # Check if supplier_product_name contains Chinese characters
+            if contains_chinese(product.supplier_product_name):
+                # Normalize and copy to chinese_name field
+                normalized_name = normalize_chinese_name(product.supplier_product_name)
+                if normalized_name:
+                    product.supplier_product_chinese_name = normalized_name
+                    product.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                    synced_count += 1
+                    synced_products.append({
+                        "id": product.id,
+                        "name": normalized_name[:50] + "..." if len(normalized_name) > 50 else normalized_name,
+                    })
+            else:
+                skipped_count += 1
+
+        if synced_count > 0:
+            await db.commit()
+            logger.info(
+                f"Synchronized {synced_count} Chinese names for supplier {supplier_id}"
+            )
+
+        return {
+            "status": "success",
+            "data": {
+                "message": f"Synchronized {synced_count} products, skipped {skipped_count}",
+                "synced_count": synced_count,
+                "skipped_count": skipped_count,
+                "synced_products": synced_products[:10],  # Return first 10 as sample
+            },
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Error synchronizing Chinese names for supplier {supplier_id}: {str(e)}",
+            exc_info=True,
+        )
+        await db.rollback()
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/{supplier_id}/products/unmatched-with-suggestions")
+async def get_unmatched_products_with_suggestions(
+    supplier_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    min_similarity: float = Query(0.85, ge=0.0, le=1.0),
+    max_suggestions: int = Query(5, ge=1, le=10),
+    filter_type: str = Query(
+        "all",
+        description="Filter type: all, with-suggestions, without-suggestions, or high-score",
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    Get unmatched supplier products with automatic matching suggestions.
+
+    This endpoint returns unmatched products (local_product_id is NULL) with
+    automatic suggestions based on Jieba tokenization of Chinese names.
+
+    Args:
+        supplier_id: ID of the supplier
+        skip: Pagination offset
+        limit: Number of products per page (max 50)
+        min_similarity: Minimum similarity score (0.0-1.0)
+        max_suggestions: Maximum suggestions per product (1-10)
+        filter_type: Filter type (all, with-suggestions, without-suggestions, high-score)
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Products with suggestions and pagination info
+    """
+    try:
+        # Validate filter_type
+        valid_filter_types = ["all", "with-suggestions", "without-suggestions", "high-score"]
+        if filter_type not in valid_filter_types:
+            filter_type = "all"
+
+        # Get supplier info
+        supplier_query = select(Supplier).where(Supplier.id == supplier_id)
+        supplier_result = await db.execute(supplier_query)
+        supplier = supplier_result.scalar_one_or_none()
+
+        if not supplier:
+            raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Build base query for unmatched products
+        query = select(SupplierProduct).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.local_product_id.is_(None),
+            )
+        )
+
+        # Apply server-side filtering
+        if filter_type == "with-suggestions":
+            # Will filter after fetching suggestions
+            pass
+        elif filter_type == "without-suggestions":
+            # Will filter after fetching suggestions
+            pass
+        elif filter_type == "high-score":
+            # Will filter after fetching suggestions
+            pass
+
+        # Get total count before pagination (for filtered results)
+        count_query = select(func.count(SupplierProduct.id)).where(
+            and_(
+                SupplierProduct.supplier_id == supplier_id,
+                SupplierProduct.local_product_id.is_(None),
+            )
+        )
+        total_result = await db.execute(count_query)
+        total_count = total_result.scalar() or 0
+
+        # Execute query with pagination
+        result = await db.execute(
+            query.order_by(SupplierProduct.created_at.desc()).offset(skip).limit(limit)
+        )
+        supplier_products = result.scalars().all()
+
+        # Initialize matching service for suggestions
+        matching_service = ProductMatchingService(db)
+
+        # Build products with suggestions
+        products_data = []
+        for sp in supplier_products:
+            try:
+                # Get suggestions for this product
+                suggestions = await matching_service.find_matches_for_product(
+                    sp.id,
+                    min_similarity=min_similarity,
+                    limit=max_suggestions,
+                )
+
+                # Format suggestions
+                formatted_suggestions = []
+                for suggestion in suggestions:
+                    formatted_suggestions.append(
+                        {
+                            "local_product_id": suggestion.local_product.id,
+                            "local_product_name": suggestion.local_product.name,
+                            "local_product_chinese_name": suggestion.local_product.chinese_name,
+                            "local_product_sku": suggestion.local_product.sku,
+                            "local_product_brand": suggestion.local_product.brand,
+                            "local_product_image_url": suggestion.local_product.image_url,
+                            "similarity_score": suggestion.confidence_score,
+                            "similarity_percent": round(suggestion.confidence_score * 100),
+                            "common_tokens": getattr(suggestion, "common_tokens", []),
+                            "common_tokens_count": len(getattr(suggestion, "common_tokens", [])),
+                            "confidence_level": (
+                                "high"
+                                if suggestion.confidence_score >= 0.95
+                                else "medium"
+                                if suggestion.confidence_score >= 0.85
+                                else "low"
+                            ),
+                        }
+                    )
+
+                # Calculate best match score
+                best_match_score = (
+                    formatted_suggestions[0]["similarity_score"]
+                    if formatted_suggestions
+                    else 0.0
+                )
+
+                product_dict = {
+                    "id": sp.id,
+                    "supplier_id": sp.supplier_id,
+                    "supplier_name": supplier.name,
+                    "supplier_product_name": sp.supplier_product_name,
+                    "supplier_product_chinese_name": sp.supplier_product_chinese_name,
+                    "supplier_product_specification": sp.supplier_product_specification,
+                    "supplier_product_url": sp.supplier_product_url,
+                    "supplier_image_url": sp.supplier_image_url,
+                    "supplier_price": sp.supplier_price,
+                    "supplier_currency": sp.supplier_currency,
+                    "created_at": sp.created_at.isoformat() if sp.created_at else None,
+                    "suggestions": formatted_suggestions,
+                    "suggestions_count": len(formatted_suggestions),
+                    "best_match_score": best_match_score,
+                }
+
+                # Apply client-side filtering if needed
+                should_include = True
+                if filter_type == "with-suggestions":
+                    should_include = len(formatted_suggestions) > 0
+                elif filter_type == "without-suggestions":
+                    should_include = len(formatted_suggestions) == 0
+                elif filter_type == "high-score":
+                    should_include = best_match_score >= 0.95
+
+                if should_include:
+                    products_data.append(product_dict)
+
+            except Exception as e:
+                logger.warning(
+                    f"Error getting suggestions for product {sp.id}: {str(e)}"
+                )
+                # Still include product even if suggestions fail
+                products_data.append(
+                    {
+                        "id": sp.id,
+                        "supplier_id": sp.supplier_id,
+                        "supplier_name": supplier.name,
+                        "supplier_product_name": sp.supplier_product_name,
+                        "supplier_product_chinese_name": sp.supplier_product_chinese_name,
+                        "supplier_product_specification": sp.supplier_product_specification,
+                        "supplier_product_url": sp.supplier_product_url,
+                        "supplier_image_url": sp.supplier_image_url,
+                        "supplier_price": sp.supplier_price,
+                        "supplier_currency": sp.supplier_currency,
+                        "created_at": sp.created_at.isoformat() if sp.created_at else None,
+                        "suggestions": [],
+                        "suggestions_count": 0,
+                        "best_match_score": 0.0,
+                    }
+                )
+
+        return {
+            "status": "success",
+            "data": {
+                "products": products_data,
+                "pagination": {
+                    "total": total_count,
+                    "skip": skip,
+                    "limit": limit,
+                    "has_more": skip + limit < total_count,
+                },
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error getting unmatched products with suggestions: {str(e)}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 

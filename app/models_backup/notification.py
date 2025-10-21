@@ -102,7 +102,10 @@ class Notification(Base):
     user = relationship("User", back_populates="notifications")
 
     def __repr__(self):
-        return f"<Notification(id={self.id}, user_id={self.user_id}, title='{self.title}', read={self.read})>"
+        return (
+            f"<Notification(id={self.id}, user_id={self.user_id}, title='{self.title}', "
+            f"read={self.read})>"
+        )
 
     def to_dict(self):
         """Convert notification to dictionary."""
@@ -223,7 +226,14 @@ class NotificationSettings(Base):
             return False
 
         # Check channel is enabled
-        if channel == "email" and not self.email_enabled or channel == "push" and not self.push_enabled or channel == "sms" and not self.sms_enabled:
+        if (
+            channel == "email"
+            and not self.email_enabled
+            or channel == "push"
+            and not self.push_enabled
+            or channel == "sms"
+            and not self.sms_enabled
+        ):
             return False
 
         # Check category preferences

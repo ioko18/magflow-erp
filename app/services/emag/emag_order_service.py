@@ -171,7 +171,8 @@ class EmagOrderService:
                 current_page = pagination.get("currentPage", page)
 
                 logger.info(
-                    "Pagination info: currentPage=%d, totalPages=%d, max_pages=%d, orders_in_page=%d",
+                    "Pagination info: currentPage=%d, totalPages=%d, max_pages=%d, "
+                    "orders_in_page=%d",
                     current_page,
                     total_pages,
                     max_pages,
@@ -232,22 +233,39 @@ class EmagOrderService:
             )
             orders = filtered_orders
 
-        # Save orders to database
-        for order_data in orders:
-            try:
-                is_new = await self._save_order_to_db(order_data)
-                if is_new:
-                    created_count += 1
-                else:
-                    updated_count += 1
-            except Exception as save_error:
-                logger.error(
-                    "Error saving order %s: %s",
-                    order_data.get("id"),
-                    str(save_error),
-                    exc_info=True,
-                )
-                self._metrics["errors"] += 1
+        # Save orders to database in batches for better performance
+        batch_size = 100
+        for i in range(0, len(orders), batch_size):
+            batch = orders[i:i + batch_size]
+            logger.info(
+                "Processing batch %d-%d of %d orders",
+                i + 1,
+                min(i + batch_size, len(orders)),
+                len(orders)
+            )
+
+            for order_data in batch:
+                try:
+                    is_new = await self._save_order_to_db(order_data)
+                    if is_new:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+                except Exception as save_error:
+                    logger.error(
+                        "Error saving order %s: %s",
+                        order_data.get("id"),
+                        str(save_error),
+                        exc_info=True,
+                    )
+                    self._metrics["errors"] += 1
+
+            # Log progress after each batch
+            logger.info(
+                "Batch complete: %d created, %d updated so far",
+                created_count,
+                updated_count
+            )
 
         self._metrics["orders_synced"] = created_count + updated_count
 
@@ -349,13 +367,14 @@ class EmagOrderService:
                 await session.rollback()
                 raise
 
-    async def acknowledge_order(self, order_id: int) -> dict[str, Any]:
+    async def acknowledge_order(self, order_id: int, max_retries: int = 3) -> dict[str, Any]:
         """Acknowledge order (moves from status 1 to 2).
 
         Critical: Must be done to stop notifications!
 
         Args:
             order_id: eMAG order ID
+            max_retries: Maximum number of retry attempts for server errors
 
         Returns:
             Dictionary with acknowledgment result
@@ -364,41 +383,70 @@ class EmagOrderService:
             "Acknowledging order %d from %s account", order_id, self.account_type
         )
 
-        try:
-            # Acknowledge via API
-            await self.client.acknowledge_order(order_id)
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                # Acknowledge via API
+                await self.client.acknowledge_order(order_id)
 
-            # Update local database
-            async with async_session_factory() as session:
-                stmt = select(EmagOrder).where(
-                    and_(
-                        EmagOrder.emag_order_id == order_id,
-                        EmagOrder.account_type == self.account_type,
+                # Update local database
+                async with async_session_factory() as session:
+                    stmt = select(EmagOrder).where(
+                        and_(
+                            EmagOrder.emag_order_id == order_id,
+                            EmagOrder.account_type == self.account_type,
+                        )
                     )
+                    db_result = await session.execute(stmt)
+                    order = db_result.scalar_one_or_none()
+
+                    if order:
+                        order.status = 2
+                        order.status_name = "in_progress"
+                        order.acknowledged_at = datetime.now(UTC).replace(tzinfo=None)
+                        order.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                        await session.commit()
+
+                self._metrics["orders_acknowledged"] += 1
+
+                return {
+                    "success": True,
+                    "order_id": order_id,
+                    "new_status": 2,
+                    "message": "Order acknowledged successfully",
+                }
+
+            except EmagApiError as e:
+                last_error = e
+                # Retry on server errors (500, 502, 503, 504)
+                if e.status_code in [500, 502, 503, 504] and attempt < max_retries - 1:
+                    wait_time = min(2 ** attempt, 10)  # Exponential backoff: 1s, 2s, 4s...
+                    logger.warning(
+                        f"Server error (HTTP {e.status_code}) acknowledging order {order_id}, "
+                        f"retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})"
+                    )
+                    import asyncio
+                    await asyncio.sleep(wait_time)
+                    continue
+
+                # Don't retry on other errors or last attempt
+                logger.error(
+                    "Failed to acknowledge order %d: %s (status: %s)",
+                    order_id, str(e), e.status_code
                 )
-                db_result = await session.execute(stmt)
-                order = db_result.scalar_one_or_none()
+                self._metrics["errors"] += 1
+                raise ServiceError(f"Failed to acknowledge order: {str(e)}") from e
 
-                if order:
-                    order.status = 2
-                    order.status_name = "in_progress"
-                    order.acknowledged_at = datetime.now(UTC).replace(tzinfo=None)
-                    order.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                    await session.commit()
-
-            self._metrics["orders_acknowledged"] += 1
-
-            return {
-                "success": True,
-                "order_id": order_id,
-                "new_status": 2,
-                "message": "Order acknowledged successfully",
-            }
-
-        except EmagApiError as e:
-            logger.error("Failed to acknowledge order %d: %s", order_id, str(e))
+        # If we exhausted all retries
+        if last_error:
+            logger.error(
+                "Failed to acknowledge order %d after %d attempts: %s",
+                order_id, max_retries, str(last_error)
+            )
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to acknowledge order: {str(e)}")
+            raise ServiceError(
+                f"Failed to acknowledge order after {max_retries} attempts: {str(last_error)}"
+            ) from last_error
 
     async def update_order_status(
         self, order_id: int, new_status: int, products: list[dict] | None = None
@@ -480,7 +528,7 @@ class EmagOrderService:
         except EmagApiError as e:
             logger.error("Failed to update order %d: %s", order_id, str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to update order status: {str(e)}")
+            raise ServiceError(f"Failed to update order status: {str(e)}") from e
 
     async def attach_invoice(
         self, order_id: int, invoice_url: str, invoice_name: str | None = None
@@ -531,7 +579,7 @@ class EmagOrderService:
         except EmagApiError as e:
             logger.error("Failed to attach invoice to order %d: %s", order_id, str(e))
             self._metrics["errors"] += 1
-            raise ServiceError(f"Failed to attach invoice: {str(e)}")
+            raise ServiceError(f"Failed to attach invoice: {str(e)}") from e
 
     def _calculate_order_total(self, order_data: dict[str, Any]) -> float:
         """Calculate total order amount from products."""

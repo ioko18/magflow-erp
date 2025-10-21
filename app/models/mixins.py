@@ -8,7 +8,11 @@ from sqlalchemy import Column, DateTime, func
 class TimestampMixin:
     """Mixin that adds timestamp fields to models."""
 
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
+    )
     updated_at = Column(
         DateTime,
         default=lambda: datetime.now(UTC).replace(tzinfo=None),

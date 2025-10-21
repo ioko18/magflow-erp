@@ -110,7 +110,10 @@ class OfferServiceWithMapping(OfferService):
         )
 
         if not transformation_result.success:
-            error_msg = f"Product transformation failed: {', '.join(transformation_result.validation_errors)}"
+            error_msg = (
+                "Product transformation failed: "
+                f"{', '.join(transformation_result.validation_errors)}"
+            )
             logger.error(error_msg)
             raise EmagAPIError(error_msg, status_code=400)
 
@@ -166,7 +169,9 @@ class OfferServiceWithMapping(OfferService):
         )
 
         if not transformation_result.success:
-            error_msg = f"Product transformation failed: {', '.join(transformation_result.validation_errors)}"
+            error_msg = "Product transformation failed: " + ", ".join(
+                transformation_result.validation_errors,
+            )
             logger.error(error_msg)
             raise EmagAPIError(error_msg, status_code=400)
 
@@ -234,7 +239,10 @@ class OfferServiceWithMapping(OfferService):
                             "product_id": product.get("id")
                             or product.get("product_id")
                             or f"product_{i}",
-                            "error": f"Transformation failed: {', '.join(transformation.validation_errors)}",
+                            "error": (
+                                "Transformation failed: "
+                                f"{', '.join(transformation.validation_errors)}"
+                            ),
                         },
                     )
                     failure_count += 1
@@ -278,15 +286,20 @@ class OfferServiceWithMapping(OfferService):
 
             # Perform bulk sync
             try:
-                bulk_result = await self.sync_offers(emag_offers, batch_size=batch_size)
+                bulk_result = await self.sync_offers(
+                    emag_offers,
+                    batch_size=batch_size,
+                )
 
                 # Update mappings for successful operations
                 for offer in emag_offers:
                     product_id = offer["product_id"]
-                    # Note: In a real implementation, you'd get the actual eMAG IDs from the response
+                    # Note: In a real implementation, you'd get the actual eMAG IDs
+                    # from the response.
                     self.mapping_service.add_product_mapping(
                         internal_id=product_id,
-                        emag_id=f"emag_{product_id}",  # Placeholder - would get from actual response
+                        emag_id=f"emag_{product_id}",
+                        # Placeholder - would get from actual response
                     )
 
                 processed = bulk_result.processed_items

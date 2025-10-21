@@ -1,13 +1,12 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 from fastapi import status
 from jose import jwt
 
-from app.core.config import settings
 from app.api.v1.endpoints.system.auth import _get_current_user
+from app.core.config import settings
 from app.main import app
-
 
 
 # Test endpoints that require authentication
@@ -22,18 +21,25 @@ async def test_authenticated_user_can_access_protected_route(async_client, test_
     """Test that an authenticated user can access a protected route."""
     payload = {
         "sub": test_user["email"],
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
-        "iat": datetime.now(timezone.utc),
+        "exp": datetime.now(datetime.UTC) + timedelta(minutes=30),
+        "iat": datetime.now(datetime.UTC),
         "type": "access",
         "email": test_user["email"],
         "roles": ["user"],
     }
-    secret = getattr(settings, "SECRET_KEY", None) or getattr(settings, "secret_key", None)
-    algorithm = getattr(settings, "ALGORITHM", None) or getattr(settings, "algorithm", None) or "HS256"
+    secret = (
+        getattr(settings, "SECRET_KEY", None)
+        or getattr(settings, "secret_key", None)
+    )
+    algorithm = (
+        getattr(settings, "ALGORITHM", None)
+        or getattr(settings, "algorithm", None)
+        or "HS256"
+    )
     token = jwt.encode(payload, secret, algorithm=algorithm)
 
     user_id = test_user.get("id", 1)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(datetime.UTC)
 
     async def override_current_user():
         return SimpleNamespace(

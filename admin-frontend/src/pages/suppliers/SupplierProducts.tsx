@@ -105,7 +105,7 @@ const SupplierProductsPage: React.FC = () => {
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedLocalProductId, setSelectedLocalProductId] = useState<number | null>(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
-  const [editingPrice, setEditingPrice] = useState<{[key: number]: number}>({});
+  const [editingPrice, setEditingPrice] = useState<{[key: number]: string | number}>({});
   const [editingChineseName, setEditingChineseName] = useState<string | null>(null);
   const [isEditingChineseName, setIsEditingChineseName] = useState(false);
   const [editingSupplierChineseName, setEditingSupplierChineseName] = useState<string | null>(null);
@@ -120,7 +120,7 @@ const SupplierProductsPage: React.FC = () => {
   const [isEditingLocalName, setIsEditingLocalName] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 20,
+    pageSize: 100,
     total: 0,
   });
 
@@ -685,6 +685,48 @@ const SupplierProductsPage: React.FC = () => {
     });
   };
 
+  const handleSyncChineseNames = async () => {
+    if (!selectedSupplier) {
+      message.error('Selectează un furnizor mai întâi');
+      return;
+    }
+
+    modal.confirm({
+      title: 'Sincronizare Nume Chinezești',
+      icon: <SyncOutlined />,
+      content: (
+        <div>
+          <p>Această operație va sincroniza automat numele chinezești pentru produsele furnizorului.</p>
+          <p>Vor fi procesate produsele care au nume chinezesc în câmpul "Produs Furnizor" dar nu în câmpul dedicat "Nume Chinezesc".</p>
+          <div style={{ marginTop: '12px', padding: '8px', background: '#f0f0f0', borderRadius: '4px' }}>
+            <Text type="secondary" style={{ fontSize: '12px' }}>Aceasta este o operație sigură și poate fi repetată oricând.</Text>
+          </div>
+        </div>
+      ),
+      okText: 'Da, sincronizează',
+      okType: 'primary',
+      cancelText: 'Anulează',
+      onOk: async () => {
+        try {
+          setLoading(true);
+          const response = await api.post(`/suppliers/${selectedSupplier}/products/sync-chinese-names`, {});
+          const data = response.data?.data;
+          
+          message.success(
+            `Sincronizare completă! ${data?.synced_count || 0} produse actualizate, ${data?.skipped_count || 0} sărite.`
+          );
+          
+          await loadProducts();
+          await loadStatistics();
+        } catch (error: any) {
+          message.error(error.response?.data?.detail || 'Eroare la sincronizarea numelor chinezești');
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
   const getConfidenceColor = (score: number) => {
     if (score >= 0.8) return '#52c41a';
     if (score >= 0.6) return '#faad14';
@@ -704,13 +746,13 @@ const SupplierProductsPage: React.FC = () => {
     {
       title: 'Imagine Furnizor',
       key: 'supplier_image',
-      width: 120,
+      width: 190,
       render: (_, record) => (
         <Image
           src={record.supplier_image_url}
           alt={record.supplier_product_name}
-          width={80}
-          height={80}
+          width={180}
+          height={180}
           style={{ objectFit: 'cover', borderRadius: '4px' }}
           fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='60' height='60' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='10'%3ENo Image%3C/text%3E%3C/svg%3E"
           preview={{
@@ -722,7 +764,7 @@ const SupplierProductsPage: React.FC = () => {
     {
       title: 'Produs Furnizor',
       key: 'supplier_product',
-      width: 350,
+      width: 429,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
           <Text strong style={{ fontSize: '14px', color: '#1890ff' }}>
@@ -770,21 +812,40 @@ const SupplierProductsPage: React.FC = () => {
             {editingPrice[record.id] !== undefined ? (
               <Space size={4}>
                 <Input
-                  type="number"
+                  type="text"
                   size="small"
                   style={{ width: '80px' }}
                   value={editingPrice[record.id]}
-                  onChange={(e) => setEditingPrice(prev => ({
-                    ...prev,
-                    [record.id]: parseFloat(e.target.value) || 0
-                  }))}
-                  onPressEnter={() => handlePriceUpdate(record.id, editingPrice[record.id])}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow only numbers, dot, and comma
+                    if (value === '' || /^[0-9]*[.,]?[0-9]*$/.test(value)) {
+                      setEditingPrice(prev => ({
+                        ...prev,
+                        [record.id]: value
+                      }));
+                    }
+                  }}
+                  onPressEnter={() => {
+                    const numValue = parseFloat(String(editingPrice[record.id]).replace(',', '.'));
+                    if (!isNaN(numValue) && numValue > 0) {
+                      handlePriceUpdate(record.id, numValue);
+                    }
+                  }}
+                  placeholder="0.00"
                 />
                 <Button
                   type="primary"
                   size="small"
                   icon={<CheckCircleOutlined />}
-                  onClick={() => handlePriceUpdate(record.id, editingPrice[record.id])}
+                  onClick={() => {
+                    const numValue = parseFloat(String(editingPrice[record.id]).replace(',', '.'));
+                    if (!isNaN(numValue) && numValue > 0) {
+                      handlePriceUpdate(record.id, numValue);
+                    } else {
+                      message.error('Preț invalid');
+                    }
+                  }}
                 />
                 <Button
                   size="small"
@@ -807,7 +868,7 @@ const SupplierProductsPage: React.FC = () => {
                   icon={<DollarOutlined />}
                   onClick={() => setEditingPrice(prev => ({
                     ...prev,
-                    [record.id]: record.supplier_price
+                    [record.id]: record.supplier_price.toFixed(2)
                   }))}
                   style={{ fontSize: '11px', padding: 0 }}
                 >
@@ -822,14 +883,14 @@ const SupplierProductsPage: React.FC = () => {
     {
       title: 'Imagine Local',
       key: 'local_image',
-      width: 120,
+      width: 190,
       render: (_, record) => (
         record.local_product?.image_url ? (
           <Image
             src={record.local_product.image_url}
             alt={record.local_product.name}
-            width={80}
-            height={80}
+            width={180}
+            height={180}
             style={{ objectFit: 'cover', borderRadius: '4px' }}
             fallback="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Crect width='60' height='60' fill='%23f0f0f0'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999' font-size='10'%3ENo Image%3C/text%3E%3C/svg%3E"
             preview={{
@@ -838,8 +899,8 @@ const SupplierProductsPage: React.FC = () => {
           />
         ) : (
           <div style={{
-            width: 80,
-            height: 80,
+            width: 180,
+            height: 180,
             background: '#f5f5f5',
             borderRadius: '4px',
             display: 'flex',
@@ -965,7 +1026,7 @@ const SupplierProductsPage: React.FC = () => {
       title: 'Acțiuni',
       key: 'actions',
       fixed: 'right',
-      width: 120,
+      width: 85,
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="Vezi detalii">
@@ -1225,13 +1286,26 @@ const SupplierProductsPage: React.FC = () => {
             </Select>
           </Col>
           <Col xs={24} md={6}>
-            <Button 
-              size="large"
-              onClick={() => { setSearchText(''); setConfirmedFilter('all'); }}
-              style={{ borderRadius: '6px' }}
-            >
-              Resetează Filtre
-            </Button>
+            <Space style={{ width: '100%' }}>
+              <Button 
+                size="large"
+                onClick={() => { setSearchText(''); setConfirmedFilter('all'); }}
+                style={{ borderRadius: '6px' }}
+              >
+                Resetează Filtre
+              </Button>
+              <Button 
+                size="large"
+                type="primary"
+                icon={<SyncOutlined />}
+                onClick={handleSyncChineseNames}
+                loading={loading}
+                style={{ borderRadius: '6px', background: '#52c41a', borderColor: '#52c41a' }}
+                title="Sincronizează automat numele chinezești"
+              >
+                Sincronizează CN
+              </Button>
+            </Space>
           </Col>
         </Row>
       </Card>
@@ -1304,7 +1378,7 @@ const SupplierProductsPage: React.FC = () => {
                   {range[0]}-{range[1]} din {total} produse
                 </Text>
               ),
-              pageSizeOptions: ['10', '20', '50', '100'],
+              pageSizeOptions: ['50', '100', '200', '300'],
             }}
             onChange={handleTableChange}
             scroll={{ x: 1400 }}
@@ -1397,17 +1471,17 @@ const SupplierProductsPage: React.FC = () => {
                       </div>
                     ) : (
                       <div style={{ marginTop: '4px' }}>
-                        {selectedProduct.supplier_product_chinese_name ? (
+                        {selectedProduct.supplier_product_chinese_name || selectedProduct.supplier_product_name ? (
                           <Space direction="vertical" size={4} style={{ width: '100%' }}>
                             <Text style={{ fontSize: '14px', color: '#1890ff', fontWeight: 'bold' }}>
-                              🇨🇳 {selectedProduct.supplier_product_chinese_name}
+                              🇨🇳 {selectedProduct.supplier_product_chinese_name || selectedProduct.supplier_product_name}
                             </Text>
                             <Button
                               type="link"
                               size="small"
                               icon={<SyncOutlined />}
                               onClick={() => {
-                                setEditingSupplierChineseName(selectedProduct.supplier_product_chinese_name || '');
+                                setEditingSupplierChineseName(selectedProduct.supplier_product_chinese_name || selectedProduct.supplier_product_name || '');
                                 setIsEditingSupplierChineseName(true);
                               }}
                               style={{ padding: 0, fontSize: '12px' }}

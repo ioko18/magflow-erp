@@ -62,8 +62,8 @@ def decode_cursor(cursor: str) -> dict[str, Any]:
             "created_at": datetime.fromisoformat(data["created_at"]),
             "id": data["id"],
         }
-    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid cursor format")
+    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail="Invalid cursor format") from e
 
 
 def _normalize_categories(raw: Any) -> list[dict[str, Any]]:
@@ -127,8 +127,8 @@ def _decode_cursor(cursor: str | None) -> dict[str, Any] | None:
             "created_at": datetime.fromisoformat(data["created_at"]),
             "id": data["id"],
         }
-    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, ValueError):
-        raise HTTPException(status_code=400, detail="Invalid cursor format")
+    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, ValueError) as e:
+        raise HTTPException(status_code=400, detail="Invalid cursor format") from e
 
 
 async def get_products_with_cursor(
@@ -156,14 +156,27 @@ async def get_products_with_cursor(
             detail="Cannot specify both 'after' and 'before' cursors",
         )
 
-    # Base query with categories as array
-    query = """
-        SELECT p.id, p.name, p.sku, p.base_price, p.currency, p.description, p.is_active, p.created_at, p.updated_at,
-               COALESCE(array_agg(c.name) FILTER (WHERE c.name IS NOT NULL), '{}') as categories
-        FROM app.products p
-        LEFT JOIN app.product_categories pc ON p.id = pc.product_id
-        LEFT JOIN app.categories c ON pc.category_id = c.id
-        """
+    # Base query with categories as array and old SKU search support
+    query = (
+        "\n        SELECT DISTINCT\n"
+        "            p.id,\n"
+        "            p.name,\n"
+        "            p.sku,\n"
+        "            p.base_price,\n"
+        "            p.currency,\n"
+        "            p.description,\n"
+        "            p.is_active,\n"
+        "            p.created_at,\n"
+        "            p.updated_at,\n"
+        "            COALESCE(\n"
+        "                array_agg(DISTINCT c.name) FILTER (WHERE c.name IS NOT NULL),\n"
+        "                '{}'\n"
+        "            ) as categories\n"
+        "        FROM app.products p\n"
+        "        LEFT JOIN app.product_categories pc ON p.id = pc.product_id\n"
+        "        LEFT JOIN app.categories c ON pc.category_id = c.id\n"
+        "        LEFT JOIN app.product_sku_history psh ON p.id = psh.product_id\n"
+    )
 
     # Build WHERE conditions
     conditions = []
@@ -192,20 +205,33 @@ async def get_products_with_cursor(
         )
         order_direction = "ASC"  # Reverse order for backward pagination
 
-    # Add search condition if provided
+    # Add search condition if provided - search in name, current SKU, and old SKUs
     if search_query:
-        conditions.append("p.name ILIKE :search_pattern")
+        conditions.append(
+            "(p.name ILIKE :search_pattern OR "
+            "p.sku ILIKE :search_pattern OR "
+            "psh.old_sku ILIKE :search_pattern)"
+        )
         params["search_pattern"] = f"%{search_query}%"
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
 
     # Group by product fields for the array_agg
-    query += f"""
-        GROUP BY p.id, p.name, p.sku, p.base_price, p.currency, p.description, p.is_active, p.created_at, p.updated_at
-        ORDER BY p.created_at {order_direction}, p.id {order_direction}
-        LIMIT :limit
-        """
+    query += (
+        "\n        GROUP BY\n"
+        "            p.id,\n"
+        "            p.name,\n"
+        "            p.sku,\n"
+        "            p.base_price,\n"
+        "            p.currency,\n"
+        "            p.description,\n"
+        "            p.is_active,\n"
+        "            p.created_at,\n"
+        "            p.updated_at\n"
+        f"        ORDER BY p.created_at {order_direction}, p.id {order_direction}\n"
+        "        LIMIT :limit\n"
+    )
     # Set limit parameter (add 1 to check for more items)
     params["limit"] = limit + 1
 
@@ -290,9 +316,19 @@ async def list_products(
         )
 
         # Get total count of products (without pagination)
-        count_query = "SELECT COUNT(*) as total FROM app.products"
+        count_query = """
+            SELECT COUNT(DISTINCT p.id) as total
+            FROM app.products p
+            LEFT JOIN app.product_sku_history psh ON p.id = psh.product_id
+        """
         if search_query:
-            count_query += " WHERE name ILIKE :search_pattern"
+            count_query += (
+                " WHERE ("
+                "p.name ILIKE :search_pattern OR "
+                "p.sku ILIKE :search_pattern OR "
+                "psh.old_sku ILIKE :search_pattern"
+                ")"
+            )
             count_params = {"search_pattern": f"%{search_query}%"}
         else:
             count_params = {}
@@ -313,12 +349,12 @@ async def list_products(
 
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         logger.exception("Error listing products")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list products",
-        )
+        ) from e
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
@@ -399,13 +435,13 @@ async def create_product(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.exception(f"Error creating product: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create product: {str(e)}",
-        )
+        ) from e
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -446,13 +482,13 @@ async def update_product(
             if "not found" in str(e).lower()
             else status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.exception(f"Error updating product {product_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update product: {str(e)}",
-        )
+        ) from e
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -493,13 +529,13 @@ async def delete_product(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
-        )
+        ) from e
     except Exception as e:
         logger.exception(f"Error deleting product {product_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete product: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/validate", response_model=ProductValidationResult)
@@ -522,7 +558,7 @@ async def validate_product(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to validate product: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/bulk", response_model=ProductBulkCreateResponse, status_code=201)
@@ -566,7 +602,7 @@ async def bulk_create_products(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to bulk create products: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/statistics", response_model=dict[str, Any])
@@ -590,4 +626,4 @@ async def get_product_statistics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get product statistics: {str(e)}",
-        )
+        ) from e

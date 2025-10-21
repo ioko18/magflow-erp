@@ -25,13 +25,12 @@ from app.api.v1.endpoints import (
     emag_offers,
     emag_orders,
     emag_phase2,
+    emag_price_update,
     emag_pricing_intelligence,
     emag_product_copy,
     emag_product_publishing,
     emag_product_sync,
     emag_sync,
-    emag_v449,
-    enhanced_emag_sync,
     inventory_management,
     invoices,
     low_stock_suppliers,
@@ -63,6 +62,12 @@ from app.api.v1.endpoints import (
     websocket_notifications,
     websocket_sync,
 )
+from app.api.v1.endpoints.suppliers import (
+    promote_sheet_router,
+    set_sheet_supplier_router,
+    supplier_sheet_sync,
+)
+from app.api.v1.endpoints.debug import router as debug_router
 
 # Import new modular core endpoints
 from app.api.v1.endpoints.emag import (
@@ -72,6 +77,7 @@ from app.api.v1.endpoints.emag import (
     core_sync_router,
 )
 from app.api.v1.endpoints.inventory import emag_inventory_sync_router
+from app.api.v1.endpoints.suppliers import supplier_sheet_sync
 
 from ..auth import router as auth_router
 from ..routes.catalog import router as catalog_router
@@ -88,9 +94,11 @@ api_router.include_router(complex_health.router, prefix="/health")
 # to ensure specific routes like /products/mappings are not shadowed by
 # parameterized routes in the generic products router.
 api_router.include_router(product_import, prefix="/products", tags=["product-import"])
-# api_router.include_router(products.router, tags=["products"])  # Disabled - using product_management instead
+# api_router.include_router(products.router, tags=["products"])  # Disabled - using
+# product_management instead
 
-# Enhanced Products endpoints (v4.4.9) - mounted without additional prefix since router already has /products-v1
+# Enhanced Products endpoints (v4.4.9) - mounted without additional prefix
+# since router already has /products-v1
 api_router.include_router(products_v1)
 
 # Categories endpoints
@@ -100,7 +108,8 @@ api_router.include_router(categories.router, tags=["categories"])
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 api_router.include_router(auth_users_router, prefix="/users", tags=["users"])
 
-# eMAG Product Synchronization endpoints (NEW - must be registered BEFORE emag_integration to avoid route conflicts)
+# eMAG Product Synchronization endpoints (NEW - must be registered BEFORE
+# emag_integration to avoid route conflicts)
 api_router.include_router(
     emag_product_sync, prefix="/emag/products", tags=["emag-product-sync"]
 )
@@ -137,11 +146,6 @@ api_router.include_router(emag_db_offers, prefix="/emag/db", tags=["emag-db"])
 
 # eMAG sync endpoints
 api_router.include_router(emag_sync, prefix="/emag/sync", tags=["emag-sync"])
-
-# Enhanced eMAG sync endpoints (v4.4.8)
-api_router.include_router(
-    enhanced_emag_sync, prefix="/emag/enhanced", tags=["emag-enhanced"]
-)
 
 # eMAG Orders Management endpoints (v4.4.9)
 api_router.include_router(emag_orders, prefix="/emag/orders", tags=["emag-orders"])
@@ -219,13 +223,13 @@ api_router.include_router(
     emag_pricing_intelligence, prefix="/emag/pricing", tags=["emag-pricing"]
 )
 
+# eMAG Price Update endpoints (NEW - update product prices on FBE account)
+api_router.include_router(emag_price_update, tags=["emag-price-update"])
+
 # eMAG Campaign Management endpoints (NEW - campaign proposals, MultiDeals)
 api_router.include_router(
     emag_campaigns, prefix="/emag/campaigns", tags=["emag-campaigns"]
 )
-
-# eMAG API v4.4.9 endpoints (EAN Search, Light Offer API, Measurements)
-api_router.include_router(emag_v449, tags=["emag-v449"])
 
 # eMAG Product Publishing endpoints (NEW - draft/complete products, offer attachment, categories)
 api_router.include_router(
@@ -238,9 +242,21 @@ api_router.include_router(emag_ean_matching, tags=["emag-ean-matching"])
 # Suppliers endpoints (supplier management)
 api_router.include_router(suppliers, tags=["suppliers"])
 
+# Supplier Sheet Synchronization endpoints (NEW - sync verification between
+# SupplierProduct and ProductSupplierSheet)
+api_router.include_router(supplier_sheet_sync.router, tags=["supplier-sync"])
+
 # Supplier Product Matching endpoints (NEW - 1688.com product matching and price comparison)
 api_router.include_router(
     supplier_matching, prefix="/suppliers/matching", tags=["supplier-matching"]
+)
+
+# Google Sheets Product Management (NEW - promote and manage Google Sheets products)
+api_router.include_router(
+    promote_sheet_router, prefix="/suppliers", tags=["supplier-sheets"]
+)
+api_router.include_router(
+    set_sheet_supplier_router, prefix="/suppliers", tags=["supplier-sheets"]
 )
 
 # Product Relationships endpoints (NEW - variant tracking, PNK consistency, competition monitoring)
@@ -301,3 +317,6 @@ api_router.include_router(
 
 # Purchase Orders endpoints (NEW - centralized purchase order management and tracking)
 api_router.include_router(purchase_orders, tags=["purchase-orders"])
+
+# Debug endpoints (NEW - troubleshooting and diagnostics)
+api_router.include_router(debug_router, tags=["debug"])

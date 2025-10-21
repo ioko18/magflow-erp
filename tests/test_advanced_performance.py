@@ -14,11 +14,12 @@ This test suite demonstrates the new Advanced Test Monitor system with:
 import asyncio
 import time
 import uuid
+
 import pytest
 from sqlalchemy import select
 
-from app.models.product import Product
 from app.models.category import Category
+from app.models.product import Product
 from tests.advanced_test_monitor import get_advanced_monitor, monitor_test_performance
 
 # Initialize advanced monitor
@@ -316,7 +317,9 @@ async def test_stress_database_connections():
         assert len(errors) <= 2, f"Too many errors: {len(errors)}"
 
         print(
-            f"✅ Stress test completed: {len(successful_creates)}/10 successful, {len(errors)} errors"
+            "✅ Stress test completed: "
+            f"{len(successful_creates)}/10 successful, "
+            f"{len(errors)} errors"
         )
 
         if errors:

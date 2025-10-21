@@ -47,7 +47,9 @@ async def _execute_query_safe(
 
 @router.get("/pool")
 async def get_pool_stats():
-    """Get comprehensive PgBouncer statistics including stats, averages, totals, pools, and file descriptors."""
+    """Get comprehensive PgBouncer statistics including stats, averages, totals,
+    pools, and file descriptors.
+    """
     # Initialize response with all required keys
     response = {"stats": [], "averages": [], "totals": [], "pools": [], "fds": []}
 

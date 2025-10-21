@@ -113,12 +113,12 @@ async def get_all_offers(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get eMAG offers from all accounts: {e!s}",
-        )
+        ) from e
 
 
 # Dependency provider for eMAG service with account type support
@@ -209,12 +209,12 @@ async def get_emag_offers(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG {account_type.value.upper()} integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get eMAG {account_type.value.upper()} offers: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/main")
@@ -390,12 +390,12 @@ async def compare_offers_between_accounts(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"eMAG integration not configured: {e!s}",
-        )
+        ) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to compare offers: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/summary")
@@ -482,7 +482,7 @@ async def get_offers_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get offers summary: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/search")
@@ -561,7 +561,7 @@ async def search_offers(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to search offers: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/{offer_id}")
@@ -624,4 +624,4 @@ async def get_offer_details(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get offer details: {e!s}",
-        )
+        ) from e

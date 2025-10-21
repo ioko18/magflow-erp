@@ -35,7 +35,7 @@ async def get_jwks():
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve JWKS: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/openid-configuration", response_model=dict)
@@ -46,9 +46,14 @@ async def get_openid_configuration():
     """
     base_url = str(settings.SERVER_HOST)
     if settings.SERVER_HOST.port:
-        base_url = f"{settings.SERVER_HOST.scheme}://{settings.SERVER_HOST.host}:{settings.SERVER_HOST.port}"
+        base_url = (
+            f"{settings.SERVER_HOST.scheme}://{settings.SERVER_HOST.host}:"
+            f"{settings.SERVER_HOST.port}"
+        )
     else:
-        base_url = f"{settings.SERVER_HOST.scheme}://{settings.SERVER_HOST.host}"
+        base_url = (
+            f"{settings.SERVER_HOST.scheme}://{settings.SERVER_HOST.host}"
+        )
 
     return {
         "issuer": settings.jwt_issuer,

@@ -30,7 +30,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # )
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 @pytest.mark.skip(reason="Test references non-existent modules - needs refactoring")

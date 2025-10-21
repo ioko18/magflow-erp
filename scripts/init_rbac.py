@@ -89,7 +89,10 @@ async def initialize_rbac():
             logger.info("Creating default roles...")
             roles = await create_default_roles(session, permissions)
 
-            logger.info(f"RBAC initialization completed: {len(permissions)} permissions, {len(roles)} roles")
+            logger.info(
+                f"RBAC initialization completed: {len(permissions)} permissions, "
+                f"{len(roles)} roles"
+            )
 
         except Exception as e:
             logger.error(f"Failed to initialize RBAC: {e}")

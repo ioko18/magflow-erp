@@ -8,7 +8,6 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_active_user
@@ -110,77 +109,97 @@ async def _sync_emag_to_inventory(
             f"Found {len(emag_stock_data)} eMag {account_type} products to sync"
         )
 
-        # Step 3: Sync each product
+        # Step 3: Sync each product with savepoints for error isolation
         for row in emag_stock_data:
-            try:
-                # Skip if no matching product in products table
-                if not row.product_id:
-                    logger.debug(
-                        f"Skipping {row.sku} - no matching product in products table"
+            # Use nested transaction (savepoint) to isolate errors
+            async with db.begin_nested():
+                try:
+                    # Skip if no matching product in products table
+                    if not row.product_id:
+                        logger.debug(
+                            f"Skipping {row.sku} - no matching product in products table"
+                        )
+                        stats["skipped_no_product"] += 1
+                        continue
+
+                    stock = row.stock_quantity or 0
+
+                    # IMPORTANT: Update product base_price from eMAG price
+                    # eMAG price is stored WITHOUT VAT (ex-VAT) in emag_products_v2
+                    if row.price:
+                        product = await db.get(Product, row.product_id)
+                        if product and product.base_price != row.price:
+                            logger.info(
+                                f"Updating price for {row.sku}: {product.base_price} → {row.price} RON (ex-VAT)"
+                            )
+                            product.base_price = row.price
+
+                    # Calculate stock levels
+                    if stock == 0:
+                        minimum_stock = 5
+                        reorder_point = 10
+                        maximum_stock = 100
+                    elif stock < 10:
+                        minimum_stock = 10
+                        reorder_point = 20
+                        maximum_stock = 100
+                    elif stock < 50:
+                        minimum_stock = max(int(stock * 0.2), 10)
+                        reorder_point = max(int(stock * 0.3), 20)
+                        maximum_stock = 100
+                    else:
+                        minimum_stock = max(int(stock * 0.2), 10)
+                        reorder_point = max(int(stock * 0.3), 20)
+                        maximum_stock = stock * 2
+
+                    # Estimate unit cost (70% of price)
+                    unit_cost = row.price * 0.7 if row.price else 0
+
+                    # Check if inventory item exists (manual upsert without constraint)
+                    existing_item = await db.execute(
+                        select(InventoryItem).where(
+                            and_(
+                                InventoryItem.product_id == row.product_id,
+                                InventoryItem.warehouse_id == warehouse.id,
+                            )
+                        )
                     )
-                    stats["skipped_no_product"] += 1
-                    continue
+                    existing_item = existing_item.scalar_one_or_none()
 
-                stock = row.stock_quantity or 0
+                    if existing_item:
+                        # Update existing item
+                        existing_item.quantity = stock
+                        existing_item.available_quantity = stock
+                        existing_item.minimum_stock = minimum_stock
+                        existing_item.reorder_point = reorder_point
+                        existing_item.maximum_stock = maximum_stock
+                        existing_item.unit_cost = unit_cost
+                        existing_item.location = f"eMag {account_type.upper()}"
+                        existing_item.is_active = row.is_active
+                    else:
+                        # Create new item
+                        new_item = InventoryItem(
+                            product_id=row.product_id,
+                            warehouse_id=warehouse.id,
+                            quantity=stock,
+                            reserved_quantity=0,
+                            available_quantity=stock,
+                            minimum_stock=minimum_stock,
+                            reorder_point=reorder_point,
+                            maximum_stock=maximum_stock,
+                            unit_cost=unit_cost,
+                            location=f"eMag {account_type.upper()}",
+                            is_active=row.is_active,
+                        )
+                        db.add(new_item)
 
-                # Calculate stock levels
-                if stock == 0:
-                    minimum_stock = 5
-                    reorder_point = 10
-                    maximum_stock = 100
-                elif stock < 10:
-                    minimum_stock = 10
-                    reorder_point = 20
-                    maximum_stock = 100
-                elif stock < 50:
-                    minimum_stock = max(int(stock * 0.2), 10)
-                    reorder_point = max(int(stock * 0.3), 20)
-                    maximum_stock = 100
-                else:
-                    minimum_stock = max(int(stock * 0.2), 10)
-                    reorder_point = max(int(stock * 0.3), 20)
-                    maximum_stock = stock * 2
+                    stats["products_synced"] += 1
 
-                # Estimate unit cost (70% of price)
-                unit_cost = row.price * 0.7 if row.price else 0
-
-                # Upsert inventory item
-                stmt = (
-                    insert(InventoryItem)
-                    .values(
-                        product_id=row.product_id,
-                        warehouse_id=warehouse.id,
-                        quantity=stock,
-                        reserved_quantity=0,
-                        available_quantity=stock,
-                        minimum_stock=minimum_stock,
-                        reorder_point=reorder_point,
-                        maximum_stock=maximum_stock,
-                        unit_cost=unit_cost,
-                        location=f"eMag {account_type.upper()}",
-                        is_active=row.is_active,
-                    )
-                    .on_conflict_do_update(
-                        constraint="uq_inventory_items_product_warehouse",
-                        set_={
-                            "quantity": stock,
-                            "available_quantity": stock,
-                            "minimum_stock": minimum_stock,
-                            "reorder_point": reorder_point,
-                            "maximum_stock": maximum_stock,
-                            "unit_cost": unit_cost,
-                            "location": f"eMag {account_type.upper()}",
-                            "is_active": row.is_active,
-                        },
-                    )
-                )
-
-                await db.execute(stmt)
-                stats["products_synced"] += 1
-
-            except Exception as e:
-                logger.error(f"Error syncing product {row.sku}: {e}", exc_info=True)
-                stats["errors"] += 1
+                except Exception as e:
+                    # Savepoint will automatically rollback this nested transaction
+                    logger.error(f"Error syncing product {row.sku}: {e}", exc_info=True)
+                    stats["errors"] += 1
+                    # Continue to next product
 
         # Commit changes
         await db.commit()
@@ -265,7 +284,7 @@ async def sync_emag_inventory(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to synchronize eMag inventory: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/status")
@@ -342,4 +361,4 @@ async def get_sync_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get sync status: {str(e)}",
-        )
+        ) from e

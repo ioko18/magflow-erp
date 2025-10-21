@@ -322,6 +322,16 @@ class PerformanceOptimizer:
             reverse=True,
         )[:5]
 
+        status_label = (
+            "✅ EXCELLENT"
+            if score >= 90
+            else "🟡 GOOD"
+            if score >= 70
+            else "🟠 NEEDS IMPROVEMENT"
+            if score >= 50
+            else "❌ POOR"
+        )
+
         report = f"""
 🚀 MagFlow ERP Test Performance Optimization Report
 {'='*60}
@@ -333,7 +343,7 @@ class PerformanceOptimizer:
   • Tests executed: {len(self.metrics.setup_times)}
   • Performance score: {score:.1f}/100
 
-🎯 Performance Status: {'✅ EXCELLENT' if score >= 90 else '🟡 GOOD' if score >= 70 else '🟠 NEEDS IMPROVEMENT' if score >= 50 else '❌ POOR'}
+🎯 Performance Status: {status_label}
 
 🔍 Optimization Impact:
   • Setup time improvement: {((1.0 - avg_setup) / 1.0 * 100):.1f}% faster than baseline

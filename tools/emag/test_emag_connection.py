@@ -55,9 +55,9 @@ async def test_emag_connection():
                         first_product = products[0]
                         print(f"📱 Primul produs: {first_product.get('name', 'N/A')}")
                         print(f"🏷️  SKU: {first_product.get('part_number', 'N/A')}")
-                        print(
-                            f"💰 Preț: {first_product.get('price', 'N/A')} {first_product.get('currency', 'RON')}"
-                        )
+                        price = first_product.get("price", "N/A")
+                        currency = first_product.get("currency", "RON")
+                        print(f"💰 Preț: {price} {currency}")
                 else:
                     print("⚠️  Nu s-au găsit produse în răspuns")
                     print(f"Răspuns complet: {products_response}")
@@ -108,9 +108,9 @@ async def test_emag_connection():
                         first_product = products[0]
                         print(f"📱 Primul produs: {first_product.get('name', 'N/A')}")
                         print(f"🏷️  SKU: {first_product.get('part_number', 'N/A')}")
-                        print(
-                            f"💰 Preț: {first_product.get('price', 'N/A')} {first_product.get('currency', 'RON')}"
-                        )
+                        price = first_product.get("price", "N/A")
+                        currency = first_product.get("currency", "RON")
+                        print(f"💰 Preț: {price} {currency}")
                 else:
                     print("⚠️  Nu s-au găsit produse în răspuns")
                     print(f"Răspuns complet: {products_response}")

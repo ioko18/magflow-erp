@@ -30,7 +30,7 @@ async def database_health(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database health check failed: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/migrations")
@@ -47,7 +47,7 @@ async def database_migrations(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Migration status check failed: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/connection-pool")
@@ -64,4 +64,4 @@ async def connection_pool_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get connection pool stats: {e!s}",
-        )
+        ) from e

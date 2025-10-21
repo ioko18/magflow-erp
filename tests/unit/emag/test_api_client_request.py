@@ -1,7 +1,13 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.emag.emag_integration_service import EmagApiClient, EmagApiConfig, EmagApiEnvironment, EmagIntegrationService
+import pytest
+
+from app.services.emag.emag_integration_service import (
+    EmagApiClient,
+    EmagApiConfig,
+    EmagApiEnvironment,
+    EmagIntegrationService,
+)
 
 
 @pytest.fixture
@@ -22,7 +28,11 @@ async def test_api_client_request_delegates_to_make_request(emag_config):
     )
 
     # Test a real public method (get_products) that uses _request
-    with patch.object(client, "_request", new=AsyncMock(return_value={"results": []})) as mock_request:
+    with patch.object(
+        client,
+        "_request",
+        new=AsyncMock(return_value={"results": []}),
+    ) as mock_request:
         result = await client.get_products(page=1, items_per_page=10)
 
     assert result == {"results": []}
@@ -47,7 +57,12 @@ async def test_service_make_request_prefers_public_request_helper(emag_config):
     result = await service._make_request("GET", "/resource")
 
     assert result == {"result": "ok"}
-    mock_client.request.assert_awaited_once_with("GET", "/resource", data=None, params=None)
+    mock_client.request.assert_awaited_once_with(
+        "GET",
+        "/resource",
+        data=None,
+        params=None,
+    )
 
 
 @pytest.mark.asyncio
@@ -65,4 +80,9 @@ async def test_service_make_request_falls_back_to_private_helper(emag_config):
     result = await service._make_request("POST", "/resource", data={"foo": 1})
 
     assert result == {"result": "fallback"}
-    mock_client._make_request.assert_awaited_once_with("POST", "/resource", data={"foo": 1}, params=None)
+    mock_client._make_request.assert_awaited_once_with(
+        "POST",
+        "/resource",
+        data={"foo": 1},
+        params=None,
+    )

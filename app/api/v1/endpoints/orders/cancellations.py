@@ -36,7 +36,12 @@ async def create_cancellation_request(
 ):
     """Create a new cancellation request."""
     # Generate cancellation number
-    cancellation_number = f"CAN-{datetime.now().strftime('%Y%m%d')}-{abs(hash(str(order_id or emag_order_id) + (customer_email or ''))) % 10000:04d}"
+    cancellation_number = (
+        "CAN-"
+        f"{datetime.now().strftime('%Y%m%d')}"
+        "-"
+        f"{abs(hash(str(order_id or emag_order_id) + (customer_email or ''))) % 10000:04d}"
+    )
 
     # Create cancellation request
     cancellation_request = CancellationRequest(
@@ -231,7 +236,12 @@ async def process_cancellation(
     if process_refund and cancellation_request.refund_amount > 0:
         from app.models.cancellation import CancellationRefund
 
-        refund_id = f"CRF-{datetime.now().strftime('%Y%m%d')}-{abs(hash(str(request_id))) % 10000:04d}"
+        refund_id = (
+            "CRF-"
+            f"{datetime.now().strftime('%Y%m%d')}"
+            "-"
+            f"{abs(hash(str(request_id))) % 10000:04d}"
+        )
 
         refund = CancellationRefund(
             refund_id=refund_id,

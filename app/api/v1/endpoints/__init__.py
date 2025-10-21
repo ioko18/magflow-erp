@@ -12,13 +12,12 @@ from .emag.emag_management import router as emag_management
 from .emag.emag_offers import router as emag_offers
 from .emag.emag_orders import router as emag_orders
 from .emag.emag_phase2 import router as emag_phase2
+from .emag.emag_price_update import router as emag_price_update
 from .emag.emag_pricing_intelligence import router as emag_pricing_intelligence
 from .emag.emag_product_copy import router as emag_product_copy
 from .emag.emag_product_publishing import router as emag_product_publishing
 from .emag.emag_product_sync import router as emag_product_sync
 from .emag.emag_sync import router as emag_sync
-from .emag.emag_v449 import router as emag_v449
-from .emag.enhanced_emag_sync import router as enhanced_emag_sync
 from .inventory.emag_inventory import router as emag_inventory
 from .inventory.inventory_management import router as inventory_management
 from .inventory.low_stock_suppliers import router as low_stock_suppliers
@@ -60,16 +59,15 @@ __all__ = [
     "emag_integration",
     "emag_sync",
     "emag_offers",
-    "enhanced_emag_sync",
     "emag_orders",
     "emag_customers",
     "emag_advanced",
     "emag_management",
     "emag_phase2",
     "emag_addresses",
+    "emag_price_update",
     "emag_pricing_intelligence",
     "emag_campaigns",
-    "emag_v449",
     "emag_product_publishing",
     "emag_product_sync",
     "emag_product_copy",

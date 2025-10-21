@@ -160,8 +160,8 @@ def generate_cache_key(*args, **kwargs) -> str:
     key_parts.extend([f"{k}={v}" for k, v in sorted(kwargs.items())])
     key_string = ":".join(key_parts)
 
-    # Hash for shorter keys
-    return hashlib.md5(key_string.encode()).hexdigest()
+    # Hash for shorter keys (not for security, just cache key generation)
+    return hashlib.md5(key_string.encode(), usedforsecurity=False).hexdigest()
 
 
 def cached(cache_name: str, ttl_seconds: int | None = None):

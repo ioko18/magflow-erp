@@ -1,6 +1,6 @@
 """Tests for health check endpoints."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -51,7 +51,7 @@ def mock_health_checks():
             "status": "healthy",
             "message": "Database is available",
             "check_type": "database",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "metadata": {"query_time_ms": 1.0},
         }
 
@@ -59,7 +59,7 @@ def mock_health_checks():
             "status": "healthy",
             "message": "JWKS is available",
             "check_type": "jwks",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "metadata": {},
         }
 
@@ -67,7 +67,7 @@ def mock_health_checks():
             "status": "healthy",
             "message": "OpenTelemetry is healthy",
             "check_type": "opentelemetry",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "metadata": {"enabled": True},
         }
 
@@ -95,7 +95,7 @@ class TestHealthEndpoints:
         monkeypatch.setattr("app.api.v1.endpoints.health.WARMUP_PERIOD", 0)
         monkeypatch.setattr(
             "app.api.v1.endpoints.health.STARTUP_TIME",
-            datetime.now(timezone.utc) - timedelta(seconds=60),
+            datetime.now(datetime.UTC) - timedelta(seconds=60),
         )
 
         # Make multiple rapid requests to health endpoints
@@ -148,7 +148,7 @@ class TestHealthEndpoints:
             monkeypatch.setattr("app.api.v1.endpoints.health.WARMUP_PERIOD", 0)
             monkeypatch.setattr(
                 "app.api.v1.endpoints.health.STARTUP_TIME",
-                datetime.now(timezone.utc) - timedelta(seconds=60),
+                datetime.now(datetime.UTC) - timedelta(seconds=60),
             )
 
         response = client.get(endpoint)
@@ -169,7 +169,10 @@ class TestHealthEndpoints:
         # For other responses, check the status code and response format
         assert (
             response.status_code == expected_status_code
-        ), f"Health endpoint {endpoint} returned {response.status_code}, expected {expected_status_code}"
+        ), (
+            f"Health endpoint {endpoint} returned {response.status_code}, "
+            f"expected {expected_status_code}"
+        )
 
         data = response.json()
         assert "status" in data, f"Response from {endpoint} is missing 'status' field"
@@ -192,7 +195,7 @@ class TestHealthEndpoints:
         monkeypatch.setattr("app.api.v1.endpoints.health.WARMUP_PERIOD", 0)
         monkeypatch.setattr(
             "app.api.v1.endpoints.health.STARTUP_TIME",
-            datetime.now(timezone.utc) - timedelta(seconds=60),
+            datetime.now(datetime.UTC) - timedelta(seconds=60),
         )
 
         # First make several requests to a non-health endpoint to potentially trigger rate limiting
@@ -249,8 +252,8 @@ class TestHealthEndpoints:
                 "last_checked": datetime.utcnow().isoformat(),
             },
         ):
-            # The readiness endpoint should return 200 with ready status even when a service is unhealthy
-            # (this is by design for the current implementation)
+            # The readiness endpoint should return 200 with ready status even when a service
+            # is unhealthy (this is by design for the current implementation)
             response = client.get("/api/v1/health/ready")
 
             # Should return 200 with ready status (not 503)

@@ -48,12 +48,24 @@ async def demonstrate_sms_notifications():
         # Get available templates
         templates = {
             "order_confirmation": {
-                "en": "Order {order_id} confirmed. Total: {amount} {currency}. Track: {tracking_url}",
-                "ro": "Comanda {order_id} confirmată. Total: {amount} {currency}. Urmărire: {tracking_url}"
+                "en": (
+                    "Order {order_id} confirmed. Total: {amount} {currency}. "
+                    "Track: {tracking_url}"
+                ),
+                "ro": (
+                    "Comanda {order_id} confirmată. Total: {amount} {currency}. "
+                    "Urmărire: {tracking_url}"
+                ),
             },
             "order_shipped": {
-                "en": "Order {order_id} shipped! Delivery: {delivery_date}. Track: {tracking_url}",
-                "ro": "Comanda {order_id} expediată! Livrare: {delivery_date}. Urmărire: {tracking_url}"
+                "en": (
+                    "Order {order_id} shipped! Delivery: {delivery_date}. "
+                    "Track: {tracking_url}"
+                ),
+                "ro": (
+                    "Comanda {order_id} expediată! Livrare: {delivery_date}. "
+                    "Urmărire: {tracking_url}"
+                ),
             },
             "payment_confirmation": {
                 "en": "Payment of {amount} {currency} confirmed for order {order_id}.",
@@ -69,7 +81,9 @@ async def demonstrate_sms_notifications():
         for template_type, languages in templates.items():
             print('  • ' + template_type.replace('_', ' ').title() + ':')
             for lang, template in languages.items():
-                print('    - ' + lang.upper() + ': ' + template[:50] + ('...' if len(template) > 50 else ''))
+                preview = template[:50]
+                suffix = '...' if len(template) > 50 else ''
+                print('    - ' + lang.upper() + ': ' + preview + suffix)
 
         print("\n📤 Sending Test SMS Messages...")
 
@@ -163,7 +177,9 @@ async def demonstrate_sms_notifications():
 
                 print('    ✅ Templated SMS sent successfully')
                 print('       Template: ' + str(test['template'].value))
-                print('       Message: ' + str(message.message[:60]) + ('...' if len(message.message) > 60 else ''))
+                msg_preview = message.message[:60]
+                msg_suffix = '...' if len(message.message) > 60 else ''
+                print('       Message: ' + str(msg_preview) + msg_suffix)
 
             except Exception as e:
                 print('    ❌ Failed to send templated SMS: ' + str(e))
@@ -195,7 +211,9 @@ async def demonstrate_sms_notifications():
         print('  Messages by Type:')
         for msg_type, count in stats['notification_breakdown'].items():
             percentage = (count / stats['total_messages']) * 100
-            print('    - ' + msg_type.replace('_', ' ').title() + ': ' + str(count) + ' (' + str(round(percentage, 1)) + '%)')
+            label = msg_type.replace('_', ' ').title()
+            percentage_str = str(round(percentage, 1)) + '%'
+            print('    - ' + label + ': ' + str(count) + ' (' + percentage_str + ')')
 
         print("\n🌍 Supported Countries...")
 
@@ -231,19 +249,37 @@ async def demonstrate_sms_notifications():
 
         print("\n📝 API Usage Examples:")
         print("  Send Order Confirmation:")
-        print("  curl -X POST 'http://localhost:8000/api/v1/sms/send/order-confirmation' \\")
+        print(
+            "  curl -X POST 'http://localhost:8000/api/v1/sms/send/"
+            "order-confirmation' \\"
+        )
         print("       -H 'Content-Type: application/json' \\")
-        print("       -d '{\"phone_number\": \"+40700123456\", \"order_id\": \"EMAG-123\", \"amount\": 250.75}'")
+        print(
+            "       -d '{\"phone_number\": \"+40700123456\", \"order_id\": "
+            "\"EMAG-123\", \"amount\": 250.75}'"
+        )
 
         print("\n  Send Bulk SMS:")
-        print("  curl -X POST 'http://localhost:8000/api/v1/sms/send/bulk' \\")
+        print(
+            "  curl -X POST 'http://localhost:8000/api/v1/sms/send/"
+            "bulk' \\"
+        )
         print("       -H 'Content-Type: application/json' \\")
-        print("       -d '{\"phone_numbers\": [\"+40700123456\", \"+40700123457\"], \"message\": \"Sale! 20% off\"}'")
+        print(
+            "       -d '{\"phone_numbers\": [\"+40700123456\", \"+40700123457\"], "
+            "\"message\": \"Sale! 20% off\"}'"
+        )
 
         print("\n  Preview Template:")
-        print("  curl -X POST 'http://localhost:8000/api/v1/sms/templates/preview' \\")
+        print(
+            "  curl -X POST 'http://localhost:8000/api/v1/sms/templates/"
+            "preview' \\"
+        )
         print("       -H 'Content-Type: application/json' \\")
-        print("       -d '{\"notification_type\": \"order_confirmation\", \"variables\": {\"order_id\": \"123\", \"amount\": \"100.50\"}}'")
+        print(
+            "       -d '{\"notification_type\": \"order_confirmation\", "
+            "\"variables\": {\"order_id\": \"123\", \"amount\": \"100.50\"}}'"
+        )
 
         print("\n✅ SMS Notifications Demo completed successfully!")
 

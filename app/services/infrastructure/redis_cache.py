@@ -165,7 +165,8 @@ def cache_key_builder(func: Callable, namespace: str, *args, **kwargs) -> str:
     kwargs_str = ",".join(f"{k}={v}" for k, v in sorted(kwargs.items()))
     call_str = f"{func_id}({args_str},{kwargs_str})"
 
-    key_hash = hashlib.md5(call_str.encode()).hexdigest()
+    # Hash for shorter cache keys (not for security, just key generation)
+    key_hash = hashlib.md5(call_str.encode(), usedforsecurity=False).hexdigest()
     return f"{namespace}:{func_id}:{key_hash}"
 
 

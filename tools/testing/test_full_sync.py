@@ -123,13 +123,17 @@ class FullEmagSync:
                         """,
                             (
                                 product_data.get("name", ""),
-                                float(product_data.get("sale_price", 0) or product_data.get("price", 0) or 0),
+                                float(
+                                    product_data.get("sale_price", 0)
+                                    or product_data.get("price", 0)
+                                    or 0
+                                ),
                                 int(
                                     product_data.get("stock", [{"value": 0}])[0].get(
                                         "value", 0
                                     )
                                 ),
-                                product_data.get("status") == 1 or product_data.get("status") == "active",
+                                product_data.get("status") in (1, "active"),
                                 datetime.utcnow(),
                                 "synced",
                                 datetime.utcnow(),
@@ -155,13 +159,18 @@ class FullEmagSync:
                                 sku,
                                 product_data.get("name", ""),
                                 self.account_type,
-                                float(product_data.get("sale_price", 0) or product_data.get("price", 0) or 0),
+                                float(
+                                    product_data.get("sale_price", 0)
+                                    or product_data.get("price", 0)
+                                    or 0
+                                ),
                                 int(
                                     product_data.get("stock", [{"value": 0}])[0].get(
                                         "value", 0
                                     )
                                 ),
-                                product_data.get("status") == 1 or product_data.get("status") == "active",
+                                product_data.get("status") == 1
+                                or product_data.get("status") == "active",
                                 "synced",
                                 datetime.utcnow(),
                                 datetime.utcnow(),
@@ -320,8 +329,9 @@ async def main():
         if result:
             print(f"{account_type.upper()} Account: ✅ SUCCESS")
             print(
-                f"  Total: {result['total']}, Created: {result['created']}, Updated: {result['updated']}"
+                f"  Total: {result['total']}, Created: {result['created']}"
             )
+            print(f"  Updated: {result['updated']}")
         else:
             print(f"{account_type.upper()} Account: ❌ FAILED")
 

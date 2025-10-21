@@ -6,7 +6,7 @@ allowing users to select suppliers and export filtered data.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import BytesIO
 
 import requests
@@ -28,11 +28,13 @@ except ImportError:
     EXCEL_AVAILABLE = False
 
 from app.db import get_db
-from app.models.emag_models import EmagProductV2
+from app.models.emag_models import EmagOrder, EmagProductV2
 from app.models.inventory import InventoryItem, Warehouse
+from app.models.order import OrderLine
 from app.models.product import Product
 from app.models.product_supplier_sheet import ProductSupplierSheet
 from app.models.purchase import PurchaseOrder, PurchaseOrderItem
+from app.models.sales import SalesOrderLine
 from app.models.supplier import SupplierProduct
 from app.models.user import User
 from app.security.jwt import get_current_user
@@ -83,6 +85,184 @@ def calculate_reorder_quantity(item: InventoryItem) -> int:
     else:
         # Default: reorder to minimum stock * 3
         return max(0, (item.minimum_stock * 3) - available)
+
+
+async def calculate_sold_quantity_last_6_months(
+    db: AsyncSession, product_ids: list[int]
+) -> dict[int, dict]:
+    """
+    Calculate quantity sold in the last 6 months for each product.
+
+    Aggregates data from:
+    1. eMAG Orders (from products JSONB field)
+    2. Sales Orders (SalesOrderLine)
+    3. Generic Orders (OrderLine)
+
+    Returns:
+        dict: {product_id: {"total_sold": int, "avg_monthly": float, "sources": dict}}
+    """
+    if not product_ids:
+        return {}
+
+    six_months_ago = datetime.now() - timedelta(days=180)
+    sold_data = dict.fromkeys(
+        product_ids, {"total_sold": 0, "avg_monthly": 0.0, "sources": {}}
+    )
+    # Initialize each product with its own dict
+    sold_data = {
+        pid: {"total_sold": 0, "avg_monthly": 0.0, "sources": {}}
+        for pid in product_ids
+    }
+
+    # Get product SKUs mapping
+    # CRITICAL: We need to map both Product.sku AND emag part_number_key to product_id
+    # because emag_orders uses part_number_key (e.g., DVX0FSYBM) not Product.sku (e.g., EMG463)
+    products_query = select(Product.id, Product.sku).where(Product.id.in_(product_ids))
+    products_result = await db.execute(products_query)
+    product_sku_map = {pid: sku for pid, sku in products_result.all()}
+    sku_to_id_map = {sku: pid for pid, sku in product_sku_map.items()}
+
+    # CRITICAL FIX: Also map emag part_number_key to product_id
+    # Query emag_products_v2 to get part_number_key for our products
+    try:
+        from app.models.emag_models import EmagProductV2
+        emag_products_query = (
+            select(EmagProductV2.sku, EmagProductV2.part_number_key)
+            .where(EmagProductV2.sku.in_(list(product_sku_map.values())))
+        )
+        emag_products_result = await db.execute(emag_products_query)
+
+        # Map part_number_key -> product_id
+        for local_sku, part_number_key in emag_products_result.all():
+            if part_number_key and local_sku in sku_to_id_map:
+                product_id = sku_to_id_map[local_sku]
+                # Add part_number_key mapping
+                sku_to_id_map[part_number_key] = product_id
+                logging.debug(
+                    "Mapped eMAG part_number_key %s -> product_id %s (local SKU: %s)",
+                    part_number_key,
+                    product_id,
+                    local_sku,
+                )
+    except Exception as e:
+        logging.warning(f"Error mapping eMAG part_number_keys: {e}")
+
+    # 1. Query eMAG Orders (products stored in JSONB)
+    # We need to extract product quantities from the JSONB products field
+    # NOTE: Table may not exist in all environments - handle gracefully
+    try:
+        emag_orders_query = (
+            select(EmagOrder.products, EmagOrder.order_date)
+            .where(
+                and_(
+                    EmagOrder.order_date >= six_months_ago,
+                    EmagOrder.status.in_([3, 4]),  # 3=prepared, 4=finalized
+                    EmagOrder.products.isnot(None),
+                )
+            )
+        )
+        emag_result = await db.execute(emag_orders_query)
+        emag_orders = emag_result.all()
+
+        # Process eMAG orders
+        for products_json, _ in emag_orders:
+            if not products_json or not isinstance(products_json, list):
+                continue
+
+            for product_item in products_json:
+                # eMAG products structure: {"part_number_key": "SKU", "quantity": 1, ...}
+                sku = product_item.get("part_number_key") or product_item.get("sku")
+                quantity = product_item.get("quantity", 0)
+
+                if sku and sku in sku_to_id_map:
+                    product_id = sku_to_id_map[sku]
+                    sold_data[product_id]["total_sold"] += quantity
+                    sold_data[product_id]["sources"]["emag"] = (
+                        sold_data[product_id]["sources"].get("emag", 0) + quantity
+                    )
+    except Exception as e:
+        logging.warning(f"Error querying eMAG orders (table may not exist): {e}")
+
+    # 2. Query Sales Orders
+    sales_query = (
+        select(SalesOrderLine.product_id, func.sum(SalesOrderLine.quantity))
+        .join(
+            SalesOrderLine.sales_order
+        )
+        .where(
+            and_(
+                SalesOrderLine.product_id.in_(product_ids),
+                SalesOrderLine.sales_order.has(
+                    and_(
+                        func.date(
+                            SalesOrderLine.sales_order.property.mapper.class_.order_date
+                        )
+                        >= six_months_ago,
+                        SalesOrderLine.sales_order.property.mapper.class_.status.in_(
+                            ["confirmed", "processing", "shipped", "delivered"]
+                        ),
+                    )
+                ),
+            )
+        )
+        .group_by(SalesOrderLine.product_id)
+    )
+
+    try:
+        sales_result = await db.execute(sales_query)
+        for product_id, quantity in sales_result.all():
+            if product_id in sold_data:
+                qty = int(quantity or 0)
+                sold_data[product_id]["total_sold"] += qty
+                sold_data[product_id]["sources"]["sales_orders"] = qty
+    except Exception as e:
+        logging.warning(f"Error querying sales orders: {e}")
+
+    # 3. Query Generic Orders
+    orders_query = (
+        select(OrderLine.product_id, func.sum(OrderLine.quantity))
+        .join(OrderLine.order)
+        .where(
+            and_(
+                OrderLine.product_id.in_(product_ids),
+                OrderLine.order.has(
+                    and_(
+                        func.date(
+                            OrderLine.order.property.mapper.class_.order_date
+                        )
+                        >= six_months_ago,
+                        OrderLine.order.property.mapper.class_.status.in_(
+                            [
+                                "confirmed",
+                                "processing",
+                                "shipped",
+                                "delivered",
+                                "completed",
+                            ]
+                        ),
+                    )
+                ),
+            )
+        )
+        .group_by(OrderLine.product_id)
+    )
+
+    try:
+        orders_result = await db.execute(orders_query)
+        for product_id, quantity in orders_result.all():
+            if product_id in sold_data:
+                qty = int(quantity or 0)
+                sold_data[product_id]["total_sold"] += qty
+                sold_data[product_id]["sources"]["orders"] = qty
+    except Exception as e:
+        logging.warning(f"Error querying generic orders: {e}")
+
+    # Calculate average monthly sales
+    for product_id in sold_data:
+        total = sold_data[product_id]["total_sold"]
+        sold_data[product_id]["avg_monthly"] = round(total / 6.0, 2)
+
+    return sold_data
 
 
 # ============================================================================
@@ -213,6 +393,9 @@ async def get_low_stock_with_suppliers(
 
     # Get all product IDs for supplier lookup
     product_ids = [item[1].id for item in items]
+
+    # Calculate sold quantities for last 6 months
+    sold_quantities = await calculate_sold_quantity_last_6_months(db, product_ids)
 
     # Get pending purchase orders for these products
     pending_orders_query = (
@@ -381,12 +564,15 @@ async def get_low_stock_with_suppliers(
             key=lambda s: (not s["is_preferred"], s["price"] or float("inf"))
         )
 
-        # Get PNK from eMAG product if available, otherwise from product table
+        # Get PNK and URL from eMAG product if available, otherwise from product table
         part_number_key = (
             emag_product.part_number_key
             if emag_product
             else product.emag_part_number_key
         )
+
+        # Get product URL from eMAG (seller website URL)
+        product_url = emag_product.url if emag_product else None
 
         # Get pending orders for this product
         pending_orders = pending_by_product.get(product.id, [])
@@ -394,6 +580,13 @@ async def get_low_stock_with_suppliers(
 
         # Calculate adjusted reorder quantity (subtract pending orders)
         adjusted_reorder_qty = max(0, reorder_qty - total_pending_quantity)
+
+        # Get sold quantity data
+        sold_data = sold_quantities.get(product.id, {
+            "total_sold": 0,
+            "avg_monthly": 0.0,
+            "sources": {}
+        })
 
         products_data.append(
             {
@@ -403,6 +596,7 @@ async def get_low_stock_with_suppliers(
                 "name": product.name,
                 "chinese_name": product.chinese_name,
                 "part_number_key": part_number_key,
+                "product_url": product_url,
                 "image_url": product.image_url,
                 "warehouse_id": warehouse.id,
                 "warehouse_name": warehouse.name,
@@ -413,6 +607,7 @@ async def get_low_stock_with_suppliers(
                 "minimum_stock": inventory_item.minimum_stock,
                 "reorder_point": inventory_item.reorder_point,
                 "maximum_stock": inventory_item.maximum_stock,
+                "manual_reorder_quantity": inventory_item.manual_reorder_quantity,
                 "unit_cost": inventory_item.unit_cost,
                 "stock_status": stock_status,
                 "reorder_quantity": reorder_qty,
@@ -426,6 +621,9 @@ async def get_low_stock_with_suppliers(
                 "pending_orders": pending_orders,
                 "total_pending_quantity": total_pending_quantity,
                 "has_pending_orders": len(pending_orders) > 0,
+                "sold_last_6_months": sold_data["total_sold"],
+                "avg_monthly_sales": sold_data["avg_monthly"],
+                "sales_sources": sold_data["sources"],
             }
         )
 
@@ -710,7 +908,8 @@ async def export_low_stock_by_supplier(
                 sp_data = supplier_products_map.get(product_supplier_id)
                 if sp_data:
                     unit_price = sp_data.supplier_price
-                    # currency = sp_data.supplier_currency or "CNY"  # Not used in current implementation
+                    # currency = sp_data.supplier_currency or "CNY"
+                    # Not used in current implementation
                     supplier_url = sp_data.supplier_product_url or ""
                     specification = sp_data.supplier_product_specification or ""
 
@@ -737,7 +936,9 @@ async def export_low_stock_by_supplier(
                 cell.border = border
 
                 # Apply alignment based on column
-                # Columns: 1=图片, 2=名称, 3=规格名, 4=数量, 5=零售价, 6=金额, 7=商品链接, 8=图片链接
+                # Columns:
+                #   1=图片, 2=名称, 3=规格名, 4=数量, 5=零售价,
+                #   6=金额, 7=商品链接, 8=图片链接
                 if col_num in [4, 5, 6, 7, 8]:  # 数量, 零售价, 金额, 商品链接, 图片链接
                     cell.alignment = center_alignment
                 else:  # 图片, 名称, 规格名

@@ -53,7 +53,7 @@ from app.models.purchase import (
     PurchaseOrderItem,  # New - maps to existing purchase_order_items table
     PurchaseOrderUnreceivedItem,  # New - track unreceived items
     PurchaseReceipt,
-    PurchaseReceiptLine,
+    # PurchaseReceiptLine,  # DISABLED - commented out to avoid FK conflicts
     PurchaseRequisition,
     PurchaseRequisitionLine,
     SupplierPayment,
@@ -109,7 +109,7 @@ MODEL_CLASSES: list[type[Any]] = [
     PurchaseOrderItem,  # Using new model instead of PurchaseOrderLine
     # PurchaseOrderLine,  # DISABLED
     PurchaseReceipt,
-    PurchaseReceiptLine,
+    # PurchaseReceiptLine,  # DISABLED - commented out to avoid FK conflicts
     SupplierPayment,
     PurchaseRequisition,
     PurchaseRequisitionLine,
@@ -175,9 +175,11 @@ __all__ = [
     "SupplierProduct",
     "SupplierPerformance",
     "PurchaseOrder",
-    "PurchaseOrderLine",
+    "PurchaseOrderItem",  # Fixed: using PurchaseOrderItem instead of PurchaseOrderLine
+    "PurchaseOrderHistory",  # Added: audit trail for purchase orders
+    "PurchaseOrderUnreceivedItem",  # Added: track unreceived items
     "PurchaseReceipt",
-    "PurchaseReceiptLine",
+    # "PurchaseReceiptLine",  # DISABLED - commented out to avoid FK conflicts
     "SupplierPayment",
     "PurchaseRequisition",
     "PurchaseRequisitionLine",

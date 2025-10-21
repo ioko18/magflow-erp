@@ -440,7 +440,10 @@ class ConflictResolutionService:
         if high_severity_count > 0:
             return {
                 "strategy": self.STRATEGY_MANUAL,
-                "reason": f"Found {high_severity_count} high-severity conflicts requiring manual review",
+                "reason": (
+                    "Found "
+                    f"{high_severity_count} high-severity conflicts requiring manual review"
+                ),
                 "confidence": "high",
             }
 

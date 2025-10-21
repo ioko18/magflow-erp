@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -63,7 +63,8 @@ async def test_unauthorized_access():
         # Check the response content
         data = response.json()
         assert "detail" in data
-        # The actual message might be different, so we'll just check for the presence of the detail field
+        # The actual message might be different, so we'll just
+        # check for the presence of the detail field
 
 
 @pytest.mark.asyncio
@@ -79,7 +80,8 @@ async def test_invalid_token():
         # Check the response content
         data = response.json()
         assert "detail" in data
-        # The actual message might be different, so we'll just check for the presence of the detail field
+        # The actual message might be different, so we'll just check
+        # for the presence of the detail field
 
 
 @pytest.mark.asyncio

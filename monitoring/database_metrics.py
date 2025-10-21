@@ -115,13 +115,25 @@ async def collect_database_metrics(
                         text("""
                         SELECT
                             COUNT(*) as total_connections,
-                            COUNT(*) FILTER (WHERE state = 'active') as active_connections,
-                            COUNT(*) FILTER (WHERE state = 'idle') as idle_connections,
-                            COUNT(*) FILTER (WHERE state = 'idle in transaction') as idle_in_transaction,
-                            COUNT(*) FILTER (WHERE state = 'idle in transaction (aborted)') as aborted_transactions,
-                            COUNT(*) FILTER (WHERE state = 'fastpath function call') as function_calls,
-                            COUNT(*) FILTER (WHERE state = 'disabled') as disabled_connections,
-                            COUNT(*) FILTER (WHERE state = 'active' AND query_start < NOW() - INTERVAL '5 minutes') as long_running_queries
+                            COUNT(*) FILTER
+                                (WHERE state = 'active') as active_connections,
+                            COUNT(*) FILTER
+                                (WHERE state = 'idle') as idle_connections,
+                            COUNT(*) FILTER (
+                                WHERE state = 'idle in transaction'
+                            ) as idle_in_transaction,
+                            COUNT(*) FILTER (
+                                WHERE state = 'idle in transaction (aborted)'
+                            ) as aborted_transactions,
+                            COUNT(*) FILTER (
+                                WHERE state = 'fastpath function call'
+                            ) as function_calls,
+                            COUNT(*) FILTER
+                                (WHERE state = 'disabled') as disabled_connections,
+                            COUNT(*) FILTER (
+                                WHERE state = 'active'
+                                AND query_start < NOW() - INTERVAL '5 minutes'
+                            ) as long_running_queries
                         FROM pg_stat_activity
                         WHERE pid != pg_backend_pid()
                         """)
@@ -136,15 +148,32 @@ async def collect_database_metrics(
                             schemaname as schema,
                             relname as table_name,
                             n_live_tup as row_estimate,
-                            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname))) as total_size,
-                            pg_size_pretty(pg_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname))) as table_size,
-                            pg_size_pretty(pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname)) - pg_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname))) as index_size,
+                            pg_size_pretty(
+                                pg_total_relation_size(
+                                    quote_ident(schemaname) || '.' || quote_ident(relname)
+                                )
+                            ) as total_size,
+                            pg_size_pretty(
+                                pg_relation_size(
+                                    quote_ident(schemaname) || '.' || quote_ident(relname)
+                                )
+                            ) as table_size,
+                            pg_size_pretty(
+                                pg_total_relation_size(
+                                    quote_ident(schemaname) || '.' || quote_ident(relname)
+                                )
+                                - pg_relation_size(
+                                    quote_ident(schemaname) || '.' || quote_ident(relname)
+                                )
+                            ) as index_size,
                             pg_stat_get_last_autovacuum_time(c.oid) as last_vacuum,
                             pg_stat_get_last_autoanalyze_time(c.oid) as last_analyze
                         FROM pg_stat_user_tables t
                         JOIN pg_class c ON c.relname = t.relname
                         WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-                        ORDER BY pg_total_relation_size(quote_ident(schemaname) || '.' || quote_ident(relname)) DESC
+                        ORDER BY pg_total_relation_size(
+                            quote_ident(schemaname) || '.' || quote_ident(relname)
+                        ) DESC
                         LIMIT 20;
                         """)
                     )
@@ -160,7 +189,9 @@ async def collect_database_metrics(
                             idx_scan as index_scans,
                             idx_tup_read as tuples_read,
                             idx_tup_fetch as tuples_fetched,
-                            pg_size_pretty(pg_relation_size(quote_ident(indexrelid)::regclass)) as index_size
+                            pg_size_pretty(
+                                pg_relation_size(quote_ident(indexrelid)::regclass)
+                            ) as index_size
                         FROM pg_stat_user_indexes
                         WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
                         ORDER BY idx_scan DESC NULLS LAST
@@ -175,7 +206,10 @@ async def collect_database_metrics(
                         SELECT
                             sum(heap_blks_read) as heap_read,
                             sum(heap_blks_hit) as heap_hit,
-                            sum(heap_blks_hit) / nullif(sum(heap_blks_hit) + sum(heap_blks_read), 0) as hit_ratio
+                            sum(heap_blks_hit) / nullif(
+                                sum(heap_blks_hit) + sum(heap_blks_read),
+                                0
+                            ) as hit_ratio
                         FROM pg_statio_user_tables;
                         """)
                     )
@@ -268,7 +302,8 @@ async def _get_postgresql_health_status(session: AsyncSession) -> dict[str, Any]
         active_connections = metrics.get("active_connections", 0)
         if max_connections and active_connections > max_connections * 0.9:
             issues.append(
-                f"High connection utilization: {active_connections}/{max_connections} connections in use"
+                "High connection utilization: "
+                f"{active_connections}/{max_connections} connections in use"
             )
             is_healthy = False
 
@@ -361,7 +396,8 @@ async def _get_blocking_locks(session: AsyncSession) -> list[dict[str, Any]]:
             blocked_activity.state AS blocked_state,
             blocking_activity.state AS blocking_state
         FROM pg_catalog.pg_locks blocked_locks
-        JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid
+        JOIN pg_catalog.pg_stat_activity blocked_activity
+            ON blocked_activity.pid = blocked_locks.pid
         JOIN pg_catalog.pg_locks blocking_locks
             ON blocking_locks.locktype = blocked_locks.locktype
             AND blocking_locks.DATABASE IS NOT DISTINCT FROM blocked_locks.DATABASE
@@ -374,7 +410,8 @@ async def _get_blocking_locks(session: AsyncSession) -> list[dict[str, Any]]:
             AND blocking_locks.objid IS NOT DISTINCT FROM blocked_locks.objid
             AND blocking_locks.objsubid = blocked_locks.objsubid
             AND blocking_locks.pid != blocked_locks.pid
-        JOIN pg_catalog.pg_stat_activity blocking_activity ON blocking_activity.pid = blocking_locks.pid
+        JOIN pg_catalog.pg_stat_activity blocking_activity
+            ON blocking_activity.pid = blocking_locks.pid
         WHERE NOT blocked_locks.GRANTED;
         """
 

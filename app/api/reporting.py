@@ -74,12 +74,12 @@ async def generate_report(
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate report: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/sales/overview", response_model=Report)
@@ -139,7 +139,7 @@ async def get_sales_overview(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate sales report: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/inventory/status", response_model=Report)
@@ -199,7 +199,7 @@ async def get_inventory_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate inventory report: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/users/activity", response_model=Report)
@@ -259,7 +259,7 @@ async def get_user_activity(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate user activity report: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/financial/summary", response_model=Report)
@@ -319,7 +319,7 @@ async def get_financial_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate financial report: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/system/metrics", response_model=Report)
@@ -379,7 +379,7 @@ async def get_system_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate system metrics report: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/export", response_model=ExportResponse)
@@ -421,12 +421,12 @@ async def export_report(
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export report: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/schedule")
@@ -458,7 +458,7 @@ async def schedule_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to schedule report: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/templates")
@@ -584,4 +584,4 @@ async def get_dashboard_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate dashboard summary: {e!s}",
-        )
+        ) from e

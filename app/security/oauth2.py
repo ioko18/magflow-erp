@@ -300,7 +300,7 @@ async def oauth_callback(provider: str, request: Request, code: str, state: str)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OAuth2 authentication failed: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/{provider}/userinfo")

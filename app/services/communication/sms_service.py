@@ -377,12 +377,24 @@ class SMSTemplate:
 
     TEMPLATES = {
         NotificationType.ORDER_CONFIRMATION: {
-            "en": "Order {order_id} confirmed. Total: {amount} {currency}. Track: {tracking_url}",
-            "ro": "Comanda {order_id} confirmată. Total: {amount} {currency}. Urmărire: {tracking_url}",
+            "en": (
+                "Order {order_id} confirmed. Total: {amount} {currency}. Track: "
+                "{tracking_url}"
+            ),
+            "ro": (
+                "Comanda {order_id} confirmată. Total: {amount} {currency}. "
+                "Urmărire: {tracking_url}"
+            ),
         },
         NotificationType.ORDER_SHIPPED: {
-            "en": "Order {order_id} shipped! Delivery expected: {delivery_date}. Track: {tracking_url}",
-            "ro": "Comanda {order_id} expediată! Livrare estimată: {delivery_date}. Urmărire: {tracking_url}",
+            "en": (
+                "Order {order_id} shipped! Delivery expected: {delivery_date}. Track: "
+                "{tracking_url}"
+            ),
+            "ro": (
+                "Comanda {order_id} expediată! Livrare estimată: {delivery_date}. "
+                "Urmărire: {tracking_url}"
+            ),
         },
         NotificationType.ORDER_DELIVERED: {
             "en": "Order {order_id} delivered successfully. Thank you for choosing us!",
@@ -565,7 +577,7 @@ class SMSService(ServiceBase):
 
         except Exception as e:
             logger.error("Failed to queue SMS: %s", e)
-            raise SMSProviderError(f"SMS queuing failed: {e}")
+            raise SMSProviderError(f"SMS queuing failed: {e}") from e
 
     async def send_templated_sms(
         self,

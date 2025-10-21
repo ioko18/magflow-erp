@@ -18,7 +18,8 @@ that can be extended by model-specific CRUD modules.
 # )
 from .user import CRUDUser, user
 
-# from .role import CRUDPermission, CRUDRole, permission, role  # Commented out due to Permission model removal
+# from .role import CRUDPermission, CRUDRole,
+# permission, role  # Commented out due to Permission model removal
 
 __all__ = [
     "CRUDBase",

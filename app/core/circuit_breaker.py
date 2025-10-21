@@ -14,6 +14,7 @@ Key Features:
 from __future__ import annotations
 
 import logging
+import secrets
 import threading
 import time
 from collections import deque
@@ -279,7 +280,8 @@ class CircuitBreaker:
                 # In half-open state, check if we've exceeded max attempts
                 if self._half_open_attempts >= self.half_open_max_attempts:
                     self._logger.debug(
-                        "Circuit breaker '%s' exceeded max half-open attempts (%d), reopening circuit",
+                        "Circuit breaker '%s' exceeded max half-open attempts (%d), "
+                        "reopening circuit",
                         self.name,
                         self.half_open_max_attempts,
                     )
@@ -289,7 +291,8 @@ class CircuitBreaker:
                     current_time - self._opened_at
                 ) >= (self.recovery_timeout * 2):
                     self._logger.debug(
-                        "Circuit breaker '%s' in HALF-OPEN state too long (%.2fs), reopening circuit",
+                        "Circuit breaker '%s' in HALF-OPEN state too long (%.2fs), "
+                        "reopening circuit",
                         self.name,
                         current_time - self._opened_at,
                     )
@@ -475,7 +478,8 @@ class CircuitBreaker:
                 failure_count = len(self._failure_timestamps)
                 if failure_count >= self.failure_threshold:
                     self._logger.warning(
-                        "Circuit breaker '%s' failure threshold reached (%d >= %d) in the last %.1fs",
+                        "Circuit breaker '%s' failure threshold reached (%d >= %d) in "
+                        "the last %.1fs",
                         self.name,
                         failure_count,
                         self.failure_threshold,
@@ -493,7 +497,8 @@ class CircuitBreaker:
             else:  # OPEN state
                 # In OPEN state, just log the failure but don't trip again
                 self._logger.debug(
-                    "Circuit breaker '%s' failure recorded while OPEN (total failures in window: %d)",
+                    "Circuit breaker '%s' failure recorded while OPEN (total failures in "
+                    "window: %d)",
                     self.name,
                     len(self._failure_timestamps),
                 )
@@ -548,7 +553,8 @@ def get_circuit_breaker(name: str, **kwargs: Any) -> CircuitBreaker:
         # Special case for database circuit breaker to maintain backward compatibility
         if name == "database" and name not in _registry:
             _logger.debug(
-                f"Returning global DATABASE_CIRCUIT_BREAKER instance: {id(DATABASE_CIRCUIT_BREAKER)}"
+                "Returning global DATABASE_CIRCUIT_BREAKER instance: "
+                f"{id(DATABASE_CIRCUIT_BREAKER)}"
             )
             return DATABASE_CIRCUIT_BREAKER
 
@@ -639,9 +645,9 @@ def retry_with_circuit_breaker(
                     # Calculate next delay with exponential backoff and jitter
                     delay = min(max_delay, delay * 2)
                     if jitter > 0:
-                        import random
-
-                        delay = delay * (1 + random.uniform(-jitter, jitter))
+                        # Use secrets for cryptographically secure random jitter
+                        random_gen = secrets.SystemRandom()
+                        delay = delay * (1 + random_gen.uniform(-jitter, jitter))
 
                     # Sleep before retry
                     time.sleep(delay)

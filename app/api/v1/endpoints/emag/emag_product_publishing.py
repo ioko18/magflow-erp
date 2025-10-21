@@ -165,7 +165,7 @@ async def create_draft_product(
 
     except Exception as e:
         logger.error("Failed to create draft product: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/complete")
@@ -207,13 +207,13 @@ async def create_complete_product(
 
             return {
                 "status": "success",
-                "message": "Complete product created and sent for validation",
+                "message": f"Import completed: {result['imported']} products imported",
                 "data": result,
             }
 
     except Exception as e:
         logger.error("Failed to create complete product: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/attach-offer")
@@ -272,7 +272,7 @@ async def attach_offer_to_existing_product(
 
     except Exception as e:
         logger.error("Failed to attach offer: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/match-ean")
@@ -293,13 +293,16 @@ async def match_products_by_ean(
 
             return {
                 "status": "success",
-                "message": f"Found {result['products_found']} products for {result['eans_searched']} EANs",
+                "message": (
+                    f"Found {result['products_found']} products for "
+                    f"{result['eans_searched']} EANs"
+                ),
                 "data": result,
             }
 
     except Exception as e:
         logger.error("Failed to match EANs: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/categories")
@@ -327,7 +330,7 @@ async def get_categories(
 
     except Exception as e:
         logger.error("Failed to fetch categories: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/categories/allowed")
@@ -353,7 +356,7 @@ async def get_allowed_categories(
 
     except Exception as e:
         logger.error("Failed to fetch allowed categories: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/categories/{category_id}")
@@ -378,7 +381,7 @@ async def get_category_details(
 
     except Exception as e:
         logger.error("Failed to fetch category %d: %s", category_id, str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/vat-rates")
@@ -402,7 +405,7 @@ async def get_vat_rates(
 
     except Exception as e:
         logger.error("Failed to fetch VAT rates: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/handling-times")
@@ -426,7 +429,7 @@ async def get_handling_times(
 
     except Exception as e:
         logger.error("Failed to fetch handling times: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/batch/update-offers")
@@ -447,13 +450,19 @@ async def batch_update_offers(
 
             return {
                 "status": "success",
-                "message": f"Batch update completed: {result['successful_batches']}/{result['total_batches']} batches successful",
+                "message": (
+                    "Batch update completed: "
+                    f"{result['successful_batches']}"
+                    "/"
+                    f"{result['total_batches']}"
+                    " batches successful"
+                ),
                 "data": result,
             }
 
     except Exception as e:
         logger.error("Batch update failed: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/batch/status")
@@ -474,4 +483,4 @@ async def get_batch_status(
 
     except Exception as e:
         logger.error("Failed to get batch status: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

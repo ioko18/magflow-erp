@@ -30,7 +30,9 @@ async def get_dashboard_data(
                     """
                 SELECT
                     COUNT(*) as total_products,
-                    COUNT(*) FILTER (WHERE ep.updated_at > NOW() - INTERVAL '24 hours') as recent_updates
+                    COUNT(*) FILTER (
+                        WHERE ep.updated_at > NOW() - INTERVAL '24 hours'
+                    ) as recent_updates
                 FROM app.emag_products ep
             """,
                 ),
@@ -306,7 +308,10 @@ async def get_emag_products(
                         "limit": limit,
                         "total": total_count,
                     },
-                    "note": f"Showing real eMAG products from database - {total_count} products available",
+                    "note": (
+                        "Showing real eMAG products from database - "
+                        f"{total_count} products available"
+                    ),
                 },
             }
         except Exception as e:
@@ -602,7 +607,10 @@ async def get_emag_orders(
                         "status_breakdown": status_breakdown,
                         "channel_breakdown": channel_breakdown,
                     },
-                    "note": "Showing sales orders stored in the ERP if available; falling back to demo data when tables are missing.",
+                    "note": (
+                        "Showing sales orders stored in the ERP if available; "
+                        "falling back to demo data when tables are missing."
+                    ),
                 },
             }
         except Exception as exc:
@@ -707,7 +715,10 @@ async def get_emag_orders(
                         "status_breakdown": mock_status_breakdown,
                         "channel_breakdown": mock_channel_breakdown,
                     },
-                    "note": "Showing mock eMAG orders because the ERP database is unavailable or returned no rows",
+                    "note": (
+                        "Showing mock eMAG orders because the ERP database is "
+                        "unavailable or returned no rows"
+                    ),
                 },
             }
 
@@ -936,8 +947,10 @@ async def get_system_status(
                 SELECT
                     (SELECT COUNT(*) FROM app.emag_products) as emag_products,
                     (SELECT COUNT(*) FROM app.emag_product_offers) as emag_offers,
-                    (SELECT COUNT(*) FROM app.emag_offer_syncs WHERE status = 'completed') as successful_syncs,
-                    (SELECT COUNT(*) FROM app.emag_offer_syncs WHERE status = 'failed') as failed_syncs
+                    (SELECT COUNT(*) FROM app.emag_offer_syncs
+                        WHERE status = 'completed') as successful_syncs,
+                    (SELECT COUNT(*) FROM app.emag_offer_syncs
+                        WHERE status = 'failed') as failed_syncs
             """,
                 ),
             )
@@ -1102,7 +1115,9 @@ async def get_emag_products_by_account(
                     for index, term in enumerate(search_terms):
                         param_name = f"search_term_{index}"
                         filters.append(
-                            f"(p.name ILIKE :{param_name} OR p.part_number ILIKE :{param_name} OR p.emag_id ILIKE :{param_name})"
+                            f"(p.name ILIKE :{param_name} OR "
+                            f"p.part_number ILIKE :{param_name} OR "
+                            f"p.emag_id ILIKE :{param_name})"
                         )
                         params[param_name] = f"%{term}%"
 
@@ -1219,8 +1234,12 @@ async def get_emag_products_by_account(
                     COUNT(*) AS total_products,
                     COUNT(*) FILTER (WHERE p.is_active = true) AS active_products,
                     COUNT(*) FILTER (WHERE p.is_active = false) AS inactive_products,
-                    COUNT(*) FILTER (WHERE COALESCE(o.is_available, false) = true) AS available_products,
-                    COUNT(*) FILTER (WHERE COALESCE(o.is_available, false) = false) AS unavailable_products,
+                    COUNT(*) FILTER (
+                        WHERE COALESCE(o.is_available, false) = true
+                    ) AS available_products,
+                    COUNT(*) FILTER (
+                        WHERE COALESCE(o.is_available, false) = false
+                    ) AS unavailable_products,
                     COUNT(*) FILTER (WHERE {price_expression} = 0) AS zero_price_products,
                     AVG({price_expression}) AS avg_price,
                     MIN({price_expression}) AS min_price,

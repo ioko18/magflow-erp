@@ -1,4 +1,4 @@
-"""Catalog service for managing products, brands, and characteristics with eMAG Marketplace integration."""
+"""Catalog service for managing products, brands, and characteristics."""
 
 import base64
 import json
@@ -300,11 +300,23 @@ class CatalogService:
         # sort_dir = filter.sort_direction or SortDirection.DESC
         #
         # if sort_field == SortField.NAME:
-        #     order_by = Product.name.asc() if sort_dir == SortDirection.ASC else Product.name.desc()
+        #     order_by = (
+        #         Product.name.asc()
+        #         if sort_dir == SortDirection.ASC
+        #         else Product.name.desc()
+        #     )
         # elif sort_field == SortField.PRICE:
-        #     order_by = Product.price.asc() if sort_dir == SortDirection.ASC else Product.price.desc()
+        #     order_by = (
+        #         Product.price.asc()
+        #         if sort_dir == SortDirection.ASC
+        #         else Product.price.desc()
+        #     )
         # else:  # Default to created_at
-        #     order_by = Product.created_at.asc() if sort_dir == SortDirection.ASC else Product.created_at.desc()
+        #     order_by = (
+        #         Product.created_at.asc()
+        #         if sort_dir == SortDirection.ASC
+        #         else Product.created_at.desc()
+        #     )
         #
         # query = query.order_by(order_by, Product.id.asc())
         #
@@ -676,7 +688,7 @@ class CatalogService:
         if characteristic_id != 1:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Characteristic with ID {characteristic_id} not found in category {category_id}",
+                detail=f"Characteristic {characteristic_id} not found in category {category_id}",
             )
 
         return [

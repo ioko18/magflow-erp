@@ -110,16 +110,28 @@ class StockSyncService:
                 recommendations.append(
                     {
                         "type": "stock_rebalance",
-                        "reason": f"MAIN has better rank ({rank_main} vs {rank_fbe}) but less stock",
-                        "suggested_action": f"Transfer {min(stock_fbe // 2, 10)} units from FBE to MAIN",
+                        "reason": (
+                            f"MAIN has better rank ({rank_main} vs {rank_fbe}) "
+                            "but less stock"
+                        ),
+                        "suggested_action": (
+                            f"Transfer {min(stock_fbe // 2, 10)} units "
+                            "from FBE to MAIN"
+                        ),
                     }
                 )
             elif rank_fbe < rank_main and stock_fbe < stock_main:
                 recommendations.append(
                     {
                         "type": "stock_rebalance",
-                        "reason": f"FBE has better rank ({rank_fbe} vs {rank_main}) but less stock",
-                        "suggested_action": f"Transfer {min(stock_main // 2, 10)} units from MAIN to FBE",
+                        "reason": (
+                            f"FBE has better rank ({rank_fbe} vs {rank_main}) "
+                            "but less stock"
+                        ),
+                        "suggested_action": (
+                            f"Transfer {min(stock_main // 2, 10)} units "
+                            "from MAIN to FBE"
+                        ),
                     }
                 )
         # Case 4: No competition on one account - can reduce stock there
@@ -128,7 +140,10 @@ class StockSyncService:
                 {
                     "type": "stock_optimization",
                     "reason": "FBE has no competition - can safely reduce stock there",
-                    "suggested_action": f"Keep minimum stock on FBE, transfer excess to MAIN (up to {stock_fbe - 10} units)",
+                    "suggested_action": (
+                        "Keep minimum stock on FBE, transfer excess to MAIN "
+                        f"(up to {stock_fbe - 10} units)"
+                    ),
                 }
             )
 
@@ -140,7 +155,10 @@ class StockSyncService:
                     {
                         "type": "offer_update",
                         "account": "main",
-                        "reason": f"Last sync {days_since_sync} days ago - eMAG recommends weekly updates",
+                        "reason": (
+                            f"Last sync {days_since_sync} days ago - "
+                            "weekly update recommended"
+                        ),
                         "suggested_action": "Update offer even if nothing changed",
                     }
                 )
@@ -152,7 +170,10 @@ class StockSyncService:
                     {
                         "type": "offer_update",
                         "account": "fbe",
-                        "reason": f"Last sync {days_since_sync} days ago - eMAG recommends weekly updates",
+                        "reason": (
+                            f"Last sync {days_since_sync} days ago - "
+                            "weekly update recommended"
+                        ),
                         "suggested_action": "Update offer even if nothing changed",
                     }
                 )
@@ -289,7 +310,8 @@ class StockSyncService:
 
         if new_stock_from < 3 and product_from.number_of_offers > 1:
             warnings.append(
-                f"Transfer will leave {from_account} with low stock ({new_stock_from}) and competition"
+                f"Transfer will leave {from_account} with low stock "
+                f"({new_stock_from}) and competition"
             )
 
         return {

@@ -75,8 +75,15 @@ class DatabaseMaintenance:
         try:
             result = await conn.execute(text(query))
             for row in result:
-                efficiency = (row.idx_tup_fetch / row.idx_tup_read * 100) if row.idx_tup_read > 0 else 0
-                print(f"  {row.indexname}: {row.idx_scan} scans, {efficiency:.1f}% efficiency")
+                efficiency = (
+                    row.idx_tup_fetch / row.idx_tup_read * 100
+                    if row.idx_tup_read > 0
+                    else 0
+                )
+                print(
+                    f"  {row.indexname}: {row.idx_scan} scans, "
+                    f"{efficiency:.1f}% efficiency"
+                )
         except Exception as e:
             print(f"  Error analyzing index usage: {e}")
 

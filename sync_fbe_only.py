@@ -40,7 +40,7 @@ def safe_str(value, default=""):
         return default
     try:
         return str(value).strip()
-    except:
+    except (ValueError, TypeError):
         return default
 
 async def sync_fbe_complete():
@@ -110,7 +110,9 @@ async def sync_fbe_complete():
 
                             # Extract characteristics
                             characteristics = {}
-                            if "characteristics" in product and isinstance(product["characteristics"], list):
+                            if "characteristics" in product and isinstance(
+                                product["characteristics"], list
+                            ):
                                 for char in product["characteristics"]:
                                     if isinstance(char, dict) and "id" in char and "value" in char:
                                         characteristics[str(char["id"])] = {
@@ -122,7 +124,9 @@ async def sync_fbe_complete():
                             if existing:
                                 # Update
                                 existing.name = safe_str(product.get("name"))
-                                existing.price = safe_float(product.get("sale_price") or product.get("price"))
+                                existing.price = safe_float(
+                                    product.get("sale_price") or product.get("price")
+                                )
                                 existing.stock_quantity = stock_qty
                                 existing.is_active = product.get("status") == 1
                                 existing.last_synced_at = datetime.utcnow()
@@ -136,8 +140,12 @@ async def sync_fbe_complete():
                                     name=safe_str(product.get("name")),
                                     account_type="fbe",
                                     description=safe_str(product.get("description")),
-                                    brand=safe_str(product.get("brand") or product.get("brand_name")),
-                                    price=safe_float(product.get("sale_price") or product.get("price")),
+                                    brand=safe_str(
+                                        product.get("brand") or product.get("brand_name")
+                                    ),
+                                    price=safe_float(
+                                        product.get("sale_price") or product.get("price")
+                                    ),
                                     currency="RON",
                                     stock_quantity=stock_qty,
                                     category_id=safe_str(product.get("category_id")),
@@ -145,9 +153,19 @@ async def sync_fbe_complete():
                                     emag_category_name=safe_str(product.get("category_name")),
                                     is_active=product.get("status") == 1,
                                     status=safe_str(product.get("status")),
-                                    images=product.get("images", []) if isinstance(product.get("images"), list) else [],
+                                    images=(
+                                        product.get("images", [])
+                                        if isinstance(product.get("images"), list)
+                                        else []
+                                    ),
                                     emag_characteristics=characteristics,
-                                    attributes={"ean_codes": product.get("ean", []) if isinstance(product.get("ean"), list) else []},
+                                    attributes={
+                                        "ean_codes": (
+                                            product.get("ean", [])
+                                            if isinstance(product.get("ean"), list)
+                                            else []
+                                        )
+                                    },
                                     sync_status="synced",
                                     last_synced_at=datetime.utcnow()
                                 )

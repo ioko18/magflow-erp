@@ -195,7 +195,11 @@ class SchemaValidator:
                     )
                 elif col in ["created_at", "updated_at"]:
                     suggestions.append(
-                        f"ALTER TABLE {table_name} ADD COLUMN {col} TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
+                        "ALTER TABLE "
+                        f"{table_name} "
+                        "ADD COLUMN "
+                        f"{col} "
+                        "TIMESTAMP DEFAULT CURRENT_TIMESTAMP;"
                     )
                 else:
                     suggestions.append(

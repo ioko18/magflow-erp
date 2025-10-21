@@ -7,7 +7,6 @@ services:
     container_name: magflow_app
     restart: unless-stopped
     env_file:
-      - .env
       - .env.docker
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow}
@@ -38,15 +37,14 @@ services:
     container_name: magflow_db
     restart: unless-stopped
     env_file:
-      - .env
       - .env.docker
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-app}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0}
       - POSTGRES_DB=${POSTGRES_DB:-magflow}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-db/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql
     ports:
       - "5433:5432"
     healthcheck:
@@ -78,7 +76,6 @@ services:
     container_name: magflow_worker
     restart: unless-stopped
     env_file:
-      - .env
       - .env.docker
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow}
@@ -107,7 +104,6 @@ services:
     container_name: magflow_beat
     restart: unless-stopped
     env_file:
-      - .env
       - .env.docker
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://app:pQ4mR9tY2wX7zK3nL8vB5cD1fG6hJ0@db:5432/magflow}

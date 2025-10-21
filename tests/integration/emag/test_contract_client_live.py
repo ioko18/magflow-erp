@@ -86,7 +86,9 @@ async def live_emag_server() -> Tuple[str, List[Dict[str, Dict[str, str]]]]:
 
 
 @pytest.mark.asyncio
-async def test_emag_api_client_live_contract(live_emag_server: Tuple[str, List[Dict[str, Dict[str, str]]]]) -> None:
+async def test_emag_api_client_live_contract(
+    live_emag_server: Tuple[str, List[Dict[str, Dict[str, str]]]]
+) -> None:
     """`EmagApiClient` should perform real HTTP requests against the test server."""
     base_url, recorded_requests = live_emag_server
 

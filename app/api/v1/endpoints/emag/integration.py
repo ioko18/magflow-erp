@@ -40,7 +40,7 @@ async def get_emag_integration_status(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to check eMAG integration: {e!s}",
-        )
+        ) from e
 
 
 @router.post("/test-connection")
@@ -63,7 +63,7 @@ async def test_emag_connection(
         raise HTTPException(
             status_code=500,
             detail=f"eMAG connection test failed: {e!s}",
-        )
+        ) from e
 
 
 @router.get("/flows")

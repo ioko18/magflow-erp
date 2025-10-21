@@ -204,7 +204,11 @@ class MultiPlatformConfigManager:
             logger.warning(f"Invalid account type '{account_str}', defaulting to MAIN")
             self.active_account = AccountType.MAIN
 
-        logger.info(f"Initialized multi-platform config: {self.current_platform.value} ({self.active_account.value})")
+        logger.info(
+            "Initialized multi-platform config: %s (%s)",
+            self.current_platform.value,
+            self.active_account.value,
+        )
 
     def get_current_platform_config(self) -> PlatformConfig:
         """Get configuration for current platform"""
@@ -323,14 +327,21 @@ class MultiPlatformConfigManager:
         if account:
             self.active_account = account
 
-        logger.info(f"Switched to platform: {self.current_platform.value} ({self.active_account.value})")
+        logger.info(
+            "Switched to platform: %s (%s)",
+            self.current_platform.value,
+            self.active_account.value,
+        )
 
     def get_available_platforms(self) -> list[dict[str, Any]]:
         """Get list of available platforms with their configurations"""
         return [
             {
                 'platform': platform.value,
-                'name': platform_config.api_base_url.split('.')[0].replace('https://marketplace-api.', '').upper(),
+                'name': platform_config.api_base_url
+                    .split('.')[0]
+                    .replace('https://marketplace-api.', '')
+                    .upper(),
                 'currency': platform_config.currency,
                 'language': platform_config.language,
                 'features': platform_config.features
@@ -385,7 +396,11 @@ def initialize_platform_config():
             logger.error(f"  - {issue}")
         raise ValueError("Invalid platform configuration")
 
-    logger.info(f"Platform configuration initialized: {validation['platform']} ({validation['account']})")
+    logger.info(
+        "Platform configuration initialized: %s (%s)",
+        validation['platform'],
+        validation['account'],
+    )
     return validation
 
 # Export functions for easy usage

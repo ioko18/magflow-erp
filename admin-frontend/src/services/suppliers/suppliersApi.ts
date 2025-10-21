@@ -96,4 +96,12 @@ export const suppliersApi = {
   async matchSupplierProducts(supplierId: number, options?: { auto_match?: boolean }) {
     return await apiClient.post(`/suppliers/${supplierId}/match`, options);
   },
+
+  /**
+   * Synchronize Chinese names for supplier products
+   * Retroactively fixes products where Chinese name is in wrong field
+   */
+  async syncChineseNames(supplierId: number) {
+    return await apiClient.post(`/suppliers/${supplierId}/products/sync-chinese-names`, {});
+  },
 };
