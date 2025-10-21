@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { purchaseOrdersApi } from '../../api/purchaseOrders';
-import type { PurchaseOrder, PurchaseOrderLine } from '../../types/purchaseOrder';
+import type { PurchaseOrder } from '../../types/purchaseOrder';
 
 interface ReceiveOrderModalProps {
   order: PurchaseOrder;

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import { memo } from 'react';
 import { Card, Row, Col, Image, Typography, Tag, Button, Space } from 'antd';
 import { CheckCircleOutlined, CloseOutlined } from '@ant-design/icons';
 import type { LocalProductSuggestion } from '../../hooks/useProductMatching';

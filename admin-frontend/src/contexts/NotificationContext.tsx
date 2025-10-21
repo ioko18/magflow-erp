@@ -94,7 +94,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     };
 
     // Small delay to ensure token is available
-    const timer = setTimeout(loadNotifications, 100);
+    const timer: ReturnType<typeof setTimeout> = setTimeout(loadNotifications, 100);
     return () => clearTimeout(timer);
   }, [isAuthenticated]);
 
@@ -102,7 +102,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    let intervalId: number | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     let consecutiveErrors = 0;
     const MAX_CONSECUTIVE_ERRORS = 3;
 

@@ -197,8 +197,8 @@ const EmagProductSync: React.FC = () => {
   })
   
   const [form] = Form.useForm()
-  const progressIntervalRef = useRef<number | null>(null)
-  const statsIntervalRef = useRef<number | null>(null)
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const statsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ============================================================================
   // DATA FETCHING
