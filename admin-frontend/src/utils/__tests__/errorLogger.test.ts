@@ -6,6 +6,26 @@
 
 // @vitest-environment jsdom
 
+/// <reference types="vitest" />
+
+import { errorLogger, logError, logWarning, logInfo } from '../errorLogger';
+
+// Define global types for testing
+declare global {
+  var Storage: {
+    prototype: Storage;
+    new(): Storage;
+  };
+}
+
+// Ensure Vitest globals are available
+declare const vi: typeof import('vitest').vi;
+declare const describe: typeof import('vitest').describe;
+declare const it: typeof import('vitest').it;
+declare const expect: typeof import('vitest').expect;
+declare const beforeEach: typeof import('vitest').beforeEach;
+declare const afterEach: typeof import('vitest').afterEach;
+
 describe('ErrorLogger', () => {
   let consoleErrorSpy: any;
   let consoleWarnSpy: any;
@@ -139,9 +159,13 @@ describe('ErrorLogger', () => {
 
   describe('Error Storage', () => {
     it('should store errors in localStorage (production mode)', () => {
-      // Mock production environment
-      const originalEnv = (global as any).import.meta?.env?.DEV;
-      (global as any).import.meta = { env: { DEV: false } };
+      // Mock import.meta.env.DEV directly
+      const originalImportMeta = (global as any).import?.meta;
+      (global as any).import = {
+        meta: {
+          env: { DEV: false }
+        }
+      };
 
       const error = new Error('Test error for storage');
       logError(error);
@@ -149,13 +173,19 @@ describe('ErrorLogger', () => {
       const storedErrors = errorLogger.getStoredErrors();
       expect(storedErrors.length).toBeGreaterThan(0);
 
-      // Restore environment
-      (global as any).import.meta = { env: { DEV: originalEnv } };
+      // Restore original
+      if (originalImportMeta) {
+        (global as any).import.meta = originalImportMeta;
+      }
     });
 
     it('should limit stored errors to 50', () => {
-      // Mock production environment
-      (global as any).import.meta = { env: { DEV: false } };
+      // Mock import.meta.env.DEV directly
+      (global as any).import = {
+        meta: {
+          env: { DEV: false }
+        }
+      };
 
       // Log 60 errors
       for (let i = 0; i < 60; i++) {
@@ -165,8 +195,12 @@ describe('ErrorLogger', () => {
       const storedErrors = errorLogger.getStoredErrors();
       expect(storedErrors.length).toBeLessThanOrEqual(50);
 
-      // Restore environment
-      (global as any).import.meta = { env: { DEV: true } };
+      // Restore original
+      (global as any).import = {
+        meta: {
+          env: { DEV: true }
+        }
+      };
     });
 
     it('should clear stored errors', () => {

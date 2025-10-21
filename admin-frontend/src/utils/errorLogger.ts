@@ -12,7 +12,7 @@ interface ErrorContext {
 }
 
 class ErrorLogger {
-  private isDevelopment = import.meta.env.DEV;
+  private isDevelopment = (import.meta as any).env?.DEV ?? true;
 
   /**
    * Log an error with context

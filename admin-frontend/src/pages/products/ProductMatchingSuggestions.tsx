@@ -90,7 +90,6 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
     averageScore: 0,
     highScoreCount: 0,
   });
-  const [error, setError] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<{ [key: number]: number }>({});
 
   const fetchSuppliers = useCallback(async () => {
@@ -204,10 +203,8 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
         }
         
         message.error(`Validation error: ${errorDetails}`);
-        setError(`Validation error: ${errorDetails}`);
       } else {
         message.error('Failed to load products');
-        setError('Failed to load products');
       }
     } finally {
       setLoading(false);
