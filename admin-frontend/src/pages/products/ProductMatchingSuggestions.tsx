@@ -75,7 +75,14 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
   const [supplierId, setSupplierId] = useState<number | null>(null);
   const [suppliers, setSuppliers] = useState<Array<{ id: number; name: string }>>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+  // Ensure filterType is always one of the valid values
   const [filterType, setFilterType] = useState<'all' | 'with-suggestions' | 'without-suggestions' | 'high-score'>('all');
+  
+  // Validate and normalize filter type
+  const getValidFilterType = (type: string): 'all' | 'with-suggestions' | 'without-suggestions' | 'high-score' => {
+    const validTypes = ['all', 'with-suggestions', 'without-suggestions', 'high-score'];
+    return validTypes.includes(type) ? type as any : 'all';
+  };
   const [statistics, setStatistics] = useState({
     total: 0,
     withSuggestions: 0,
@@ -83,6 +90,7 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
     averageScore: 0,
     highScoreCount: 0,
   });
+  const [error, setError] = useState<string | null>(null);
   const [editingPrice, setEditingPrice] = useState<{ [key: number]: number }>({});
 
   const fetchSuppliers = useCallback(async () => {
@@ -125,6 +133,18 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
     setLoading(true);
     try {
       const skip = (currentPage - 1) * pageSize;
+      const validFilterType = getValidFilterType(filterType);
+      
+      // Debug log
+      console.log('Fetching products with params:', {
+        supplierId,
+        skip,
+        limit: pageSize,
+        min_similarity: minSimilarity,
+        max_suggestions: maxSuggestions,
+        filter_type: validFilterType,
+      });
+      
       const response = await api.get(
         `/suppliers/${supplierId}/products/unmatched-with-suggestions`,
         {
@@ -133,7 +153,13 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
             limit: pageSize,
             min_similarity: minSimilarity,
             max_suggestions: maxSuggestions,
-            filter_type: filterType,
+            filter_type: validFilterType,
+          },
+          paramsSerializer: params => {
+            return Object.entries(params)
+              .filter(([_, value]) => value !== undefined && value !== null)
+              .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
+              .join('&');
           },
         }
       );
@@ -161,9 +187,28 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
           highScoreCount,
         });
       }
-    } catch (error) {
-      message.error('Eroare la încărcarea produselor');
+    } catch (error: any) {
       console.error('Error fetching products:', error);
+      
+      // Handle 422 validation error specifically
+      if (error.response?.status === 422) {
+        const errorDetails = error.response.data?.detail || 'Invalid request parameters';
+        console.error('Validation error details:', errorDetails);
+        
+        // Try to recover by resetting to default filter
+        if (filterType !== 'all') {
+          console.log('Resetting filter to default due to validation error');
+          setFilterType('all');
+          // Retry with default filter
+          return fetchProducts();
+        }
+        
+        message.error(`Validation error: ${errorDetails}`);
+        setError(`Validation error: ${errorDetails}`);
+      } else {
+        message.error('Failed to load products');
+        setError('Failed to load products');
+      }
     } finally {
       setLoading(false);
     }
