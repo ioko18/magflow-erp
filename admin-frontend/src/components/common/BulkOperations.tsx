@@ -29,8 +29,22 @@ import axios from 'axios';
 
 const { Option } = Select;
 
+// Define proper types for selected products (similar to EmagProductSync ProductRecord)
+interface SelectedProduct {
+  id: string | number;
+  emag_id?: string | number;
+  name: string;
+  sku: string;
+  price: number;
+  brand?: string;
+  category_id?: number;
+  part_number?: string;
+  images?: string[];
+  ean?: string[];
+}
+
 interface BulkOperationsProps {
-  selectedProducts: any[];
+  selectedProducts: SelectedProduct[];
   onOperationComplete?: () => void;
 }
 
@@ -93,14 +107,19 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
     form.resetFields();
   };
 
-  const executeOperation = async (values: any) => {
+  const executeOperation = async (values: {
+    sale_price?: number;
+    stock?: number;
+    warehouse_id?: number;
+    account_type?: string;
+  }) => {
     setLoading(true);
     setProgress(0);
 
     try {
       const token = localStorage.getItem('access_token');
       let endpoint = '';
-      let payload: any = {};
+      let payload: Record<string, unknown> = {};
 
       switch (operation) {
         case 'update_price':
@@ -144,7 +163,7 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
             sale_price: p.price,
             images: p.images || [],
             ean: p.ean || [],
-          }));
+          })) as unknown as Record<string, unknown>;
           break;
 
         default:
@@ -179,14 +198,15 @@ const BulkOperations: React.FC<BulkOperationsProps> = ({
       if (onOperationComplete) {
         onOperationComplete();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Bulk operation error:', error);
-      message.error(error.response?.data?.detail || 'Operation failed');
+      const errorMessage = error instanceof Error ? error.message : 'Operation failed';
+      message.error(errorMessage);
       setOperationResult({
         total: selectedProducts.length,
         successful: 0,
         failed: selectedProducts.length,
-        errors: [{ product_id: 'all', error: error.message }],
+        errors: [{ product_id: 'all', error: errorMessage }],
       });
     } finally {
       setLoading(false);

@@ -16,6 +16,19 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 // When types are generated, uncomment this:
 // import type { components, paths } from './types/api';
 
+import type {
+  Product,
+  Order,
+  Supplier,
+} from '../types/models';
+
+import type {
+  CreatePurchaseOrderRequest,
+  UpdatePurchaseOrderStatusRequest,
+  ReceivePurchaseOrderRequest,
+  ResolveUnreceivedItemRequest,
+} from '../types/purchaseOrder';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 /**
@@ -56,7 +69,7 @@ class APIClient {
           const refreshToken = localStorage.getItem('refresh_token');
           if (refreshToken) {
             try {
-              const response = await this.post('/auth/refresh', {
+              const response = await this.post<{ access_token: string; refresh_token: string }>('/auth/refresh', {
                 refresh_token: refreshToken,
               });
               const newToken = response.data.access_token;
@@ -85,35 +98,35 @@ class APIClient {
   /**
    * Generic GET request
    */
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.get<T>(url, config);
   }
 
   /**
    * Generic POST request
    */
-  async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.post<T>(url, data, config);
   }
 
   /**
    * Generic PUT request
    */
-  async put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.put<T>(url, data, config);
   }
 
   /**
    * Generic PATCH request
    */
-  async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.patch<T>(url, data, config);
   }
 
   /**
    * Generic DELETE request
    */
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete<T>(url, config);
   }
 }
@@ -144,7 +157,7 @@ export const productsAPI = {
   /**
    * Create a new product
    */
-  create: async (data: any) => {
+  create: async (data: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => {
     const response = await baseClient.post('/products', data);
     return response.data;
   },
@@ -152,7 +165,7 @@ export const productsAPI = {
   /**
    * Update a product
    */
-  update: async (id: number, data: any) => {
+  update: async (id: number, data: Partial<Omit<Product, 'id' | 'created_at' | 'updated_at'>>) => {
     const response = await baseClient.put(`/products/${id}`, data);
     return response.data;
   },
@@ -180,12 +193,12 @@ export const ordersAPI = {
     return response.data;
   },
 
-  create: async (data: any) => {
+  create: async (data: Omit<Order, 'id' | 'created_at' | 'updated_at'>) => {
     const response = await baseClient.post('/orders', data);
     return response.data;
   },
 
-  update: async (id: number, data: any) => {
+  update: async (id: number, data: Partial<Omit<Order, 'id' | 'created_at' | 'updated_at'>>) => {
     const response = await baseClient.put(`/orders/${id}`, data);
     return response.data;
   },
@@ -205,12 +218,12 @@ export const suppliersAPI = {
     return response.data;
   },
 
-  create: async (data: any) => {
+  create: async (data: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>) => {
     const response = await baseClient.post('/suppliers', data);
     return response.data;
   },
 
-  update: async (id: number, data: any) => {
+  update: async (id: number, data: Partial<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>>) => {
     const response = await baseClient.put(`/suppliers/${id}`, data);
     return response.data;
   },
@@ -299,17 +312,17 @@ export const purchaseOrdersAPI = {
     return response.data;
   },
 
-  create: async (data: any) => {
+  create: async (data: CreatePurchaseOrderRequest) => {
     const response = await baseClient.post('/purchase-orders', data);
     return response.data;
   },
 
-  updateStatus: async (id: number, data: any) => {
+  updateStatus: async (id: number, data: UpdatePurchaseOrderStatusRequest) => {
     const response = await baseClient.patch(`/purchase-orders/${id}/status`, data);
     return response.data;
   },
 
-  receive: async (id: number, data: any) => {
+  receive: async (id: number, data: ReceivePurchaseOrderRequest) => {
     const response = await baseClient.post(`/purchase-orders/${id}/receive`, data);
     return response.data;
   },
@@ -324,7 +337,7 @@ export const purchaseOrdersAPI = {
     return response.data;
   },
 
-  resolveUnreceivedItem: async (itemId: number, data: any) => {
+  resolveUnreceivedItem: async (itemId: number, data: ResolveUnreceivedItemRequest) => {
     const response = await baseClient.patch(`/purchase-orders/unreceived-items/${itemId}/resolve`, data);
     return response.data;
   },

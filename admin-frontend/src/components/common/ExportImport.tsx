@@ -20,11 +20,27 @@ import {
   FilePdfOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
-import type { UploadFile } from 'antd/es/upload/interface';
+import type { UploadFile } from 'antd';
 import api from '../../services/api';
 
 const { Text } = Typography;
 const { Option } = Select;
+
+interface ImportResult {
+  imported: number;
+  updated: number;
+  failed: number;
+  errors?: Array<{
+    row: number;
+    error: string;
+  }>;
+}
+
+interface ExportParams {
+  format: 'csv' | 'excel' | 'pdf';
+  fields: string;
+  product_ids?: string;
+}
 
 interface ExportImportProps {
   visible: boolean;
@@ -51,7 +67,7 @@ const ExportImport: React.FC<ExportImportProps> = ({
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [importResult, setImportResult] = useState<any>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const allFields = [
     { value: 'id', label: 'ID' },
@@ -85,7 +101,7 @@ const ExportImport: React.FC<ExportImportProps> = ({
       setUploading(true);
       setProgress(0);
 
-      const params: any = {
+      const params: ExportParams = {
         format: exportFormat,
         fields: exportFields.join(','),
       };
@@ -130,9 +146,10 @@ const ExportImport: React.FC<ExportImportProps> = ({
         onClose();
         setProgress(0);
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Export error:', error);
-      message.error(error.response?.data?.detail || 'Eroare la export');
+      const errorMessage = error instanceof Error ? error.message : 'Eroare la export';
+      message.error(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -150,7 +167,7 @@ const ExportImport: React.FC<ExportImportProps> = ({
       setProgress(0);
 
       const formData = new FormData();
-      formData.append('file', fileList[0] as any);
+      formData.append('file', fileList[0].originFileObj as Blob);
 
       // Simulate progress
       const progressInterval = setInterval(() => {
@@ -176,9 +193,10 @@ const ExportImport: React.FC<ExportImportProps> = ({
         setImportResult(response.data);
         message.success('Import finalizat cu succes!');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Import error:', error);
-      message.error(error.response?.data?.detail || 'Eroare la import');
+      const errorMessage = error instanceof Error ? error.message : 'Eroare la import';
+      message.error(errorMessage);
     } finally {
       setUploading(false);
     }
@@ -373,16 +391,16 @@ const ExportImport: React.FC<ExportImportProps> = ({
                     <Space direction="vertical" style={{ width: '100%' }}>
                       <Text>
                         <CheckCircleOutlined style={{ color: '#52c41a' }} />{' '}
-                        Produse importate: {importResult.imported || 0}
+                        Produse importate: {importResult.imported ?? 0}
                       </Text>
-                      {importResult.errors && importResult.errors.length > 0 && (
+                      {(importResult.errors?.length ?? 0) > 0 && (
                         <Text type="danger">
-                          Erori: {importResult.errors.length}
+                          Erori: {importResult.errors?.length ?? 0}
                         </Text>
                       )}
                     </Space>
                   }
-                  type={importResult.errors?.length > 0 ? 'warning' : 'success'}
+                  type={(importResult.errors?.length ?? 0) > 0 ? 'warning' : 'success'}
                   showIcon
                 />
               </>

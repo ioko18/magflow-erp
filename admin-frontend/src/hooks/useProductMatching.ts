@@ -46,6 +46,30 @@ interface PaginationState {
   total: number;
 }
 
+interface FallbackProduct {
+  id: number;
+  supplier_id: number;
+  supplier_product_name: string;
+  supplier_product_chinese_name?: string | null;
+  supplier_product_specification?: string | null;
+  supplier_product_url?: string | null;
+  supplier_image_url?: string | null;
+  supplier_price: number | string | null;
+  supplier_currency?: string | null;
+  created_at?: string | null;
+}
+
+type ViewMode = 'unmatched' | 'all';
+
+export type FetchSource = 'unmatched' | 'all' | 'error';
+
+export interface FetchSummary {
+  source: FetchSource;
+  total: number;
+  received: number;
+  page: number;
+}
+
 export const useProductMatching = (options: UseProductMatchingOptions) => {
   const [products, setProducts] = useState<SupplierProductWithSuggestions[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,6 +79,9 @@ export const useProductMatching = (options: UseProductMatchingOptions) => {
     pageSize: options.pageSize,
     total: 0,
   });
+  const [isFallback, setIsFallback] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('unmatched');
+  const [lastFetchInfo, setLastFetchInfo] = useState<FetchSummary | null>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
@@ -67,9 +94,124 @@ export const useProductMatching = (options: UseProductMatchingOptions) => {
     };
   }, []);
 
+  const loadAllProducts = useCallback(
+    async (page: number, opts: { manageLoading?: boolean } = {}) => {
+      if (!options.supplierId) return false;
+
+      if (opts.manageLoading) {
+        setLoading(true);
+        setError(null);
+      }
+
+      try {
+        const skip = (page - 1) * options.pageSize;
+        const fallbackResponse = await api.get(
+          `/suppliers/${options.supplierId}/products/all`,
+        );
+
+        if (!isMountedRef.current) return false;
+
+        if (fallbackResponse.data.status === 'success') {
+          const supplierName = fallbackResponse.data.data?.supplier_name ?? 'Furnizor';
+          const fallbackProducts: FallbackProduct[] =
+            fallbackResponse.data.data?.products ?? [];
+          const pagedFallback = fallbackProducts
+            .slice(skip, skip + options.pageSize)
+            .map((product) => {
+              const rawPrice = product.supplier_price;
+              const priceValue =
+                typeof rawPrice === 'number'
+                  ? rawPrice
+                  : Number.parseFloat(rawPrice ?? '0');
+
+              return {
+                id: product.id,
+                supplier_id: product.supplier_id,
+                supplier_name: supplierName,
+                supplier_product_name: product.supplier_product_name ?? 'Produs furnizor',
+                supplier_product_chinese_name: product.supplier_product_chinese_name ?? undefined,
+                supplier_product_specification: product.supplier_product_specification ?? undefined,
+                supplier_product_url: product.supplier_product_url ?? '',
+                supplier_image_url: product.supplier_image_url ?? '',
+                supplier_price: Number.isFinite(priceValue) ? priceValue : 0,
+                supplier_currency: product.supplier_currency ?? 'CNY',
+                created_at: product.created_at ?? '',
+                suggestions: [],
+                suggestions_count: 0,
+                best_match_score: 0,
+              } satisfies SupplierProductWithSuggestions;
+            });
+
+          setIsFallback(true);
+          setViewMode('all');
+          setProducts(pagedFallback);
+          setPagination({
+            current: page,
+            pageSize: options.pageSize,
+            total: fallbackProducts.length,
+          });
+          setError(null);
+          setLastFetchInfo({
+            source: 'all',
+            total: fallbackProducts.length,
+            received: pagedFallback.length,
+            page,
+          });
+          return true;
+        }
+      } catch (fallbackError) {
+        if (!isMountedRef.current) return false;
+        console.error('Error fetching fallback supplier products:', fallbackError);
+        setIsFallback(false);
+        setError(fallbackError as Error);
+        setLastFetchInfo({
+          source: 'error',
+          total: 0,
+          received: 0,
+          page,
+        });
+      } finally {
+        if (opts.manageLoading && isMountedRef.current) {
+          setLoading(false);
+        }
+      }
+
+      return false;
+    },
+    [options.pageSize, options.supplierId]
+  );
+
+  const fetchAllProducts = useCallback(
+    async (page: number = 1) => {
+      if (!options.supplierId) return false;
+
+      // Cancel any in-flight unmatched request
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
+
+      return loadAllProducts(page, { manageLoading: true });
+    },
+    [loadAllProducts, options.supplierId]
+  );
+
   const fetchProducts = useCallback(
     async (page: number = 1) => {
       if (!options.supplierId) return;
+
+      // Validate parameters before making the request
+      if (
+        options.minSimilarity < 0 ||
+        options.minSimilarity > 1 ||
+        options.maxSuggestions < 1 ||
+        options.maxSuggestions > 10
+      ) {
+        setError(
+          new Error(
+            `Invalid parameters: minSimilarity (${options.minSimilarity}) must be between 0-1, maxSuggestions (${options.maxSuggestions}) must be between 1-10`
+          )
+        );
+        return;
+      }
 
       // Cancel previous request
       abortControllerRef.current?.abort();
@@ -97,19 +239,58 @@ export const useProductMatching = (options: UseProductMatchingOptions) => {
         if (!isMountedRef.current) return;
 
         if (response.data.status === 'success') {
-          setProducts(response.data.data.products);
-          setPagination({
-            current: page,
-            pageSize: options.pageSize,
-            total: response.data.data.pagination.total,
-          });
+          const responseData = response.data.data ?? {};
+          const unmatchedProducts: SupplierProductWithSuggestions[] =
+            (responseData.products as SupplierProductWithSuggestions[]) ?? [];
+          const paginationTotal = responseData.pagination?.total ?? unmatchedProducts.length;
+
+          if (unmatchedProducts.length > 0) {
+            setIsFallback(false);
+            setViewMode('unmatched');
+            setProducts(unmatchedProducts);
+            setPagination({
+              current: page,
+              pageSize: options.pageSize,
+              total: paginationTotal,
+            });
+            setLastFetchInfo({
+              source: 'unmatched',
+              total: paginationTotal,
+              received: unmatchedProducts.length,
+              page,
+            });
+            return;
+          }
+
+          const fallbackLoaded = await loadAllProducts(page);
+          if (fallbackLoaded) {
+            return;
+          }
         }
       } catch (err) {
         if (!isMountedRef.current) return;
         if ((err as any).name === 'AbortError') return;
 
-        setError(err as Error);
-        console.error('Error fetching products:', err);
+        console.error('Error in fetchProducts:', err.response?.data);
+        if (err instanceof Error) {
+          setError(err);
+        } else {
+          setError(new Error(String(err)));
+        }
+
+        const fallbackLoaded = await loadAllProducts(page);
+        if (fallbackLoaded) {
+          return;
+        }
+
+        setIsFallback(false);
+        setViewMode('unmatched');
+        setLastFetchInfo({
+          source: 'error',
+          total: 0,
+          received: 0,
+          page,
+        });
       } finally {
         if (isMountedRef.current) {
           setLoading(false);
@@ -122,6 +303,7 @@ export const useProductMatching = (options: UseProductMatchingOptions) => {
       options.maxSuggestions,
       options.pageSize,
       options.filterType,
+      loadAllProducts,
     ]
   );
 
@@ -212,8 +394,12 @@ export const useProductMatching = (options: UseProductMatchingOptions) => {
     error,
     pagination,
     fetchProducts,
+    fetchAllProducts,
     confirmMatch,
     removeSuggestion,
     updatePrice,
+    isFallback,
+    viewMode,
+    lastFetchInfo,
   };
 };

@@ -225,4 +225,55 @@ export const removeAuthToken = (): void => {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
 };
 
+export const searchByChineseName = (
+  chineseName: string,
+  options: {
+    minSimilarity?: number;
+    limit?: number;
+    supplierId?: number;
+  } = {},
+) => {
+  const { minSimilarity = 0.75, limit = 50, supplierId } = options;
+
+  return api.get('/products/chinese-name/search-by-chinese-name', {
+    params: {
+      chinese_name: chineseName,
+      min_similarity: minSimilarity,
+      limit,
+      supplier_id: supplierId,
+    },
+  });
+};
+
+export const linkSupplierProduct = (
+  supplierProductId: number,
+  localProductId: number,
+  confirm = true,
+) => {
+  return api.post('/products/chinese-name/link', {
+    supplier_product_id: supplierProductId,
+    local_product_id: localProductId,
+    confirm,
+  });
+};
+
+export const updateLocalChineseName = (
+  productId: number,
+  chineseName: string | null,
+) => {
+  return api.patch(`/products/chinese-name/local/${productId}`, {
+    chinese_name: chineseName,
+  });
+};
+
+export const updateSupplierProductName = (
+  supplierId: number,
+  supplierProductId: number,
+  name: string,
+) => {
+  return api.patch(`/suppliers/${supplierId}/products/${supplierProductId}`, {
+    supplier_product_name: name,
+  });
+};
+
 export default api;

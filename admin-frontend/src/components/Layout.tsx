@@ -130,6 +130,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           ),
         },
         {
+          key: '/product-matching-suggestions',
+          icon: <AppstoreOutlined />,
+          label: (
+            <span>
+              <Link to="/product-matching-suggestions">Product Matching Suggestions</Link>
+            </span>
+          ),
+        },
+        {
           key: '/products/import',
           icon: <CloudUploadOutlined />,
           label: <Link to="/products/import">Import from Google Sheets</Link>,

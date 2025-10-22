@@ -1,312 +1,262 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Card,
-  Table,
+  Alert,
+  Badge,
   Button,
+  Card,
+  Col,
+  Divider,
+  Empty,
+  Image,
+  InputNumber,
+  message,
+  Modal,
+  Row,
+  Select,
+  Skeleton,
   Space,
+  Statistic,
+  Table,
   Tag,
   Typography,
-  Image,
-  message,
-  Empty,
-  Statistic,
-  Row,
-  Col,
-  InputNumber,
-  Modal,
-  Select,
-  Alert,
 } from 'antd';
 import {
-  SyncOutlined,
-  ReloadOutlined,
   CheckCircleOutlined,
-  EyeOutlined,
-  ThunderboltOutlined,
-  FireOutlined,
   CloseOutlined,
+  EyeOutlined,
+  FireOutlined,
+  ReloadOutlined,
+  SyncOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useProductMatching } from '../../hooks/useProductMatching';
+import type {
+  LocalProductSuggestion,
+  SupplierProductWithSuggestions,
+} from '../../hooks/useProductMatching';
 import api from '../../services/api';
 
 const { Title, Text } = Typography;
 
-interface LocalProductSuggestion {
-  local_product_id: number;
-  local_product_name: string;
-  local_product_chinese_name?: string;
-  local_product_sku: string;
-  local_product_brand?: string;
-  local_product_image_url?: string;
-  similarity_score: number;
-  similarity_percent: number;
-  common_tokens: string[];
-  common_tokens_count: number;
-  confidence_level: 'high' | 'medium' | 'low';
-}
+const FILTER_TYPES = ['all', 'with-suggestions', 'without-suggestions', 'high-score'] as const;
 
-interface SupplierProductWithSuggestions {
+type FilterType = (typeof FILTER_TYPES)[number];
+
+type SupplierOption = {
   id: number;
-  supplier_id: number;
-  supplier_name: string;
-  supplier_product_name: string;
-  supplier_product_chinese_name?: string;
-  supplier_product_specification?: string;
-  supplier_product_url: string;
-  supplier_image_url: string;
-  supplier_price: number;
-  supplier_currency: string;
-  created_at: string;
-  suggestions: LocalProductSuggestion[];
-  suggestions_count: number;
-  best_match_score: number;
-}
+  name: string;
+};
+
+type QueryState = {
+  minSimilarity: number;
+  maxSuggestions: number;
+  filterType: FilterType;
+};
+
+type StatisticsState = {
+  total: number;
+  withSuggestions: number;
+  withoutSuggestions: number;
+  highScoreCount: number;
+  averageScore: number;
+};
+
+const DEFAULT_QUERY: QueryState = {
+  minSimilarity: 0.9,
+  maxSuggestions: 5,
+  filterType: 'all',
+};
+
+const filterTypeLabels: Record<FilterType, string> = {
+  all: 'Toate',
+  'with-suggestions': 'Cu sugestii',
+  'without-suggestions': 'Fără sugestii',
+  'high-score': 'Scor >95%'
+};
+
+const getConfidenceColor = (score: number) => {
+  if (score >= 0.95) return '#52c41a';
+  if (score >= 0.9) return '#73d13d';
+  if (score >= 0.85) return '#95de64';
+  return '#faad14';
+};
+
+const getConfidenceLabel = (score: number) => {
+  if (score >= 0.95) return 'Excelent';
+  if (score >= 0.9) return 'Foarte bun';
+  if (score >= 0.85) return 'Bun';
+  return 'Mediu';
+};
 
 const ProductMatchingSuggestionsPage: React.FC = () => {
-  const [products, setProducts] = useState<SupplierProductWithSuggestions[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 20,
-    total: 0,
-  });
-  const [minSimilarity, setMinSimilarity] = useState(0.85);
-  const [maxSuggestions, setMaxSuggestions] = useState(5);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
   const [supplierId, setSupplierId] = useState<number | null>(null);
-  const [suppliers, setSuppliers] = useState<Array<{ id: number; name: string }>>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
-  // Ensure filterType is always one of the valid values
-  const [filterType, setFilterType] = useState<'all' | 'with-suggestions' | 'without-suggestions' | 'high-score'>('all');
-  
-  // Validate and normalize filter type
-  const getValidFilterType = (type: string): 'all' | 'with-suggestions' | 'without-suggestions' | 'high-score' => {
-    const validTypes = ['all', 'with-suggestions', 'without-suggestions', 'high-score'];
-    return validTypes.includes(type) ? type as any : 'all';
-  };
-  const [statistics, setStatistics] = useState({
-    total: 0,
-    withSuggestions: 0,
-    withoutSuggestions: 0,
-    averageScore: 0,
-    highScoreCount: 0,
+  const [queryState, setQueryState] = useState<QueryState>(DEFAULT_QUERY);
+  const [editingPrice, setEditingPrice] = useState<Record<number, number | undefined>>({});
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+
+  const pageSize = 20;
+
+  const {
+    products,
+    loading,
+    error,
+    pagination,
+    fetchProducts,
+    fetchAllProducts,
+    confirmMatch,
+    removeSuggestion,
+    updatePrice,
+    isFallback,
+    viewMode,
+    lastFetchInfo,
+  } = useProductMatching({
+    supplierId,
+    minSimilarity: queryState.minSimilarity,
+    maxSuggestions: queryState.maxSuggestions,
+    pageSize,
+    filterType: queryState.filterType,
   });
-  const [editingPrice, setEditingPrice] = useState<{ [key: number]: number }>({});
+
+  const statistics = useMemo<StatisticsState>(() => {
+    const withSuggestions = products.filter((product) => product.suggestions_count > 0).length;
+    const withoutSuggestions = products.length - withSuggestions;
+    const highScoreCount = products.filter((product) => product.best_match_score >= 0.95).length;
+    const totalScore = products.reduce((sum, product) => sum + product.best_match_score, 0);
+    const averageScore = products.length ? totalScore / products.length : 0;
+
+    return {
+      total: pagination.total,
+      withSuggestions,
+      withoutSuggestions,
+      highScoreCount,
+      averageScore,
+    };
+  }, [products, pagination.total]);
 
   const fetchSuppliers = useCallback(async () => {
     setLoadingSuppliers(true);
     try {
       const response = await api.get('/suppliers');
       if (response.data.status === 'success') {
-        // API returns { status: 'success', data: { suppliers: [...], pagination: {...} } }
-        const suppliersList = response.data.data?.suppliers || response.data.data;
-        // Ensure suppliersList is an array
+        const suppliersList: SupplierOption[] = response.data.data?.suppliers ?? response.data.data ?? [];
         if (Array.isArray(suppliersList)) {
           setSuppliers(suppliersList);
-          // Auto-select first supplier if available
-          setSupplierId((currentId) => {
-            if (!currentId && suppliersList.length > 0) {
-              return suppliersList[0].id;
-            }
-            return currentId;
-          });
+          setSupplierId((prev) => prev ?? suppliersList[0]?.id ?? null);
         } else {
-          console.error('Suppliers data is not an array:', suppliersList);
+          message.warning('Structura furnizorilor este necunoscută');
           setSuppliers([]);
         }
       }
-    } catch (error) {
+    } catch (err) {
       message.error('Eroare la încărcarea furnizorilor');
-      console.error('Error fetching suppliers:', error);
-      setSuppliers([]); // Set empty array on error
+      console.error('Error fetching suppliers:', err);
+      setSuppliers([]);
     } finally {
       setLoadingSuppliers(false);
     }
   }, []);
-
-  const currentPage = pagination.current;
-  const pageSize = pagination.pageSize;
-
-  const fetchProducts = useCallback(async () => {
-    if (!supplierId) return;
-    
-    setLoading(true);
-    try {
-      const skip = (currentPage - 1) * pageSize;
-      const validFilterType = getValidFilterType(filterType);
-      
-      // Debug log
-      console.log('Fetching products with params:', {
-        supplierId,
-        skip,
-        limit: pageSize,
-        min_similarity: minSimilarity,
-        max_suggestions: maxSuggestions,
-        filter_type: validFilterType,
-      });
-      
-      const response = await api.get(
-        `/suppliers/${supplierId}/products/unmatched-with-suggestions`,
-        {
-          params: {
-            skip,
-            limit: pageSize,
-            min_similarity: minSimilarity,
-            max_suggestions: maxSuggestions,
-            filter_type: validFilterType,
-          },
-          paramsSerializer: params => {
-            return Object.entries(params)
-              .filter(([_, value]) => value !== undefined && value !== null)
-              .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
-              .join('&');
-          },
-        }
-      );
-
-      if (response.data.status === 'success') {
-        const productsData = response.data.data.products;
-        setProducts(productsData);
-        setPagination((prev) => ({
-          ...prev,
-          total: response.data.data.pagination.total,
-        }));
-        
-        // Calculate statistics
-        const withSuggestions = productsData.filter((p: SupplierProductWithSuggestions) => p.suggestions_count > 0).length;
-        const withoutSuggestions = productsData.length - withSuggestions;
-        const highScoreCount = productsData.filter((p: SupplierProductWithSuggestions) => p.best_match_score >= 0.95).length;
-        const totalScore = productsData.reduce((sum: number, p: SupplierProductWithSuggestions) => sum + p.best_match_score, 0);
-        const averageScore = productsData.length > 0 ? totalScore / productsData.length : 0;
-        
-        setStatistics({
-          total: productsData.length,
-          withSuggestions,
-          withoutSuggestions,
-          averageScore,
-          highScoreCount,
-        });
-      }
-    } catch (error: any) {
-      console.error('Error fetching products:', error);
-      
-      // Handle 422 validation error specifically
-      if (error.response?.status === 422) {
-        const errorDetails = error.response.data?.detail || 'Invalid request parameters';
-        console.error('Validation error details:', errorDetails);
-        
-        // Try to recover by resetting to default filter
-        if (filterType !== 'all') {
-          console.log('Resetting filter to default due to validation error');
-          setFilterType('all');
-          // Retry with default filter
-          return fetchProducts();
-        }
-        
-        message.error(`Validation error: ${errorDetails}`);
-      } else {
-        message.error('Failed to load products');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [supplierId, currentPage, pageSize, minSimilarity, maxSuggestions, filterType]);
 
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  const handleMatch = async (supplierProductId: number, localProductId: number) => {
-    try {
-      await api.post(`/suppliers/${supplierId}/products/${supplierProductId}/match`, {
-        local_product_id: localProductId,
-        confidence_score: 1.0,
-        manual_confirmed: true,
-      });
-
-      message.success('Match confirmat cu succes!');
-      fetchProducts(); // Refresh list
-    } catch (error) {
-      message.error('Eroare la confirmarea match-ului');
-      console.error('Error confirming match:', error);
+    if (!suppliers.length) {
+      return;
     }
-  };
-
-  const handlePriceUpdate = async (supplierProductId: number, newPrice: number) => {
-    try {
-      await api.patch(`/suppliers/${supplierId}/products/${supplierProductId}`, {
-        supplier_price: newPrice,
-      });
-
-      message.success('Preț actualizat cu succes!');
-      
-      // Update local state
-      setProducts((prevProducts) =>
-        prevProducts.map((p) =>
-          p.id === supplierProductId ? { ...p, supplier_price: newPrice } : p
-        )
-      );
-      
-      // Clear editing state
-      setEditingPrice((prev) => {
-        const newState = { ...prev };
-        delete newState[supplierProductId];
-        return newState;
-      });
-    } catch (error) {
-      message.error('Eroare la actualizarea prețului');
-      console.error('Error updating price:', error);
+    if (supplierId && suppliers.some((supplier) => supplier.id === supplierId)) {
+      return;
     }
-  };
+    setSupplierId(suppliers[0]?.id ?? null);
+  }, [suppliers, supplierId]);
 
-  const handleRemoveSuggestion = async (supplierProductId: number, localProductId: number) => {
-    try {
-      // Call API to persist elimination in database
-      await api.delete(
-        `/suppliers/${supplierId}/products/${supplierProductId}/suggestions/${localProductId}`
-      );
-
-      // Remove suggestion from local state immediately (optimistic update)
-      setProducts((prevProducts) =>
-        prevProducts.map((p) => {
-          if (p.id === supplierProductId) {
-            const updatedSuggestions = p.suggestions.filter(
-              (s) => s.local_product_id !== localProductId
-            );
-            return {
-              ...p,
-              suggestions: updatedSuggestions,
-              suggestions_count: updatedSuggestions.length,
-              best_match_score: updatedSuggestions.length > 0 ? updatedSuggestions[0].similarity_score : 0,
-            };
-          }
-          return p;
-        })
-      );
-
-      message.success('Sugestie eliminată permanent! Nu va mai reapărea.');
-    } catch (error) {
-      message.error('Eroare la eliminarea sugestiei');
-      console.error('Error removing suggestion:', error);
-      // Revert on error
-      fetchProducts();
+  useEffect(() => {
+    if (!supplierId) {
+      return;
     }
-  };
+    fetchProducts(1);
+  }, [supplierId, queryState.minSimilarity, queryState.maxSuggestions, queryState.filterType, fetchProducts]);
 
-  const handleBulkConfirm = async () => {
+  const handleSupplierChange = useCallback((value: number) => {
+    setSupplierId(value);
+    setEditingPrice({});
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    if (!supplierId) {
+      return;
+    }
+    fetchProducts(pagination.current || 1);
+  }, [fetchProducts, pagination, supplierId]);
+
+  const handlePriceInputChange = useCallback((productId: number, value: number | null) => {
+    setEditingPrice((prev) => ({
+      ...prev,
+      [productId]: value ?? undefined,
+    }));
+  }, []);
+
+  const handlePriceCommit = useCallback(
+    async (productId: number, currentPrice: number) => {
+      const newPrice = editingPrice[productId];
+      if (newPrice === undefined || newPrice === currentPrice) {
+        return;
+      }
+
+      const result = await updatePrice(productId, newPrice);
+      if (result.success) {
+        message.success('Preț actualizat cu succes!');
+        setEditingPrice((prev) => {
+          const next = { ...prev };
+          delete next[productId];
+          return next;
+        });
+      } else {
+        message.error('Eroare la actualizarea prețului');
+      }
+    },
+    [editingPrice, updatePrice],
+  );
+
+  const handleMatch = useCallback(
+    async (productId: number, localProductId: number) => {
+      const result = await confirmMatch(productId, localProductId);
+      if (result.success) {
+        message.success('Match confirmat cu succes!');
+        fetchProducts(pagination.current || 1);
+      } else {
+        message.error('Eroare la confirmarea match-ului');
+      }
+    },
+    [confirmMatch, fetchProducts, pagination],
+  );
+
+  const handleRemoveSuggestion = useCallback(
+    async (productId: number, localProductId: number) => {
+      const result = await removeSuggestion(productId, localProductId);
+      if (result.success) {
+        message.success('Sugestie eliminată permanent! Nu va mai reapărea.');
+      } else {
+        message.error('Eroare la eliminarea sugestiei');
+      }
+    },
+    [removeSuggestion],
+  );
+
+  const handleBulkConfirm = useCallback(async () => {
     const highScoreProducts = products.filter(
-      (p) => p.best_match_score >= 0.95 && p.suggestions_count > 0
+      (product) => product.best_match_score >= 0.95 && product.suggestions.length > 0,
     );
 
-    if (highScoreProducts.length === 0) {
+    if (!highScoreProducts.length) {
       message.warning('Nu există produse cu scor >95% pentru confirmare automată');
       return;
     }
 
-    const confirmResult = await new Promise<boolean>((resolve) => {
+    const confirmed = await new Promise<boolean>((resolve) => {
       Modal.confirm({
         title: 'Confirmare Bulk Match',
         content: `Doriți să confirmați automat ${highScoreProducts.length} matches cu scor >95%?`,
@@ -317,505 +267,444 @@ const ProductMatchingSuggestionsPage: React.FC = () => {
       });
     });
 
-    if (!confirmResult) return;
+    if (!confirmed) {
+      return;
+    }
 
     let successCount = 0;
     let errorCount = 0;
 
-    for (const product of highScoreProducts) {
-      try {
-        await handleMatch(product.id, product.suggestions[0].local_product_id);
-        successCount++;
-      } catch (error) {
-        errorCount++;
-      }
-    }
+    await Promise.all(
+      highScoreProducts.map(async (product) => {
+        const bestSuggestion = product.suggestions[0];
+        const result = await confirmMatch(product.id, bestSuggestion.local_product_id);
+        if (result.success) {
+          successCount += 1;
+        } else {
+          errorCount += 1;
+        }
+      }),
+    );
 
-    if (successCount > 0) {
+    if (successCount) {
       message.success(`${successCount} matches confirmate cu succes!`);
     }
-    if (errorCount > 0) {
+    if (errorCount) {
       message.error(`${errorCount} matches au eșuat`);
     }
 
-    fetchProducts();
-  };
+    fetchProducts(pagination.current || 1);
+  }, [confirmMatch, fetchProducts, pagination, products]);
 
-  const getConfidenceColor = (score: number) => {
-    if (score >= 0.95) return '#52c41a'; // Verde închis - excelent
-    if (score >= 0.90) return '#73d13d'; // Verde - foarte bun
-    if (score >= 0.85) return '#95de64'; // Verde deschis - bun
-    return '#faad14'; // Portocaliu - mediu
-  };
-
-  const getConfidenceLabel = (score: number) => {
-    if (score >= 0.95) return 'Excelent';
-    if (score >= 0.90) return 'Foarte bun';
-    if (score >= 0.85) return 'Bun';
-    return 'Mediu';
-  };
-
-  const renderSuggestions = (record: SupplierProductWithSuggestions) => {
-    if (!record.suggestions || record.suggestions.length === 0) {
-      return (
-        <Card
-          size="small"
-          style={{
-            background: '#fafafa',
-            borderLeft: '4px solid #d9d9d9',
-          }}
-        >
+  const renderSuggestions = useCallback(
+    (record: SupplierProductWithSuggestions) => {
+      if (!record.suggestions.length) {
+        return (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-              <div>
-                <Text type="secondary">Nu există sugestii automate</Text>
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#999' }}>
-                  Încercați să reduceți pragul de similaritate sau verificați dacă produsul local are nume chinezesc
-                </div>
-              </div>
-            }
-            style={{ margin: '8px 0' }}
+            description="Nu există sugestii automate"
+            style={{ padding: '12px 0' }}
           />
-        </Card>
-      );
-    }
+        );
+      }
 
-    return (
-      <div style={{ padding: '8px 0' }}>
-        {record.suggestions.map((suggestion, index) => (
-          <Card
-            key={suggestion.local_product_id}
-            size="small"
-            style={{
-              marginBottom: index < record.suggestions.length - 1 ? '8px' : 0,
-              borderLeft: `4px solid ${getConfidenceColor(suggestion.similarity_score)}`,
-            }}
-          >
-            <Row gutter={16} align="middle">
-              <Col span={3}>
-                {suggestion.local_product_image_url ? (
-                  <Image
-                    src={suggestion.local_product_image_url}
-                    alt={suggestion.local_product_name}
-                    width={60}
-                    height={60}
-                    style={{ objectFit: 'cover', borderRadius: '4px' }}
-                    fallback="/placeholder-product.png"
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 60,
-                      height: 60,
-                      background: '#f0f0f0',
-                      borderRadius: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text type="secondary" style={{ fontSize: '10px' }}>
-                      No Image
-                    </Text>
-                  </div>
-                )}
-              </Col>
-              <Col span={13}>
-                <div>
-                  <Text strong style={{ fontSize: '13px' }}>
-                    {suggestion.local_product_name}
-                  </Text>
-                  {suggestion.local_product_chinese_name && (
-                    <div style={{ fontSize: '12px', color: '#52c41a', marginTop: '2px' }}>
-                      🇨🇳 {suggestion.local_product_chinese_name}
+      return (
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          {record.suggestions.map((suggestion: LocalProductSuggestion) => (
+            <Card
+              key={suggestion.local_product_id}
+              size="small"
+              bordered
+              style={{ borderLeft: `4px solid ${getConfidenceColor(suggestion.similarity_score)}` }}
+            >
+              <Row gutter={16} align="middle">
+                <Col span={4}>
+                  {suggestion.local_product_image_url ? (
+                    <Image
+                      src={suggestion.local_product_image_url}
+                      alt={suggestion.local_product_name}
+                      width={60}
+                      height={60}
+                      style={{ objectFit: 'cover', borderRadius: 4 }}
+                      fallback="/placeholder-product.png"
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: 60,
+                        height: 60,
+                        background: '#f0f0f0',
+                        borderRadius: 4,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text type="secondary" style={{ fontSize: 10 }}>
+                        Fără imagine
+                      </Text>
                     </div>
                   )}
-                  <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                    <Text type="secondary">SKU: {suggestion.local_product_sku}</Text>
-                    {suggestion.local_product_brand && (
-                      <Tag color="blue" style={{ marginLeft: '8px', fontSize: '10px' }}>
-                        {suggestion.local_product_brand}
-                      </Tag>
+                </Col>
+                <Col span={12}>
+                  <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                    <Text strong>{suggestion.local_product_name}</Text>
+                    {suggestion.local_product_chinese_name && (
+                      <Text style={{ color: '#52c41a' }}>🇨🇳 {suggestion.local_product_chinese_name}</Text>
                     )}
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                    Tokeni comuni: {suggestion.common_tokens.join(', ')}
-                  </div>
-                </div>
-              </Col>
-              <Col span={4} style={{ textAlign: 'center' }}>
-                <div style={{ marginBottom: '8px' }}>
-                  <div
-                    style={{
-                      fontSize: '20px',
-                      fontWeight: 'bold',
-                      color: getConfidenceColor(suggestion.similarity_score),
-                    }}
-                  >
-                    {Math.round(suggestion.similarity_percent)}%
-                  </div>
-                  <Tag
-                    color={getConfidenceColor(suggestion.similarity_score)}
-                    style={{ fontSize: '10px' }}
-                  >
-                    {getConfidenceLabel(suggestion.similarity_score)}
-                  </Tag>
-                </div>
-              </Col>
-              <Col span={4} style={{ textAlign: 'right' }}>
-                <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                  <Button
-                    type="primary"
-                    icon={<CheckCircleOutlined />}
-                    onClick={() => handleMatch(record.id, suggestion.local_product_id)}
-                    size="small"
-                    block
-                  >
-                    Confirmă Match
-                  </Button>
-                  <Button
-                    danger
-                    icon={<CloseOutlined />}
-                    onClick={() => handleRemoveSuggestion(record.id, suggestion.local_product_id)}
-                    size="small"
-                    block
-                  >
-                    Elimină Sugestie
-                  </Button>
-                </Space>
-              </Col>
-            </Row>
-          </Card>
-        ))}
-      </div>
-    );
-  };
+                    <Space size="small">
+                      <Text type="secondary">SKU: {suggestion.local_product_sku}</Text>
+                      {suggestion.local_product_brand && (
+                        <Tag color="blue">{suggestion.local_product_brand}</Tag>
+                      )}
+                    </Space>
+                    {!!suggestion.common_tokens.length && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        Tokeni comuni: {suggestion.common_tokens.join(', ')}
+                      </Text>
+                    )}
+                  </Space>
+                </Col>
+                <Col span={4}>
+                  <Space direction="vertical" align="center" size={4} style={{ width: '100%' }}>
+                    <Badge
+                      count={`${Math.round(suggestion.similarity_percent)}%`}
+                      style={{ backgroundColor: getConfidenceColor(suggestion.similarity_score) }}
+                    />
+                    <Tag color={getConfidenceColor(suggestion.similarity_score)}>
+                      {getConfidenceLabel(suggestion.similarity_score)}
+                    </Tag>
+                  </Space>
+                </Col>
+                <Col span={4}>
+                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    <Button
+                      type="primary"
+                      icon={<CheckCircleOutlined />}
+                      size="small"
+                      block
+                      onClick={() => handleMatch(record.id, suggestion.local_product_id)}
+                    >
+                      Confirmă match
+                    </Button>
+                    <Button
+                      danger
+                      icon={<CloseOutlined />}
+                      size="small"
+                      block
+                      onClick={() => handleRemoveSuggestion(record.id, suggestion.local_product_id)}
+                    >
+                      Elimină
+                    </Button>
+                  </Space>
+                </Col>
+              </Row>
+            </Card>
+          ))}
+        </Space>
+      );
+    },
+    [handleMatch, handleRemoveSuggestion],
+  );
 
-  const columns: ColumnsType<SupplierProductWithSuggestions> = [
-    {
-      title: 'Imagine Furnizor',
-      key: 'supplier_image',
-      width: 100,
-      render: (_, record) => (
-        <Image
-          src={record.supplier_image_url}
-          alt={record.supplier_product_chinese_name || record.supplier_product_name}
-          width={80}
-          height={80}
-          style={{ objectFit: 'cover', borderRadius: '4px' }}
-          fallback="/placeholder-product.png"
-          preview={{
-            mask: <EyeOutlined />,
-          }}
-        />
-      ),
-    },
-    {
-      title: 'Produs Furnizor (Chinezește)',
-      key: 'supplier_product',
-      width: 300,
-      render: (_, record) => (
-        <div>
-          <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>
-            {record.supplier_product_chinese_name || record.supplier_product_name}
-          </Text>
-          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>Preț:</span>
-            <InputNumber
-              size="small"
-              value={editingPrice[record.id] ?? record.supplier_price}
-              onChange={(value) => {
-                if (value !== null) {
-                  setEditingPrice((prev) => ({ ...prev, [record.id]: value }));
-                }
-              }}
-              onPressEnter={() => {
-                const newPrice = editingPrice[record.id];
-                if (newPrice !== undefined && newPrice !== record.supplier_price) {
-                  handlePriceUpdate(record.id, newPrice);
-                }
-              }}
-              onBlur={() => {
-                const newPrice = editingPrice[record.id];
-                if (newPrice !== undefined && newPrice !== record.supplier_price) {
-                  handlePriceUpdate(record.id, newPrice);
-                }
-              }}
-              min={0}
-              step={0.01}
-              precision={2}
-              style={{ width: '100px' }}
-            />
-            <span>{record.supplier_currency}</span>
-          </div>
-          <a
-            href={record.supplier_product_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: '11px' }}
-          >
-            Vezi pe 1688.com
-          </a>
-        </div>
-      ),
-    },
-    {
-      title: 'Sugestii Auto-Match',
-      key: 'suggestions',
-      render: (_, record) => (
-        <div>
-          {record.suggestions_count > 0 ? (
-            <div style={{ marginBottom: '8px' }}>
+  const columns = useMemo<ColumnsType<SupplierProductWithSuggestions>>(
+    () => [
+      {
+        title: 'Produs furnizor',
+        key: 'supplier_product',
+        width: 360,
+        render: (_, record) => (
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <Space align="start">
+              <Image
+                src={record.supplier_image_url}
+                alt={record.supplier_product_chinese_name || record.supplier_product_name}
+                width={70}
+                height={70}
+                style={{ objectFit: 'cover', borderRadius: 4 }}
+                fallback="/placeholder-product.png"
+                preview={{ mask: <EyeOutlined /> }}
+              />
+              <Space direction="vertical" size={4} style={{ flex: 1 }}>
+                <Text strong>{record.supplier_product_chinese_name || record.supplier_product_name}</Text>
+                <a href={record.supplier_product_url} target="_blank" rel="noopener noreferrer">
+                  Deschide produsul 1688
+                </a>
+                <Space size="small" align="center">
+                  <span>Preț:</span>
+                  <InputNumber
+                    size="small"
+                    value={editingPrice[record.id] ?? record.supplier_price}
+                    onChange={(value) => handlePriceInputChange(record.id, value)}
+                    onPressEnter={() => handlePriceCommit(record.id, record.supplier_price)}
+                    onBlur={() => handlePriceCommit(record.id, record.supplier_price)}
+                    min={0}
+                    step={0.01}
+                    precision={2}
+                    style={{ width: 120 }}
+                  />
+                  <span>{record.supplier_currency}</span>
+                </Space>
+              </Space>
+            </Space>
+          </Space>
+        ),
+      },
+      {
+        title: 'Sugestii',
+        key: 'suggestions_summary',
+        width: 220,
+        render: (_, record) => (
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            {record.suggestions_count > 0 ? (
               <Tag
                 color={record.best_match_score >= 0.95 ? 'green' : 'orange'}
                 icon={record.best_match_score >= 0.95 ? <FireOutlined /> : <ThunderboltOutlined />}
               >
                 {record.suggestions_count} sugestii (max {Math.round(record.best_match_score * 100)}%)
               </Tag>
-            </div>
-          ) : (
-            <Tag color="default">Fără sugestii</Tag>
-          )}
-          {renderSuggestions(record)}
-        </div>
-      ),
-    },
-  ];
+            ) : (
+              <Tag>Fără sugestii</Tag>
+            )}
+            {record.suggestions[0] && (
+              <Text type="secondary">
+                Cea mai bună potrivire: {record.suggestions[0].local_product_name}
+              </Text>
+            )}
+          </Space>
+        ),
+      },
+      {
+        title: 'Detalii sugestii',
+        key: 'suggestions',
+        render: (_, record) => renderSuggestions(record),
+      },
+    ],
+    [editingPrice, handlePriceCommit, handlePriceInputChange, renderSuggestions],
+  );
 
-  const expandedRowRender = () => {
-    return null; // Suggestions are already shown in the main table
-  };
+  const handleFilterChange = useCallback((type: FilterType) => {
+    setActiveFilter(type);
+    setQueryState((prev) => ({
+      ...prev,
+      filterType: type,
+    }));
+  }, []);
 
-  // Note: Filtering is now done on the current page only
-  // For proper filtering across all pages, backend support is needed
-  const filteredProducts = products.filter((product) => {
-    switch (filterType) {
-      case 'with-suggestions':
-        return product.suggestions_count > 0;
-      case 'without-suggestions':
-        return product.suggestions_count === 0;
-      case 'high-score':
-        return product.best_match_score >= 0.95;
-      case 'all':
-      default:
-        return true;
-    }
-  });
+  const handleResetFilters = useCallback(() => {
+    setQueryState(DEFAULT_QUERY);
+    setActiveFilter('all');
+  }, []);
+
+  const handleViewAll = useCallback(() => {
+    fetchAllProducts(1);
+  }, [fetchAllProducts]);
 
   return (
-    <div style={{ padding: '24px' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <Title level={2} style={{ margin: 0 }}>
-              <SyncOutlined style={{ marginRight: '8px' }} />
-              Product Matching cu Sugestii Automate
-            </Title>
-            <p style={{ color: '#666', margin: '8px 0 0 0' }}>
-              Sugestii automate bazate pe tokenizare jieba (similaritate {Math.round(minSimilarity * 100)}%-100%)
-            </p>
-            <div style={{ marginTop: '12px' }}>
-              <Text strong style={{ marginRight: '8px' }}>Furnizor:</Text>
-              <Select
-                style={{ width: 300 }}
-                placeholder="Selectează furnizor"
-                value={supplierId}
-                onChange={(value) => {
-                  setSupplierId(value);
-                  setPagination((prev) => ({ ...prev, current: 1 })); // Reset to first page
-                }}
-                loading={loadingSuppliers}
-                options={Array.isArray(suppliers) ? suppliers.map((s) => ({
-                  label: s.name,
-                  value: s.id,
-                })) : []}
-              />
-            </div>
-          </div>
-          <Space>
-            <Button
-              type="primary"
-              icon={<ThunderboltOutlined />}
-              onClick={handleBulkConfirm}
-              disabled={statistics.highScoreCount === 0}
-            >
-              Confirmă Automat ({statistics.highScoreCount})
-            </Button>
-            <Button icon={<ReloadOutlined />} onClick={fetchProducts} loading={loading}>
-              Reîmprospătează
-            </Button>
-          </Space>
-        </div>
-      </div>
+    <div style={{ padding: 24 }}>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={16}>
+          <Card>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Title level={2} style={{ margin: 0 }}>
+                <SyncOutlined style={{ marginRight: 8 }} /> Product Matching
+              </Title>
+              <Text type="secondary">
+                Selectează un furnizor și explorează toate produsele fără potrivire. Ajustează criteriile pentru a găsi cele mai relevante sugestii și confirmă rapid potrivirile de încredere.
+              </Text>
+              <Space size={12} wrap>
+                {FILTER_TYPES.map((type) => (
+                  <Button
+                    key={type}
+                    type={activeFilter === type ? 'primary' : 'default'}
+                    icon={type === 'high-score' ? <FireOutlined /> : undefined}
+                    size="small"
+                    onClick={() => handleFilterChange(type)}
+                  >
+                    {filterTypeLabels[type]} (
+                    {type === 'all'
+                      ? pagination.total
+                      : type === 'with-suggestions'
+                      ? statistics.withSuggestions
+                      : type === 'without-suggestions'
+                      ? statistics.withoutSuggestions
+                      : statistics.highScoreCount}
+                    )
+                  </Button>
+                ))}
+                <Button type="link" onClick={handleResetFilters}>
+                  Resetează filtrele
+                </Button>
+                <Button type="dashed" onClick={handleViewAll} disabled={!supplierId || viewMode === 'all'}>
+                  Vezi toate produsele furnizorului
+                </Button>
+              </Space>
+            </Space>
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Space size={16} wrap>
+              <Statistic title="Cu sugestii" value={statistics.withSuggestions} valueStyle={{ color: '#52c41a' }} />
+              <Statistic title="Fără sugestii" value={statistics.withoutSuggestions} valueStyle={{ color: '#ff4d4f' }} />
+              <Statistic title="Scor mediu" value={Math.round(statistics.averageScore * 100)} suffix="%" />
+            </Space>
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Statistics */}
-      <Card 
-        style={{ marginBottom: '16px' }}
-        title={supplierId && Array.isArray(suppliers) ? `Statistici - ${suppliers.find(s => s.id === supplierId)?.name || 'Furnizor'}` : 'Statistici'}
-      >
-        <Row gutter={16}>
-          <Col span={4}>
-            <Statistic
-              title="Total produse"
-              value={pagination.total}
-              prefix={<SyncOutlined />}
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="Cu sugestii"
-              value={statistics.withSuggestions}
-              valueStyle={{ color: '#52c41a' }}
-              suffix={`/ ${statistics.total}`}
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="Fără sugestii"
-              value={statistics.withoutSuggestions}
-              valueStyle={{ color: '#ff4d4f' }}
-              suffix={`/ ${statistics.total}`}
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="Scor >95%"
-              value={statistics.highScoreCount}
-              valueStyle={{ color: '#1890ff' }}
-              prefix={<FireOutlined />}
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="Scor mediu"
-              value={Math.round(statistics.averageScore * 100)}
-              suffix="%"
-              precision={0}
-            />
-          </Col>
-        </Row>
-      </Card>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={8}>
+          <Card title="Preferințe" extra={<Button onClick={handleRefresh} icon={<ReloadOutlined />} loading={loading}>Actualizează</Button>}>
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Text strong>Furnizor</Text>
+                {loadingSuppliers ? (
+                  <Skeleton.Input active style={{ width: '100%' }} size="small" />
+                ) : (
+                  <Select
+                    placeholder="Selectează furnizor"
+                    value={supplierId}
+                    onChange={handleSupplierChange}
+                    loading={loadingSuppliers}
+                    options={suppliers.map((supplier) => ({
+                      label: supplier.name,
+                      value: supplier.id,
+                    }))}
+                    style={{ width: '100%' }}
+                  />
+                )}
+              </Space>
 
-      {/* Filters */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row gutter={16} align="middle" style={{ marginBottom: '16px' }}>
-          <Col span={6}>
-            <div>
-              <Text strong>Similaritate minimă:</Text>
-              <div style={{ marginTop: '8px' }}>
+              <Divider style={{ margin: '12px 0' }} />
+
+              <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Text strong>Similaritate minimă</Text>
                 <InputNumber
                   min={0.5}
-                  max={1.0}
+                  max={1}
                   step={0.05}
-                  value={minSimilarity}
-                  onChange={(value) => value && setMinSimilarity(value)}
-                  formatter={(value) => `${Math.round((value || 0) * 100)}%`}
+                  value={queryState.minSimilarity}
+                  onChange={(value) =>
+                    value &&
+                    setQueryState((prev) => ({
+                      ...prev,
+                      minSimilarity: value,
+                    }))
+                  }
+                  formatter={(value) => `${Math.round((value ?? 0) * 100)}%`}
                   parser={(value) => (parseFloat(value?.replace('%', '') || '0') / 100)}
                   style={{ width: '100%' }}
                 />
-              </div>
-            </div>
-          </Col>
-          <Col span={6}>
-            <div>
-              <Text strong>Număr maxim sugestii:</Text>
-              <div style={{ marginTop: '8px' }}>
+              </Space>
+
+              <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Text strong>Număr maxim de sugestii</Text>
                 <InputNumber
                   min={1}
                   max={10}
-                  value={maxSuggestions}
-                  onChange={(value) => value && setMaxSuggestions(value)}
+                  value={queryState.maxSuggestions}
+                  onChange={(value) =>
+                    value &&
+                    setQueryState((prev) => ({
+                      ...prev,
+                      maxSuggestions: value,
+                    }))
+                  }
                   style={{ width: '100%' }}
                 />
-              </div>
-            </div>
-          </Col>
-          <Col span={12}>
-            <div>
-              <Text strong>Filtrare rapidă:</Text>
-              <div style={{ marginTop: '8px' }}>
-                <Space>
-                  <Button
-                    type={filterType === 'all' ? 'primary' : 'default'}
-                    onClick={() => setFilterType('all')}
-                    size="small"
-                  >
-                    Toate ({statistics.total})
-                  </Button>
-                  <Button
-                    type={filterType === 'with-suggestions' ? 'primary' : 'default'}
-                    onClick={() => setFilterType('with-suggestions')}
-                    size="small"
-                  >
-                    Cu sugestii ({statistics.withSuggestions})
-                  </Button>
-                  <Button
-                    type={filterType === 'without-suggestions' ? 'primary' : 'default'}
-                    onClick={() => setFilterType('without-suggestions')}
-                    size="small"
-                  >
-                    Fără sugestii ({statistics.withoutSuggestions})
-                  </Button>
-                  <Button
-                    type={filterType === 'high-score' ? 'primary' : 'default'}
-                    onClick={() => setFilterType('high-score')}
-                    size="small"
-                    icon={<FireOutlined />}
-                  >
-                    Scor &gt;95% ({statistics.highScoreCount})
-                  </Button>
-                </Space>
-              </div>
-              {filterType !== 'all' && (
-                <Alert
-                  message="Notă: Filtrarea se aplică doar pe produsele din pagina curentă"
-                  description="Pentru a vedea toate produsele cu sugestii, navigați prin toate paginile sau contactați administratorul pentru implementare filtrare server-side."
-                  type="info"
-                  showIcon
-                  closable
-                  style={{ marginTop: '12px' }}
-                />
-              )}
-            </div>
-          </Col>
-        </Row>
-      </Card>
+              </Space>
 
-      {/* Table */}
-      <Card>
-        {!supplierId ? (
-          <Empty
-            description="Selectați un furnizor pentru a vedea produsele nematchate"
-            style={{ padding: '40px 0' }}
-          />
-        ) : (
-          <Table
-            columns={columns}
-            dataSource={filteredProducts}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '30', '50'],
-              showTotal: (total) => `Total ${total} produse (${filteredProducts.length} afișate)`,
-              onChange: (page, pageSize) => {
-                setPagination((prev) => ({
-                  ...prev,
-                  current: page,
-                  pageSize: Math.min(pageSize || prev.pageSize, 50), // Max 50 per API limit
-                }));
-              },
-            }}
-            expandable={{
-              expandedRowRender,
-              defaultExpandAllRows: false,
-            }}
-          />
-        )}
-      </Card>
+              <Button
+                type="primary"
+                icon={<ThunderboltOutlined />}
+                disabled={!statistics.highScoreCount}
+                onClick={handleBulkConfirm}
+              >
+                Confirmă automat {statistics.highScoreCount}
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+        <Col span={16}>
+          <Card
+            title="Rezultate"
+            bodyStyle={{ padding: 0 }}
+            extra={
+              isFallback ? (
+                <Space size="small">
+                  <Tag color="gold">
+                    Vizualizați toate produsele (fără sugestii). Ajustați criteriile pentru a restrânge lista.
+                  </Tag>
+                  {lastFetchInfo && (
+                    <Tag color="blue">
+                      {lastFetchInfo.received} / {lastFetchInfo.total} produse • pagina {lastFetchInfo.page}
+                    </Tag>
+                  )}
+                </Space>
+              ) : lastFetchInfo ? (
+                <Tag color="green">
+                  Sugestii automate ({lastFetchInfo.received} / {lastFetchInfo.total})
+                </Tag>
+              ) : undefined
+            }
+          >
+            {!supplierId ? (
+              <Empty
+                description="Selectați un furnizor pentru a începe"
+                style={{ padding: '40px 0' }}
+              />
+            ) : (
+              <Table
+                columns={columns}
+                dataSource={products}
+                rowKey="id"
+                loading={loading}
+                locale={{
+                  emptyText: isFallback
+                    ? 'Nu există produse care să necesite matching. Lista afișează toate produsele furnizorului.'
+                    : 'Nu s-au găsit produse nematchate pentru criteriile curente.',
+                }}
+                pagination={{
+                  current: pagination.current,
+                  pageSize,
+                  total: pagination.total,
+                  showSizeChanger: false,
+                  showTotal: (total) => `Total ${total} produse (${products.length} afișate)`,
+                  onChange: (page) => fetchProducts(page),
+                }}
+              />
+            )}
+          </Card>
+          {error && (
+            <Alert
+              style={{ marginTop: 16 }}
+              type="error"
+              message="Nu s-au putut încărca produsele"
+              description={error.message}
+              showIcon
+            />
+          )}
+          {lastFetchInfo && lastFetchInfo.source === 'error' && (
+            <Alert
+              style={{ marginTop: 16 }}
+              type="warning"
+              message="Fallback indisponibil"
+              description="Solicitarea pentru toate produsele a eșuat. Verificați răspunsul API sau reîncercați."
+              showIcon
+            />
+          )}
+          {queryState.minSimilarity < 0.5 && (
+            <Alert
+              style={{ marginTop: 16 }}
+              type="warning"
+              message="Avertisment: Similaritate minimă setată foarte jos"
+              description="Valorile sub 0.5 pot returna rezultate neașteptate"
+              showIcon
+            />
+          )}
+        </Col>
+      </Row>
     </div>
   );
 };

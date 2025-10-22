@@ -12,7 +12,7 @@ import logging
 import re
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import Product
@@ -212,13 +212,8 @@ class JiebaMatchingService:
             logger.warning("Search criteria not sufficient")
             return []
 
-        # Get all supplier products (unmatched or with low confidence)
-        query = select(SupplierProduct).where(
-            or_(
-                SupplierProduct.local_product_id.is_(None),
-                SupplierProduct.confidence_score < 0.9,
-            )
-        )
+        # Get supplier products (default: active ones)
+        query = select(SupplierProduct).where(SupplierProduct.is_active.is_(True))
 
         if supplier_id:
             query = query.where(SupplierProduct.supplier_id == supplier_id)
@@ -320,6 +315,90 @@ class JiebaMatchingService:
             matches = matches[:limit]
         else:
             logger.info(f"Found {len(matches)} matches")
+
+        return matches
+
+    async def search_local_products(
+        self,
+        search_term: str,
+        threshold: float = DEFAULT_THRESHOLD,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """Search local products using jieba tokenization."""
+
+        if not search_term or not search_term.strip():
+            logger.warning("Search term is empty")
+            return []
+
+        search_tokens = set(self.tokenize_clean(search_term))
+        if not search_tokens:
+            logger.warning("No tokens generated from search term")
+            return []
+
+        min_common_tokens = self.calculate_min_common_tokens(search_tokens)
+        if min_common_tokens == 0:
+            logger.warning("Search criteria not sufficient for local product search")
+            return []
+
+        query = select(Product).where(Product.is_active.is_(True))
+        result = await self.db.execute(query)
+        local_products = result.scalars().all()
+
+        matches: list[dict[str, Any]] = []
+
+        for product in local_products:
+            product_name = product.chinese_name or product.name
+            if not product_name:
+                continue
+
+            product_tokens = set(self.tokenize_clean(product_name))
+            if not product_tokens:
+                continue
+
+            similarity, common_tokens = self.calculate_similarity(
+                search_tokens, product_tokens
+            )
+
+            if similarity >= threshold and len(common_tokens) >= min_common_tokens:
+                matches.append(
+                    {
+                        "id": product.id,
+                        "name": product.name,
+                        "chinese_name": product.chinese_name,
+                        "sku": product.sku,
+                        "brand": product.brand,
+                        "image_url": product.image_url,
+                        "similarity_score": round(similarity, 4),
+                        "similarity_percent": round(similarity * 100, 2),
+                        "common_tokens": list(common_tokens),
+                        "common_tokens_count": len(common_tokens),
+                    }
+                )
+
+        matches.sort(key=lambda x: x["similarity_score"], reverse=True)
+
+        if len(matches) > limit:
+            matches = matches[:limit]
+
+        if matches:
+            match_ids = [match["id"] for match in matches]
+            counts_query = (
+                select(
+                    SupplierProduct.local_product_id,
+                    func.count(SupplierProduct.id),
+                )
+                .where(SupplierProduct.local_product_id.in_(match_ids))
+                .group_by(SupplierProduct.local_product_id)
+            )
+            counts_result = await self.db.execute(counts_query)
+            counts = {
+                row[0]: row[1]
+                for row in counts_result.all()
+                if row[0] is not None
+            }
+
+            for match in matches:
+                match["supplier_match_count"] = counts.get(match["id"], 0)
 
         return matches
 

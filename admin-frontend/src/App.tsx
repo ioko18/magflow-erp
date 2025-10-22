@@ -37,6 +37,7 @@ const ProductImport = lazy(() => import('./pages/products/ProductImport'))
 const Inventory = lazy(() => import('./pages/products/Inventory'))
 const LowStockSuppliers = lazy(() => import('./pages/products/LowStockSuppliers'))
 const ProductMatchingSuggestions = lazy(() => import('./pages/products/ProductMatchingSuggestions'))
+const ChineseNameSearchPage = lazy(() => import('./pages/products/ChineseNameSearchPage'))
 
 // Purchase Orders
 const PurchaseOrderListModern = lazy(() => import('./components/purchase-orders/PurchaseOrderListModern'))
@@ -142,7 +143,24 @@ const router = createBrowserRouter(
             },
             {
               path: 'products',
-              element: <Products />,
+              children: [
+                {
+                  path: 'matching-suggestions',
+                  element: <ProductMatchingSuggestions />,
+                },
+                {
+                  path: 'chinese-name-search',
+                  element: <ChineseNameSearchPage />,
+                },
+                {
+                  path: 'import',
+                  element: <ProductImport />,
+                },
+                {
+                  index: true,
+                  element: <Products />,
+                },
+              ],
             },
             {
               path: 'inventory',
@@ -151,10 +169,6 @@ const router = createBrowserRouter(
             {
               path: 'low-stock-suppliers',
               element: <LowStockSuppliers />,
-            },
-            {
-              path: 'product-matching-suggestions',
-              element: <ProductMatchingSuggestions />,
             },
             {
               path: 'orders',
@@ -179,10 +193,6 @@ const router = createBrowserRouter(
             {
               path: 'suppliers/matching',
               element: <SupplierMatching />,
-            },
-            {
-              path: 'products/import',
-              element: <ProductImport />,
             },
             {
               path: 'users',
@@ -222,6 +232,11 @@ const router = createBrowserRouter(
       ],
     },
   ],
+  {
+    future: {
+      v7_startTransition: true,
+    },
+  }
 )
 
 function App() {
