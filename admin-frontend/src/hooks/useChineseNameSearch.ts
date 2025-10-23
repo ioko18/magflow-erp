@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { searchByChineseName, linkSupplierProduct, updateLocalChineseName, updateSupplierProductName } from '../services/api';
+import {
+  searchByChineseName,
+  linkSupplierProduct,
+  updateLocalChineseName,
+  updateSupplierProductName,
+  updateSupplierProductUrl,
+  changeSupplierProduct,
+} from '../services/api';
 
 export interface SupplierMatch {
   supplier_product_id: number;
@@ -57,12 +64,15 @@ export default function useChineseNameSearch() {
   const [linkingIds, setLinkingIds] = useState<Set<number>>(new Set());
   const [updatingLocalIds, setUpdatingLocalIds] = useState<Set<number>>(new Set());
   const [updatingSupplierNameIds, setUpdatingSupplierNameIds] = useState<Set<number>>(new Set());
+  const [updatingSupplierUrlIds, setUpdatingSupplierUrlIds] = useState<Set<number>>(new Set());
+  const [changingSupplierIds, setChangingSupplierIds] = useState<Set<number>>(new Set());
 
   const clearResults = useCallback(() => {
     setState(DEFAULT_STATE);
     setError(null);
     setUpdatingLocalIds(new Set());
     setUpdatingSupplierNameIds(new Set());
+    setUpdatingSupplierUrlIds(new Set());
   }, []);
 
   const fetchMatches = useCallback(
@@ -132,6 +142,7 @@ export default function useChineseNameSearch() {
   const linkingSet = useMemo(() => new Set(linkingIds), [linkingIds]);
   const updatingLocalSet = useMemo(() => new Set(updatingLocalIds), [updatingLocalIds]);
   const updatingSupplierNameSet = useMemo(() => new Set(updatingSupplierNameIds), [updatingSupplierNameIds]);
+  const updatingSupplierUrlSet = useMemo(() => new Set(updatingSupplierUrlIds), [updatingSupplierUrlIds]);
 
   const updateLocalProductChineseName = useCallback(
     async (productId: number, chineseName: string | null) => {
@@ -186,10 +197,11 @@ export default function useChineseNameSearch() {
           ...prev,
           supplierMatches: prev.supplierMatches.map(match =>
             match.supplier_product_id === supplierProductId
-              ? { ...match, supplier_product_name: trimmedName }
+              ? { ...match, supplier_product_name: trimmedName, supplier_product_chinese_name: trimmedName }
               : match
           ),
         }));
+      
       } catch (err) {
         const errorObj = err as Error;
         setError(errorObj);
@@ -205,6 +217,68 @@ export default function useChineseNameSearch() {
     []
   );
 
+  const updateSupplierProductLink = useCallback(
+    async (supplierProductId: number, supplierId: number, url: string) => {
+      setUpdatingSupplierUrlIds(prev => {
+        const next = new Set(prev);
+        next.add(supplierProductId);
+        return next;
+      });
+
+      try {
+        await updateSupplierProductUrl(supplierId, supplierProductId, url);
+        setState(prev => ({
+          ...prev,
+          supplierMatches: prev.supplierMatches.map(match =>
+            match.supplier_product_id === supplierProductId
+              ? { ...match, supplier_product_url: url }
+              : match
+          ),
+        }));
+      } catch (err) {
+        const errorObj = err as Error;
+        setError(errorObj);
+        throw errorObj;
+      } finally {
+        setUpdatingSupplierUrlIds(prev => {
+          const next = new Set(prev);
+          next.delete(supplierProductId);
+          return next;
+        });
+      }
+    },
+    []
+  );
+
+  const changeSupplierForProduct = useCallback(
+    async (supplierProductId: number, supplierId: number, newSupplierId: number) => {
+      setChangingSupplierIds(prev => {
+        const next = new Set(prev);
+        next.add(supplierProductId);
+        return next;
+      });
+
+      try {
+        await changeSupplierProduct(supplierId, supplierProductId, newSupplierId);
+        await fetchMatches(searchTerm);
+      } catch (err) {
+        const errorObj = err as Error;
+        console.error('Error changing supplier', errorObj);
+        setError(errorObj);
+        throw errorObj;
+      } finally {
+        setChangingSupplierIds(prev => {
+          const next = new Set(prev);
+          next.delete(supplierProductId);
+          return next;
+        });
+      }
+    },
+    [fetchMatches, searchTerm]
+  );
+
+  const changingSupplierSet = useMemo(() => new Set(changingSupplierIds), [changingSupplierIds]);
+
   return {
     supplierMatches: state.supplierMatches,
     localMatches: state.localMatches,
@@ -217,6 +291,10 @@ export default function useChineseNameSearch() {
     updatingLocalIds: updatingLocalSet,
     updateSupplierProductName: updateSupplierProductDisplayName,
     updatingSupplierNameIds: updatingSupplierNameSet,
+    updateSupplierProductUrl: updateSupplierProductLink,
+    updatingSupplierUrlIds: updatingSupplierUrlSet,
+    changeSupplierForProduct,
+    changingSupplierIds: changingSupplierSet,
     searchTerm,
     refetch: () => fetchMatches(searchTerm),
   };

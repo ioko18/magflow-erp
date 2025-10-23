@@ -491,6 +491,7 @@ async def get_low_stock_with_suppliers(
             suppliers_by_product[product_id].append(
                 {
                     "supplier_id": f"sheet_{sheet.id}",
+                    "sheet_id": sheet.id,  # Sheet ID for updates
                     "supplier_name": sheet.supplier_name,
                     "supplier_type": "google_sheets",
                     "price": sheet.price_cny,
@@ -531,6 +532,8 @@ async def get_low_stock_with_suppliers(
         suppliers_by_product[sp.local_product_id].append(
             {
                 "supplier_id": f"1688_{sp.id}",
+                "actual_supplier_id": sp.supplier_id,  # Real supplier ID for API calls
+                "supplier_product_id": sp.id,  # SupplierProduct ID for updates
                 "supplier_name": sp.supplier.name if sp.supplier else "Unknown",
                 "supplier_type": "1688",
                 "price": sp.supplier_price,

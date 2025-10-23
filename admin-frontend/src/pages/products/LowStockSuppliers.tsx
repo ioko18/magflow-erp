@@ -25,6 +25,9 @@ const { Option } = Select;
 
 interface Supplier {
   supplier_id: string;
+  sheet_id?: number; // For Google Sheets suppliers
+  actual_supplier_id?: number; // Real supplier ID for 1688 products
+  supplier_product_id?: number; // SupplierProduct ID for 1688 products
   supplier_name: string;
   supplier_type: string;
   price: number;
@@ -114,6 +117,7 @@ const LowStockSuppliersPage: React.FC = () => {
   const [savingReorderQty, setSavingReorderQty] = useState<Set<number>>(new Set());
   const [editingPrice, setEditingPrice] = useState<Map<string, number>>(new Map());
   const [savingPrice, setSavingPrice] = useState<Set<string>>(new Set());
+  const [updatingChineseNames, setUpdatingChineseNames] = useState<Set<number>>(new Set());
 
   // ============================================================================
   // Data Loading
@@ -163,6 +167,47 @@ const LowStockSuppliersPage: React.FC = () => {
       setPagination(prev => ({ ...prev, total: 0 }));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateChineseName = async (productId: number, value: string) => {
+    const trimmed = value.trim();
+
+    setUpdatingChineseNames(prev => {
+      const next = new Set(prev);
+      next.add(productId);
+      return next;
+    });
+
+    try {
+      const response = await api.patch(`/products/chinese-name/local/${productId}`, {
+        chinese_name: trimmed || null,
+      });
+
+      const updatedName = response.data?.data?.chinese_name ?? (trimmed || null);
+
+      setProducts(prevProducts =>
+        prevProducts.map(product =>
+          product.product_id === productId
+            ? { ...product, chinese_name: updatedName }
+            : product
+        )
+      );
+
+      antMessage.success('Numele chinezesc a fost actualizat.');
+    } catch (error: any) {
+      console.error('Error updating Chinese name:', error);
+      const errorMsg =
+        error.response?.data?.detail ||
+        error.message ||
+        'Actualizarea numelui chinezesc a eșuat.';
+      antMessage.error(errorMsg);
+    } finally {
+      setUpdatingChineseNames(prev => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
     }
   };
 
@@ -258,44 +303,33 @@ const LowStockSuppliersPage: React.FC = () => {
   // Supplier Price Update
   // ============================================================================
 
-  const handleUpdateSupplierPrice = async (supplierId: string, newPrice: number, currency: string = 'CNY') => {
+  const handleUpdateSupplierPrice = async (supplier: Supplier, newPrice: number, currency: string = 'CNY') => {
     try {
-      setSavingPrice(prev => new Set(prev).add(supplierId));
+      setSavingPrice(prev => new Set(prev).add(supplier.supplier_id));
       
-      // Parse supplier ID to determine type (sheet_123 or 1688_456)
-      const [type, id] = supplierId.split('_');
-      const numericId = parseInt(id);
-      
-      if (type === 'sheet') {
+      // Determine supplier type and use correct IDs
+      if (supplier.supplier_type === 'google_sheets' && supplier.sheet_id) {
         // Update Google Sheets supplier
-        await updateSheetSupplierPrice(numericId, newPrice);
-      } else if (type === '1688') {
-        // Update 1688 supplier - need to extract supplier_id from SupplierProduct
-        // For now, we'll use a generic update endpoint
-        await updateSupplierProduct(numericId, numericId, {
+        await updateSheetSupplierPrice(supplier.sheet_id, newPrice);
+      } else if (supplier.supplier_type === '1688' && supplier.actual_supplier_id && supplier.supplier_product_id) {
+        // Update 1688 supplier with correct IDs
+        await updateSupplierProduct(supplier.actual_supplier_id, supplier.supplier_product_id, {
           supplier_price: newPrice,
           supplier_currency: currency
         });
+      } else {
+        throw new Error('Invalid supplier data: missing required IDs');
       }
       
       antMessage.success('Supplier price updated successfully!');
       
-      // Update local state
-      setProducts(prevProducts => 
-        prevProducts.map(p => ({
-          ...p,
-          suppliers: p.suppliers.map(s => 
-            s.supplier_id === supplierId 
-              ? { ...s, price: newPrice, currency: currency }
-              : s
-          )
-        }))
-      );
+      // Reload data to get updated timestamp
+      await loadProducts();
       
       // Clear editing state
       setEditingPrice(prev => {
         const newMap = new Map(prev);
-        newMap.delete(supplierId);
+        newMap.delete(supplier.supplier_id);
         return newMap;
       });
       
@@ -305,7 +339,7 @@ const LowStockSuppliersPage: React.FC = () => {
     } finally {
       setSavingPrice(prev => {
         const newSet = new Set(prev);
-        newSet.delete(supplierId);
+        newSet.delete(supplier.supplier_id);
         return newSet;
       });
     }
@@ -424,6 +458,14 @@ const LowStockSuppliersPage: React.FC = () => {
   const handleCollapseAll = () => {
     setExpandedRows([]);
     antMessage.info('Collapsed all products');
+  };
+
+  const toggleRowExpansion = (productId: number) => {
+    setExpandedRows(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
   };
 
   // ============================================================================
@@ -710,9 +752,25 @@ const LowStockSuppliersPage: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <div style={{ marginBottom: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-                  Price {isEditingPrice && <Text type="warning">(Editing...)</Text>}
-                </Text>
+                <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                  {supplier.last_updated && !isEditingPrice && (
+                    <Tooltip title={`Last price update: ${new Date(supplier.last_updated).toLocaleString('ro-RO', { 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric', 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}`}>
+                      <Text type="secondary" style={{ fontSize: 11, color: '#cf1322' }}>
+                        Price updated: {new Date(supplier.last_updated).toLocaleDateString('ro-RO', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </Text>
+                    </Tooltip>
+                  )}
+                </Space>
                 {isEditingPrice ? (
                   <Space direction="vertical" size={8} style={{ width: '100%' }}>
                     <Space size={8} style={{ width: '100%' }}>
@@ -741,7 +799,7 @@ const LowStockSuppliersPage: React.FC = () => {
                         type="primary"
                         size="middle"
                         icon={<SaveOutlined />}
-                        onClick={() => handleUpdateSupplierPrice(supplier.supplier_id, editPriceValue, supplier.currency)}
+                        onClick={() => handleUpdateSupplierPrice(supplier, editPriceValue, supplier.currency)}
                         loading={isSavingPrice}
                       >
                         Save Price
@@ -847,12 +905,6 @@ const LowStockSuppliersPage: React.FC = () => {
               View Product
             </Button>
           )}
-          
-          {supplier.last_updated && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Last updated: {new Date(supplier.last_updated).toLocaleDateString()}
-            </Text>
-          )}
         </Space>
       </Card>
     );
@@ -888,7 +940,7 @@ const LowStockSuppliersPage: React.FC = () => {
     {
       title: 'Product',
       key: 'product',
-      width: 300,
+      width: 500,
       render: (_, record) => (
         <Space direction="vertical" size="small">
           <Text strong>{record.name}</Text>
@@ -914,9 +966,24 @@ const LowStockSuppliersPage: React.FC = () => {
               )}
             </div>
           )}
-          {record.chinese_name && (
-            <Text type="secondary" style={{ fontSize: 12, color: '#52c41a' }}> {record.chinese_name}</Text>
-          )}
+          <div>
+            <Paragraph
+              style={{
+                fontSize: 12,
+                color: record.chinese_name ? '#52c41a' : '#8c8c8c',
+                marginBottom: 0,
+              }}
+              editable={{
+                onChange: value => handleUpdateChineseName(record.product_id, value),
+                tooltip: 'Editează numele chinezesc',
+              }}
+            >
+              {record.chinese_name || 'Click pentru a adăuga nume chinezesc'}
+            </Paragraph>
+            {updatingChineseNames.has(record.product_id) && (
+              <Text type="secondary" style={{ fontSize: 11 }}>Se salvează...</Text>
+            )}
+          </div>
         </Space>
       ),
     },
@@ -937,7 +1004,7 @@ const LowStockSuppliersPage: React.FC = () => {
     {
       title: 'Stock Status',
       key: 'stock',
-      width: 240,
+      width: 250,
       render: (_, record) => {
         const isEditing = editingReorder.has(record.inventory_item_id);
         const isSaving = savingReorder.has(record.inventory_item_id);
@@ -1143,9 +1210,11 @@ const LowStockSuppliersPage: React.FC = () => {
     {
       title: 'Suppliers',
       key: 'suppliers',
-      width: 150,
+      width: 70,
       render: (_, record) => {
         const selected = getSelectedSupplierForProduct(record.product_id);
+        const isExpanded = expandedRows.includes(record.product_id);
+
         return (
           <Space direction="vertical" size="small">
             <Badge count={record.supplier_count} showZero>
@@ -1153,43 +1222,22 @@ const LowStockSuppliersPage: React.FC = () => {
                 type={selected ? 'primary' : 'default'}
                 icon={<ShopOutlined />}
                 size="small"
+                onClick={() => toggleRowExpansion(record.product_id)}
               >
-                {record.supplier_count} Suppliers
+                {isExpanded ? 'Suppliers' : 'Suppliers'}
               </Button>
             </Badge>
             {selected && (
               <Tag color="blue" style={{ fontSize: 11 }}>
-                ✓ {selected.supplier_name.substring(0, 15)}...
+                ✓ {selected.supplier_name.length > 18 ? `${selected.supplier_name.slice(0, 18)}...` : selected.supplier_name}
               </Tag>
             )}
           </Space>
         );
       },
     },
-    {
-      title: 'Actions',
-      key: 'actions',
-      width: 100,
-      fixed: 'right',
-      render: (_, record) => (
-        <Button
-          type="link"
-          onClick={() => {
-            if (expandedRows.includes(record.product_id)) {
-              setExpandedRows(expandedRows.filter(id => id !== record.product_id));
-            } else {
-              setExpandedRows([...expandedRows, record.product_id]);
-            }
-          }}
-        >
-          {expandedRows.includes(record.product_id) ? 'Hide' : 'Select'} Supplier
-        </Button>
-      ),
-    },
   ];
 
-  // ============================================================================
-  // Expandable Row Render
   // ============================================================================
 
   const expandedRowRender = (record: LowStockProduct) => {
@@ -1245,15 +1293,10 @@ const LowStockSuppliersPage: React.FC = () => {
           <ShopOutlined /> Select Supplier for {record.name}
         </Title>
         <Paragraph type="secondary">
-          Choose one supplier to include this product in the export. Suppliers are sorted by preference and price.
           {showOnlyVerified && (
             <Text type="success" strong> (Showing only verified suppliers)</Text>
           )}
-          {cheapestSupplier && filteredSuppliers.length > 1 && (
-            <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-              💰 <strong>Best price:</strong> {cheapestSupplier.price.toFixed(2)} {cheapestSupplier.currency} from {cheapestSupplier.supplier_name}
-            </Text>
-          )}
+
         </Paragraph>
         
         <Row gutter={[16, 16]}>
@@ -1594,9 +1637,13 @@ const LowStockSuppliersPage: React.FC = () => {
                 expandedRowKeys: expandedRows,
                 onExpand: (expanded, record) => {
                   if (expanded) {
-                    setExpandedRows([...expandedRows, record.product_id]);
+                    setExpandedRows(prev => (
+                      prev.includes(record.product_id)
+                        ? prev
+                        : [...prev, record.product_id]
+                    ));
                   } else {
-                    setExpandedRows(expandedRows.filter(id => id !== record.product_id));
+                    setExpandedRows(prev => prev.filter(id => id !== record.product_id));
                   }
                 },
               }}

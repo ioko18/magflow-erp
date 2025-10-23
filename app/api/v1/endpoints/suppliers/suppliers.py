@@ -1308,6 +1308,7 @@ async def update_supplier_product(
         allowed_fields = {
             "supplier_price",
             "supplier_product_name",
+            "supplier_product_chinese_name",
             "supplier_product_url",
             "supplier_currency",
         }
@@ -1317,6 +1318,10 @@ async def update_supplier_product(
             if field in allowed_fields and hasattr(supplier_product, field):
                 setattr(supplier_product, field, value)
                 updated_fields.append(field)
+
+        # Update last_price_update timestamp if price was changed
+        if "supplier_price" in updated_fields:
+            supplier_product.last_price_update = datetime.now(UTC).replace(tzinfo=None)
 
         if updated_fields:
             supplier_product.updated_at = datetime.now(UTC).replace(tzinfo=None)

@@ -273,6 +273,27 @@ export const updateSupplierProductName = (
 ) => {
   return api.patch(`/suppliers/${supplierId}/products/${supplierProductId}`, {
     supplier_product_name: name,
+    supplier_product_chinese_name: name,
+  });
+};
+
+export const updateSupplierProductUrl = (
+  supplierId: number,
+  supplierProductId: number,
+  url: string,
+) => {
+  return api.patch(`/suppliers/${supplierId}/products/${supplierProductId}`, {
+    supplier_product_url: url,
+  });
+};
+
+export const changeSupplierProduct = (
+  supplierId: number,
+  supplierProductId: number,
+  newSupplierId: number,
+) => {
+  return api.patch(`/suppliers/${supplierId}/products/${supplierProductId}/change-supplier`, {
+    new_supplier_id: newSupplierId,
   });
 };
 

@@ -7,7 +7,21 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    Numeric,
+    String,
+    Table,
+    case,
+    distinct,
+    func,
+    literal,
+    select,
+    text,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -425,30 +439,58 @@ async def get_emag_orders(
     """Get eMAG orders from database (test version without auth)."""
     try:
         try:
-            filters: list[str] = []
-            query_params: dict[str, Any] = {"limit": limit, "skip": skip}
+            metadata = MetaData(schema="app")
 
-            channel_expression = (
-                "CASE "
-                "WHEN so.external_source ILIKE 'emag_fbe%' THEN 'fbe' "
-                "WHEN so.external_source ILIKE 'emag_main%' THEN 'main' "
-                "WHEN so.external_source ILIKE '%fbe%' THEN 'fbe' "
-                "WHEN so.external_source ILIKE '%main%' THEN 'main' "
-                "ELSE 'other' "
-                "END"
+            orders_table = Table(
+                "orders",
+                metadata,
+                Column("id", Integer),
+                Column("external_id", String),
+                Column("external_source", String),
+                Column("status", String),
+                Column("total_amount", Numeric),
+                Column("order_date", DateTime),
+                Column("created_at", DateTime),
+                Column("updated_at", DateTime),
+                Column("customer_id", Integer),
             )
+
+            order_lines_table = Table(
+                "order_lines",
+                metadata,
+                Column("id", Integer),
+                Column("order_id", Integer),
+                Column("quantity", Numeric),
+                Column("unit_price", Numeric),
+            )
+
+            users_table = Table(
+                "users",
+                metadata,
+                Column("id", Integer),
+                Column("full_name", String),
+                Column("email", String),
+            )
+
+            channel_case = case(
+                (orders_table.c.external_source.ilike("emag_fbe%"), literal("fbe")),
+                (orders_table.c.external_source.ilike("emag_main%"), literal("main")),
+                (orders_table.c.external_source.ilike("%fbe%"), literal("fbe")),
+                (orders_table.c.external_source.ilike("%main%"), literal("main")),
+                else_=literal("other"),
+            ).label("derived_channel")
+
+            filters: list[Any] = []
 
             normalized_channel: str | None = None
             if channel:
                 normalized_channel = channel.lower()
                 if normalized_channel not in {"main", "fbe", "other"}:
                     raise ValueError("channel must be one of: main, fbe, other")
-                filters.append(f"{channel_expression} = :channel")
-                query_params["channel"] = normalized_channel
+                filters.append(channel_case == literal(normalized_channel))
 
             if status:
-                filters.append("so.status = :status")
-                query_params["status"] = status
+                filters.append(orders_table.c.status == status)
 
             if start_date:
                 try:
@@ -457,78 +499,81 @@ async def get_emag_orders(
                     raise ValueError(
                         f"Invalid start_date format: {start_date}"
                     ) from exc
-                filters.append("so.order_date >= :start_date")
-                query_params["start_date"] = start_dt
+                filters.append(orders_table.c.order_date >= start_dt)
 
             if end_date:
                 try:
                     end_dt = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
                 except ValueError as exc:
                     raise ValueError(f"Invalid end_date format: {end_date}") from exc
-                filters.append("so.order_date <= :end_date")
-                query_params["end_date"] = end_dt
+                filters.append(orders_table.c.order_date <= end_dt)
 
-            where_clause = ""
-            if filters:
-                where_clause = "WHERE " + " AND ".join(filters) + "\n"
-
-            orders_query = text(
-                f"""
-                SELECT
-                    so.id,
-                    so.external_id,
-                    so.external_source,
-                    so.status,
-                    so.total_amount,
-                    so.order_date,
-                    so.created_at,
-                    so.updated_at,
-                    u.full_name AS customer_name,
-                    u.email AS customer_email,
-                    NULL::text AS customer_phone,
-                    NULL::text AS customer_city,
-                    COUNT(sol.id) AS items_count,
-                    COALESCE(SUM(sol.quantity * sol.unit_price), 0) AS line_total_sum,
-                    {channel_expression} AS derived_channel
-                FROM app.orders so
-                LEFT JOIN app.order_lines sol ON sol.order_id = so.id
-                LEFT JOIN app.users u ON so.customer_id = u.id
-                {where_clause}
-                GROUP BY
-                    so.id,
-                    so.external_id,
-                    so.external_source,
-                    so.status,
-                    so.total_amount,
-                    so.order_date,
-                    so.created_at,
-                    so.updated_at,
-                    u.full_name,
-                    u.email,
-                    derived_channel
-                ORDER BY so.order_date DESC NULLS LAST, so.created_at DESC NULLS LAST
-                LIMIT :limit OFFSET :skip
-                """
+            join_clause = (
+                orders_table.outerjoin(
+                    order_lines_table, order_lines_table.c.order_id == orders_table.c.id
+                )
+                .outerjoin(users_table, users_table.c.id == orders_table.c.customer_id)
             )
 
-            orders_result = await db.execute(orders_query, query_params)
+            base_query = (
+                select(
+                    orders_table.c.id,
+                    orders_table.c.external_id,
+                    orders_table.c.external_source,
+                    orders_table.c.status,
+                    orders_table.c.total_amount,
+                    orders_table.c.order_date,
+                    orders_table.c.created_at,
+                    orders_table.c.updated_at,
+                    users_table.c.full_name.label("customer_name"),
+                    users_table.c.email.label("customer_email"),
+                    literal(None).label("customer_phone"),
+                    literal(None).label("customer_city"),
+                    func.count(order_lines_table.c.id).label("items_count"),
+                    func.coalesce(
+                        func.sum(
+                            order_lines_table.c.quantity * order_lines_table.c.unit_price
+                        ),
+                        0,
+                    ).label("line_total_sum"),
+                    channel_case,
+                )
+                .select_from(join_clause)
+                .group_by(
+                    orders_table.c.id,
+                    orders_table.c.external_id,
+                    orders_table.c.external_source,
+                    orders_table.c.status,
+                    orders_table.c.total_amount,
+                    orders_table.c.order_date,
+                    orders_table.c.created_at,
+                    orders_table.c.updated_at,
+                    users_table.c.full_name,
+                    users_table.c.email,
+                    channel_case,
+                )
+                .order_by(
+                    orders_table.c.order_date.desc().nulls_last(),
+                    orders_table.c.created_at.desc().nulls_last(),
+                )
+                .limit(limit)
+                .offset(skip)
+            )
+
+            if filters:
+                base_query = base_query.where(*filters)
+
+            orders_result = await db.execute(base_query)
             orders = orders_result.fetchall()
 
-            count_params = {
-                key: value
-                for key, value in query_params.items()
-                if key not in {"limit", "skip"}
-            }
-            count_query = text(
-                f"""
-                SELECT COUNT(*)
-                FROM app.orders so
-                LEFT JOIN app.order_lines sol ON sol.order_id = so.id
-                {where_clause}
-                """
+            count_query = select(func.count(distinct(orders_table.c.id))).select_from(
+                join_clause
             )
-            total_result = await db.execute(count_query, count_params)
-            total_count = total_result.scalar() or 0
+            if filters:
+                count_query = count_query.where(*filters)
+
+            total_result = await db.execute(count_query)
+            total_count = total_result.scalar_one() or 0
 
             def _to_float(value: Any) -> float:
                 if isinstance(value, Decimal):

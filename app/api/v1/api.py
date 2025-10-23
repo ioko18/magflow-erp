@@ -62,11 +62,6 @@ from app.api.v1.endpoints import (
     websocket_notifications,
     websocket_sync,
 )
-from app.api.v1.endpoints.suppliers import (
-    promote_sheet_router,
-    set_sheet_supplier_router,
-    supplier_sheet_sync,
-)
 from app.api.v1.endpoints.debug import router as debug_router
 
 # Import new modular core endpoints
@@ -77,7 +72,11 @@ from app.api.v1.endpoints.emag import (
     core_sync_router,
 )
 from app.api.v1.endpoints.inventory import emag_inventory_sync_router
-from app.api.v1.endpoints.suppliers import supplier_sheet_sync
+from app.api.v1.endpoints.suppliers import (
+    promote_sheet_router,
+    set_sheet_supplier_router,
+    supplier_sheet_sync,
+)
 
 from ..auth import router as auth_router
 from ..routes.catalog import router as catalog_router

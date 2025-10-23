@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Card,
   Input,
@@ -15,24 +15,30 @@ import {
   Tooltip,
   message,
   Spin,
+  Modal,
+  Divider,
+  Select,
+  App as AntApp,
 } from 'antd';
+import { EyeOutlined, ShoppingOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import useChineseNameSearch, {
   SupplierMatch,
   LocalProductMatch,
 } from '../../hooks/useChineseNameSearch';
+import api from '../../services/api';
 
 const { Title } = Typography;
 
 const getConfidenceColor = (score: number) => {
   if (score >= 0.95) return '#52c41a';
-  if (score >= 0.9) return '#73d13d';
+  if (score >= 0.85) return '#73d13d';
   if (score >= 0.75) return '#95de64';
   return '#faad14';
 };
 
 const getConfidenceLabel = (score: number) => {
   if (score >= 0.95) return 'Excelent';
-  if (score >= 0.9) return 'Foarte bun';
+  if (score >= 0.85) return 'Foarte bun';
   if (score >= 0.75) return 'Bun';
   return 'Mediu';
 };
@@ -54,10 +60,17 @@ const getImageUrl = (record: any) => {
 };
 
 const ChineseNameSearchPage: React.FC = () => {
+  const { modal } = AntApp.useApp();
   const [searchValue, setSearchValue] = useState('');
   const [selectedSupplierKeys, setSelectedSupplierKeys] = useState<React.Key[]>([]);
   const [selectedLocalKeys, setSelectedLocalKeys] = useState<React.Key[]>([]);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedSupplierProduct, setSelectedSupplierProduct] = useState<SupplierMatch | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
+  const [suppliers, setSuppliers] = useState<Array<{ id: number; name: string }>>([]);
+  const [changingSupplier, setChangingSupplier] = useState(false);
+  const [newSupplierId, setNewSupplierId] = useState<number | null>(null);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
 
   const {
     supplierMatches,
@@ -71,10 +84,75 @@ const ChineseNameSearchPage: React.FC = () => {
     updatingLocalIds,
     updateSupplierProductName,
     updatingSupplierNameIds,
+    updateSupplierProductUrl,
+    updatingSupplierUrlIds,
+    changeSupplierForProduct,
+    changingSupplierIds,
   } = useChineseNameSearch();
 
   const handleSearch = (value: string) => {
     setChineseName(value);
+  };
+
+  useEffect(() => {
+    const loadSuppliers = async () => {
+      try {
+        setLoadingSuppliers(true);
+        const response = await api.get('/suppliers', {
+          params: { limit: 1000, active_only: true }
+        });
+        const suppliersData = response.data?.data?.suppliers || [];
+        setSuppliers(suppliersData);
+      } catch (err) {
+        console.error('Error loading suppliers:', err);
+        messageApi.error('Eroare la încărcarea furnizorilor');
+      } finally {
+        setLoadingSuppliers(false);
+      }
+    };
+    loadSuppliers();
+  }, [messageApi]);
+
+  const handleChangeSupplier = async () => {
+    if (!selectedSupplierProduct?.supplier_product_id || !newSupplierId) {
+      messageApi.error('Selectează un furnizor valid');
+      return;
+    }
+
+    modal.confirm({
+      title: 'Schimbă Furnizor',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>Ești sigur că vrei să schimbi furnizorul pentru acest produs?</p>
+          <div style={{ marginTop: '12px', padding: '8px', background: '#fff2e8', borderRadius: '4px' }}>
+            <Typography.Text strong>Atenție:</Typography.Text>
+            <div style={{ marginTop: '4px', fontSize: '12px' }}>
+              Produsul va fi mutat la noul furnizor. Această acțiune poate afecta rapoartele și statisticile.
+            </div>
+          </div>
+        </div>
+      ),
+      okText: 'Da, schimbă furnizorul',
+      okType: 'primary',
+      cancelText: 'Anulează',
+      onOk: async () => {
+        try {
+          await changeSupplierForProduct(
+            selectedSupplierProduct.supplier_product_id,
+            selectedSupplierProduct.supplier_id,
+            newSupplierId
+          );
+          messageApi.success('Furnizor schimbat cu succes');
+          setChangingSupplier(false);
+          setNewSupplierId(null);
+          setDetailModalVisible(false);
+        } catch (err) {
+          const errorObj = err as Error;
+          messageApi.error(errorObj.message || 'Eroare la schimbarea furnizorului');
+        }
+      }
+    });
   };
 
   const handleLocalChineseNameChange = async (productId: number, value: string) => {
@@ -85,6 +163,31 @@ const ChineseNameSearchPage: React.FC = () => {
     } catch (err) {
       const errorObj = err as Error;
       messageApi.error(errorObj.message || 'Actualizarea numelui a eșuat.');
+      throw errorObj;
+    }
+  };
+
+  const handleSupplierProductUrlChange = async (record: SupplierMatch, value: string) => {
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      messageApi.error('URL-ul produsului nu poate fi gol.');
+      throw new Error('URL-ul produsului nu poate fi gol.');
+    }
+
+    try {
+      new URL(trimmed);
+    } catch {
+      messageApi.error('URL-ul introdus nu este valid.');
+      throw new Error('URL-ul introdus nu este valid.');
+    }
+
+    try {
+      await updateSupplierProductUrl(record.supplier_product_id, record.supplier_id, trimmed);
+      messageApi.success('URL-ul produsului furnizorului a fost actualizat.');
+    } catch (err) {
+      const errorObj = err as Error;
+      messageApi.error(errorObj.message || 'Actualizarea URL-ului furnizorului a eșuat.');
       throw errorObj;
     }
   };
@@ -100,11 +203,16 @@ const ChineseNameSearchPage: React.FC = () => {
     }
   };
 
+  const handleViewSupplierDetails = (record: SupplierMatch) => {
+    setSelectedSupplierProduct(record);
+    setDetailModalVisible(true);
+  };
+
   const supplierColumns = [
     {
       title: 'Produs',
       key: 'product',
-      width: 680,
+      width: 480,
       render: (record: SupplierMatch) => {
         const imageUrl = (() => {
           try {
@@ -126,13 +234,13 @@ const ChineseNameSearchPage: React.FC = () => {
             />
             <div>
               <Typography.Paragraph
-                style={{ marginBottom: 0, fontWeight: 600 }}
+                style={{ marginBottom: 0 }}
                 editable={{
                   onChange: value => handleSupplierProductNameChange(record, value),
                   tooltip: 'Editează numele produsului furnizorului',
                 }}
               >
-                {record.supplier_product_chinese_name || 'Click pentru a adăuga numele produsului'}
+                {record.supplier_product_chinese_name || record.supplier_product_name || 'Click pentru a adăuga numele produsului'}
               </Typography.Paragraph>
               {updatingSupplierNameIds.has(record.supplier_product_id) ? (
                 <Spin size="small" style={{ marginTop: 4 }} />
@@ -143,64 +251,60 @@ const ChineseNameSearchPage: React.FC = () => {
                 </div>
               ) : null}
               {record.supplier_name ? (
-                <div style={{ fontSize: 14, color: '#8c8c8c', marginTop: 2 }}>
+                <div style={{ fontSize: 14, color: '#8c8c8c', marginTop: 6 }}>
                   Furnizor: {record.supplier_name}
                 </div>
               ) : null}
-              {record.supplier_product_url ? (
-                <div style={{ marginTop: 4 }}>
-                  <a href={record.supplier_product_url} target="_blank" rel="noopener noreferrer">
-                    Deschide produs
+              <Typography.Paragraph
+                style={{ marginTop: 6, marginBottom: 2, fontSize: 12, color: '#1677ff' }}
+                editable={{
+                  onChange: value => handleSupplierProductUrlChange(record, value),
+                  tooltip: 'Editează link-ul produsului furnizorului',
+                }}
+              >
+                {record.supplier_product_url ? (
+                  <a href={record.supplier_product_url} target="_blank" rel="noopener noreferrer" style={{ color: '#1677ff' }}>
+                    {record.supplier_product_url}
                   </a>
-                </div>
+                ) : (
+                  <span style={{ color: '#8c8c8c' }}>Click pentru a adăuga link-ul produsului</span>
+                )}
+              </Typography.Paragraph>
+              {updatingSupplierUrlIds.has(record.supplier_product_id) ? (
+                <Spin size="small" style={{ marginTop: 6 }} />
               ) : null}
               {record.local_product?.sku ? (
                 <div style={{ fontSize: 13, color: '#52c41a' }}>
-                  Asociat cu: {record.local_product.sku}
+                  Asociat cu SKU: {record.local_product.sku}
                 </div>
               ) : null}
-              <div style={{ marginTop: 4 }}>
+              <div style={{ marginTop: 6 }}>
                 <Tag color={getConfidenceColor(record.similarity_score)}>
                   {Math.round(record.similarity_score * 100)}% - {getConfidenceLabel(record.similarity_score)}
                 </Tag>
+              </div>
+              <div style={{ marginTop: 6 }}>
+                <Button
+                  type="link"
+                  icon={<EyeOutlined />}
+                  onClick={() => handleViewSupplierDetails(record)}
+                >
+                  Vezi detalii
+                </Button>
               </div>
             </div>
           </Space>
         );
       },
     },
-    {
-      title: 'Acțiuni',
-      key: 'actions',
-      width: 80,
-      render: (record: SupplierMatch) => (
-        <Space>
-          <Tooltip title={record.local_product ? 'Produs deja asociat' : 'Selectează un produs local și apasă "Asociază"'}>
-            <Button
-              type="default"
-              disabled={!selectedLocalKeys.length || !!record.local_product}
-              onClick={() => handleLink(record.supplier_product_id)}
-              loading={linkingIds.has(record.supplier_product_id)}
-            >
-              Asociază
-            </Button>
-          </Tooltip>
-        </Space>
-      ),
-    },
+    
   ];
 
   const localColumns = [
     {
-      title: 'SKU',
-      dataIndex: 'sku',
-      key: 'sku',
-      width: 70,
-    },
-    {
       title: 'Produs local',
       key: 'product',
-      width: 420,
+      width: 470,
       render: (record: LocalProductMatch) => (
         <Space>
           <Image
@@ -214,35 +318,31 @@ const ChineseNameSearchPage: React.FC = () => {
           <div>
             <div><strong>{record.name}</strong></div>
             <Typography.Paragraph
-              style={{ marginTop: 8, marginBottom: 0, maxWidth: 260 }}
+              style={{ marginTop: 8, marginBottom: 0 }}
               editable={{
                 onChange: value => handleLocalChineseNameChange(record.id, value),
                 tooltip: 'Editează numele chinezesc',
               }}
             >
-              {record.chinese_name || 'Click pentru a adăuga nume chinezesc'}
+              {record.chinese_name || ''}
             </Typography.Paragraph>
-            {updatingLocalIds.has(record.id) ? <Spin size="small" style={{ marginTop: 4 }} /> : null}
+            {record.sku ? (
+              <div style={{ marginTop: 8, fontSize: 15, color: '#52c41a' }}>SKU: {record.sku}</div>
+            ) : null}
+            <div style={{ marginTop: 8 }}>
+              <Tag color={getConfidenceColor(record.similarity_score)}>
+                {Math.round(record.similarity_score * 100)}% - {getConfidenceLabel(record.similarity_score)}
+              </Tag>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <Tag color={record.supplier_match_count && record.supplier_match_count > 0 ? '#1890ff' : '#d9d9d9'}>
+                Furnizori asociați: {record.supplier_match_count ?? 0}
+              </Tag>
+            </div>
+            {updatingLocalIds.has(record.id) ? <Spin size="small" style={{ marginTop: 8 }} /> : null}
           </div>
         </Space>
       ),
-    },
-    {
-      title: 'Similaritate',
-      key: 'similarity',
-      width: 90,
-      render: (record: LocalProductMatch) => (
-        <Tag color={getConfidenceColor(record.similarity_score)}>
-          {Math.round(record.similarity_score * 100)}% - {getConfidenceLabel(record.similarity_score)}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Furnizori asociați',
-      dataIndex: 'supplier_match_count',
-      key: 'supplier_match_count',
-      width: 160,
-      render: (value: number = 0) => <Tag color={value > 0 ? '#1890ff' : '#d9d9d9'}>{value}</Tag>,
     },
   ];
 
@@ -285,12 +385,12 @@ const ChineseNameSearchPage: React.FC = () => {
   }, [supplierMatches]);
 
   return (
-    <div style={{ padding: 24, maxWidth: '100%', overflowX: 'auto' }}>
+    <div style={{ padding: 16, maxWidth: '100%', overflowX: 'hidden' }}>
       {contextHolder}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <Row gutter={16} style={{ marginBottom: 2 }}>
         <Col span={24}>
           <Card>
-            <Title level={2} style={{ marginBottom: 24 }}>
+            <Title level={2} style={{ marginBottom: 2 }}>
               Căutare după nume chinezesc
             </Title>
             <Input.Search
@@ -316,7 +416,7 @@ const ChineseNameSearchPage: React.FC = () => {
       </Row>
 
       {supplierMatches.length > 0 && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Row gutter={16} style={{ marginBottom: 2 }}>
           <Col span={24}>
             <Card>
               <Space size={16} wrap>
@@ -337,9 +437,9 @@ const ChineseNameSearchPage: React.FC = () => {
         </Row>
       )}
 
-      <Row gutter={16} wrap={false} style={{ overflowX: 'auto' }}>
-        <Col flex="1 1 60%">
-          <Card bodyStyle={{ padding: 16 }}>
+      <Row gutter={12} wrap={false} style={{ marginBottom: 2 }}>
+        <Col span={12}>
+          <Card bodyStyle={{ padding: 12 }}>
             <Title level={4} style={{ whiteSpace: 'nowrap' }}>Rezultate Furnizori</Title>
             <Table<SupplierMatch>
               rowKey="supplier_product_id"
@@ -352,12 +452,12 @@ const ChineseNameSearchPage: React.FC = () => {
                 selectedRowKeys: selectedSupplierKeys,
                 onChange: keys => setSelectedSupplierKeys(keys),
               }}
-              scroll={{ x: 799 }}
+              scroll={{ x: 640 }}
             />
           </Card>
         </Col>
-        <Col flex="0 0 460px" style={{ minWidth: 490 }}>
-          <Card bodyStyle={{ padding: 16 }}>
+        <Col span={12}>
+          <Card bodyStyle={{ padding: 12 }}>
             <Title level={4} style={{ whiteSpace: 'nowrap' }}>Produse Locale</Title>
             <Table<LocalProductMatch>
               rowKey="id"
@@ -370,7 +470,7 @@ const ChineseNameSearchPage: React.FC = () => {
                 selectedRowKeys: selectedLocalKeys,
                 onChange: keys => setSelectedLocalKeys(keys),
               }}
-              scroll={{ x: 1040 }}
+              scroll={{ x: 660 }}
             />
             <div style={{ marginTop: 16, textAlign: 'right' }}>
               <Tooltip title={!selectedSupplierKeys.length || !selectedLocalKeys.length ? 'Selectează câte un produs din fiecare tabel.' : ''}>
@@ -387,6 +487,188 @@ const ChineseNameSearchPage: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        title={
+          <Space>
+            <ShoppingOutlined style={{ color: '#1890ff', fontSize: 20 }} />
+            <Typography.Text strong style={{ fontSize: 18 }}>Detalii Produs Furnizor - căutare după nume chinezesc</Typography.Text>
+          </Space>
+        }
+        open={detailModalVisible}
+        onCancel={() => setDetailModalVisible(false)}
+        width={800}
+        footer={[
+          <Button key="close" onClick={() => setDetailModalVisible(false)}>
+            Închide
+          </Button>,
+        ]}
+      >
+        {selectedSupplierProduct ? (
+          <Row gutter={24}>
+            <Col span={12}>
+              <Typography.Title level={5}>Produs Furnizor</Typography.Title>
+              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                {(() => {
+                  let supplierImage: string | null = null;
+                  try {
+                    supplierImage = getImageUrl(selectedSupplierProduct);
+                  } catch {
+                    supplierImage = null;
+                  }
+
+                  const imageSrc = supplierImage || selectedSupplierProduct.supplier_image_url || '/placeholder-product.png';
+
+                  return (
+                    <Image
+                      src={imageSrc}
+                      alt={selectedSupplierProduct.supplier_product_name}
+                      width={220}
+                      height={220}
+                      style={{ objectFit: 'cover', borderRadius: 8 }}
+                      fallback="/placeholder-product.png"
+                    />
+                  );
+                })()}
+                <Typography.Text strong>
+                  {selectedSupplierProduct.supplier_product_chinese_name || selectedSupplierProduct.supplier_product_name}
+                </Typography.Text>
+                <Typography.Text>
+                  <strong>Preț:</strong>{' '}
+                  {typeof selectedSupplierProduct.supplier_price === 'number'
+                    ? `${selectedSupplierProduct.supplier_price} ${selectedSupplierProduct.supplier_currency ?? ''}`
+                    : 'N/A'}
+                </Typography.Text>
+                {selectedSupplierProduct.supplier_product_url ? (
+                  <Typography.Link
+                    href={selectedSupplierProduct.supplier_product_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {selectedSupplierProduct.supplier_product_url}
+                  </Typography.Link>
+                ) : null}
+                <div style={{ marginBottom: '12px' }}>
+                  <Typography.Text strong>Furnizor:</Typography.Text>
+                  {changingSupplier ? (
+                    <div style={{ marginTop: '8px' }}>
+                      <Select
+                        value={newSupplierId}
+                        onChange={(value) => setNewSupplierId(value)}
+                        placeholder="Selectează furnizor nou..."
+                        style={{ width: '100%', marginBottom: '8px' }}
+                        loading={loadingSuppliers}
+                      >
+                        {suppliers
+                          .filter(s => s.id !== selectedSupplierProduct.supplier_id)
+                          .map(supplier => (
+                            <Select.Option key={supplier.id} value={supplier.id}>
+                              {supplier.name}
+                            </Select.Option>
+                          ))}
+                      </Select>
+                      <Space>
+                        <Button
+                          type="primary"
+                          size="small"
+                          icon={<CheckCircleOutlined />}
+                          onClick={handleChangeSupplier}
+                          disabled={!newSupplierId || changingSupplierIds.has(selectedSupplierProduct.supplier_product_id)}
+                          loading={changingSupplierIds.has(selectedSupplierProduct.supplier_product_id)}
+                        >
+                          Schimbă
+                        </Button>
+                        <Button
+                          size="small"
+                          icon={<CloseCircleOutlined />}
+                          onClick={() => {
+                            setChangingSupplier(false);
+                            setNewSupplierId(null);
+                          }}
+                        >
+                          Anulează
+                        </Button>
+                      </Space>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '4px' }}>
+                      <Space>
+                        <Tag color="blue" style={{ fontSize: '13px' }}>
+                          {selectedSupplierProduct.supplier_name || 'Necunoscut'}
+                        </Tag>
+                        <Button
+                          type="link"
+                          size="small"
+                          icon={<SyncOutlined />}
+                          onClick={() => setChangingSupplier(true)}
+                          style={{ padding: 0, fontSize: '12px' }}
+                        >
+                          Schimbă furnizor
+                        </Button>
+                      </Space>
+                    </div>
+                  )}
+                </div>
+                {selectedSupplierProduct.supplier_product_specification ? (
+                  <Typography.Text>
+                    <strong>Specificații:</strong> {selectedSupplierProduct.supplier_product_specification}
+                  </Typography.Text>
+                ) : null}
+              </Space>
+            </Col>
+            <Col span={12}>
+              <Typography.Title level={5}>Produs Local</Typography.Title>
+              {selectedSupplierProduct.local_product ? (
+                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                  <Image
+                    src={selectedSupplierProduct.local_product.image_url || '/placeholder-product.png'}
+                    alt={selectedSupplierProduct.local_product.name}
+                    width={220}
+                    height={220}
+                    style={{ objectFit: 'cover', borderRadius: 8 }}
+                    fallback="/placeholder-product.png"
+                  />
+                  <Typography.Text strong>
+                    {selectedSupplierProduct.local_product.name}
+                  </Typography.Text>
+                  {selectedSupplierProduct.local_product.chinese_name ? (
+                    <Typography.Text>
+                      <strong>Nume Chinezesc:</strong> {selectedSupplierProduct.local_product.chinese_name}
+                    </Typography.Text>
+                  ) : null}
+                  {selectedSupplierProduct.local_product.sku ? (
+                    <Typography.Text>
+                      <strong>SKU:</strong> {selectedSupplierProduct.local_product.sku}
+                    </Typography.Text>
+                  ) : null}
+                  {selectedSupplierProduct.local_product.brand ? (
+                    <Typography.Text>
+                      <strong>Brand:</strong> {selectedSupplierProduct.local_product.brand}
+                    </Typography.Text>
+                  ) : null}
+                </Space>
+              ) : (
+                <Typography.Text type="secondary">
+                  Nu există produs local asociat.
+                </Typography.Text>
+              )}
+              <Divider />
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Typography.Text>
+                  <strong>Similaritate:</strong>{' '}
+                  {Math.round(selectedSupplierProduct.similarity_score * 100)}%
+                </Typography.Text>
+                <Typography.Text>
+                  <strong>Manual confirmat:</strong>{' '}
+                  {selectedSupplierProduct.manual_confirmed ? 'Da' : 'Nu'}
+                </Typography.Text>
+                <Divider />
+
+              </Space>
+            </Col>
+          </Row>
+        ) : null}
+      </Modal>
     </div>
   );
 };
