@@ -15,6 +15,7 @@ import type { ColumnsType } from 'antd/es/table';
 import api from '../../services/api';
 import { bulkCreateDrafts } from '../../api/purchaseOrders';
 import { updateSupplierProduct, updateSheetSupplierPrice } from '../../api/suppliers';
+import PriceInput from '../../components/PriceInput';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -772,69 +773,21 @@ const LowStockSuppliersPage: React.FC = () => {
                   )}
                 </Space>
                 {isEditingPrice ? (
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                    <Space size={8} style={{ width: '100%' }}>
-                      <InputNumber
-                        size="middle"
-                        min={0}
-                        step={0.01}
-                        precision={2}
-                        value={editPriceValue}
-                        onChange={(value) => {
-                          if (value !== null) {
-                            setEditingPrice(prev => new Map(prev).set(supplier.supplier_id, value));
-                          }
-                        }}
-                        style={{ width: 150 }}
-                        disabled={isSavingPrice}
-                        placeholder="Enter price"
-                        autoFocus
-                      />
-                      <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
-                        {supplier.currency}
-                      </Tag>
-                    </Space>
-                    <Space size={8}>
-                      <Button
-                        type="primary"
-                        size="middle"
-                        icon={<SaveOutlined />}
-                        onClick={() => handleUpdateSupplierPrice(supplier, editPriceValue, supplier.currency)}
-                        loading={isSavingPrice}
-                      >
-                        Save Price
-                      </Button>
-                      <Button
-                        size="middle"
-                        onClick={() => {
-                          setEditingPrice(prev => {
-                            const newMap = new Map(prev);
-                            newMap.delete(supplier.supplier_id);
-                            return newMap;
-                          });
-                        }}
-                        disabled={isSavingPrice}
-                      >
-                        Cancel
-                      </Button>
-                    </Space>
-                    {editPriceValue !== supplier.price && (
-                      <Alert
-                        message={
-                          <span>
-                            Original: <strong>{supplier.price.toFixed(2)} {supplier.currency}</strong> → 
-                            New: <strong>{editPriceValue.toFixed(2)} {supplier.currency}</strong>
-                            {' '}(Difference: <strong style={{ color: editPriceValue > supplier.price ? '#cf1322' : '#52c41a' }}>
-                              {editPriceValue > supplier.price ? '+' : ''}{(editPriceValue - supplier.price).toFixed(2)}
-                            </strong>)
-                          </span>
-                        }
-                        type="info"
-                        showIcon
-                        style={{ marginTop: 4 }}
-                      />
-                    )}
-                  </Space>
+                  <PriceInput
+                    initialPrice={supplier.price}
+                    currency={supplier.currency}
+                    onSave={async (newPrice) => {
+                      await handleUpdateSupplierPrice(supplier, newPrice, supplier.currency);
+                    }}
+                    onCancel={() => {
+                      setEditingPrice(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(supplier.supplier_id);
+                        return newMap;
+                      });
+                    }}
+                    loading={isSavingPrice}
+                  />
                 ) : (
                   <Space size={8} align="center">
                     <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
@@ -1004,7 +957,7 @@ const LowStockSuppliersPage: React.FC = () => {
     {
       title: 'Stock Status',
       key: 'stock',
-      width: 250,
+      width: 270,
       render: (_, record) => {
         const isEditing = editingReorder.has(record.inventory_item_id);
         const isSaving = savingReorder.has(record.inventory_item_id);

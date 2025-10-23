@@ -7,3 +7,4 @@
 export * from './products';
 export * from './suppliers';
 export * from './common';
+export * from './usePriceInput';
