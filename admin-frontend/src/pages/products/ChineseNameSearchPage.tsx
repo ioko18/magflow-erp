@@ -462,18 +462,31 @@ const ChineseNameSearchPage: React.FC = () => {
         <Row gutter={16} style={{ marginBottom: 2 }}>
           <Col span={24}>
             <Card>
-              <Space size={16} wrap>
-                <Statistic title="Total rezultate" value={statistics.total} />
-                <Statistic 
-                  title="Scor mediu" 
-                  value={Math.round(statistics.averageScore * 100)} 
-                  suffix="%" 
-                />
-                <Statistic 
-                  title="Potriviri excelente" 
-                  value={statistics.highScoreCount} 
-                  valueStyle={{ color: '#52c41a' }} 
-                />
+              <Space size={16} wrap style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space size={16} wrap>
+                  <Statistic title="Total rezultate" value={statistics.total} />
+                  <Statistic 
+                    title="Scor mediu" 
+                    value={Math.round(statistics.averageScore * 100)} 
+                    suffix="%" 
+                  />
+                  <Statistic 
+                    title="Potriviri excelente" 
+                    value={statistics.highScoreCount} 
+                    valueStyle={{ color: '#52c41a' }} 
+                  />
+                </Space>
+                <Tooltip title={!selectedSupplierKeys.length || !selectedLocalKeys.length ? 'Selectează câte un produs din fiecare tabel.' : ''}>
+                  <Button
+                    type="primary"
+                    size="large"
+                    disabled={!selectedSupplierKeys.length || !selectedLocalKeys.length}
+                    onClick={() => handleLink(Number(selectedSupplierKeys[0]))}
+                    loading={selectedSupplierKeys.some(key => linkingIds.has(Number(key)))}
+                  >
+                    Asociază produsele selectate
+                  </Button>
+                </Tooltip>
               </Space>
             </Card>
           </Col>
@@ -527,18 +540,6 @@ const ChineseNameSearchPage: React.FC = () => {
               }}
               scroll={{ x: 660 }}
             />
-            <div style={{ marginTop: 16, textAlign: 'right' }}>
-              <Tooltip title={!selectedSupplierKeys.length || !selectedLocalKeys.length ? 'Selectează câte un produs din fiecare tabel.' : ''}>
-                <Button
-                  type="primary"
-                  disabled={!selectedSupplierKeys.length || !selectedLocalKeys.length}
-                  onClick={() => handleLink(Number(selectedSupplierKeys[0]))}
-                  loading={selectedSupplierKeys.some(key => linkingIds.has(Number(key)))}
-                >
-                  Asociază produsele selectate
-                </Button>
-              </Tooltip>
-            </div>
           </Card>
         </Col>
       </Row>
