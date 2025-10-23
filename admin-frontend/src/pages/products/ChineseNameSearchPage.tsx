@@ -18,6 +18,7 @@ import {
   Modal,
   Divider,
   Select,
+  Slider,
   App as AntApp,
 } from 'antd';
 import { EyeOutlined, ShoppingOutlined, CheckCircleOutlined, CloseCircleOutlined, SyncOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
@@ -62,6 +63,14 @@ const getImageUrl = (record: any) => {
 const ChineseNameSearchPage: React.FC = () => {
   const { modal } = AntApp.useApp();
   const [searchValue, setSearchValue] = useState('');
+  const [supplierPageSize, setSupplierPageSize] = useState(() => {
+    const saved = localStorage.getItem('chineseSearch_supplierPageSize');
+    return saved ? parseInt(saved, 10) : 39;
+  });
+  const [localPageSize, setLocalPageSize] = useState(() => {
+    const saved = localStorage.getItem('chineseSearch_localPageSize');
+    return saved ? parseInt(saved, 10) : 39;
+  });
   const [selectedSupplierKeys, setSelectedSupplierKeys] = useState<React.Key[]>([]);
   const [selectedLocalKeys, setSelectedLocalKeys] = useState<React.Key[]>([]);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -78,6 +87,8 @@ const ChineseNameSearchPage: React.FC = () => {
     loading,
     error,
     setChineseName,
+    minSimilarity,
+    setMinSimilarity,
     linkSupplierProduct,
     linkingIds,
     updateLocalChineseName,
@@ -92,6 +103,16 @@ const ChineseNameSearchPage: React.FC = () => {
 
   const handleSearch = (value: string) => {
     setChineseName(value);
+  };
+
+  const handleSupplierPageSizeChange = (size: number) => {
+    setSupplierPageSize(size);
+    localStorage.setItem('chineseSearch_supplierPageSize', size.toString());
+  };
+
+  const handleLocalPageSizeChange = (size: number) => {
+    setLocalPageSize(size);
+    localStorage.setItem('chineseSearch_localPageSize', size.toString());
   };
 
   useEffect(() => {
@@ -402,6 +423,28 @@ const ChineseNameSearchPage: React.FC = () => {
               onSearch={handleSearch}
               loading={loading}
             />
+            <div style={{ marginTop: 16, marginBottom: 8 }}>
+              <Typography.Text strong>Precizie căutare: {Math.round(minSimilarity * 100)}%</Typography.Text>
+              <Tooltip title="Ajustează precizia căutării. Valori mai mici permit rezultate mai diverse (fuzzy matching).">
+                <Slider
+                  min={0.3}
+                  max={1.0}
+                  step={0.05}
+                  value={minSimilarity}
+                  onChange={setMinSimilarity}
+                  marks={{
+                    0.3: '30%',
+                    0.5: '50%',
+                    0.75: '75%',
+                    1.0: '100%',
+                  }}
+                  style={{ marginTop: 8 }}
+                />
+              </Tooltip>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                💡 Threshold-ul mai mic (30-50%) permite găsirea produselor cu nume parțiale sau similare (ex: "100X60X10m" va găsi "100X60X10mm")
+              </Typography.Text>
+            </div>
             {error ? (
               <Alert
                 type="error"
@@ -446,7 +489,13 @@ const ChineseNameSearchPage: React.FC = () => {
               columns={supplierColumns}
               dataSource={supplierMatches}
               loading={loading}
-              pagination={{ pageSize: 10 }}
+              pagination={{
+                pageSize: supplierPageSize,
+                showSizeChanger: true,
+                pageSizeOptions: ['1', '10', '20', '39', '50', '100'],
+                showTotal: (total, range) => `${range[0]}-${range[1]} din ${total} produse`,
+                onShowSizeChange: (_, size) => handleSupplierPageSizeChange(size),
+              }}
               rowSelection={{
                 type: 'radio',
                 selectedRowKeys: selectedSupplierKeys,
@@ -464,7 +513,13 @@ const ChineseNameSearchPage: React.FC = () => {
               columns={localColumns}
               dataSource={localMatches}
               loading={loading}
-              pagination={{ pageSize: 10 }}
+              pagination={{
+                pageSize: localPageSize,
+                showSizeChanger: true,
+                pageSizeOptions: ['1', '10', '20', '39', '50', '100'],
+                showTotal: (total, range) => `${range[0]}-${range[1]} din ${total} produse`,
+                onShowSizeChange: (_, size) => handleLocalPageSizeChange(size),
+              }}
               rowSelection={{
                 type: 'radio',
                 selectedRowKeys: selectedLocalKeys,

@@ -58,6 +58,7 @@ const DEFAULT_STATE: ChineseNameSearchState = {
 
 export default function useChineseNameSearch() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [minSimilarity, setMinSimilarity] = useState(0.75);
   const [state, setState] = useState<ChineseNameSearchState>(DEFAULT_STATE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -76,7 +77,7 @@ export default function useChineseNameSearch() {
   }, []);
 
   const fetchMatches = useCallback(
-    async (term: string) => {
+    async (term: string, similarity: number) => {
       const trimmed = term.trim();
       if (!trimmed) {
         clearResults();
@@ -87,7 +88,9 @@ export default function useChineseNameSearch() {
       setError(null);
 
       try {
-        const response = await searchByChineseName(trimmed);
+        const response = await searchByChineseName(trimmed, {
+          minSimilarity: similarity,
+        });
         if (response.data.status === 'success') {
           const data = response.data.data ?? {};
           setState({
@@ -109,8 +112,8 @@ export default function useChineseNameSearch() {
   );
 
   useEffect(() => {
-    fetchMatches(searchTerm);
-  }, [fetchMatches, searchTerm]);
+    fetchMatches(searchTerm, minSimilarity);
+  }, [fetchMatches, searchTerm, minSimilarity]);
 
   const linkSupplierProductToLocal = useCallback(
     async (supplierProductId: number, localProductId: number) => {
@@ -122,7 +125,7 @@ export default function useChineseNameSearch() {
 
       try {
         await linkSupplierProduct(supplierProductId, localProductId);
-        await fetchMatches(searchTerm);
+        await fetchMatches(searchTerm, minSimilarity);
       } catch (err) {
         const errorObj = err as Error;
         console.error('Error linking supplier product', errorObj);
@@ -136,7 +139,7 @@ export default function useChineseNameSearch() {
         });
       }
     },
-    [fetchMatches, searchTerm]
+    [fetchMatches, searchTerm, minSimilarity]
   );
 
   const linkingSet = useMemo(() => new Set(linkingIds), [linkingIds]);
@@ -260,7 +263,7 @@ export default function useChineseNameSearch() {
 
       try {
         await changeSupplierProduct(supplierId, supplierProductId, newSupplierId);
-        await fetchMatches(searchTerm);
+        await fetchMatches(searchTerm, minSimilarity);
       } catch (err) {
         const errorObj = err as Error;
         console.error('Error changing supplier', errorObj);
@@ -274,7 +277,7 @@ export default function useChineseNameSearch() {
         });
       }
     },
-    [fetchMatches, searchTerm]
+    [fetchMatches, searchTerm, minSimilarity]
   );
 
   const changingSupplierSet = useMemo(() => new Set(changingSupplierIds), [changingSupplierIds]);
@@ -285,6 +288,8 @@ export default function useChineseNameSearch() {
     loading,
     error,
     setChineseName: setSearchTerm,
+    minSimilarity,
+    setMinSimilarity,
     linkSupplierProduct: linkSupplierProductToLocal,
     linkingIds: linkingSet,
     updateLocalChineseName: updateLocalProductChineseName,
@@ -296,6 +301,6 @@ export default function useChineseNameSearch() {
     changeSupplierForProduct,
     changingSupplierIds: changingSupplierSet,
     searchTerm,
-    refetch: () => fetchMatches(searchTerm),
+    refetch: () => fetchMatches(searchTerm, minSimilarity),
   };
 }

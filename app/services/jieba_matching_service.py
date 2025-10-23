@@ -5,11 +5,14 @@ This service provides intelligent Chinese product matching using:
 - jieba tokenization for Chinese text
 - Token-based similarity calculation
 - Model normalization (ABC-123 -> ABC123)
+- Fuzzy matching for partial tokens
+- N-gram similarity for substring matching
 - Configurable thresholds
 """
 
 import logging
 import re
+from difflib import SequenceMatcher
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -96,6 +99,73 @@ class JiebaMatchingService:
         return tokens
 
     @staticmethod
+    def fuzzy_token_match(token1: str, token2: str, threshold: float = 0.8) -> float:
+        """
+        Calculate fuzzy similarity between two tokens using SequenceMatcher.
+
+        Args:
+            token1: First token
+            token2: Second token
+            threshold: Minimum similarity to consider a match
+
+        Returns:
+            Similarity score (0.0-1.0)
+        """
+        if token1 == token2:
+            return 1.0
+
+        # Check if one token is a substring of another
+        if token1 in token2 or token2 in token1:
+            # Calculate ratio based on length difference
+            shorter = min(len(token1), len(token2))
+            longer = max(len(token1), len(token2))
+            return shorter / longer
+
+        # Use SequenceMatcher for fuzzy matching
+        return SequenceMatcher(None, token1, token2).ratio()
+
+    @staticmethod
+    def generate_ngrams(text: str, n: int = 3) -> set[str]:
+        """
+        Generate character n-grams from text.
+
+        Args:
+            text: Input text
+            n: N-gram size
+
+        Returns:
+            Set of n-grams
+        """
+        if len(text) < n:
+            return {text}
+        return {text[i:i+n] for i in range(len(text) - n + 1)}
+
+    @staticmethod
+    def ngram_similarity(text1: str, text2: str, n: int = 3) -> float:
+        """
+        Calculate similarity using character n-grams.
+
+        Args:
+            text1: First text
+            text2: Second text
+            n: N-gram size
+
+        Returns:
+            Similarity score (0.0-1.0)
+        """
+        if not text1 or not text2:
+            return 0.0
+
+        ngrams1 = JiebaMatchingService.generate_ngrams(text1.lower(), n)
+        ngrams2 = JiebaMatchingService.generate_ngrams(text2.lower(), n)
+
+        if not ngrams1 or not ngrams2:
+            return 0.0
+
+        common = ngrams1 & ngrams2
+        return len(common) / max(len(ngrams1), len(ngrams2))
+
+    @staticmethod
     def calculate_similarity(
         search_tokens: set[str], product_tokens: set[str]
     ) -> tuple[float, set[str]]:
@@ -119,6 +189,101 @@ class JiebaMatchingService:
         similarity = len(common_tokens) / len(search_tokens)
 
         return similarity, common_tokens
+
+    @staticmethod
+    def calculate_enhanced_similarity(
+        search_tokens: set[str],
+        product_tokens: set[str],
+        fuzzy_threshold: float = 0.85
+    ) -> tuple[float, set[str], dict[str, Any]]:
+        """
+        Calculate enhanced similarity with fuzzy matching and n-gram support.
+
+        Args:
+            search_tokens: Tokens from search term
+            product_tokens: Tokens from product name
+            fuzzy_threshold: Minimum fuzzy match threshold
+
+        Returns:
+            Tuple of (similarity_score, matched_tokens, match_details)
+        """
+        if not search_tokens or not product_tokens:
+            return 0.0, set(), {}
+
+        # Exact matches
+        exact_matches = search_tokens & product_tokens
+        matched_search_tokens = set(exact_matches)
+
+        # Track fuzzy matches
+        fuzzy_matches = []
+        partial_matches = []
+
+        # For each unmatched search token, try fuzzy matching
+        unmatched_search = search_tokens - exact_matches
+        unmatched_product = product_tokens - exact_matches
+
+        for search_token in unmatched_search:
+            best_match = None
+            best_score = 0.0
+            match_type = None
+
+            for product_token in unmatched_product:
+                # Try fuzzy matching
+                fuzzy_score = JiebaMatchingService.fuzzy_token_match(
+                    search_token, product_token, fuzzy_threshold
+                )
+
+                if fuzzy_score >= fuzzy_threshold and fuzzy_score > best_score:
+                    best_score = fuzzy_score
+                    best_match = product_token
+                    match_type = 'fuzzy'
+
+                # Try n-gram similarity for partial matches
+                ngram_score = JiebaMatchingService.ngram_similarity(
+                    search_token, product_token, n=2
+                )
+
+                if ngram_score >= 0.7 and ngram_score > best_score:
+                    best_score = ngram_score
+                    best_match = product_token
+                    match_type = 'ngram'
+
+            if best_match:
+                matched_search_tokens.add(search_token)
+                if match_type == 'fuzzy':
+                    fuzzy_matches.append({
+                        'search': search_token,
+                        'product': best_match,
+                        'score': best_score
+                    })
+                else:
+                    partial_matches.append({
+                        'search': search_token,
+                        'product': best_match,
+                        'score': best_score
+                    })
+
+        # Calculate weighted similarity
+        # Exact matches: full weight (1.0)
+        # Fuzzy matches: 0.9 weight
+        # Partial matches: 0.7 weight
+        exact_weight = len(exact_matches) * 1.0
+        fuzzy_weight = len(fuzzy_matches) * 0.9
+        partial_weight = len(partial_matches) * 0.7
+
+        total_weight = exact_weight + fuzzy_weight + partial_weight
+        similarity = total_weight / len(search_tokens)
+
+        match_details = {
+            'exact_matches': list(exact_matches),
+            'fuzzy_matches': fuzzy_matches,
+            'partial_matches': partial_matches,
+            'exact_count': len(exact_matches),
+            'fuzzy_count': len(fuzzy_matches),
+            'partial_count': len(partial_matches)
+        }
+
+        return similarity, matched_search_tokens, match_details
 
     @staticmethod
     def calculate_min_common_tokens(search_tokens: set[str]) -> int:
@@ -236,13 +401,14 @@ class JiebaMatchingService:
             if not product_tokens:
                 continue
 
-            # Calculate similarity
-            similarity, common_tokens = self.calculate_similarity(
-                search_tokens, product_tokens
+            # Calculate enhanced similarity with fuzzy matching
+            similarity, matched_tokens, match_details = self.calculate_enhanced_similarity(
+                search_tokens, product_tokens, fuzzy_threshold=0.85
             )
 
-            # Check if meets criteria
-            if similarity >= threshold and len(common_tokens) >= min_common_tokens:
+            # Check if meets criteria (relaxed for fuzzy matches)
+            # Accept if similarity meets threshold OR if we have enough matched tokens
+            if similarity >= threshold or len(matched_tokens) >= min_common_tokens:
                 # Get supplier name
                 supplier_query = select(Supplier.name).where(
                     Supplier.id == sp.supplier_id
@@ -299,10 +465,11 @@ class JiebaMatchingService:
                         else None,
                         "similarity_score": round(similarity, 4),
                         "similarity_percent": round(similarity * 100, 2),
-                        "common_tokens": list(common_tokens),
-                        "common_tokens_count": len(common_tokens),
+                        "common_tokens": list(matched_tokens),
+                        "common_tokens_count": len(matched_tokens),
                         "search_tokens_count": len(search_tokens),
                         "product_tokens_count": len(product_tokens),
+                        "match_details": match_details,
                     }
                 )
 
@@ -355,11 +522,12 @@ class JiebaMatchingService:
             if not product_tokens:
                 continue
 
-            similarity, common_tokens = self.calculate_similarity(
-                search_tokens, product_tokens
+            # Use enhanced similarity for better matching
+            similarity, matched_tokens, match_details = self.calculate_enhanced_similarity(
+                search_tokens, product_tokens, fuzzy_threshold=0.85
             )
 
-            if similarity >= threshold and len(common_tokens) >= min_common_tokens:
+            if similarity >= threshold or len(matched_tokens) >= min_common_tokens:
                 matches.append(
                     {
                         "id": product.id,
@@ -370,8 +538,9 @@ class JiebaMatchingService:
                         "image_url": product.image_url,
                         "similarity_score": round(similarity, 4),
                         "similarity_percent": round(similarity * 100, 2),
-                        "common_tokens": list(common_tokens),
-                        "common_tokens_count": len(common_tokens),
+                        "common_tokens": list(matched_tokens),
+                        "common_tokens_count": len(matched_tokens),
+                        "match_details": match_details,
                     }
                 )
 
