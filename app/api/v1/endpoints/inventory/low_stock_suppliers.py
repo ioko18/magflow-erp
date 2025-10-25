@@ -105,9 +105,6 @@ async def calculate_sold_quantity_last_6_months(
         return {}
 
     six_months_ago = datetime.now() - timedelta(days=180)
-    sold_data = dict.fromkeys(
-        product_ids, {"total_sold": 0, "avg_monthly": 0.0, "sources": {}}
-    )
     # Initialize each product with its own dict
     sold_data = {
         pid: {"total_sold": 0, "avg_monthly": 0.0, "sources": {}}
@@ -463,53 +460,7 @@ async def get_low_stock_with_suppliers(
     # Track seen suppliers by URL to avoid duplicates
     seen_suppliers_by_product = {}  # product_id -> set of URLs
 
-    # Add Google Sheets suppliers (prioritize these as they're manually curated)
-    for sheet in supplier_sheets:
-        # Find product by SKU
-        product_id = next(
-            (item[1].id for item in items if item[1].sku == sheet.sku), None
-        )
-        if product_id:
-            if product_id not in suppliers_by_product:
-                suppliers_by_product[product_id] = []
-                seen_suppliers_by_product[product_id] = set()
-
-            # Create unique key for deduplication (URL is most reliable)
-            supplier_url = sheet.supplier_url or ""
-            dedup_key = (
-                supplier_url.strip().lower()
-                if supplier_url
-                else f"{sheet.supplier_name}_{sheet.price_cny}"
-            )
-
-            # Skip if already seen
-            if dedup_key in seen_suppliers_by_product[product_id]:
-                continue
-
-            seen_suppliers_by_product[product_id].add(dedup_key)
-
-            suppliers_by_product[product_id].append(
-                {
-                    "supplier_id": f"sheet_{sheet.id}",
-                    "sheet_id": sheet.id,  # Sheet ID for updates
-                    "supplier_name": sheet.supplier_name,
-                    "supplier_type": "google_sheets",
-                    "price": sheet.price_cny,
-                    "currency": "CNY",
-                    "price_ron": sheet.calculated_price_ron,
-                    "supplier_url": sheet.supplier_url,
-                    "supplier_contact": sheet.supplier_contact,
-                    "chinese_name": sheet.supplier_product_chinese_name,
-                    "specification": sheet.supplier_product_specification,
-                    "is_preferred": sheet.is_preferred,
-                    "is_verified": sheet.is_verified,
-                    "last_updated": sheet.price_updated_at.isoformat()
-                    if sheet.price_updated_at
-                    else None,
-                }
-            )
-
-    # Add 1688.com suppliers (skip duplicates already in Google Sheets)
+    # PRIORITY CHANGE: Add 1688.com suppliers FIRST (these are the primary source)
     for sp in supplier_products:
         if sp.local_product_id not in suppliers_by_product:
             suppliers_by_product[sp.local_product_id] = []
@@ -551,6 +502,52 @@ async def get_low_stock_with_suppliers(
                 else None,
             }
         )
+
+    # Add Google Sheets suppliers (only if not already present from 1688)
+    for sheet in supplier_sheets:
+        # Find product by SKU
+        product_id = next(
+            (item[1].id for item in items if item[1].sku == sheet.sku), None
+        )
+        if product_id:
+            if product_id not in suppliers_by_product:
+                suppliers_by_product[product_id] = []
+                seen_suppliers_by_product[product_id] = set()
+
+            # Create unique key for deduplication (URL is most reliable)
+            supplier_url = sheet.supplier_url or ""
+            dedup_key = (
+                supplier_url.strip().lower()
+                if supplier_url
+                else f"{sheet.supplier_name}_{sheet.price_cny}"
+            )
+
+            # Skip if already seen (duplicate from 1688)
+            if dedup_key in seen_suppliers_by_product[product_id]:
+                continue
+
+            seen_suppliers_by_product[product_id].add(dedup_key)
+
+            suppliers_by_product[product_id].append(
+                {
+                    "supplier_id": f"sheet_{sheet.id}",
+                    "sheet_id": sheet.id,  # Sheet ID for updates
+                    "supplier_name": sheet.supplier_name,
+                    "supplier_type": "google_sheets",
+                    "price": sheet.price_cny,
+                    "currency": "CNY",
+                    "price_ron": sheet.calculated_price_ron,
+                    "supplier_url": sheet.supplier_url,
+                    "supplier_contact": sheet.supplier_contact,
+                    "chinese_name": sheet.supplier_product_chinese_name,
+                    "specification": sheet.supplier_product_specification,
+                    "is_preferred": sheet.is_preferred,
+                    "is_verified": sheet.is_verified,
+                    "last_updated": sheet.price_updated_at.isoformat()
+                    if sheet.price_updated_at
+                    else None,
+                }
+            )
 
     # Format response
     products_data = []

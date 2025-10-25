@@ -1,6 +1,6 @@
 """
 Google Sheets Service for MagFlow ERP
-Handles authentication and data retrieval from Google Sheets
+Handles authentication and data access for Google Sheets
 """
 
 import logging
@@ -49,6 +49,8 @@ class ProductFromSheet(BaseModel):
     ean: str | None = None
     weight_kg: float | None = None
     sku_history: list[str] | None = None  # Old SKUs from SKU_History column
+    invoice_name_ro: str | None = None  # Romanian invoice name for customs
+    invoice_name_en: str | None = None  # English invoice name for customs
     row_number: int
     raw_data: dict[str, Any] = {}
 
@@ -433,6 +435,27 @@ class GoogleSheetsService:
                                 f"{', '.join(old_skus)}"
                             )
 
+                    # Parse Invoice Names (for customs documentation)
+                    invoice_name_ro = str(record.get("Invoice_Romanian_Name", "")).strip()
+                    if not invoice_name_ro:
+                        invoice_name_ro = None
+                    elif len(invoice_name_ro) > 200:
+                        logger.warning(
+                            f"Invoice Romanian name too long ({len(invoice_name_ro)} chars) "
+                            f"in row {idx}, truncating to 200"
+                        )
+                        invoice_name_ro = invoice_name_ro[:200]
+
+                    invoice_name_en = str(record.get("Invoice_English_Name", "")).strip()
+                    if not invoice_name_en:
+                        invoice_name_en = None
+                    elif len(invoice_name_en) > 200:
+                        logger.warning(
+                            f"Invoice English name too long ({len(invoice_name_en)} chars) "
+                            f"in row {idx}, truncating to 200"
+                        )
+                        invoice_name_en = invoice_name_en[:200]
+
                     product = ProductFromSheet(
                         sku=sku,
                         romanian_name=romanian_name,
@@ -443,6 +466,8 @@ class GoogleSheetsService:
                         ean=ean,
                         weight_kg=weight_kg,
                         sku_history=sku_history,
+                        invoice_name_ro=invoice_name_ro,
+                        invoice_name_en=invoice_name_en,
                         row_number=idx,
                         raw_data=record,
                     )

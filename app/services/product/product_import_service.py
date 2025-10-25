@@ -182,6 +182,8 @@ class ProductImportService:
                 ean=sheet_product.ean,
                 weight_kg=sheet_product.weight_kg,
                 display_order=sheet_product.sort_product,
+                invoice_name_ro=sheet_product.invoice_name_ro,
+                invoice_name_en=sheet_product.invoice_name_en,
             )
             self.db.add(product)
             # Flush will happen at the end to get product.id for SKU history
@@ -199,6 +201,9 @@ class ProductImportService:
             product.weight_kg = sheet_product.weight_kg
             if sheet_product.sort_product is not None:
                 product.display_order = sheet_product.sort_product
+            # Update invoice names for customs documentation
+            product.invoice_name_ro = sheet_product.invoice_name_ro
+            product.invoice_name_en = sheet_product.invoice_name_en
             product_updated = True
             logger.debug(f"Updated existing product: {sheet_product.sku}")
 

@@ -8,6 +8,7 @@ import apiClient from './client';
 export interface SupplierProductUpdateData {
   supplier_price?: number;
   supplier_product_name?: string;
+  supplier_product_chinese_name?: string | null;
   supplier_product_url?: string;
   supplier_currency?: string;
   supplier_product_specification?: string | null;
@@ -70,10 +71,28 @@ export const suppliersApi = {
     });
     return response.data;
   },
+
+  /**
+   * Update supplier sheet chinese name from Google Sheets
+   */
+  updateSheetSupplierChineseName: async (
+    sheetId: number,
+    chineseName: string | null
+  ) => {
+    const response = await apiClient.raw.patch<ApiResponse<{
+      message: string;
+      sheet_id: number;
+      updated_fields: string[];
+    }>>(`/suppliers/sheets/${sheetId}`, {
+      supplier_product_chinese_name: chineseName
+    });
+    return response.data;
+  },
 };
 
 export const {
   updateSupplierProduct,
   updateSheetSupplierPrice,
   updateSheetSupplierSpecification,
+  updateSheetSupplierChineseName,
 } = suppliersApi;
