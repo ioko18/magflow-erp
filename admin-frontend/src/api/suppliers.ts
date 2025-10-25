@@ -10,6 +10,7 @@ export interface SupplierProductUpdateData {
   supplier_product_name?: string;
   supplier_product_url?: string;
   supplier_currency?: string;
+  supplier_product_specification?: string | null;
 }
 
 export interface ApiResponse<T> {
@@ -52,9 +53,27 @@ export const suppliersApi = {
     });
     return response.data;
   },
+
+  /**
+   * Update supplier sheet specification from Google Sheets
+   */
+  updateSheetSupplierSpecification: async (
+    sheetId: number,
+    specification: string | null
+  ) => {
+    const response = await apiClient.raw.patch<ApiResponse<{
+      message: string;
+      sheet_id: number;
+      updated_fields: string[];
+    }>>(`/suppliers/sheets/${sheetId}`, {
+      supplier_product_specification: specification
+    });
+    return response.data;
+  },
 };
 
 export const {
   updateSupplierProduct,
   updateSheetSupplierPrice,
+  updateSheetSupplierSpecification,
 } = suppliersApi;

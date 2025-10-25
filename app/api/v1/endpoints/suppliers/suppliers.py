@@ -1311,6 +1311,7 @@ async def update_supplier_product(
             "supplier_product_chinese_name",
             "supplier_product_url",
             "supplier_currency",
+            "supplier_product_specification",
         }
 
         updated_fields = []

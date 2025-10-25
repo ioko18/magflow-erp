@@ -248,8 +248,8 @@ const ChineseNameSearchPage: React.FC = () => {
             <Image
               src={imageUrl || '/placeholder-product.png'}
               alt={record.supplier_product_chinese_name || record.supplier_product_name}
-              width={150}
-              height={150}
+              width={190}
+              height={190}
               style={{ objectFit: 'cover', borderRadius: 4 }}
               fallback="/placeholder-product.png"
             />
@@ -331,8 +331,8 @@ const ChineseNameSearchPage: React.FC = () => {
           <Image
             src={record.image_url || '/placeholder-product.png'}
             alt={record.name}
-            width={110}
-            height={110}
+            width={190}
+            height={190}
             style={{ objectFit: 'cover', borderRadius: 4 }}
             fallback="/placeholder-product.png"
           />

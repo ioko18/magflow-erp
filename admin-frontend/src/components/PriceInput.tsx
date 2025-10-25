@@ -29,7 +29,7 @@ export const PriceInput: React.FC<PriceInputProps> = ({
   const [saving, setSaving] = React.useState(false);
 
   const handleSave = async () => {
-    if (!priceInput.isValid || priceInput.numericValue === initialPrice) {
+    if (!priceInput.isValid) {
       return;
     }
 
@@ -55,8 +55,8 @@ export const PriceInput: React.FC<PriceInputProps> = ({
             priceInput.handleChange(e.target.value);
           }}
           onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            // Save on Enter key if price is valid and changed
-            if (e.key === 'Enter' && priceChanged && priceInput.isValid) {
+            // Save on Enter key if price is valid
+            if (e.key === 'Enter' && priceInput.isValid) {
               handleSave();
             }
             // Cancel on Escape key
@@ -85,7 +85,7 @@ export const PriceInput: React.FC<PriceInputProps> = ({
           icon={<SaveOutlined />}
           onClick={handleSave}
           loading={saving}
-          disabled={!priceChanged || !priceInput.isValid || loading}
+          disabled={!priceInput.isValid || loading}
         >
           Save Price
         </Button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Card, Row, Col, Table, Button, Space, Tag, Typography, Select, Statistic,
-  Empty, message as antMessage, Badge, Checkbox, Image, Alert, Tooltip, notification, Modal, InputNumber
+  Empty, message as antMessage, Badge, Checkbox, Image, Alert, Tooltip, notification, Modal, InputNumber, Input
 } from 'antd';
 import {
   WarningOutlined, DownloadOutlined, ReloadOutlined,
@@ -14,7 +14,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import api from '../../services/api';
 import { bulkCreateDrafts } from '../../api/purchaseOrders';
-import { updateSupplierProduct, updateSheetSupplierPrice } from '../../api/suppliers';
+import { updateSupplierProduct, updateSheetSupplierPrice, updateSheetSupplierSpecification } from '../../api/suppliers';
 import PriceInput from '../../components/PriceInput';
 
 const { Title, Text, Paragraph } = Typography;
@@ -118,6 +118,8 @@ const LowStockSuppliersPage: React.FC = () => {
   const [savingReorderQty, setSavingReorderQty] = useState<Set<number>>(new Set());
   const [editingPrice, setEditingPrice] = useState<Map<string, number>>(new Map());
   const [savingPrice, setSavingPrice] = useState<Set<string>>(new Set());
+  const [editingSpecification, setEditingSpecification] = useState<Map<string, string>>(new Map());
+  const [savingSpecification, setSavingSpecification] = useState<Set<string>>(new Set());
   const [updatingChineseNames, setUpdatingChineseNames] = useState<Set<number>>(new Set());
 
   // ============================================================================
@@ -339,6 +341,51 @@ const LowStockSuppliersPage: React.FC = () => {
       antMessage.error(error.response?.data?.detail || 'Failed to update supplier price');
     } finally {
       setSavingPrice(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(supplier.supplier_id);
+        return newSet;
+      });
+    }
+  };
+
+  // ============================================================================
+  // Supplier Specification Update
+  // ============================================================================
+
+  const handleUpdateSupplierSpecification = async (supplier: Supplier, newSpecification: string) => {
+    try {
+      setSavingSpecification(prev => new Set(prev).add(supplier.supplier_id));
+      
+      // Determine supplier type and use correct IDs
+      if (supplier.supplier_type === 'google_sheets' && supplier.sheet_id) {
+        // Update Google Sheets supplier specification
+        await updateSheetSupplierSpecification(supplier.sheet_id, newSpecification || null);
+      } else if (supplier.supplier_type === '1688' && supplier.actual_supplier_id && supplier.supplier_product_id) {
+        // Update 1688 supplier with correct IDs
+        await updateSupplierProduct(supplier.actual_supplier_id, supplier.supplier_product_id, {
+          supplier_product_specification: newSpecification || null
+        });
+      } else {
+        throw new Error('Invalid supplier data: missing required IDs');
+      }
+      
+      antMessage.success('Specificațiile au fost actualizate cu succes!');
+      
+      // Reload data to get updated information
+      await loadProducts();
+      
+      // Clear editing state
+      setEditingSpecification(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(supplier.supplier_id);
+        return newMap;
+      });
+      
+    } catch (error: any) {
+      console.error('Error updating supplier specification:', error);
+      antMessage.error(error.response?.data?.detail || 'Actualizarea specificațiilor a eșuat');
+    } finally {
+      setSavingSpecification(prev => {
         const newSet = new Set(prev);
         newSet.delete(supplier.supplier_id);
         return newSet;
@@ -714,6 +761,9 @@ const LowStockSuppliersPage: React.FC = () => {
     const isEditingPrice = editingPrice.has(supplier.supplier_id);
     const isSavingPrice = savingPrice.has(supplier.supplier_id);
     const editPriceValue = editingPrice.get(supplier.supplier_id) ?? supplier.price;
+    const isEditingSpec = editingSpecification.has(supplier.supplier_id);
+    const isSavingSpec = savingSpecification.has(supplier.supplier_id);
+    const editSpecValue = editingSpecification.get(supplier.supplier_id) ?? supplier.specification ?? '';
     
     return (
       <Card
@@ -793,7 +843,7 @@ const LowStockSuppliersPage: React.FC = () => {
                     <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
                       {supplier.price.toFixed(2)}
                     </Text>
-                    <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
+                    <Tag color="blue" style={{ fontSize: 14, padding: '1px 12px' }}>
                       {supplier.currency}
                     </Tag>
                     <Tooltip title="Click to edit price">
@@ -805,7 +855,6 @@ const LowStockSuppliersPage: React.FC = () => {
                           setEditingPrice(prev => new Map(prev).set(supplier.supplier_id, supplier.price));
                         }}
                       >
-                        Edit
                       </Button>
                     </Tooltip>
                   </Space>
@@ -844,7 +893,84 @@ const LowStockSuppliersPage: React.FC = () => {
           </Row>
           
           {supplier.chinese_name && (
-            <Text type="secondary">Chinese: {supplier.chinese_name}</Text>
+            <Text type="secondary" style={{ fontSize: 15, color: '#52c41a'}}>{supplier.chinese_name}</Text>
+          )}
+          
+          {isEditingSpec ? (
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Space size={8}>
+                <Input
+                  size="small"
+                  value={editSpecValue}
+                  onChange={(e) => {
+                    setEditingSpecification(prev => new Map(prev).set(supplier.supplier_id, e.target.value));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleUpdateSupplierSpecification(supplier, editSpecValue);
+                    }
+                    if (e.key === 'Escape') {
+                      setEditingSpecification(prev => {
+                        const newMap = new Map(prev);
+                        newMap.delete(supplier.supplier_id);
+                        return newMap;
+                      });
+                    }
+                  }}
+                  placeholder="Introduceți specificațiile (ex: V20 蓝色)"
+                  style={{ width: 300 }}
+                  disabled={isSavingSpec}
+                  autoFocus
+                />
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<SaveOutlined />}
+                  onClick={() => handleUpdateSupplierSpecification(supplier, editSpecValue)}
+                  loading={isSavingSpec}
+                >
+                  Salvează
+                </Button>
+                <Button
+                  size="small"
+                  icon={<CloseCircleOutlined />}
+                  onClick={() => {
+                    setEditingSpecification(prev => {
+                      const newMap = new Map(prev);
+                      newMap.delete(supplier.supplier_id);
+                      return newMap;
+                    });
+                  }}
+                  disabled={isSavingSpec}
+                >
+                  Anulează
+                </Button>
+              </Space>
+            </Space>
+          ) : (
+            <Space size={8} align="center">
+              {supplier.specification ? (
+                <Text type="secondary" style={{ fontSize: 14, color: '#1890ff', fontWeight: 500 }}>
+                  {supplier.specification}
+                </Text>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 14, color: '#999', fontStyle: 'italic' }}>
+
+                </Text>
+              )}
+              <Tooltip title="Click pentru a edita specificațiile">
+                <Button
+                  type="default"
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setEditingSpecification(prev => new Map(prev).set(supplier.supplier_id, supplier.specification || ''));
+                  }}
+                >
+
+                </Button>
+              </Tooltip>
+            </Space>
           )}
           
           {supplier.supplier_url && (
@@ -931,7 +1057,7 @@ const LowStockSuppliersPage: React.FC = () => {
                 tooltip: 'Editează numele chinezesc',
               }}
             >
-              {record.chinese_name || 'Click pentru a adăuga nume chinezesc'}
+              {record.chinese_name || ''}
             </Paragraph>
             {updatingChineseNames.has(record.product_id) && (
               <Text type="secondary" style={{ fontSize: 11 }}>Se salvează...</Text>
